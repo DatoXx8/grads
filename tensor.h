@@ -50,6 +50,7 @@ enum move_e {
     move_reshape, move_resize, move_offset
 };
 
+/* TODO: Could maybe merge all the enums for a smaller op_t struct. */
 typedef struct op {
     void *tensor_base;
     uint64_t parent_count;
@@ -60,20 +61,16 @@ typedef struct op {
     struct op **child;
     enum operation_e type;
     enum unary_e unary_type;
-    buffer_t *unary_buffer;
-    double unary_value;
     enum binary_e binary_type;
-    buffer_t *binary_out;
-    buffer_t *binary_in;
     enum reduce_e reduce_type;
-    buffer_t *reduce_out;
-    buffer_t *reduce_in;
     enum move_e move_type;
-    buffer_t *move_buffer;
-    uint64_t move_a;
-    uint64_t move_z;
-    uint64_t move_y;
-    uint64_t move_x;
+    double var_unary;
+    uint64_t var_a;
+    uint64_t var_z;
+    uint64_t var_y;
+    uint64_t var_x;
+    buffer_t *out_buffer;
+    buffer_t *in_buffer;
 } op_t;
 
 extern op_t op_alloc(void);
@@ -86,6 +83,9 @@ extern void op_single_op_cpu_realize(op_t *op);
 extern void op_cpu_realize(op_t *op);
 // extern void op_cl_realize(op_t *op); Need to have seperate linearize.h file for this and then a calc.cl that takes in the linearized operations instead of as a tree
 extern void op_tree(op_t *op);
+
+#define OP_PRINT(op) op_print(&op, 4, 0, (#op))
+#define OP_PRINT_(op) op_print(op, 4, 0, (#op))
 
 typedef struct {
     buffer_t *buffer;
