@@ -179,16 +179,14 @@ linearized_t linearized_alloc(void) {
 }
 /* TODO: Implement this. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
+    while(op->parent_count > 0) {
+        linearized_from_op(linearized, op->parent[0]);
+    }
     if(linearized->op_capacity == linearized->op_count) {
         linearized->op_capacity *= 2;
         linearized->simple = realloc(linearized->simple, linearized->op_capacity * sizeof(simple_op_t));
     }
-    while(op->parent_count > 0) {
-        linearized_from_op(linearized, op->parent[0]);
-    }
-    // simple_op_convert(&linearized->simple[linearized->op_count++], op);
-    simple_op_convert(&linearized->simple[linearized->op_count], op);
-    linearized->op_count++;
+    simple_op_convert(&linearized->simple[linearized->op_count++], op);
     op_cleanup(op);
     op_free(op);
     free(op);
@@ -202,12 +200,12 @@ void linearized_clear(linearized_t *linearized) {
 
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
     if(strcmp(name, "") != 0) {
-        printf("%*s%s len %lu, cap %lu\n", offset, "", name, linearized->op_count, linearized->op_capacity);
+        printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_count, linearized->op_capacity, name);
     } else {
-        printf("%*s len %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
+        printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
     }
     for(uint64_t i = 0; i < linearized->op_count; i++) {
-        simple_op_print(&linearized->simple[i], 4, 0, "");
-        // simple_op_print(linearized->simple + i, 4, 0, ""); /* Should be the same but we'll see. */
+        printf("%*s[%lu] ", padding + offset, "", i);
+        simple_op_print(linearized->simple + i, 0, 0, "");
     }
 }
