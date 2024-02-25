@@ -139,7 +139,7 @@ int main(void) {
     for(uint64_t i = 0; i < a_size * z_size * y_size * x_size; i++) {
         product *= in.buffer->values[i];
     }
-    assert((product <= 0.001 && product >= -0.001) && "NOTE: Technicaly this one is random, meaning it could fail even if the code works, but the odds of having that happen are almost impossible. However if it still failed here try running it again.");
+    assert((product <= 0.001 && product >= -0.001) && "FIXME: Technicaly this one is random, meaning it could fail even if the code works, but the odds of having that happen are almost impossible. However if it still failed here try running it again.");
     printf("passed!\n");
 
     printf("Unary max ");

@@ -177,7 +177,6 @@ linearized_t linearized_alloc(void) {
 
     return(linearized);
 }
-/* TODO: Implement this. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     while(op->parent_count > 0) {
         linearized_from_op(linearized, op->parent[0]);

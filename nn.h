@@ -82,12 +82,10 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride) ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
 extern reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_t input_y, uint64_t input_x, uint64_t kernel_size, uint64_t kernel_stride);
-// extern void reduce_free(reduce_t *reduce);
 extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
 /* NOTE: Names are flipped here due to it being *backward* propagation. */
 extern void reduce_backward(tensor_t *output, reduce_t *reduce, tensor_t *input);
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
-extern void reduce_print_shape(reduce_t *reduce, int padding, int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
 enum residual_e {
