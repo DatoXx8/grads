@@ -213,6 +213,7 @@ void convolution_print_shape(convolution_t *convolution, int padding, int offset
     printf("%*sWeights {%lu, %lu, %lu, %lu}\n", offset + padding, "", convolution->weights->buffer->a_size, convolution->weights->buffer->z_size, convolution->weights->buffer->y_size, convolution->weights->buffer->x_size);
 }
 
+/* NOTE: Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). However I like the name continuity. */
 reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_t input_y, uint64_t input_x, uint64_t kernel_size, uint64_t kernel_stride) {
     reduce_t reduce = {
         .type = type,
@@ -225,8 +226,6 @@ reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_
 
     return(reduce);
 }
-// void reduce_free(reduce_t *reduce) {
-// }
 void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     uint64_t input_z = input->buffer->z_size;
     uint64_t input_y = input->buffer->y_size;
@@ -291,7 +290,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
             break;
         }
     }
-    /* NOTE: Could probably remove this for optimal performance. */
+    /* NOTE: Could probably remove this for optimal performance. Although it would be unpleasant for debugging. */
     tensor_resize_move(input, 1, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
     tensor_resize_move(output, 1, output_z, output_y, output_x);
@@ -389,4 +388,129 @@ void split_print_shape(split_t *split, int padding, int offset, const char *name
     }
     printf("%*sBiases  {%lu, %lu, %lu, %lu}\n", offset + padding, "", split->biases->buffer->a_size, split->biases->buffer->z_size, split->biases->buffer->y_size, split->biases->buffer->x_size);
     printf("%*sWeights {%lu, %lu, %lu, %lu}\n", offset + padding, "", split->weights->buffer->a_size, split->weights->buffer->z_size, split->weights->buffer->y_size, split->weights->buffer->x_size);
+}
+
+/* TODO: Implement residual connections. */
+layer_t layer_alloc(layerconfig_t *layerconfig) {
+    layer_t layer = {0};
+    switch(layerconfig->layer_type) {
+        case(layer_input): {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
+            layer.layer_type = layer_input;
+            break;
+        }
+        case(layer_dense): {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
+            layer.layer_type = layer_dense;
+            layer.dense = calloc(1, sizeof(dense_t));
+            *layer.dense = dense_alloc(layerconfig->dense_input_channels * layerconfig->dense_input_y * layerconfig->dense_input_x, layerconfig->dense_output_size);
+            break;
+        }
+        case(layer_convolution): {
+            uint64_t new_size_y = CONVOLUTION_OUTPUT_SIZE(layerconfig->convolution_input_y, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
+            uint64_t new_size_x = CONVOLUTION_OUTPUT_SIZE(layerconfig->convolution_input_x, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.layer_type = layer_convolution;
+            layer.convolution = calloc(1, sizeof(convolution_t));
+            *layer.convolution = convolution_alloc(layerconfig->convolution_input_channels, layerconfig->convolution_input_y, layerconfig->convolution_input_x, layerconfig->convolution_filters, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
+            break;
+        }
+        case(layer_reduce): {
+            uint64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->convolution_input_y, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride);
+            uint64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->convolution_input_x, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride);
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.layer_type = layer_reduce;
+            layer.reduce = calloc(1, sizeof(reduce_t));
+            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels, layerconfig->reduce_input_y, layerconfig->reduce_input_x, layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
+            break;
+        }
+        case(layer_split): {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels, layerconfig->split_input_y, layerconfig->split_input_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels, layerconfig->split_input_y, layerconfig->split_input_x);
+            layer.layer_type = layer_split;
+            layer.split = calloc(1, sizeof(split_t));
+            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels, layerconfig->split_input_y, layerconfig->split_input_x);
+            break;
+        }
+    }
+    return(layer);
+}
+void layer_free(layer_t *layer) {
+    switch(layer->layer_type) {
+        case(layer_input): {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            break;
+        }
+        case(layer_dense): {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            dense_free(layer->dense);
+            free(layer->dense);
+            break;
+        }
+        case(layer_convolution): {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            convolution_free(layer->convolution);
+            free(layer->convolution);
+            break;
+        }
+        case(layer_reduce): {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            // reduce_free(layer->reduce);
+            free(layer->reduce);
+            break;
+        }
+        case(layer_split): {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            split_free(layer->split);
+            free(layer->split);
+            break;
+        }
+    }
+}
+
+neuralnet_t neuralnet_alloc(layerconfig_t **layerconfig) {
+}
+void neuralnet_free(neuralnet_t *neuralnet) {
+}
+/* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
+void neuralnet_linearize(neuralnet_t *neuralnet) {
+}
+void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input) {
+}
+void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output) {
+}
+void neuralnet_learn(neuralnet_t *neuralnet, double learning) {
+}
+void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
+}
+void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
 }

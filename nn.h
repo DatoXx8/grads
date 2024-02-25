@@ -120,21 +120,48 @@ extern void split_backward(tensor_t *output, split_t *split, tensor_t *input);
 extern void split_print(split_t *split, int padding, int offset, const char *name);
 extern void split_print_shape(split_t *split, int padding, int offset, const char *name);
 
+enum layer_e {
+    layer_input, layer_dense, layer_convolution, layer_reduce, layer_split
+};
+
 typedef struct {
+    enum layer_e layer_type;
+
+    uint64_t input_channels;
+    uint64_t input_y;
+    uint64_t input_x;
+
+    uint64_t dense_input_channels; /* Not set directly */
+    uint64_t dense_input_y; /* Not set directly */
+    uint64_t dense_input_x; /* Not set directly */
     uint64_t dense_output_size;
 
+    uint64_t convolution_input_channels; /* Not set directly */
+    uint64_t convolution_input_y; /* Not set directly */
+    uint64_t convolution_input_x; /* Not set directly */
     uint64_t convolution_filters;
     uint64_t convolution_kernel_size;
     uint64_t convolution_kernel_stride;
     uint64_t convolution_kernel_padding;
 
     enum layer_reduce_e reduce_type;
+    uint64_t reduce_input_channels; /* Not set directly */
+    uint64_t reduce_input_y; /* Not set directly */
+    uint64_t reduce_input_x; /* Not set directly */
     uint64_t reduce_kernel_size;
     uint64_t reduce_kernel_stride;
     //uint64_t reduce_kernel_padding;
 
+    uint64_t split_input_channels; /* Not set directly */
+    uint64_t split_input_y; /* Not set directly */
+    uint64_t split_input_x; /* Not set directly */
+    uint64_t split_filters;
+
     enum residual_e residual_type;
     uint64_t residual_connection_from_layer;
+    uint64_t residual_convolution_input_channels; /* Not set directly */
+    uint64_t residual_convolution_input_y; /* Not set directly */
+    uint64_t residual_convolution_input_x; /* Not set directly */
     uint64_t residual_convolution_filters;
     uint64_t residual_convolution_kernel_size;
     uint64_t residual_convolution_kernel_stride;
@@ -144,10 +171,6 @@ typedef struct {
     enum norm_e norm_type;
 } layerconfig_t;
 
-enum layer_e {
-    layer_input, layer_dense, layer_convolution, layer_reduce, layer_split
-};
-
 typedef struct {
     enum activation_e activation_type;
     enum norm_e norm_type;
@@ -156,6 +179,7 @@ typedef struct {
     dense_t *dense;
     convolution_t *convolution;
     reduce_t *reduce;
+    split_t *split;
 
     residual_t *residual;
     
@@ -163,9 +187,24 @@ typedef struct {
     tensor_t *activation_g;
 } layer_t;
 
+extern layer_t layer_alloc(layerconfig_t *layerconfig);
+extern void layer_free(layer_t *layer);
+
 typedef struct {
     uint64_t layers;
     layer_t *layer;
+    linearized_t *linearized_forward;
+    // linearized_t *linearized_backward;
 } neuralnet_t;
+
+extern neuralnet_t neuralnet_alloc(layerconfig_t **layerconfig);
+extern void neuralnet_free(neuralnet_t *neuralnet);
+/* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
+extern void neuralnet_linearize(neuralnet_t *neuralnet);
+extern void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input);
+extern void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output);
+extern void neuralnet_learn(neuralnet_t *neuralnet, double learning);
+extern void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name);
+extern void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name);
 
 #endif
