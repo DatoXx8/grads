@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "tensor.h"
-#include "linearize.h"
 #include "nn.h"
 
 dense_t dense_alloc(uint64_t input_size, uint64_t output_size) {
@@ -194,8 +193,24 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
 void convolution_backward(tensor_t *output, convolution_t *convolution, tensor_t *input) {
 }
 void convolution_print(convolution_t *convolution, int padding, int offset, const char *name) {
+    if(strcmp(name, "") != 0) {
+        printf("%*s%s convolution\n", offset, "", name);
+    } else {
+        printf("%*sconvolution\n", offset, "");
+    }
+    tensor_print(convolution->biases, padding, offset + padding, "biases");
+    tensor_print(convolution->biases_g, padding, offset + padding, "biases_g");
+    tensor_print(convolution->weights, padding, offset + padding, "weights");
+    tensor_print(convolution->weights_g, padding, offset + padding, "weights_g");
 }
 void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name) {
+    if(strcmp(name, "") != 0) {
+        printf("%*s%s convolution shape\n", offset, "", name);
+    } else {
+        printf("%*sconvolution shape\n", offset, "");
+    }
+    printf("%*sBiases  {%lu, %lu, %lu, %lu}\n", offset + padding, "", convolution->biases->buffer->a_size, convolution->biases->buffer->z_size, convolution->biases->buffer->y_size, convolution->biases->buffer->x_size);
+    printf("%*sWeights {%lu, %lu, %lu, %lu}\n", offset + padding, "", convolution->weights->buffer->a_size, convolution->weights->buffer->z_size, convolution->weights->buffer->y_size, convolution->weights->buffer->x_size);
 }
 
 reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_t input_y, uint64_t input_x, uint64_t kernel_size, uint64_t kernel_stride) {
@@ -285,8 +300,12 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
 void reduce_backward(tensor_t *output, reduce_t *reduce, tensor_t *input) {
 }
 void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
-}
-void reduce_print_shape(reduce_t *reduce, int padding, int offset, const char *name) {
+    if(strcmp(name, "") != 0) {
+        printf("%*s%s convolution\n", offset, "", name);
+    } else {
+        printf("%*sconvolution\n", offset, "");
+    }
+    printf("%*sSize %lu, Stride %lu, Channels %lu, Input y %lu, Input x %lu\n", offset + padding, "", reduce->kernel_size, reduce->kernel_stride, reduce->input_channels, reduce->input_y, reduce->input_x);
 }
 
 split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y, uint64_t input_x) {
@@ -302,19 +321,10 @@ split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y,
         .weights_g = calloc(1, sizeof(tensor_t)),
     };
 
-    /* TODO: Choose which one of these I untimately want to use. */
     // *split.biases = tensor_alloc(filters, 1, 1, 1);
     // *split.biases_g = tensor_alloc(filters, 1, 1, 1);
     // *split.weights = tensor_alloc(filters, 1, input_y, input_x);
     // *split.weights_g = tensor_alloc(filters, 1, input_y, input_x);
-    // *split.biases = tensor_alloc(filters, 1, 1, 1);
-    // *split.biases_g = tensor_alloc(filters, 1, 1, 1);
-    // *split.weights = tensor_alloc(filters, input_channels, input_y, input_x);
-    // *split.weights_g = tensor_alloc(filters, input_channels, input_y, input_x);
-    // *split.biases = tensor_alloc(filters, input_channels, 1, 1);
-    // *split.biases_g = tensor_alloc(filters, input_channels, 1, 1);
-    // *split.weights = tensor_alloc(filters, input_channels, input_y, input_x);
-    // *split.weights_g = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.biases = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.biases_g = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.weights = tensor_alloc(filters, input_channels, input_y, input_x);
@@ -334,8 +344,6 @@ void split_free(split_t *split) {
 }
 void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
     uint64_t input_z = input->buffer->z_size;
-    uint64_t input_y = input->buffer->y_size;
-    uint64_t input_x = input->buffer->x_size;
     uint64_t output_z = output->buffer->z_size;
     uint64_t output_y = output->buffer->y_size;
     uint64_t output_x = output->buffer->x_size;
@@ -363,6 +371,22 @@ void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
 void split_backward(tensor_t *output, split_t *split, tensor_t *input) {
 }
 void split_print(split_t *split, int padding, int offset, const char *name) {
+    if(strcmp(name, "") != 0) {
+        printf("%*s%s split\n", offset, "", name);
+    } else {
+        printf("%*ssplit\n", offset, "");
+    }
+    tensor_print(split->biases, padding, offset + padding, "biases");
+    tensor_print(split->biases_g, padding, offset + padding, "biases_g");
+    tensor_print(split->weights, padding, offset + padding, "weights");
+    tensor_print(split->weights_g, padding, offset + padding, "weights_g");
 }
 void split_print_shape(split_t *split, int padding, int offset, const char *name) {
+    if(strcmp(name, "") != 0) {
+        printf("%*s%s split shape\n", offset, "", name);
+    } else {
+        printf("%*ssplit shape\n", offset, "");
+    }
+    printf("%*sBiases  {%lu, %lu, %lu, %lu}\n", offset + padding, "", split->biases->buffer->a_size, split->biases->buffer->z_size, split->biases->buffer->y_size, split->biases->buffer->x_size);
+    printf("%*sWeights {%lu, %lu, %lu, %lu}\n", offset + padding, "", split->weights->buffer->a_size, split->weights->buffer->z_size, split->weights->buffer->y_size, split->weights->buffer->x_size);
 }
