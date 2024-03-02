@@ -10,6 +10,16 @@ enum activation_e {
     activation_identity, activation_relu, activation_sigmoid, activation_tanh, activation_silu, activation_gelu, activation_leaky
 };
 
+typedef struct {
+    enum activation_e type;
+    tensor_t *intermediary;
+} activation_t;
+
+extern activation_t activation_alloc(enum activation_e activation_type, uint64_t a, uint64_t z, uint64_t y, uint64_t x);            
+extern void activation_free(activation_t *activation_type);
+extern void activation_activate(tensor_t *tensor, activation_t *activation_type);
+extern void activation_derivative(tensor_t *tensor, activation_t *activation_type);
+
 /* TODO: Store expected value and standard deviation in a norm_t struct */
 enum norm_e {
     norm_none, norm_layer, norm_batch, norm_simple
@@ -172,7 +182,7 @@ typedef struct {
 } layerconfig_t;
 
 typedef struct {
-    enum activation_e activation_type;
+    activation_t *activation_type;
     enum norm_e norm_type;
     enum layer_e layer_type;
 
@@ -197,7 +207,12 @@ typedef struct {
     // linearized_t *linearized_backward;
 } neuralnet_t;
 
-extern neuralnet_t neuralnet_alloc(layerconfig_t **layerconfig);
+#define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0].activation)
+#define NEURALNET_INPUT_(neuralnet) ((neuralnet)->layer[0].activation)
+#define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1].activation)
+#define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1].activation)
+
+extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 extern void neuralnet_linearize(neuralnet_t *neuralnet);
