@@ -37,7 +37,7 @@ enum unary_e {
     unary_exp, unary_log, unary_square, unary_sqrt,
     unary_negate, unary_reciprocal, unary_max, unary_min,
     unary_set, unary_zero, /* Zero is made another seperate op for performance reasons. As explicit_bzero is *really* fast */
-    unary_random
+    unary_random, unary_tanh
 };
 enum binary_e {
     binary_add, binary_subtract, binary_multiply, binary_divide,
@@ -108,6 +108,7 @@ extern void tensor_sqrt_unary(tensor_t *tensor);
 extern void tensor_negate_unary(tensor_t *tensor);
 extern void tensor_reciprocal_unary(tensor_t *tensor);
 extern void tensor_random_unary(tensor_t *tensor);
+extern void tensor_tanh_unary(tensor_t *tensor);
 extern void tensor_max_unary(tensor_t *tensor, double value);
 extern void tensor_min_unary(tensor_t *tensor, double value);
 

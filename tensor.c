@@ -158,6 +158,10 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                     printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
                     break;
                 }
+                case(unary_tanh): {
+                    printf("U tnh [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    break;
+                }
             }
             break;
         }
@@ -421,6 +425,18 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
                                     BUFFER_AT_(op->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_tanh): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) = tanh(BUFFER_AT_(op->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -859,6 +875,20 @@ void tensor_random_unary(tensor_t *tensor) {
     }
     tensor->op->type = operation_unary;
     tensor->op->unary_type = unary_random;
+    tensor->op->out_buffer = tensor->buffer;
+}
+void tensor_tanh_unary(tensor_t *tensor) {
+    op_t *parent = tensor->op;
+    tensor->op = malloc(sizeof(op_t));
+    *tensor->op = op_alloc();
+    op_add_parents(tensor->op, parent, NULL);
+    tensor->op->tensor_base = tensor;
+    if(parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        parent->tensor_base = NULL;
+    }
+    tensor->op->type = operation_unary;
+    tensor->op->unary_type = unary_tanh;
     tensor->op->out_buffer = tensor->buffer;
 }
 

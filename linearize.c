@@ -89,6 +89,10 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                     printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", simple_op->out_buffer->a_inherent, simple_op->out_buffer->z_inherent, simple_op->out_buffer->y_inherent, simple_op->out_buffer->x_inherent, simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->offset, simple_op->out_buffer);
                     break;
                 }
+                case(unary_tanh): {
+                    printf("U tnh [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", simple_op->out_buffer->a_inherent, simple_op->out_buffer->z_inherent, simple_op->out_buffer->y_inherent, simple_op->out_buffer->x_inherent, simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->offset, simple_op->out_buffer);
+                    break;
+                }
             }
             break;
         }
