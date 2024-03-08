@@ -9,7 +9,6 @@
 
 /* TODO: This is probably where fusing should take place. */
 typedef struct {
-    void *tensor_base;
     enum operation_e type;
     enum unary_e unary_type;
     enum binary_e binary_type;
@@ -26,6 +25,7 @@ typedef struct {
 
 extern void simple_op_convert(simple_op_t *simple_op, op_t *op);
 extern void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name);
+extern void simple_op_realize(simple_op_t *simple_op);
 
 /* TODO: Maybe save this in a nn so it only needs to be calculated once? The structure won't change so it should always be the same. */
 typedef struct {

@@ -19,7 +19,6 @@ ALWAYS_INLINE void simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->var_x = op->var_x;
     simple_op->out_buffer = op->out_buffer;
     simple_op->in_buffer = op->in_buffer;
-    simple_op->tensor_base = op->tensor_base;
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
     if(strcmp(name, "") != 0) {
@@ -162,6 +161,388 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                 }
                 case(move_offset): {
                     printf("M off {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->offset, simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->a_stride * simple_op->var_a + simple_op->out_buffer->z_stride * simple_op->var_z + simple_op->out_buffer->y_stride * simple_op->var_y + simple_op->out_buffer->x_stride * simple_op->var_x, simple_op->out_buffer);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}
+void simple_op_realize(simple_op_t *simple_op) {
+    switch(simple_op->type) {
+        case(simple_operation_unary): {
+            switch(simple_op->unary_type) {
+                case(unary_add): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += op->var_unary;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_subtract): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= op->var_unary;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_multiply): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= op->var_unary;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_divide): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= op->var_unary;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_exp): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = exp(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_log): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = log(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_square): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(op->out_buffer, a, z, y ,x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_sqrt): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = sqrt(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_negate): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = - BUFFER_AT_(op->out_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_reciprocal): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = 1 / BUFFER_AT_(op->out_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_max): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < op->var_unary) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_min): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > op->var_unary) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_set): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_zero): {
+                    explicit_bzero(simple_op->out_buffer->values, op->out_buffer->a_size * op->out_buffer->z_size * op->out_buffer->y_size * op->out_buffer->x_size * sizeof(double));
+                    break;
+                }
+                case(unary_random): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_tanh): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = tanh(BUFFER_AT_(op->out_buffer, a, z, y, x));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+        case(simple_operation_binary): {
+            switch(simple_op->binary_type) {
+                case(binary_add): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_subtract): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_multiply): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_divide): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_max): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < BUFFER_AT_(op->in_buffer, a, z, y, x)) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_min): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > BUFFER_AT_(op->in_buffer, a, z, y, x)) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_csimple_opy): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+        case(simple_operation_reduce): {
+            switch(simple_op->reduce_type) {
+                case(reduce_sum): {
+                    double temp = 0;
+                    for(uint64_t a = 0; a < simple_op->in_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->in_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->in_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->in_buffer->x_size; x++) {
+                                    temp += BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    break;
+                }
+                case(reduce_max): {
+                    double temp = - INFINITY;
+                    for(uint64_t a = 0; a < simple_op->in_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->in_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->in_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->in_buffer->x_size; x++) {
+                                    if(temp < BUFFER_AT_(simple_op->in_buffer, a, z, y, x)) {
+                                        temp = BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    break;
+                }
+                case(reduce_avg): {
+                    double temp = 0;
+                    for(uint64_t a = 0; a < simple_op->in_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->in_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->in_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->in_buffer->x_size; x++) {
+                                    temp += BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp / (op->in_buffer->x_size * op->in_buffer->y_size * op->in_buffer->z_size * op->in_buffer->a_size);
+                    break;
+                }
+                case(reduce_min): {
+                    double temp = INFINITY;
+                    for(uint64_t a = 0; a < simple_op->in_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->in_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->in_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->in_buffer->x_size; x++) {
+                                    if(temp > BUFFER_AT_(simple_op->in_buffer, a, z, y, x)) {
+                                        temp = BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    break;
+                }
+            }
+            break;
+        }
+        case(simple_operation_move): {
+            switch(simple_op->move_type) {
+                case(move_reshape): {
+                    simple_op->out_buffer->a_size = op->var_a;
+                    simple_op->out_buffer->z_size = op->var_z;
+                    simple_op->out_buffer->y_size = op->var_y;
+                    simple_op->out_buffer->x_size = op->var_x;
+                    simple_op->out_buffer->a_stride = op->var_z * op->var_y * op->var_x;
+                    simple_op->out_buffer->z_stride = op->var_y * op->var_x;
+                    simple_op->out_buffer->y_stride = op->var_x;
+                    simple_op->out_buffer->x_stride = 1;
+                    break;
+                }
+                case(move_resize): {
+                    simple_op->out_buffer->a_size = op->var_a;
+                    simple_op->out_buffer->z_size = op->var_z;
+                    simple_op->out_buffer->y_size = op->var_y;
+                    simple_op->out_buffer->x_size = op->var_x;
+                    break;
+                }
+                case(move_offset): {
+                    simple_op->out_buffer->offset = op->out_buffer->a_stride * op->var_a + op->out_buffer->z_stride * op->var_z + op->out_buffer->y_stride * op->var_y + op->out_buffer->x_stride * op->var_x;
                     break;
                 }
             }
