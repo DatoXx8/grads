@@ -183,15 +183,15 @@ void dense_free(dense_t *dense) {
 }
 /* NOTE: Automagically "flattens" the input tensor to shape `{1, 1, 1, a * z * y * x}`. */
 void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
-    uint64_t input_flattened = input->buffer->a_size * input->buffer->z_size * input->buffer->y_size * input->buffer->x_size;
-    uint64_t input_a = input->buffer->a_size;
-    uint64_t input_z = input->buffer->z_size;
-    uint64_t input_y = input->buffer->y_size;
-    uint64_t input_x = input->buffer->x_size;
-    uint64_t output_a = output->buffer->a_size;
-    uint64_t output_z = output->buffer->z_size;
-    uint64_t output_y = output->buffer->y_size;
-    uint64_t output_x = output->buffer->x_size;
+    uint64_t input_flattened = input->buffer->a_inherent * input->buffer->z_inherent * input->buffer->y_inherent * input->buffer->x_inherent;
+    uint64_t input_a = input->buffer->a_inherent;
+    uint64_t input_z = input->buffer->z_inherent;
+    uint64_t input_y = input->buffer->y_inherent;
+    uint64_t input_x = input->buffer->x_inherent;
+    uint64_t output_a = output->buffer->a_inherent;
+    uint64_t output_z = output->buffer->z_inherent;
+    uint64_t output_y = output->buffer->y_inherent;
+    uint64_t output_x = output->buffer->x_inherent;
 
     tensor_reshape_move(input, 1, 1, input_flattened, 1);
     tensor_resize_move(dense->weights, 1, 1, dense->input_size, 1);
@@ -280,14 +280,14 @@ void convolution_free(convolution_t *convolution) {
     free(convolution->kernel_temp);
 }
 void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output) {
-    uint64_t input_a = input->buffer->a_size;
-    uint64_t input_z = input->buffer->z_size;
-    uint64_t input_y = input->buffer->y_size;
-    uint64_t input_x = input->buffer->x_size;
-    uint64_t output_a = output->buffer->a_size;
-    uint64_t output_z = output->buffer->z_size;
-    uint64_t output_y = output->buffer->y_size;
-    uint64_t output_x = output->buffer->x_size;
+    uint64_t input_a = input->buffer->a_inherent;
+    uint64_t input_z = input->buffer->z_inherent;
+    uint64_t input_y = input->buffer->y_inherent;
+    uint64_t input_x = input->buffer->x_inherent;
+    uint64_t output_a = output->buffer->a_inherent;
+    uint64_t output_z = output->buffer->z_inherent;
+    uint64_t output_y = output->buffer->y_inherent;
+    uint64_t output_x = output->buffer->x_inherent;
 
     uint64_t input_x_max = input_x + 2 * convolution->kernel_padding - 1;
     uint64_t input_y_max = input_y + 2 * convolution->kernel_padding - 1;
@@ -366,17 +366,20 @@ reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_
     return(reduce);
 }
 void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
-    uint64_t input_z = input->buffer->z_size;
-    uint64_t input_y = input->buffer->y_size;
-    uint64_t input_x = input->buffer->x_size;
-    uint64_t output_z = output->buffer->z_size;
-    uint64_t output_y = output->buffer->y_size;
-    uint64_t output_x = output->buffer->x_size;
+    uint64_t input_a = input->buffer->a_inherent;
+    uint64_t input_z = input->buffer->z_inherent;
+    uint64_t input_y = input->buffer->y_inherent;
+    uint64_t input_x = input->buffer->x_inherent;
+    uint64_t output_a = output->buffer->a_inherent;
+    uint64_t output_z = output->buffer->z_inherent;
+    uint64_t output_y = output->buffer->y_inherent;
+    uint64_t output_x = output->buffer->x_inherent;
 
     uint64_t output_y_i = 0;
     uint64_t output_x_i = 0;
 
     tensor_resize_move(input, 1, 1, reduce->kernel_size, reduce->kernel_size);
+    tensor_offset_move(input, 0, 0, 0, 0);
     tensor_resize_move(output, 1, 1, 1, 1);
     /* PERF: Switch statement is on the outside cuz it only needs to be done once then. */
     switch(reduce->type) {
@@ -430,9 +433,9 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
         }
     }
     /* NOTE: Could probably remove this for optimal performance. Although it would be unpleasant for debugging. */
-    tensor_resize_move(input, 1, input_z, input_y, input_x);
+    tensor_resize_move(input, input_a, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
-    tensor_resize_move(output, 1, output_z, output_y, output_x);
+    tensor_resize_move(output, output_a, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
 }
 void reduce_backward(tensor_t *output, reduce_t *reduce, tensor_t *input) {
@@ -481,10 +484,10 @@ void split_free(split_t *split) {
     free(split->weights_g);
 }
 void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
-    uint64_t input_z = input->buffer->z_size;
-    uint64_t output_z = output->buffer->z_size;
-    uint64_t output_y = output->buffer->y_size;
-    uint64_t output_x = output->buffer->x_size;
+    uint64_t input_z = input->buffer->z_inherent;
+    uint64_t output_z = output->buffer->z_inherent;
+    uint64_t output_y = output->buffer->y_inherent;
+    uint64_t output_x = output->buffer->x_inherent;
 
     tensor_resize_move(output, 1, input_z, output_y, output_x);
     tensor_resize_move(split->weights, 1, input_z, output_y, output_x);
@@ -498,6 +501,8 @@ void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
         tensor_add_binary(output, split->biases);
     }
 
+    tensor_resize_move(input, 1, input_z, output_y, output_x);
+    tensor_offset_move(input, 0, 0, 0, 0);
     tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
     tensor_resize_move(split->weights, split->filters, input_z, output_y, output_x);
@@ -707,6 +712,41 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     linearized_free(neuralnet->linearized_forward);
     free(neuralnet->linearized_forward);
 }
+void neuralnet_random(neuralnet_t *neuralnet) {
+    for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
+        switch(neuralnet->layer[layer].layer_type) {
+            case(layer_dense): {
+                tensor_random_unary(neuralnet->layer[layer].dense->biases);
+                tensor_random_unary(neuralnet->layer[layer].dense->weights);
+                tensor_cpu_realize(neuralnet->layer[layer].dense->biases);
+                tensor_cpu_realize(neuralnet->layer[layer].dense->weights);
+                break;
+            }
+            case(layer_convolution): {
+                tensor_random_unary(neuralnet->layer[layer].convolution->biases);
+                tensor_random_unary(neuralnet->layer[layer].convolution->weights);
+                tensor_cpu_realize(neuralnet->layer[layer].convolution->biases);
+                tensor_cpu_realize(neuralnet->layer[layer].convolution->weights);
+                break;
+            }
+            case(layer_reduce): {
+                /* Nothing to initialize. */
+                break;
+            }
+            case(layer_split): {
+                tensor_random_unary(neuralnet->layer[layer].split->biases);
+                tensor_random_unary(neuralnet->layer[layer].split->weights);
+                tensor_cpu_realize(neuralnet->layer[layer].split->biases);
+                tensor_cpu_realize(neuralnet->layer[layer].split->weights);
+                break;
+            }
+            case(layer_input): {
+                fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                exit(1);
+            }
+        }
+    }
+}
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only needs to be called once per neuralnet. */
 /* TODO: Once backpropagation is implemented also have this linearize that into lienarized_backward. */
 void neuralnet_linearize(neuralnet_t *neuralnet) {
@@ -724,7 +764,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet) {
             }
             case(layer_reduce): {
                 reduce_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].reduce, neuralnet->layer[layer].activation);
-                activation_activate(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
+                // activation_activate(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
                 break;
             }
             case(layer_split): {
