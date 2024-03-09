@@ -1,9 +1,9 @@
 /*
 OPTIONS TO RUN LINEARIZED OPS:
-    1. C ON THE CPU
+    1. C ON THE CPU (DONE)
     2. NAIVE BY LAYER
     3. COMPILE
-        3.1 BY LAYER
+        3.1 BY LAYER (TRICKIER THAN EXPECTED)
         3.2 BY SECTOR
         3.3 BY NN
  */
@@ -37,7 +37,7 @@ typedef struct {
     cl_command_queue *queue;
 } runtime_t;
 
-extern runtime_t runtime_allocate(enum runtime_e type, linearized_t *linearized);
+extern runtime_t runtime_alloc(enum runtime_e type, linearized_t *linearized);
 extern void runtime_execute(runtime_t *runtime);
 extern void runtime_free(runtime_t *runtime);
 

@@ -13,7 +13,7 @@ static void runtime_run_c_(runtime_t *runtime) {
 }
 static void runtime_compile_layer_primitives_(runtime_t *runtime) {
 }
-runtime_t runtime_allocate(enum runtime_e type, linearized_t *linearized) {
+runtime_t runtime_alloc(enum runtime_e type, linearized_t *linearized) {
     runtime_t runtime = {0};
     switch(type) {
         case(runtime_c): {
