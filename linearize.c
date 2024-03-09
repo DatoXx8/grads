@@ -170,14 +170,14 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
 }
 void simple_op_realize(simple_op_t *simple_op) {
     switch(simple_op->type) {
-        case(simple_operation_unary): {
+        case(operation_unary): {
             switch(simple_op->unary_type) {
                 case(unary_add): {
                     for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += op->var_unary;
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += simple_op->var_unary;
                                 }
                             }
                         }
@@ -189,7 +189,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= op->var_unary;
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= simple_op->var_unary;
                                 }
                             }
                         }
@@ -201,7 +201,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= op->var_unary;
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= simple_op->var_unary;
                                 }
                             }
                         }
@@ -213,7 +213,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= op->var_unary;
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= simple_op->var_unary;
                                 }
                             }
                         }
@@ -225,7 +225,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = exp(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = exp(BUFFER_AT_(simple_op->out_buffer, a, z, y ,x));
                                 }
                             }
                         }
@@ -237,7 +237,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = log(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = log(BUFFER_AT_(simple_op->out_buffer, a, z, y ,x));
                                 }
                             }
                         }
@@ -249,7 +249,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(op->out_buffer, a, z, y ,x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(simple_op->out_buffer, a, z, y ,x);
                                 }
                             }
                         }
@@ -261,7 +261,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = sqrt(BUFFER_AT_(op->out_buffer, a, z, y ,x));
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = sqrt(BUFFER_AT_(simple_op->out_buffer, a, z, y ,x));
                                 }
                             }
                         }
@@ -273,7 +273,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = - BUFFER_AT_(op->out_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = - BUFFER_AT_(simple_op->out_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -285,7 +285,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = 1 / BUFFER_AT_(op->out_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = 1 / BUFFER_AT_(simple_op->out_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -297,8 +297,8 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < op->var_unary) {
-                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < simple_op->var_unary) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
                                     }
                                 }
                             }
@@ -311,8 +311,8 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > op->var_unary) {
-                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > simple_op->var_unary) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
                                     }
                                 }
                             }
@@ -325,7 +325,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = op->var_unary;
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
                                 }
                             }
                         }
@@ -333,7 +333,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case(unary_zero): {
-                    explicit_bzero(simple_op->out_buffer->values, op->out_buffer->a_size * op->out_buffer->z_size * op->out_buffer->y_size * op->out_buffer->x_size * sizeof(double));
+                    explicit_bzero(simple_op->out_buffer->values, simple_op->out_buffer->a_size * simple_op->out_buffer->z_size * simple_op->out_buffer->y_size * simple_op->out_buffer->x_size * sizeof(double));
                     break;
                 }
                 case(unary_random): {
@@ -353,7 +353,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = tanh(BUFFER_AT_(op->out_buffer, a, z, y, x));
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = tanh(BUFFER_AT_(simple_op->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -363,14 +363,14 @@ void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(simple_operation_binary): {
+        case(operation_binary): {
             switch(simple_op->binary_type) {
                 case(binary_add): {
                     for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) += BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -382,7 +382,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) -= BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -394,7 +394,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) *= BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -406,7 +406,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) /= BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -418,8 +418,8 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < BUFFER_AT_(op->in_buffer, a, z, y, x)) {
-                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) < BUFFER_AT_(simple_op->in_buffer, a, z, y, x)) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                     }
                                 }
                             }
@@ -432,8 +432,8 @@ void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > BUFFER_AT_(op->in_buffer, a, z, y, x)) {
-                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    if(BUFFER_AT_(simple_op->out_buffer, a, z, y, x) > BUFFER_AT_(simple_op->in_buffer, a, z, y, x)) {
+                                        BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                     }
                                 }
                             }
@@ -441,12 +441,12 @@ void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_csimple_opy): {
+                case(binary_copy): {
                     for(uint64_t a = 0; a < simple_op->out_buffer->a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer->x_size; x++) {
-                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                    BUFFER_AT_(simple_op->out_buffer, a, z, y, x) = BUFFER_AT_(simple_op->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -456,7 +456,7 @@ void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(simple_operation_reduce): {
+        case(operation_reduce): {
             switch(simple_op->reduce_type) {
                 case(reduce_sum): {
                     double temp = 0;
@@ -499,7 +499,7 @@ void simple_op_realize(simple_op_t *simple_op) {
                             }
                         }
                     }
-                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp / (op->in_buffer->x_size * op->in_buffer->y_size * op->in_buffer->z_size * op->in_buffer->a_size);
+                    BUFFER_AT_(simple_op->out_buffer, 0, 0, 0, 0) = temp / (simple_op->in_buffer->x_size * simple_op->in_buffer->y_size * simple_op->in_buffer->z_size * simple_op->in_buffer->a_size);
                     break;
                 }
                 case(reduce_min): {
@@ -521,28 +521,28 @@ void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(simple_operation_move): {
+        case(operation_move): {
             switch(simple_op->move_type) {
                 case(move_reshape): {
-                    simple_op->out_buffer->a_size = op->var_a;
-                    simple_op->out_buffer->z_size = op->var_z;
-                    simple_op->out_buffer->y_size = op->var_y;
-                    simple_op->out_buffer->x_size = op->var_x;
-                    simple_op->out_buffer->a_stride = op->var_z * op->var_y * op->var_x;
-                    simple_op->out_buffer->z_stride = op->var_y * op->var_x;
-                    simple_op->out_buffer->y_stride = op->var_x;
+                    simple_op->out_buffer->a_size = simple_op->var_a;
+                    simple_op->out_buffer->z_size = simple_op->var_z;
+                    simple_op->out_buffer->y_size = simple_op->var_y;
+                    simple_op->out_buffer->x_size = simple_op->var_x;
+                    simple_op->out_buffer->a_stride = simple_op->var_z * simple_op->var_y * simple_op->var_x;
+                    simple_op->out_buffer->z_stride = simple_op->var_y * simple_op->var_x;
+                    simple_op->out_buffer->y_stride = simple_op->var_x;
                     simple_op->out_buffer->x_stride = 1;
                     break;
                 }
                 case(move_resize): {
-                    simple_op->out_buffer->a_size = op->var_a;
-                    simple_op->out_buffer->z_size = op->var_z;
-                    simple_op->out_buffer->y_size = op->var_y;
-                    simple_op->out_buffer->x_size = op->var_x;
+                    simple_op->out_buffer->a_size = simple_op->var_a;
+                    simple_op->out_buffer->z_size = simple_op->var_z;
+                    simple_op->out_buffer->y_size = simple_op->var_y;
+                    simple_op->out_buffer->x_size = simple_op->var_x;
                     break;
                 }
                 case(move_offset): {
-                    simple_op->out_buffer->offset = op->out_buffer->a_stride * op->var_a + op->out_buffer->z_stride * op->var_z + op->out_buffer->y_stride * op->var_y + op->out_buffer->x_stride * op->var_x;
+                    simple_op->out_buffer->offset = simple_op->out_buffer->a_stride * simple_op->var_a + simple_op->out_buffer->z_stride * simple_op->var_z + simple_op->out_buffer->y_stride * simple_op->var_y + simple_op->out_buffer->x_stride * simple_op->var_x;
                     break;
                 }
             }
@@ -588,6 +588,16 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
     }
+    /* NOTE: Kind of a nice allignment for printing */
+
+    // uint64_t max = log10(linearized->op_count);
+    // for(uint64_t i = 0; i < linearized->op_count; i++) {
+    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) max - (uint64_t) log10(i), "", i);
+    //     simple_op_print(linearized->simple + i, 0, 0, "");
+    // }
+    
+    /* This one is not alligned. */
+
     for(uint64_t i = 0; i < linearized->op_count; i++) {
         printf("%*s[%lu] ", padding + offset, "", i);
         simple_op_print(linearized->simple + i, 0, 0, "");
