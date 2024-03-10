@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -156,7 +157,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                     break;
                 }
                 case(move_resize): {
-                    printf("M rsp {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->offset, simple_op->var_a, simple_op->var_z, simple_op->var_y, simple_op->var_x, simple_op->out_buffer->offset, simple_op->out_buffer);
+                    printf("M rsz {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", simple_op->out_buffer->a_size, simple_op->out_buffer->z_size, simple_op->out_buffer->y_size, simple_op->out_buffer->x_size, simple_op->out_buffer->offset, simple_op->var_a, simple_op->var_z, simple_op->var_y, simple_op->var_x, simple_op->out_buffer->offset, simple_op->out_buffer);
                     break;
                 }
                 case(move_offset): {
@@ -557,11 +558,13 @@ linearized_t linearized_alloc(void) {
     linearized_t linearized = {
         .op_count = 0,
         .op_capacity = initial_simple_op_capactity,
-        .simple = malloc(initial_simple_op_capactity * sizeof(simple_op_t)),
+        .simple = calloc(initial_simple_op_capactity, sizeof(simple_op_t)),
     };
+    assert(linearized.simple);
 
     return(linearized);
 }
+/* NOTE: Does `not` override the linearized ops instead appends ops. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     while(op->parent_count > 0) {
         linearized_from_op(linearized, op->parent[0]);
