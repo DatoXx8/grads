@@ -99,72 +99,72 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
     if(strcmp(name, "") != 0) {
         printf("%*s%s\n", offset, "", name);
     }
-    printf("%*s<%p> ", offset + padding, "", op);
+    printf("%*s<%p> ", offset + padding, "", (void *) op);
     switch(op->type) {
         case(operation_unary): {
             switch(op->unary_type) {
                 case(unary_add): {
-                    printf("U add [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U add [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_subtract): {
-                    printf("U sub [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U sub [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_multiply): {
-                    printf("U mul [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U mul [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_divide): {
-                    printf("U div [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U div [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_exp): {
-                    printf("U exp [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U exp [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_log): {
-                    printf("U log [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U log [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_square): {
-                    printf("U sqr [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U sqr [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_sqrt): {
-                    printf("U sqt [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U sqt [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_negate): {
-                    printf("U ngt [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U ngt [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_reciprocal): {
-                    printf("U rcp [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U rcp [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_max): {
-                    printf("U max [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U max [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_min): {
-                    printf("U min [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U min [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_set): {
-                    printf("U set [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, op->out_buffer);
+                    printf("U set [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_zero): {
-                    printf("U zer [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U zer [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_random): {
-                    printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(unary_tanh): {
-                    printf("U tnh [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer);
+                    printf("U tnh [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
             }
@@ -173,31 +173,35 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
         case(operation_binary): {
             switch(op->binary_type) {
                 case(binary_add): {
-                    printf("B add {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B add {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_subtract): {
-                    printf("B sub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B sub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_multiply): {
-                    printf("B mul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B mul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_divide): {
-                    printf("B div {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B div {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_max): {
-                    printf("B max {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B max {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_min): {
-                    printf("B min {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B min {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(binary_copy): {
-                    printf("B cpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("B cpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_like): {
+                    printf("B lke {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
             }
@@ -206,19 +210,19 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
         case(operation_reduce): {
             switch(op->reduce_type) {
                 case(reduce_sum): {
-                    printf("R sum {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("R sum {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) (void *) op->out_buffer);
                     break;
                 }
                 case(reduce_avg): {
-                    printf("R avg {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("R avg {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(reduce_max): {
-                    printf("R max {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("R max {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
                 case(reduce_min): {
-                    printf("R min {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->in_buffer, op->out_buffer);
+                    printf("R min {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
             }
@@ -227,15 +231,15 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
         case(operation_move): {
             switch(op->move_type) {
                 case(move_reshape): {
-                    printf("M rsp {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_a, op->var_z, op->var_y, op->var_x, op->out_buffer->offset, op->out_buffer);
+                    printf("M rsp {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_a, op->var_z, op->var_y, op->var_x, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(move_resize): {
-                    printf("M rsz {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_a, op->var_z, op->var_y, op->var_x, op->out_buffer->offset, op->out_buffer);
+                    printf("M rsz {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_a, op->var_z, op->var_y, op->var_x, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
                 case(move_offset): {
-                    printf("M off {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->a_stride * op->var_a + op->out_buffer->z_stride * op->var_z + op->out_buffer->y_stride * op->var_y + op->out_buffer->x_stride * op->var_x, op->out_buffer);
+                    printf("M off {%lu, %lu, %lu, %lu} %lu - {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->a_stride * op->var_a + op->out_buffer->z_stride * op->var_z + op->out_buffer->y_stride * op->var_y + op->out_buffer->x_stride * op->var_x, (void *) op->out_buffer);
                     break;
                 }
             }
@@ -535,6 +539,18 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
                                     BUFFER_AT_(op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, a, z, y, x);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -1024,6 +1040,22 @@ void tensor_copy_binary(tensor_t *out, tensor_t *in) {
     }
     out->op->type = operation_binary;
     out->op->binary_type = binary_copy;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_like;
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }

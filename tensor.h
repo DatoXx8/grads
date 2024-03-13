@@ -41,7 +41,7 @@ enum unary_e {
 };
 enum binary_e {
     binary_add, binary_subtract, binary_multiply, binary_divide,
-    binary_max, binary_min, binary_copy
+    binary_max, binary_min, binary_copy, binary_like
 };
 enum reduce_e {
     reduce_sum, reduce_max, reduce_avg, reduce_min
@@ -119,6 +119,7 @@ extern void tensor_divide_binary(tensor_t *out, tensor_t *in);
 extern void tensor_max_binary(tensor_t *out, tensor_t *in);
 extern void tensor_min_binary(tensor_t *out, tensor_t *in);
 extern void tensor_copy_binary(tensor_t *out, tensor_t *in);
+extern void tensor_like_binary(tensor_t *out, tensor_t *in);
 
 extern void tensor_sum_reduce(tensor_t *out, tensor_t *in);
 extern void tensor_max_reduce(tensor_t *out, tensor_t *in);
