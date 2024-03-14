@@ -41,7 +41,11 @@ enum unary_e {
 };
 enum binary_e {
     binary_add, binary_subtract, binary_multiply, binary_divide,
-    binary_max, binary_min, binary_copy, binary_like
+    binary_max, binary_min, binary_copy,
+    /* Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
+    binary_add_like, binary_subtract_like, binary_multiply_like, binary_divide_like,
+    /* Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
+    binary_max_like, binary_min_like, binary_copy_like
 };
 enum reduce_e {
     reduce_sum, reduce_max, reduce_avg, reduce_min
@@ -119,7 +123,13 @@ extern void tensor_divide_binary(tensor_t *out, tensor_t *in);
 extern void tensor_max_binary(tensor_t *out, tensor_t *in);
 extern void tensor_min_binary(tensor_t *out, tensor_t *in);
 extern void tensor_copy_binary(tensor_t *out, tensor_t *in);
-extern void tensor_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_add_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_subtract_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_multiply_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_divide_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_max_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_min_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_copy_like_binary(tensor_t *out, tensor_t *in);
 
 extern void tensor_sum_reduce(tensor_t *out, tensor_t *in);
 extern void tensor_max_reduce(tensor_t *out, tensor_t *in);

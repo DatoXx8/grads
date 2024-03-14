@@ -200,8 +200,32 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                     printf("B cpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
-                case(binary_like): {
-                    printf("B lke {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                case(binary_add_like): {
+                    printf("B ldd {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_subtract_like): {
+                    printf("B lub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_multiply_like): {
+                    printf("B lul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_divide_like): {
+                    printf("B liv {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_max_like): {
+                    printf("B lax {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_min_like): {
+                    printf("B lin {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
+                    break;
+                }
+                case(binary_copy_like): {
+                    printf("B lpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu [%p] [%p]\n", op->in_buffer->a_size, op->in_buffer->z_size, op->in_buffer->y_size, op->in_buffer->x_size, op->in_buffer->offset, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->in_buffer, (void *) op->out_buffer);
                     break;
                 }
             }
@@ -545,7 +569,83 @@ void op_single_op_cpu_realize(op_t *op) {
                     }
                     break;
                 }
-                case(binary_like): {
+                case(binary_add_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) += BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_subtract_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) -= BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_multiply_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) *= BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_divide_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) /= BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_max_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(op->out_buffer, a, z, y, x) < BUFFER_AT_(op->in_buffer, 0, 0, 0, 0)) {
+                                        BUFFER_AT_(op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_min_like): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(op->out_buffer, a, z, y, x) > BUFFER_AT_(op->in_buffer, 0, 0, 0, 0)) {
+                                        BUFFER_AT_(op->out_buffer, a, z, y, x) = BUFFER_AT_(op->in_buffer, 0, 0, 0, 0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(binary_copy_like): {
                     for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
                         for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
@@ -1043,7 +1143,7 @@ void tensor_copy_binary(tensor_t *out, tensor_t *in) {
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }
-void tensor_like_binary(tensor_t *out, tensor_t *in) {
+void tensor_add_like_binary(tensor_t *out, tensor_t *in) {
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1055,7 +1155,103 @@ void tensor_like_binary(tensor_t *out, tensor_t *in) {
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
-    out->op->binary_type = binary_like;
+    out->op->binary_type = binary_add_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_subtract_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_subtract_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_multiply_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_multiply_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_divide_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_divide_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_max_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_max_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_min_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_min_like;
+    out->op->out_buffer = out->buffer;
+    out->op->in_buffer = in->buffer;
+}
+void tensor_copy_like_binary(tensor_t *out, tensor_t *in) {
+    op_t *out_parent = out->op;
+    out->op = malloc(sizeof(op_t));
+    assert(out->op);
+    *out->op = op_alloc();
+    op_add_parents(out->op, out_parent, in->op);
+    out->op->tensor_base = out;
+    if(out_parent) {
+        /* TODO: maybe check if tensor_base is NULL. */
+        out_parent->tensor_base = NULL;
+    }
+    out->op->type = operation_binary;
+    out->op->binary_type = binary_copy_like;
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }
