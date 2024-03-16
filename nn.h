@@ -6,7 +6,9 @@
 #include "tensor.h"
 #include "linearize.h"
 
+/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum activation_e {
+    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     activation_identity, activation_relu, activation_sigmoid, activation_tanh, activation_silu, activation_gelu, activation_leaky
 };
 
@@ -20,10 +22,34 @@ extern void activation_free(activation_t *activation_type);
 extern void activation_activate(tensor_t *tensor, activation_t *activation_type);
 extern void activation_derivative(tensor_t *tensor, activation_t *activation_type);
 
-/* TODO: Store expected value and standard deviation in a norm_t struct */
+/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum norm_e {
+    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     norm_none, norm_layer, norm_batch, norm_simple
 };
+
+/* TODO: Functions that calculate these per tensor. */
+/* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
+typedef struct {
+    enum norm_e type;
+    tensor_t *batch_expected;
+    tensor_t *batch_variance;
+    // tensor_t *batch_gamma;
+    // tensor_t *batch_beta;
+    tensor_t *layer_expected;
+    tensor_t *layer_variance;
+    tensor_t *layer_intermediary;
+    // tensor_t *layer_gamma;
+    // tensor_t *layer_beta;
+    tensor_t *simple_max;
+    tensor_t *simple_intermediary;
+    // tensor_t *simple_gamma;
+    // tensor_t *simple_beta;
+} norm_t;
+
+extern norm_t norm_alloc(enum norm_e type, tensor_t *tensor);
+extern void norm_free(norm_t *norm);
+extern void norm_apply(norm_t *norm, tensor_t *tensor);
 
 typedef struct {
     uint64_t input_size; /* Not set directly. */
@@ -177,14 +203,16 @@ typedef struct {
     uint64_t residual_convolution_kernel_stride;
     uint64_t residual_convolution_kernel_padding;
 
+    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     enum activation_e activation_type;
+    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     enum norm_e norm_type;
 } layerconfig_t;
 
 typedef struct {
-    activation_t *activation_type;
-    enum norm_e norm_type;
     enum layer_e layer_type;
+    activation_t *activation_type;
+    norm_t *norm;
 
     dense_t *dense;
     convolution_t *convolution;
