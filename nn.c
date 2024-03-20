@@ -82,6 +82,7 @@ void activation_free(activation_t *activation) {
         }
     }
 }
+const double leaky_factor_ = 0.1;
 /* TODO: Implement the other activation functions */
 void activation_activate(tensor_t *tensor, activation_t *activation_type) {
     switch(activation_type->type) {
@@ -117,6 +118,9 @@ void activation_activate(tensor_t *tensor, activation_t *activation_type) {
             break;
         }
         case(activation_leaky): {
+            tensor_copy_binary(activation_type->intermediary, tensor);
+            tensor_multiply_unary(activation_type->intermediary, leaky_factor_);
+            tensor_max_binary(tensor, activation_type->intermediary);
             break;
         }
     }
@@ -125,24 +129,31 @@ void activation_activate(tensor_t *tensor, activation_t *activation_type) {
 void activation_derivative(tensor_t *tensor, activation_t *activation_type) {
     switch(activation_type->type) {
         case(activation_identity): {
+            assert(0);
             break;
         }
         case(activation_relu): {
+            assert(0);
             break;
         }
         case(activation_sigmoid): {
+            assert(0);
             break;
         }
         case(activation_tanh): {
+            assert(0);
             break;
         }
         case(activation_silu): {
+            assert(0);
             break;
         }
         case(activation_gelu): {
+            assert(0);
             break;
         }
         case(activation_leaky): {
+            assert(0);
             break;
         }
     }
@@ -421,7 +432,6 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
 
     uint64_t output_y_i;
     uint64_t output_x_i;
-    tensor_reshape_move(input, input_a, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
     tensor_resize_move(convolution->biases, 1, 1, 1, 1);
     tensor_resize_move(convolution->weights, 1, input_z, convolution->kernel_size, convolution->kernel_size);
@@ -738,6 +748,8 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels, layerconfig->reduce_input_y, layerconfig->reduce_input_x, layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
             assert(layer.activation);
             assert(layer.activation_g);
+            assert(layerconfig->norm_type == norm_none);
+            assert(layerconfig->activation_type == activation_identity);
             assert(layer.reduce);
             break;
         }
@@ -1038,7 +1050,7 @@ void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char
                 printf("%*slayer[%lu] input\n", offset + padding, "", layer);
                 printf("%*sinput\n", offset + 2 * padding, "");
                 tensor_print(neuralnet->layer[layer].activation, padding, offset + 3 * padding, "activation");
-                tensor_print(neuralnet->layer[layer].activation, padding, offset + 3 * padding, "activation_g");
+                tensor_print(neuralnet->layer[layer].activation_g, padding, offset + 3 * padding, "activation_g");
             }
         }
     }
