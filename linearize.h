@@ -7,7 +7,7 @@
 
 #include "tensor.h"
 
-/* TODO: This is probably where fusing should take place. */
+/* NOTE: Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
     enum operation_e type;
     enum unary_e unary_type;
@@ -27,11 +27,9 @@ extern void simple_op_convert(simple_op_t *simple_op, op_t *op);
 extern void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name);
 extern void simple_op_realize(simple_op_t *simple_op);
 
-/* TODO: Maybe save this in a nn so it only needs to be calculated once? The structure won't change so it should always be the same. */
 typedef struct {
     uint64_t op_count;
     uint64_t op_capacity;
-    /* TODO: Maybe make this a fixed size array? */
     simple_op_t *simple;
 } linearized_t;
 
