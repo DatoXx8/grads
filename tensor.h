@@ -5,6 +5,7 @@
 
 #include "utils.h"
 
+#define CL_NAME_SIZE 16 
 typedef struct {
     uint64_t a_inherent;
     uint64_t z_inherent;
@@ -20,6 +21,18 @@ typedef struct {
     uint64_t x_size;
     uint64_t offset;
     double *values;
+    /* NOTE: Technically there are "only" finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
+    char cl_name[CL_NAME_SIZE + 1];
+    uint64_t cl_a_stride;
+    uint64_t cl_z_stride;
+    uint64_t cl_y_stride;
+    uint64_t cl_x_stride;
+    uint64_t cl_a_size;
+    uint64_t cl_z_size;
+    uint64_t cl_y_size;
+    uint64_t cl_x_size;
+    uint64_t cl_offset;
+
 } buffer_t;
 
 extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);

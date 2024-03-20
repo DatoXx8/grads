@@ -8,6 +8,7 @@
 #include "tensor.h"
 #include "utils.h"
 
+uint64_t name_start = 0;
 ALWAYS_INLINE buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
     buffer_t buffer = {
         .a_inherent = a,
@@ -22,9 +23,26 @@ ALWAYS_INLINE buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t
         .z_stride = y * x,
         .y_stride = x,
         .x_stride = 1,
-        .values = calloc(a * z * y * x, sizeof(double))
+        .values = calloc(a * z * y * x, sizeof(double)),
+        .cl_a_size = a,
+        .cl_z_size = z,
+        .cl_y_size = y,
+        .cl_x_size = x,
+        .cl_a_stride = z * y * x,
+        .cl_z_stride = y * x,
+        .cl_y_stride = x,
+        .cl_x_stride = 1,
     };
     assert(buffer.values);
+    for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
+        buffer.cl_name[i] = 'a';
+    }
+    uint64_t name_offset = name_start++;
+    for(int64_t i = CL_NAME_SIZE - 1; i >= 0; i--) {
+        buffer.cl_name[i] += name_offset / (uint64_t) pow(26, i);
+        name_offset= name_offset % (uint64_t) pow(26, i);
+    }
+    buffer.cl_name[CL_NAME_SIZE] = '\0';
     return(buffer);
 }
 void buffer_free(buffer_t *buffer) {
@@ -787,6 +805,7 @@ tensor_t tensor_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
         .op = NULL,
         .buffer = malloc(sizeof(buffer_t)),
     };
+    assert(tensor.buffer);
     *tensor.buffer = buffer_alloc(a, z, y, x);
     return(tensor);
 }
@@ -809,7 +828,6 @@ void tensor_add_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -825,7 +843,6 @@ void tensor_subtract_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -841,7 +858,6 @@ void tensor_multiply_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -857,7 +873,6 @@ void tensor_divide_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -873,7 +888,6 @@ void tensor_exp_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -888,7 +902,6 @@ void tensor_log_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -903,7 +916,6 @@ void tensor_square_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -918,7 +930,6 @@ void tensor_sqrt_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -933,7 +944,6 @@ void tensor_negate_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -948,7 +958,6 @@ void tensor_reciprocal_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -963,7 +972,6 @@ void tensor_max_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -979,7 +987,6 @@ void tensor_min_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -995,7 +1002,6 @@ void tensor_set_unary(tensor_t *tensor, double value) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -1003,6 +1009,7 @@ void tensor_set_unary(tensor_t *tensor, double value) {
     tensor->op->var_unary = value;
     tensor->op->out_buffer = tensor->buffer;
 }
+/* NOTE: This is separe, because explicit_bzero is *super* fast. */
 void tensor_zero_unary(tensor_t *tensor) {
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
@@ -1011,7 +1018,6 @@ void tensor_zero_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -1026,7 +1032,6 @@ void tensor_random_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -1041,7 +1046,6 @@ void tensor_tanh_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -1056,7 +1060,6 @@ void tensor_absolute_unary(tensor_t *tensor) {
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_unary;
@@ -1072,7 +1075,6 @@ void tensor_add_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1088,7 +1090,6 @@ void tensor_subtract_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1104,7 +1105,6 @@ void tensor_multiply_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1120,7 +1120,6 @@ void tensor_divide_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1136,7 +1135,6 @@ void tensor_max_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1152,7 +1150,6 @@ void tensor_min_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1168,7 +1165,6 @@ void tensor_copy_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1184,7 +1180,6 @@ void tensor_add_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1200,7 +1195,6 @@ void tensor_subtract_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1216,7 +1210,6 @@ void tensor_multiply_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1232,7 +1225,6 @@ void tensor_divide_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1248,7 +1240,6 @@ void tensor_max_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1264,7 +1255,6 @@ void tensor_min_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1280,7 +1270,6 @@ void tensor_copy_like_binary(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_binary;
@@ -1298,7 +1287,6 @@ void tensor_sum_reduce(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_reduce;
@@ -1315,7 +1303,6 @@ void tensor_max_reduce(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_reduce;
@@ -1332,7 +1319,6 @@ void tensor_avg_reduce(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_reduce;
@@ -1349,7 +1335,6 @@ void tensor_min_reduce(tensor_t *out, tensor_t *in) {
     op_add_parents(out->op, out_parent, in->op);
     out->op->tensor_base = out;
     if(out_parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         out_parent->tensor_base = NULL;
     }
     out->op->type = operation_reduce;
@@ -1366,7 +1351,6 @@ void tensor_reshape_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, u
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_move;
@@ -1385,7 +1369,6 @@ void tensor_resize_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, ui
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_move;
@@ -1404,7 +1387,6 @@ void tensor_offset_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, ui
     op_add_parents(tensor->op, parent, NULL);
     tensor->op->tensor_base = tensor;
     if(parent) {
-        /* TODO: maybe check if tensor_base is NULL. */
         parent->tensor_base = NULL;
     }
     tensor->op->type = operation_move;
@@ -1425,7 +1407,9 @@ void tensor_cpu_realize(tensor_t *tensor) {
 /* If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
     if(strcmp(name, "") != 0) {
-        printf("%*s%s\n", offset, "", name);
+        printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
+    } else {
+        printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a != 0) {
@@ -1453,7 +1437,9 @@ const uint64_t x_max = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
     if(strcmp(name, "") != 0) {
-        printf("%*s%s\n", offset, "", name);
+        printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
+    } else {
+        printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a >= a_max) {
