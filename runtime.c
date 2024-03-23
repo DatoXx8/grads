@@ -9,7 +9,7 @@
 #include "runtime.h"
 
 const uint64_t cl_linearized_initial_capacity = 16;
-cl_linearized_t cl_linearized_alloc(void) {
+static cl_linearized_t cl_linearized_alloc(void) {
     cl_linearized_t cl_linearized = {
         .cl_op_length = 0,
         .cl_op_capacity = cl_linearized_initial_capacity,
@@ -19,10 +19,10 @@ cl_linearized_t cl_linearized_alloc(void) {
 
     return(cl_linearized);
 }
-void cl_linearized_free(cl_linearized_t *cl_linearized) {
+static void cl_linearized_free(cl_linearized_t *cl_linearized) {
     free(cl_linearized->cl_op);
 }
-void cl_linearized_build(cl_linearized_t *cl_linearized, linearized_t *linearized) {
+static void cl_linearized_build(cl_linearized_t *cl_linearized, linearized_t *linearized) {
     cl_linearized->cl_op_length = 0;
     for(uint64_t i = 0; i < linearized->op_count; i++) {
         if(cl_linearized->cl_op_length == cl_linearized->cl_op_capacity) {
@@ -150,214 +150,212 @@ void cl_linearized_build(cl_linearized_t *cl_linearized, linearized_t *linearize
         }
     }
 }
-void cl_linearized_print(cl_linearized_t *cl_linearized, int padding, int offset, const char *name) {
-    for(uint64_t i = 0; i < cl_linearized->cl_op_length; i++) {
-        printf("%*s[%lu] ", offset + padding, "", i);
-        switch(cl_linearized->cl_op[i].type) {
-            case(operation_unary): {
-                switch(cl_linearized->cl_op[i].unary_type) {
-                    case(unary_add): {
-                        printf("U add {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_subtract): {
-                        printf("U sub {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_multiply): {
-                        printf("U mul {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_divide): {
-                        printf("U div {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_exp): {
-                        printf("U exp {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_log): {
-                        printf("U log {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_square): {
-                        printf("U sqr {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_sqrt): {
-                        printf("U sqt {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_negate): {
-                        printf("U ngt {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_reciprocal): {
-                        printf("U rcp {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_max): {
-                        printf("U max {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_min): {
-                        printf("U min {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_set): {
-                        printf("U set {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_zero): {
-                        printf("U zer {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_random): {
-                        printf("U ran {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_tanh): {
-                        printf("U tnh {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(unary_absolute): {
-                        printf("U abs {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                }
-                break;
-            }
-            case(operation_binary): {
-                switch(cl_linearized->cl_op[i].binary_type) {
-                    case(binary_add): {
-                        printf("B add {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_subtract): {
-                        printf("B sub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_multiply): {
-                        printf("B mul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_divide): {
-                        printf("B div {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_max): {
-                        printf("B max {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_min): {
-                        printf("B min {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_copy): {
-                        printf("B cpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_add_like): {
-                        printf("B ldd {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_subtract_like): {
-                        printf("B lub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_multiply_like): {
-                        printf("B lul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_divide_like): {
-                        printf("B liv {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_max_like): {
-                        printf("B lax {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_min_like): {
-                        printf("B lin {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(binary_copy_like): {
-                        printf("B lpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                }
-                break;
-            }
-            case(operation_reduce): {
-                switch(cl_linearized->cl_op[i].reduce_type) {
-                    case(reduce_sum): {
-                        printf("R sum {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(reduce_avg): {
-                        printf("R avg {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(reduce_max): {
-                        printf("R max {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                    case(reduce_min): {
-                        printf("R min {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
-                        break;
-                    }
-                }
-                break;
-            }
-            case(operation_move): {
-                fprintf(stderr, "ERROR: Should never have move operation in cl_linearized, but got one at index %lu\n", i);
-                exit(1);
-            }
-        }
-    }
-}
+// static void cl_linearized_print(cl_linearized_t *cl_linearized, int padding, int offset, const char *name) {
+//     for(uint64_t i = 0; i < cl_linearized->cl_op_length; i++) {
+//         printf("%*s[%lu] ", offset + padding, "", i);
+//         switch(cl_linearized->cl_op[i].type) {
+//             case(operation_unary): {
+//                 switch(cl_linearized->cl_op[i].unary_type) {
+//                     case(unary_add): {
+//                         printf("U add {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_subtract): {
+//                         printf("U sub {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_multiply): {
+//                         printf("U mul {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_divide): {
+//                         printf("U div {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_exp): {
+//                         printf("U exp {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_log): {
+//                         printf("U log {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_square): {
+//                         printf("U sqr {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_sqrt): {
+//                         printf("U sqt {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_negate): {
+//                         printf("U ngt {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_reciprocal): {
+//                         printf("U rcp {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_max): {
+//                         printf("U max {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_min): {
+//                         printf("U min {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_set): {
+//                         printf("U set {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_zero): {
+//                         printf("U zer {%lu, %lu, %lu, %lu} %lu %lf %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].var_unary, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_random): {
+//                         printf("U ran {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_tanh): {
+//                         printf("U tnh {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(unary_absolute): {
+//                         printf("U abs {%lu, %lu, %lu, %lu} %lu %s\n", cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                 }
+//                 break;
+//             }
+//             case(operation_binary): {
+//                 switch(cl_linearized->cl_op[i].binary_type) {
+//                     case(binary_add): {
+//                         printf("B add {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_subtract): {
+//                         printf("B sub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_multiply): {
+//                         printf("B mul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_divide): {
+//                         printf("B div {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_max): {
+//                         printf("B max {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_min): {
+//                         printf("B min {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_copy): {
+//                         printf("B cpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_add_like): {
+//                         printf("B ldd {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_subtract_like): {
+//                         printf("B lub {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_multiply_like): {
+//                         printf("B lul {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_divide_like): {
+//                         printf("B liv {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_max_like): {
+//                         printf("B lax {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_min_like): {
+//                         printf("B lin {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(binary_copy_like): {
+//                         printf("B lpy {%lu, %lu, %lu, %lu} %lu & {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                 }
+//                 break;
+//             }
+//             case(operation_reduce): {
+//                 switch(cl_linearized->cl_op[i].reduce_type) {
+//                     case(reduce_sum): {
+//                         printf("R sum {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(reduce_avg): {
+//                         printf("R avg {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(reduce_max): {
+//                         printf("R max {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                     case(reduce_min): {
+//                         printf("R min {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu %s %s\n", cl_linearized->cl_op[i].in_buffer.a_size, cl_linearized->cl_op[i].in_buffer.z_size, cl_linearized->cl_op[i].in_buffer.y_size, cl_linearized->cl_op[i].in_buffer.x_size, cl_linearized->cl_op[i].in_buffer.offset, cl_linearized->cl_op[i].out_buffer.a_size, cl_linearized->cl_op[i].out_buffer.z_size, cl_linearized->cl_op[i].out_buffer.y_size, cl_linearized->cl_op[i].out_buffer.x_size, cl_linearized->cl_op[i].out_buffer.offset, cl_linearized->cl_op[i].in_buffer.cl_name, cl_linearized->cl_op[i].out_buffer.cl_name);
+//                         break;
+//                     }
+//                 }
+//                 break;
+//             }
+//             case(operation_move): {
+//                 fprintf(stderr, "ERROR: Should never have move operation in cl_linearized, but got one at index %lu\n", i);
+//                 exit(1);
+//             }
+//         }
+//     }
+// }
 
 /* NOTE: Value completely made up. */
 const uint64_t initial_source_size = 16;
 /* NOTE: Return pointer to source code that computes `cl_linearized`. */
-static char *runtime_compile_cl_linearized_(cl_linearized_t *cl_linearized, uint64_t work_groups, uint64_t work_items, uint64_t max_source_size) {
+static void runtime_compile_cl_linearized_(cl_linearized_t *cl_linearized, uint64_t work_groups, uint64_t work_items, uint64_t max_source_size) {
     for(uint64_t i = 0; i < cl_linearized->cl_op_length; i++) {
     }
-    return(NULL);
 }
 /* TODO: How to get the layer starting points and sizes? */
 static void runtime_compile_linearized_(runtime_t *runtime, linearized_t *linearized, uint64_t section_start_i, uint64_t section_length) {
+    cl_linearized_t cl_linearized = cl_linearized_alloc();
+    cl_linearized_build(&cl_linearized, linearized);
+    switch(runtime->type) {
+        case(runtime_c): {
+            fprintf(stderr, "ERROR: Called runtime_compile_linearized with runtime_c\n");
+            exit(1);
+        }
+        case(runtime_compile): {
+            break;
+        }
+    }
+    cl_linearized_free(&cl_linearized);
 }
 static void runtime_run_c_(runtime_t *runtime) {
     for(uint64_t i = 0; i < runtime->linearized->op_count; i++) {
         simple_op_realize(&runtime->linearized->simple[i]);
     }
 }
-static void runtime_compile_layer_primitives_(runtime_t *runtime) {
-}
-runtime_t runtime_alloc(enum runtime_e type, linearized_t *linearized) {
+runtime_t runtime_alloc(enum runtime_e type) {
     runtime_t runtime = {0};
     switch(type) {
         case(runtime_c): {
             runtime.type = runtime_c;
-            runtime.linearized = linearized;
+            runtime.linearized = calloc(1, sizeof(linearized_t));
             break;
         }
-        case(runtime_layer): {
-            runtime.type = runtime_layer;
-            break;
-        }
-        case(runtime_compile_layer): {
-            runtime.type = runtime_compile_layer;
-            break;
-        }
-        case(runtime_compile_sector): {
-            /* TODO: Hmmm... How do I do this splitting into subsections for this? Max layers? Max operations? */
-            runtime.type = runtime_compile_sector;
-            break;
-        }
-        case(runtime_compile_nn): {
-            runtime.type = runtime_compile_nn;
+        case(runtime_compile): {
+            runtime.type = runtime_compile;
+            /* TODO: This needs to be done in a seperate functions for forward, backward and learning, such that runtime_t can remain very generic. */
+            // runtime_compile_layer_primitives_(&runtime, neuralnet);
             break;
         }
     }
@@ -371,16 +369,7 @@ void runtime_free(runtime_t *runtime) {
             // free(runtime->linearized);
             break;
         }
-        case(runtime_layer): {
-            break;
-        }
-        case(runtime_compile_layer): {
-            break;
-        }
-        case(runtime_compile_sector): {
-            break;
-        }
-        case(runtime_compile_nn): {
+        case(runtime_compile): {
             break;
         }
     }
@@ -391,17 +380,7 @@ void runtime_execute(runtime_t *runtime) {
             runtime_run_c_(runtime);
             break;
         }
-        case(runtime_layer): {
-            break;
-        }
-        case(runtime_compile_layer): {
-            break;
-        }
-        case(runtime_compile_sector): {
-            /* TODO: Hmmm... How do I do this splitting into subsections for this? Max layers? Max operations? */
-            break;
-        }
-        case(runtime_compile_nn): {
+        case(runtime_compile): {
             break;
         }
     }

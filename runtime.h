@@ -17,12 +17,11 @@ There might be a *lot* of optimization potential when compiling, i.e. only copy 
 #include <stdint.h>
 
 #include "tensor.h"
-#include "nn.h"
 #include "linearize.h"
 
 /* NOTE: If runtime_compile_sector is chosen, then the program will automatically infer the size of the sectors. */
 enum runtime_e {
-    runtime_c, runtime_layer, runtime_compile_layer, runtime_compile_sector, runtime_compile_nn
+    runtime_c, runtime_compile
 };
 
 typedef struct {
@@ -54,10 +53,11 @@ typedef struct {
     cl_op_t *cl_op;
 } cl_linearized_t;
 
-extern cl_linearized_t cl_linearized_alloc(void);
-extern void cl_linearized_free(cl_linearized_t *cl_linearized);
-extern void cl_linearized_build(cl_linearized_t *cl_linearized, linearized_t *linearized);
-extern void cl_linearized_print(cl_linearized_t *cl_linearized, int padding, int offset, const char *name);
+typedef struct {
+    char *source;
+    uint64_t source_capacity;
+    uint64_t source_max_capacity;
+} cl_source_t;
 
 typedef struct {
     enum runtime_e type;
@@ -75,7 +75,7 @@ typedef struct {
     cl_command_queue *queue;
 } runtime_t;
 
-extern runtime_t runtime_alloc(enum runtime_e type, linearized_t *linearized);
+extern runtime_t runtime_alloc(enum runtime_e type);
 extern void runtime_execute(runtime_t *runtime);
 extern void runtime_free(runtime_t *runtime);
 
