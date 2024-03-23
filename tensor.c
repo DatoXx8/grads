@@ -114,7 +114,7 @@ void op_cleanup(op_t *op) {
     op->child_count = 0;
 }
 void op_single_print(op_t *op, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(strcmp(name, "")) {
         printf("%*s%s\n", offset, "", name);
     }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
@@ -294,7 +294,7 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
     }
 }
 void op_print(op_t *op, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(strcmp(name, "")) {
         printf("%*s%s\n", offset, "", name);
     }
     if(op == NULL) {
@@ -1406,18 +1406,18 @@ void tensor_cpu_realize(tensor_t *tensor) {
 
 /* If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(strcmp(name, "")) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
         printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
-        if(a != 0) {
+        if(a) {
             printf("\n");
             printf("\n");
         }
         for(uint64_t z = 0; z < tensor->buffer->z_size; z++) {
-            if(z != 0) {
+            if(z) {
                 printf("\n");
             }
             for(uint64_t y = 0; y < tensor->buffer->y_size; y++) {
@@ -1436,7 +1436,7 @@ const uint64_t y_max = 4;
 const uint64_t x_max = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(strcmp(name, "")) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
         printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
@@ -1446,7 +1446,7 @@ void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name)
             printf("%*s...\n\n", offset, "");
             break;
         }
-        if(a != 0) {
+        if(a) {
             printf("\n\n");
         }
         for(uint64_t z = 0; z < tensor->buffer->z_size; z++) {
@@ -1454,7 +1454,7 @@ void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name)
                 printf("%*s...\n", offset, "");
                 break;
             }
-            if(z != 0) {
+            if(z) {
                 printf("\n");
             }
             for(uint64_t y = 0; y < tensor->buffer->y_size; y++) {

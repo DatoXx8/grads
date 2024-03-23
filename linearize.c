@@ -22,7 +22,7 @@ ALWAYS_INLINE void simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->in_buffer = op->in_buffer;
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(strcmp(name, "")) {
         printf("%*s%s\n", offset, "", name);
     }
     printf("%*s<%p> ", offset + padding, "", (void *) simple_op);
@@ -720,7 +720,10 @@ void linearized_clear(linearized_t *linearized) {
 }
 
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
-    if(strcmp(name, "") != 0) {
+    if(!linearized) {
+        return;
+    }
+    if(strcmp(name, "")) {
         printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_count, linearized->op_capacity, name);
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
