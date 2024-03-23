@@ -25,9 +25,3 @@ git clone https://github.com/DatoXx8/cgrad.git
     ``` sh
     clang main.c <your files> ./cgrad/linearize.c ./cgrad/runtime.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm -lOpenCL
     ```
-
-## Usage
-
-TODO: Add examples folder
-
-First, since this is written in C and not a more fleshed out language, it can't use a lot of the more recent fancy features. Despite this, I still think C Grad is quite simple to use. You can look in the /cgrad/examples/ directory for several examples for programs i.e. for MNIST classification.
