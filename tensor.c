@@ -294,6 +294,9 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
     }
 }
 void op_print(op_t *op, int padding, int offset, const char *name) {
+    if(!op) {
+        return;
+    }
     if(strcmp(name, "")) {
         printf("%*s%s\n", offset, "", name);
     }
