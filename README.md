@@ -17,11 +17,12 @@ In the not so distant future, OpenCL will also be an optional dependency.
 git clone https://github.com/DatoXx8/cgrad.git
 ```
 2. Add all the .c files to your compile step, which could look as following:
+
     If you don't want OpenCL:
     ``` sh
-    clang main.c <your files> ./cgrad/linearize.c ./cgrad/runtime.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm
+    clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm
     ```
     If you do want OpenCL:
     ``` sh
-    clang main.c <your files> ./cgrad/linearize.c ./cgrad/runtime.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm -lOpenCL
+    clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm -lOpenCL
     ```
