@@ -173,10 +173,6 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                     printf("U set [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu %lf [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *) op->out_buffer);
                     break;
                 }
-                case(unary_zero): {
-                    printf("U zer [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
-                    break;
-                }
                 case(unary_random): {
                     printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
@@ -471,10 +467,6 @@ void op_single_op_cpu_realize(op_t *op) {
                             }
                         }
                     }
-                    break;
-                }
-                case(unary_zero): {
-                    explicit_bzero(op->out_buffer->values, op->out_buffer->a_size * op->out_buffer->z_size * op->out_buffer->y_size * op->out_buffer->x_size * sizeof(double));
                     break;
                 }
                 case(unary_random): {
@@ -1010,21 +1002,6 @@ void tensor_set_unary(tensor_t *tensor, double value) {
     tensor->op->type = operation_unary;
     tensor->op->unary_type = unary_set;
     tensor->op->var_unary = value;
-    tensor->op->out_buffer = tensor->buffer;
-}
-/* NOTE: This is separe, because explicit_bzero is *super* fast. */
-void tensor_zero_unary(tensor_t *tensor) {
-    op_t *parent = tensor->op;
-    tensor->op = malloc(sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    op_add_parents(tensor->op, parent, NULL);
-    tensor->op->tensor_base = tensor;
-    if(parent) {
-        parent->tensor_base = NULL;
-    }
-    tensor->op->type = operation_unary;
-    tensor->op->unary_type = unary_zero;
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_random_unary(tensor_t *tensor) {

@@ -49,8 +49,7 @@ enum unary_e {
     unary_add, unary_subtract, unary_multiply, unary_divide,
     unary_exp, unary_log, unary_square, unary_sqrt,
     unary_negate, unary_reciprocal, unary_max, unary_min,
-    unary_set, unary_zero, /* Zero is made another seperate op for performance reasons. As explicit_bzero is *really* fast */
-    unary_random, unary_tanh, unary_absolute
+    unary_set, unary_random, unary_tanh, unary_absolute
 };
 enum binary_e {
     binary_add, binary_subtract, binary_multiply, binary_divide,
@@ -112,7 +111,6 @@ typedef struct {
 extern tensor_t tensor_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 extern void tensor_free(tensor_t *tensor);
 
-extern void tensor_zero_unary(tensor_t *tensor);
 extern void tensor_set_unary(tensor_t *tensor, double value);
 extern void tensor_add_unary(tensor_t *tensor, double value);
 extern void tensor_subtract_unary(tensor_t *tensor, double value);
