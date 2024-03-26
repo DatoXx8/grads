@@ -50,6 +50,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->out_buffer.x_stride = op->out_buffer->cl_x_stride;
     simple_op->out_buffer.offset = op->out_buffer->cl_offset;
     simple_op->out_buffer.values = op->out_buffer->values;
+    /* TODO: This should be memcpy. */
     for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
         simple_op->out_buffer.name[i] = op->out_buffer->cl_name[i];
     }
@@ -64,6 +65,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->in_buffer.x_stride = op->in_buffer->cl_x_stride;
     simple_op->in_buffer.offset = op->in_buffer->cl_offset;
     simple_op->in_buffer.values = op->in_buffer->values;
+    /* TODO: This should be memcpy. */
     for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
         simple_op->in_buffer.name[i] = op->in_buffer->cl_name[i];
     }
@@ -732,7 +734,7 @@ void linearized_clear(linearized_t *linearized) {
 }
 void linearized_run(linearized_t *linearized) {
     for(uint64_t i = 0; i < linearized->op_count; i++) {
-        simple_op_realize(linearized->simple + i);
+        simple_op_realize(&linearized->simple[i]);
     }
 }
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
