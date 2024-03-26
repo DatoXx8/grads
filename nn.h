@@ -134,6 +134,8 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
+
+    tensor_t *_input_temp;
 } split_t;
 
 extern split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y, uint64_t input_x);
@@ -229,14 +231,10 @@ typedef struct {
     // runtime_t *learn;
 } neuralnet_t;
 
-#define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0].activation)
-#define NEURALNET_INPUT_(neuralnet) ((neuralnet)->layer[0].activation)
-#define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1].activation)
-#define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1].activation)
-#define NEURALNET_INPUTG(neuralnet) ((neuralnet).layer[0].activation_g)
-#define NEURALNET_INPUTG_(neuralnet) ((neuralnet)->layer[0].activation_g)
-#define NEURALNET_OUTPUTG(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1].activation_g)
-#define NEURALNET_OUTPUTG_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1].activation_g)
+#define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0])
+#define NEURALNET_INPUT_(neuralnet) ((neuralnet)->layer[0])
+#define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
+#define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
 extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig);
 extern void neuralnet_free(neuralnet_t *neuralnet);
