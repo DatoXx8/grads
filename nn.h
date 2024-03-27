@@ -50,9 +50,9 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *_input_multiply_temp;
-    tensor_t *_output_multiply_temp;
-    tensor_t *_full_temp;
+    tensor_t *input_multiply_temp_;
+    tensor_t *output_multiply_temp_;
+    tensor_t *full_temp_;
 } dense_t;
 
 extern dense_t dense_alloc(uint64_t input_size, uint64_t output_size);
@@ -76,8 +76,10 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *_padded_input;
-    tensor_t *_kernel_temp;
+    tensor_t *padded_input_;
+    tensor_t *padded_grad_;
+    tensor_t *kernel_temp_;
+    tensor_t *single_temp_;
 } convolution_t;
 
 /* Calculates output size per dimension. */
@@ -135,7 +137,7 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *_input_temp;
+    tensor_t *input_temp_;
 } split_t;
 
 extern split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y, uint64_t input_x);
@@ -238,12 +240,13 @@ typedef struct {
 
 extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig);
 extern void neuralnet_free(neuralnet_t *neuralnet);
-/* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 extern void neuralnet_random(neuralnet_t *neuralnet);
-extern void neuralnet_linearize(neuralnet_t *neuralnet);
+/* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
+/* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
+extern void neuralnet_linearize(neuralnet_t *neuralnet, double learning);
 extern void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input);
 extern void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output);
-extern void neuralnet_learn(neuralnet_t *neuralnet, double learning);
+extern void neuralnet_learn(neuralnet_t *neuralnet);
 extern void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name);
 extern void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name);
 
