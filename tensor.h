@@ -21,7 +21,7 @@ typedef struct {
     uint64_t x_size;
     uint64_t offset;
     double *values;
-    /* NOTE: Technically there are "only" finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
+    /* NOTE: Technically there are only finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
     char cl_name[CL_NAME_SIZE + 1];
     uint64_t cl_a_stride;
     uint64_t cl_z_stride;
@@ -41,6 +41,7 @@ extern void buffer_free(buffer_t *buffer);
 #define BUFFER_AT(buffer, a, z, y, x) ((buffer).values[(buffer).a_stride * (a) + (buffer).z_stride * (z) + (buffer).y_stride * (y) + (buffer).x_stride * (x) + (buffer).offset])
 #define BUFFER_AT_(buffer, a, z, y, x) ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
 
+/* TODO: Op that specifies parallelization? like spec_parallel that has a parallelization id, where ops with the same id can get compiled to be in parallel? and then spec_break for making a new parallelization group? */
 
 enum operation_e {
     operation_unary, operation_binary, operation_reduce, operation_move
@@ -62,6 +63,7 @@ enum binary_e {
 enum reduce_e {
     reduce_sum, reduce_max, reduce_avg, reduce_min
 };
+/* NOTE: Move ops have 0 cost, aside from the upfront cost when linearizing and compiling. */
 enum move_e {
     move_reshape, move_resize, move_offset
 };

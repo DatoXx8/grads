@@ -53,7 +53,6 @@ void buffer_free(buffer_t *buffer) {
 const uint64_t initial_child_number = 8;
 /* However there is a max of two parents per lazyop. */
 const uint64_t max_parent_number = 2;
-/* NOTE: If you want to get the mamimum performance possible, then you should comment out these asserts. */
 op_t op_alloc(void) {
     op_t op = {0};
     op.parent = calloc(max_parent_number, sizeof(op_t *));
@@ -812,8 +811,6 @@ void tensor_free(tensor_t *tensor) {
     buffer_free(tensor->buffer);
     free(tensor->buffer);
 }
-
-/* NOTE: You can remove all these asserts if you want optimal performance. I don't recommend you do, because it makes the program less safe. */
 
 void tensor_add_unary(tensor_t *tensor, double value) {
     op_t *parent = tensor->op;
