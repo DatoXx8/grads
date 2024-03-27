@@ -55,21 +55,23 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
         simple_op->out_buffer.name[i] = op->out_buffer->cl_name[i];
     }
     simple_op->out_buffer.name[CL_NAME_SIZE] = '\0';
-    simple_op->in_buffer.a_size = op->in_buffer->cl_a_size;
-    simple_op->in_buffer.z_size = op->in_buffer->cl_z_size;
-    simple_op->in_buffer.y_size = op->in_buffer->cl_y_size;
-    simple_op->in_buffer.x_size = op->in_buffer->cl_x_size;
-    simple_op->in_buffer.a_stride = op->in_buffer->cl_a_stride;
-    simple_op->in_buffer.z_stride = op->in_buffer->cl_z_stride;
-    simple_op->in_buffer.y_stride = op->in_buffer->cl_y_stride;
-    simple_op->in_buffer.x_stride = op->in_buffer->cl_x_stride;
-    simple_op->in_buffer.offset = op->in_buffer->cl_offset;
-    simple_op->in_buffer.values = op->in_buffer->values;
-    /* TODO: This should be memcpy. */
-    for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
-        simple_op->in_buffer.name[i] = op->in_buffer->cl_name[i];
+    if((op->type == operation_binary) || (op->type == operation_reduce)) {
+        simple_op->in_buffer.a_size = op->in_buffer->cl_a_size;
+        simple_op->in_buffer.z_size = op->in_buffer->cl_z_size;
+        simple_op->in_buffer.y_size = op->in_buffer->cl_y_size;
+        simple_op->in_buffer.x_size = op->in_buffer->cl_x_size;
+        simple_op->in_buffer.a_stride = op->in_buffer->cl_a_stride;
+        simple_op->in_buffer.z_stride = op->in_buffer->cl_z_stride;
+        simple_op->in_buffer.y_stride = op->in_buffer->cl_y_stride;
+        simple_op->in_buffer.x_stride = op->in_buffer->cl_x_stride;
+        simple_op->in_buffer.offset = op->in_buffer->cl_offset;
+        simple_op->in_buffer.values = op->in_buffer->values;
+        /* TODO: This should be memcpy. */
+        for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
+            simple_op->in_buffer.name[i] = op->in_buffer->cl_name[i];
+        }
+        simple_op->in_buffer.name[CL_NAME_SIZE] = '\0';
     }
-    simple_op->in_buffer.name[CL_NAME_SIZE] = '\0';
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
     if(strcmp(name, "")) {
@@ -749,7 +751,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     /* NOTE: Kind of a nice allignment for printing */
     // uint64_t max = log10(linearized->op_count);
     // for(uint64_t i = 0; i < linearized->op_count; i++) {
-    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) max - (uint64_t) log10(i), "", i);
+    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (uint64_t) log10(i)), "", i);
     //     simple_op_print(linearized->simple + i, 0, 0, "");
     // }
     /* This one is not alligned. */
