@@ -9,7 +9,7 @@
 #include "tensor.h"
 #include "nn.h"
 
-static activation_t activation_alloc(enum activation_e activation_type, uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
+static activation_t activation_alloc_(enum activation_e activation_type, uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
     activation_t activation = {0};
     switch(activation_type) {
         case(activation_identity): {
@@ -52,7 +52,7 @@ static activation_t activation_alloc(enum activation_e activation_type, uint64_t
     }
     return(activation);
 }
-static void activation_free(activation_t *activation) {
+static void activation_free_(activation_t *activation) {
     switch(activation->type) {
         case(activation_identity): {
             break;
@@ -85,7 +85,8 @@ static void activation_free(activation_t *activation) {
 }
 const double leaky_factor_ = 0.1;
 /* TODO: Implement the other activation functions */
-static void activation_activate(tensor_t *tensor, activation_t *activation_type) {
+/* TODO: This should also calculate the derivatives if a new flag `forward_only` is not set for the neuralnet. */
+static void activation_activate_(tensor_t *tensor, activation_t *activation_type) {
     switch(activation_type->type) {
         case(activation_identity): {
             break;
@@ -122,38 +123,6 @@ static void activation_activate(tensor_t *tensor, activation_t *activation_type)
             tensor_copy_binary(activation_type->intermediary, tensor);
             tensor_multiply_unary(activation_type->intermediary, leaky_factor_);
             tensor_max_binary(tensor, activation_type->intermediary);
-            break;
-        }
-    }
-}
-/* TODO: Implement the other activation functions */
-static void activation_derivative(tensor_t *derivative, tensor_t *tensor, activation_t *activation_type) {
-    switch(activation_type->type) {
-        case(activation_identity): {
-            break;
-        }
-        case(activation_relu): {
-            assert(0);
-            break;
-        }
-        case(activation_sigmoid): {
-            assert(0);
-            break;
-        }
-        case(activation_tanh): {
-            assert(0);
-            break;
-        }
-        case(activation_silu): {
-            assert(0);
-            break;
-        }
-        case(activation_gelu): {
-            assert(0);
-            break;
-        }
-        case(activation_leaky): {
-            assert(0);
             break;
         }
     }
@@ -351,11 +320,7 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
 
     tensor_add_binary(output, dense->biases);
 }
-void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output, tensor_t *output_gradient) {
-    uint64_t output_a = output->buffer->a_inherent;
-    uint64_t output_z = output->buffer->z_inherent;
-    uint64_t output_y = output->buffer->y_inherent;
-    uint64_t output_x = output->buffer->x_inherent;
+void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient) {
     uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
@@ -806,10 +771,10 @@ void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, t
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
-    tensor_reshape_move(split->biases_g, 1, output_z, output_y, output_x);
     /* Biases */
+    tensor_reshape_move(split->biases_g, 1, output_z, output_y, output_x);
     tensor_add_binary(split->biases_g, output_gradient);
-    tensor_reshape_move(split->biases_g, split->filters, input_z, input_y, input_x);
+    tensor_reshape_move(split->biases_g, split->filters, input_z, output_y, output_x);
     /* Weights */
     tensor_resize_move(split->weights_g, 1, input_z, output_y, output_x);
     tensor_resize_move(output_gradient, 1, input_z, output_y, output_x);
@@ -880,7 +845,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
             layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc(layerconfig->activation_type, 1, 1, 1, layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
+            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, 1, 1, layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
             *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_dense;
@@ -901,7 +866,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
             layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
+            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
             *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_convolution;
@@ -937,7 +902,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_, layerconfig->split_input_y_, layerconfig->split_input_x_);
             layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
+            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
             *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_split;
@@ -969,7 +934,7 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             dense_free(layer->dense);
             free(layer->dense);
-            activation_free(layer->activation_type);
+            activation_free_(layer->activation_type);
             free(layer->activation_type);
             norm_free(layer->norm);
             free(layer->norm);
@@ -982,7 +947,7 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             convolution_free(layer->convolution);
             free(layer->convolution);
-            activation_free(layer->activation_type);
+            activation_free_(layer->activation_type);
             free(layer->activation_type);
             norm_free(layer->norm);
             free(layer->norm);
@@ -1004,7 +969,7 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             split_free(layer->split);
             free(layer->split);
-            activation_free(layer->activation_type);
+            activation_free_(layer->activation_type);
             free(layer->activation_type);
             norm_free(layer->norm);
             free(layer->norm);
@@ -1129,13 +1094,13 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
                 dense_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation);
-                activation_activate(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
                 norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
             case(layer_convolution): {
                 convolution_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].convolution, neuralnet->layer[layer].activation);
-                activation_activate(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
                 norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
@@ -1145,7 +1110,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
             }
             case(layer_split): {
                 split_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].split, neuralnet->layer[layer].activation);
-                activation_activate(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
                 norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
@@ -1184,7 +1149,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
     for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
-                dense_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
+                dense_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation_g);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->weights_g->op);
@@ -1208,12 +1173,12 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
             }
             case(layer_split): {
                 split_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].split, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->weights_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->weights->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 break;
             }
             case(layer_input): {
@@ -1222,7 +1187,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
             }
         }
         *neuralnet->learn = linearized_alloc();
-        for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
+        for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
             switch(neuralnet->layer[layer].layer_type) {
                 case(layer_dense): {
                     tensor_multiply_unary(neuralnet->layer[layer].dense->weights_g, learning);
@@ -1255,6 +1220,16 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                     break;
                 }
                 case(layer_split): {
+                    tensor_multiply_unary(neuralnet->layer[layer].split->biases_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].split->biases, neuralnet->layer[layer].split->biases_g);
+                    tensor_set_unary(neuralnet->layer[layer].split->biases_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].split->biases->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].split->biases_g->op);
+                    tensor_multiply_unary(neuralnet->layer[layer].split->weights_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].split->weights, neuralnet->layer[layer].split->weights_g);
+                    tensor_set_unary(neuralnet->layer[layer].split->weights_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].split->weights->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].split->weights_g->op);
                     break;
                 }
                 case(layer_input): {

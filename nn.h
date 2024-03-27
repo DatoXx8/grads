@@ -58,7 +58,7 @@ typedef struct {
 extern dense_t dense_alloc(uint64_t input_size, uint64_t output_size);
 extern void dense_free(dense_t *dense);
 extern void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output);
-extern void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output, tensor_t *output_gradient);
+extern void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient);
 extern void dense_print(dense_t *dense, int padding, int offset, const char *name);
 extern void dense_print_shape(dense_t *dense, int padding, int offset, const char *name);
 
