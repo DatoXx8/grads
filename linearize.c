@@ -145,6 +145,10 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                     printf("U abs {%lu, %lu, %lu, %lu} %lu %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.name);
                     break;
                 }
+                case(unary_sign): {
+                    printf("U sgn {%lu, %lu, %lu, %lu} %lu %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.name);
+                    break;
+                }
             }
             break;
         }
@@ -236,7 +240,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
         }
     }
 }
-void simple_op_realize(simple_op_t *simple_op) {
+ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
     switch(simple_op->type) {
         case(operation_unary): {
             switch(simple_op->unary_type) {
@@ -431,6 +435,26 @@ void simple_op_realize(simple_op_t *simple_op) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
                                     if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < 0) {
                                         SIMPLE_AT(simple_op->out_buffer, a, z, y, x) *= -1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_sign): {
+                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
+                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
+                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
+                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
+                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < 0) {
+                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = -1;
+                                        /* Better perf but kinda ugly */
+                                        // } else if(!SIMPLE_AT(simple_op->out_buffer, a, z, y, x)) {
+                                    } else if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) == 0) {
+                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = 0;
+                                    } else {
+                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = 1;
                                     }
                                 }
                             }

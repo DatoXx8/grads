@@ -184,6 +184,10 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                     printf("U abs [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
                     break;
                 }
+                case(unary_sign): {
+                    printf("U sgn [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent, op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size, op->out_buffer->x_size, op->out_buffer->offset, (void *) op->out_buffer);
+                    break;
+                }
             }
             break;
         }
@@ -304,7 +308,7 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
         }
     }
 }
-void op_single_op_cpu_realize(op_t *op) {
+ALWAYS_INLINE void op_single_op_cpu_realize(op_t *op) {
     switch(op->type) {
         case(operation_unary): {
             switch(op->unary_type) {
@@ -499,6 +503,24 @@ void op_single_op_cpu_realize(op_t *op) {
                                 for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
                                     if(BUFFER_AT_(op->out_buffer, a, z, y, x) < 0) {
                                         BUFFER_AT_(op->out_buffer, a, z, y, x) *= -1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case(unary_sign): {
+                    for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
+                        for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
+                            for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
+                                for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
+                                    if(BUFFER_AT_(op->out_buffer, a, z, y, x) < 0) {
+                                        BUFFER_AT_(op->out_buffer, a, z, y, x) = -1;
+                                    } else if(BUFFER_AT_(op->out_buffer, a, z, y, x) == 0) {
+                                        BUFFER_AT_(op->out_buffer, a, z, y, x) = 0;
+                                    } else {
+                                        BUFFER_AT_(op->out_buffer, a, z, y, x) = 1;
                                     }
                                 }
                             }
@@ -812,6 +834,8 @@ void tensor_free(tensor_t *tensor) {
     free(tensor->buffer);
 }
 
+/* NOTE: You can remove all these asserts if you want optimal performance. I don't recommend you do, because it makes the program less safe. */
+
 void tensor_add_unary(tensor_t *tensor, double value) {
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
@@ -1041,6 +1065,20 @@ void tensor_absolute_unary(tensor_t *tensor) {
     }
     tensor->op->type = operation_unary;
     tensor->op->unary_type = unary_absolute;
+    tensor->op->out_buffer = tensor->buffer;
+}
+void tensor_sign_unary(tensor_t *tensor) {
+    op_t *parent = tensor->op;
+    tensor->op = malloc(sizeof(op_t));
+    assert(tensor->op);
+    *tensor->op = op_alloc();
+    op_add_parents(tensor->op, parent, NULL);
+    tensor->op->tensor_base = tensor;
+    if(parent) {
+        parent->tensor_base = NULL;
+    }
+    tensor->op->type = operation_unary;
+    tensor->op->unary_type = unary_sign;
     tensor->op->out_buffer = tensor->buffer;
 }
 

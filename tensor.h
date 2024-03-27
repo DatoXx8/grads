@@ -50,7 +50,7 @@ enum unary_e {
     unary_add, unary_subtract, unary_multiply, unary_divide,
     unary_exp, unary_log, unary_square, unary_sqrt,
     unary_negate, unary_reciprocal, unary_max, unary_min,
-    unary_set, unary_random, unary_tanh, unary_absolute
+    unary_set, unary_random, unary_tanh, unary_absolute, unary_sign
 };
 enum binary_e {
     binary_add, binary_subtract, binary_multiply, binary_divide,
@@ -129,6 +129,7 @@ extern void tensor_tanh_unary(tensor_t *tensor);
 extern void tensor_max_unary(tensor_t *tensor, double value);
 extern void tensor_min_unary(tensor_t *tensor, double value);
 extern void tensor_absolute_unary(tensor_t *tensor);
+extern void tensor_sign_unary(tensor_t *tensor);
 
 extern void tensor_add_binary(tensor_t *out, tensor_t *in);
 extern void tensor_subtract_binary(tensor_t *out, tensor_t *in);
