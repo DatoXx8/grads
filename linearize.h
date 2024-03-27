@@ -39,6 +39,9 @@ extern void simple_op_convert(simple_op_t *simple_op, op_t *op);
 extern void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name);
 extern void simple_op_realize(simple_op_t *simple_op);
 
+#define SIMPLE_OP_PRINT(simple_op) (simple_op_print(&(simple_op), 4, 0, (#simple_op)))
+#define SIMPLE_OP_PRINT_(simple_op) (simple_op_print((simple_op), 4, 0, (#simple_op)))
+
 typedef struct {
     uint64_t op_count;
     uint64_t op_capacity;
@@ -52,5 +55,8 @@ extern void linearized_from_op(linearized_t *linearized, op_t *op);
 extern void linearized_run(linearized_t *linearized);
 extern void linearized_clear(linearized_t *linearized);
 extern void linearized_print(linearized_t *linearized, int padding, int offset, const char *name);
+
+#define LINEARIZED_PRINT(linearized) (linearized_print(&(linearized), 4, 0, (#linearized)))
+#define LINEARIZED_PRINT_(linearized) (linearized_print((linearized), 4, 0, (#linearized)))
 
 #endif
