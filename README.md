@@ -18,11 +18,8 @@ git clone https://github.com/DatoXx8/cgrad.git
 ```
 2. Add all the .c files to your compile step, which could look as following:
 
-    If you don't want OpenCL:
-    ``` sh
-    clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm
-    ```
-    If you do want OpenCL:
-    ``` sh
-    clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm -lOpenCL
-    ```
+``` sh
+clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c -o grad -Ofast -lm -lOpenCL
+```
+
+You can remove the `-lOpenCL` flag if you are sure you don't want OpenCL.
