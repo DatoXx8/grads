@@ -281,25 +281,25 @@ dense_t dense_alloc(uint64_t input_size, uint64_t output_size) {
         .input_size_ = input_size,
         .output_size = output_size,
 
-        ._input_multiply_temp = calloc(1, sizeof(tensor_t)),
-        ._output_multiply_temp = calloc(1, sizeof(tensor_t)),
-        ._full_temp = calloc(1, sizeof(tensor_t)),
+        .input_multiply_temp_ = calloc(1, sizeof(tensor_t)),
+        .output_multiply_temp_ = calloc(1, sizeof(tensor_t)),
+        .full_temp_ = calloc(1, sizeof(tensor_t)),
     };
     assert(dense.biases);
     assert(dense.biases_g);
     assert(dense.weights);
     assert(dense.weights_g);
-    assert(dense._input_multiply_temp);
-    assert(dense._output_multiply_temp);
-    assert(dense._full_temp);
+    assert(dense.input_multiply_temp_);
+    assert(dense.output_multiply_temp_);
+    assert(dense.full_temp_);
 
     *dense.biases = tensor_alloc(1, 1, 1, output_size);
     *dense.biases_g = tensor_alloc(1, 1, 1, output_size);
     *dense.weights = tensor_alloc(1, 1, input_size, output_size);
     *dense.weights_g = tensor_alloc(1, 1, input_size, output_size);
-    *dense._input_multiply_temp = tensor_alloc(1, 1, input_size, 1);
-    *dense._output_multiply_temp = tensor_alloc(1, 1, 1, output_size);
-    *dense._full_temp = tensor_alloc(1, 1, input_size, output_size);
+    *dense.input_multiply_temp_ = tensor_alloc(1, 1, input_size, 1);
+    *dense.output_multiply_temp_ = tensor_alloc(1, 1, 1, output_size);
+    *dense.full_temp_ = tensor_alloc(1, 1, input_size, output_size);
 
     return(dense);
 }
@@ -308,16 +308,16 @@ void dense_free(dense_t *dense) {
     tensor_free(dense->biases_g);
     tensor_free(dense->weights);
     tensor_free(dense->weights_g);
-    tensor_free(dense->_input_multiply_temp);
-    tensor_free(dense->_output_multiply_temp);
-    tensor_free(dense->_full_temp);
+    tensor_free(dense->input_multiply_temp_);
+    tensor_free(dense->output_multiply_temp_);
+    tensor_free(dense->full_temp_);
     free(dense->biases);
     free(dense->biases_g);
     free(dense->weights);
     free(dense->weights_g);
-    free(dense->_input_multiply_temp);
-    free(dense->_output_multiply_temp);
-    free(dense->_full_temp);
+    free(dense->input_multiply_temp_);
+    free(dense->output_multiply_temp_);
+    free(dense->full_temp_);
 }
 /* NOTE: Automagically "flattens" the input tensor to shape `{1, 1, a * z * y * x, 1}`. */
 void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
@@ -337,9 +337,9 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
     for(uint64_t i = 0; i < dense->output_size; i++) {
         tensor_offset_move(dense->weights, 0, 0, 0, i);
         tensor_offset_move(output, 0, 0, 0, i);
-        tensor_copy_binary(dense->_input_multiply_temp, dense->weights);
-        tensor_multiply_binary(dense->_input_multiply_temp, input);
-        tensor_sum_reduce(output, dense->_input_multiply_temp);
+        tensor_copy_binary(dense->input_multiply_temp_, dense->weights);
+        tensor_multiply_binary(dense->input_multiply_temp_, input);
+        tensor_sum_reduce(output, dense->input_multiply_temp_);
     }
 
     tensor_reshape_move(input, input_a, input_z, input_y, input_x);
@@ -363,33 +363,33 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
     /* Biases */
     tensor_add_binary(dense->biases_g, output_gradient);
     /* Weights */
-    tensor_resize_move(dense->_full_temp, 1, 1, 1, dense->output_size);
+    tensor_resize_move(dense->full_temp_, 1, 1, 1, dense->output_size);
     for(uint64_t i = 0; i < dense->input_size_; i++) {
-        tensor_offset_move(dense->_full_temp, 0, 0, i, 0);
-        tensor_copy_binary(dense->_full_temp, output_gradient);
+        tensor_offset_move(dense->full_temp_, 0, 0, i, 0);
+        tensor_copy_binary(dense->full_temp_, output_gradient);
     }
-    tensor_resize_move(dense->_full_temp, 1, 1, dense->input_size_, 1);
+    tensor_resize_move(dense->full_temp_, 1, 1, dense->input_size_, 1);
     tensor_reshape_move(input, 1, 1, dense->input_size_, 1);
     for(uint64_t i = 0; i < dense->output_size; i++) {
-        tensor_offset_move(dense->_full_temp, 0, 0, 0, i);
-        tensor_multiply_binary(dense->_full_temp, input);
+        tensor_offset_move(dense->full_temp_, 0, 0, 0, i);
+        tensor_multiply_binary(dense->full_temp_, input);
     }
-    tensor_resize_move(dense->_full_temp, 1, 1, dense->input_size_, dense->output_size);
-    tensor_offset_move(dense->_full_temp, 0, 0, 0, 0);
+    tensor_resize_move(dense->full_temp_, 1, 1, dense->input_size_, dense->output_size);
+    tensor_offset_move(dense->full_temp_, 0, 0, 0, 0);
     tensor_reshape_move(input, input_a, input_z, input_y, input_x);
-    tensor_add_binary(dense->weights_g, dense->_full_temp);
-    /* Input acitvation gradient */
+    tensor_add_binary(dense->weights_g, dense->full_temp_);
+    /* Previous activation grad */
     tensor_reshape_move(input_gradient, 1, 1, dense->input_size_, 1);
     tensor_resize_move(input_gradient, 1, 1, 1, 1);
     tensor_resize_move(dense->weights, 1, 1, 1, dense->output_size);
     for(uint64_t i = 0; i < dense->input_size_; i++) {
         tensor_offset_move(input_gradient, 0, 0, i, 0);
         tensor_offset_move(dense->weights, 0, 0, i, 0);
-        tensor_copy_binary(dense->_output_multiply_temp, dense->weights);
-        tensor_multiply_binary(dense->_output_multiply_temp, output_gradient);
+        tensor_copy_binary(dense->output_multiply_temp_, dense->weights);
+        tensor_multiply_binary(dense->output_multiply_temp_, output_gradient);
         /* NOTE: Sum is technically the right one I think, but avg provides better scaling. */
-        // tensor_sum_reduce(input_gradient, dense->_output_multiply_temp);
-        tensor_avg_reduce(input_gradient, dense->_output_multiply_temp);
+        tensor_sum_reduce(input_gradient, dense->output_multiply_temp_);
+        // tensor_avg_reduce(input_gradient, dense->output_multiply_temp_);
     }
     tensor_reshape_move(input_gradient, input_a, input_z, input_y, input_x);
     tensor_offset_move(input_gradient, 0, 0, 0, 0);
@@ -432,22 +432,28 @@ convolution_t convolution_alloc(uint64_t input_channels, uint64_t input_y, uint6
         .weights = calloc(1, sizeof(tensor_t)),
         .weights_g = calloc(1, sizeof(tensor_t)),
 
-        ._padded_input = calloc(1, sizeof(tensor_t)),
-        ._kernel_temp = calloc(1, sizeof(tensor_t)),
+        .padded_input_ = calloc(1, sizeof(tensor_t)),
+        .padded_grad_ = calloc(1, sizeof(tensor_t)),
+        .kernel_temp_ = calloc(1, sizeof(tensor_t)),
+        .single_temp_ = calloc(1, sizeof(tensor_t)),
     };
     assert(convolution.biases);
     assert(convolution.biases_g);
     assert(convolution.weights);
     assert(convolution.weights_g);
-    assert(convolution._padded_input);
-    assert(convolution._kernel_temp);
+    assert(convolution.padded_input_);
+    assert(convolution.padded_grad_);
+    assert(convolution.kernel_temp_);
+    assert(convolution.single_temp_);
 
     *convolution.biases = tensor_alloc(filters, 1, 1, 1);
     *convolution.biases_g = tensor_alloc(filters, 1, 1, 1);
     *convolution.weights = tensor_alloc(filters, input_channels, kernel_size, kernel_size);
     *convolution.weights_g = tensor_alloc(filters, input_channels, kernel_size, kernel_size);
-    *convolution._padded_input = tensor_alloc(1, input_channels, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding);
-    *convolution._kernel_temp = tensor_alloc(1, input_channels, kernel_size, kernel_size);
+    *convolution.padded_input_ = tensor_alloc(1, input_channels, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding);
+    *convolution.padded_grad_ = tensor_alloc(1, input_channels, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding);
+    *convolution.kernel_temp_ = tensor_alloc(1, input_channels, kernel_size, kernel_size);
+    *convolution.single_temp_ = tensor_alloc(1, 1, 1, 1);
 
     return(convolution);
 }
@@ -456,14 +462,18 @@ void convolution_free(convolution_t *convolution) {
     tensor_free(convolution->biases_g);
     tensor_free(convolution->weights);
     tensor_free(convolution->weights_g);
-    tensor_free(convolution->_padded_input);
-    tensor_free(convolution->_kernel_temp);
+    tensor_free(convolution->padded_input_);
+    tensor_free(convolution->padded_grad_);
+    tensor_free(convolution->kernel_temp_);
+    tensor_free(convolution->single_temp_);
     free(convolution->biases);
     free(convolution->biases_g);
     free(convolution->weights);
     free(convolution->weights_g);
-    free(convolution->_padded_input);
-    free(convolution->_kernel_temp);
+    free(convolution->padded_input_);
+    free(convolution->padded_grad_);
+    free(convolution->kernel_temp_);
+    free(convolution->single_temp_);
 }
 void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output) {
     uint64_t input_a = input->buffer->a_inherent;
@@ -484,10 +494,10 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
     tensor_resize_move(convolution->biases, 1, 1, 1, 1);
     tensor_resize_move(convolution->weights, 1, input_z, convolution->kernel_size, convolution->kernel_size);
     tensor_resize_move(output, 1, 1, 1, 1);
-    tensor_resize_move(convolution->_padded_input, input_a, input_z, input_y, input_x);
-    tensor_offset_move(convolution->_padded_input, 0, 0, convolution->kernel_padding, convolution->kernel_padding);
-    tensor_copy_binary(convolution->_padded_input, input);
-    tensor_resize_move(convolution->_padded_input, 1, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_resize_move(convolution->padded_input_, input_a, input_z, input_y, input_x);
+    tensor_offset_move(convolution->padded_input_, 0, 0, convolution->kernel_padding, convolution->kernel_padding);
+    tensor_copy_binary(convolution->padded_input_, input);
+    tensor_resize_move(convolution->padded_input_, 1, input_z, convolution->kernel_size, convolution->kernel_size);
 
     for(uint64_t filter = 0; filter < convolution->filters; filter++) {
         tensor_offset_move(convolution->biases, filter, 0, 0, 0);
@@ -497,26 +507,110 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
             output_x_i = 0;
             for(uint64_t input_x_i = 0; input_x_i < input_x_max; input_x_i += convolution->kernel_stride) {
                 tensor_offset_move(output, 0, filter, output_y_i, output_x_i);
-                tensor_offset_move(convolution->_padded_input, 0, 0, input_y_i, input_x_i);
-                tensor_copy_binary(convolution->_kernel_temp, convolution->_padded_input);
-                tensor_multiply_binary(convolution->_kernel_temp, convolution->weights);
-                tensor_sum_reduce(output, convolution->_kernel_temp);
+                tensor_offset_move(convolution->padded_input_, 0, 0, input_y_i, input_x_i);
+                tensor_copy_binary(convolution->kernel_temp_, convolution->padded_input_);
+                tensor_multiply_binary(convolution->kernel_temp_, convolution->weights);
+                tensor_sum_reduce(output, convolution->kernel_temp_);
                 tensor_add_binary(output, convolution->biases);
                 output_x_i++;
             }
             output_y_i++;
         }
     }
-    tensor_resize_move(convolution->biases, 1, convolution->filters, 1, 1);
+    tensor_resize_move(convolution->biases, convolution->filters, 1, 1, 1);
     tensor_offset_move(convolution->biases, 0, 0, 0, 0);
-    tensor_resize_move(convolution->weights, convolution->input_channels_, convolution->filters, convolution->kernel_size, convolution->kernel_size);
+    tensor_resize_move(convolution->weights, convolution->filters, convolution->input_channels_, convolution->kernel_size, convolution->kernel_size);
     tensor_offset_move(convolution->weights, 0, 0, 0, 0);
     tensor_resize_move(output, output_a, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
-    tensor_resize_move(convolution->_padded_input, input_a, input_z, input_y + 2 * convolution->kernel_padding, input_x + 2 * convolution->kernel_padding);
-    tensor_offset_move(convolution->_padded_input, 0, 0, 0, 0);
+    tensor_resize_move(convolution->padded_input_, input_a, input_z, input_y + 2 * convolution->kernel_padding, input_x + 2 * convolution->kernel_padding);
+    tensor_offset_move(convolution->padded_input_, 0, 0, 0, 0);
 }
 void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution, tensor_t *output, tensor_t *output_gradient) {
+    uint64_t input_z = input->buffer->z_inherent;
+    uint64_t input_y = input->buffer->y_inherent;
+    uint64_t input_x = input->buffer->x_inherent;
+    uint64_t output_z = output->buffer->z_inherent;
+    uint64_t output_y = output->buffer->y_inherent;
+    uint64_t output_x = output->buffer->x_inherent;
+    /* Biases */
+    tensor_resize_move(convolution->biases_g, 1, 1, 1, 1);
+    tensor_resize_move(output_gradient, 1, 1, output_y, output_x);
+    for(uint64_t i = 0; i < convolution->filters; i++) {
+        tensor_offset_move(convolution->biases_g, i, 0, 0, 0);
+        tensor_offset_move(output_gradient, 0, i, 0, 0);
+        tensor_avg_reduce(convolution->single_temp_, output_gradient);
+        tensor_add_binary(convolution->biases_g, convolution->single_temp_);
+    }
+    tensor_resize_move(convolution->biases_g, convolution->filters, 1, 1, 1);
+    tensor_offset_move(convolution->biases_g, 0, 0, 0, 0);
+    tensor_resize_move(output_gradient, 1, output_z, output_y, output_x);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
+    /* Weights */
+    uint64_t input_y_i;
+    uint64_t input_x_i;
+    tensor_resize_move(output_gradient, 1, 1, 1, 1);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
+    tensor_resize_move(convolution->weights_g, 1, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->weights_g, 0, 0, 0, 0);
+    /* TODO: Maybe make sure that padded_input_ still holds the relevant values? */
+    tensor_resize_move(convolution->padded_input_, 1, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->padded_input_, 0, 0, 0, 0);
+    for(uint64_t filter = 0; filter < convolution->filters; filter++) {
+        tensor_offset_move(convolution->weights_g, filter, 0, 0, 0);
+        input_y_i = 0;
+        for(uint64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+            input_x_i = 0;
+            for(uint64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                tensor_offset_move(output_gradient, 0, filter, output_y_i, output_x_i);
+                tensor_offset_move(convolution->padded_input_, 0, 0, input_y_i, input_x_i);
+                tensor_copy_binary(convolution->kernel_temp_, convolution->padded_input_);
+                tensor_multiply_like_binary(convolution->kernel_temp_, output_gradient);
+                tensor_add_binary(convolution->weights_g, convolution->kernel_temp_);
+                input_x_i += convolution->kernel_padding;
+            }
+            input_y_i += convolution->kernel_padding;
+        }
+    }
+    tensor_resize_move(output_gradient, 1, output_z, output_y, output_x);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
+    tensor_resize_move(convolution->padded_input_, 1, input_z, input_y, input_x);
+    tensor_offset_move(convolution->padded_input_, 0, 0, 0, 0);
+    tensor_resize_move(convolution->weights_g, convolution->filters, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->weights_g, 0, 0, 0, 0);
+    /* Previous activation grad */
+    tensor_resize_move(output_gradient, 1, 1, 1, 1);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
+    tensor_resize_move(convolution->weights, 1, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->weights, 0, 0, 0, 0);
+    tensor_resize_move(convolution->padded_grad_, 1, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->padded_grad_, 0, 0, 0, 0);
+    for(uint64_t filter = 0; filter < convolution->filters; filter++) {
+        tensor_offset_move(convolution->weights, filter, 0, 0, 0);
+        input_y_i = 0;
+        for(uint64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+            input_x_i = 0;
+            for(uint64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                tensor_offset_move(output_gradient, 0, filter, output_y_i, output_x_i);
+                tensor_offset_move(convolution->padded_grad_, 0, 0, output_y_i, output_x_i);
+                tensor_copy_binary(convolution->kernel_temp_, convolution->weights);
+                tensor_multiply_like_binary(convolution->kernel_temp_, output_gradient);
+                tensor_add_binary(convolution->padded_grad_, convolution->kernel_temp_);
+                input_x_i += convolution->kernel_padding;
+            }
+            input_y_i += convolution->kernel_padding;
+        }
+    }
+    tensor_resize_move(output_gradient, 1, output_z, output_y, output_x);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
+    tensor_resize_move(convolution->weights, convolution->filters, input_z, convolution->kernel_size, convolution->kernel_size);
+    tensor_offset_move(convolution->weights, 0, 0, 0, 0);
+    tensor_resize_move(convolution->padded_grad_, 1, input_z, input_y, input_x);
+    tensor_offset_move(convolution->padded_grad_, 0, 0, convolution->kernel_padding, convolution->kernel_padding);
+    tensor_copy_binary(input_gradient, convolution->padded_grad_);
+
+    tensor_resize_move(convolution->padded_grad_, 1, input_z, input_y + 2 * convolution->kernel_padding, input_x + 2 * convolution->kernel_padding);
+    tensor_offset_move(convolution->padded_grad_, 0, 0, 0, 0);
 }
 void convolution_print(convolution_t *convolution, int padding, int offset, const char *name) {
     if(strcmp(name, "")) {
@@ -553,11 +647,9 @@ reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_
     return(reduce);
 }
 void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
-    uint64_t output_a = output->buffer->a_inherent;
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
@@ -565,7 +657,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     uint64_t output_y_i = 0;
     uint64_t output_x_i = 0;
 
-    tensor_reshape_move(input, input_a, input_z, input_y, input_x);
+    tensor_reshape_move(input, 1, input_z, input_y, input_x);
     tensor_resize_move(input, 1, 1, reduce->kernel_size, reduce->kernel_size);
     tensor_resize_move(output, 1, 1, 1, 1);
     /* PERF: Switch statement is on the outside cuz it only needs to be done once then. */
@@ -619,10 +711,9 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
             break;
         }
     }
-    /* NOTE: Could probably remove this for optimal performance. Although it would be unpleasant for debugging. */
-    tensor_resize_move(input, input_a, input_z, input_y, input_x);
+    tensor_resize_move(input, 1, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
-    tensor_resize_move(output, output_a, output_z, output_y, output_x);
+    tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
 }
 void reduce_backward(tensor_t *input, tensor_t *input_gradient, reduce_t *reduce, tensor_t *output, tensor_t *output_gradient) {
@@ -633,7 +724,7 @@ void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
     } else {
         printf("%*sconvolution\n", offset, "");
     }
-    printf("%*sSize %lu, Stride %lu, Channels %lu, Input y %lu, Input x %lu\n", offset + padding, "", reduce->kernel_size, reduce->kernel_stride, reduce->input_channels_, reduce->input_y_, reduce->input_x_);
+    printf("%*ssize %lu, stride %lu, channels %lu, input y %lu, input x %lu\n", offset + padding, "", reduce->kernel_size, reduce->kernel_stride, reduce->input_channels_, reduce->input_y_, reduce->input_x_);
 }
 
 split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y, uint64_t input_x) {
@@ -648,13 +739,13 @@ split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y,
         .weights = calloc(1, sizeof(tensor_t)),
         .weights_g = calloc(1, sizeof(tensor_t)),
 
-        ._input_temp = calloc(1, sizeof(tensor_t)),
+        .input_temp_ = calloc(1, sizeof(tensor_t)),
     };
     assert(split.biases);
     assert(split.weights);
     assert(split.biases_g);
     assert(split.weights_g);
-    assert(split._input_temp);
+    assert(split.input_temp_);
 
     // *split.biases = tensor_alloc(filters, 1, 1, 1);
     // *split.biases_g = tensor_alloc(filters, 1, 1, 1);
@@ -664,7 +755,7 @@ split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y,
     *split.biases_g = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.weights = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.weights_g = tensor_alloc(filters, input_channels, input_y, input_x);
-    *split._input_temp = tensor_alloc(1, input_channels, input_y, input_x);
+    *split.input_temp_ = tensor_alloc(1, input_channels, input_y, input_x);
 
     return(split);
 }
@@ -679,11 +770,9 @@ void split_free(split_t *split) {
     free(split->weights_g);
 }
 void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
-    uint64_t output_a = output->buffer->a_inherent;
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
@@ -701,9 +790,9 @@ void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
         tensor_add_binary(output, split->biases);
     }
 
-    tensor_resize_move(input, input_a, input_z, input_y, input_x);
+    tensor_resize_move(input, 1, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
-    tensor_resize_move(output, output_a, output_z, output_y, output_x);
+    tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
     tensor_resize_move(split->weights, split->filters, input_z, output_y, output_x);
     tensor_offset_move(split->weights, 0, 0, 0, 0);
@@ -711,11 +800,9 @@ void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
     tensor_offset_move(split->biases, 0, 0, 0, 0);
 }
 void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output, tensor_t *output_gradient) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
-    uint64_t output_a = output->buffer->a_inherent;
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
@@ -729,9 +816,9 @@ void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, t
     for(uint64_t i = 0; i < split->filters; i++) {
         tensor_offset_move(split->weights_g, i, 0, 0, 0);
         tensor_offset_move(output_gradient, 0, i * input_z, 0, 0);
-        tensor_copy_binary(split->_input_temp, output_gradient);
-        tensor_multiply_binary(split->_input_temp, input);
-        tensor_add_binary(split->weights_g, split->_input_temp);
+        tensor_copy_binary(split->input_temp_, output_gradient);
+        tensor_multiply_binary(split->input_temp_, input);
+        tensor_add_binary(split->weights_g, split->input_temp_);
     }
     tensor_resize_move(split->weights_g, split->filters, input_z, output_y, output_x);
     tensor_offset_move(split->weights_g, 0, 0, 0, 0);
@@ -743,9 +830,9 @@ void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, t
     for(uint64_t i = 0; i < split->filters; i++) {
         tensor_offset_move(split->weights, i, 0, 0, 0);
         tensor_offset_move(output_gradient, 0, i * input_z, 0, 0);
-        tensor_copy_binary(split->_input_temp, output_gradient);
-        tensor_multiply_binary(split->_input_temp, split->weights);
-        tensor_add_binary(input_gradient, split->_input_temp);
+        tensor_copy_binary(split->input_temp_, output_gradient);
+        tensor_multiply_binary(split->input_temp_, split->weights);
+        tensor_add_binary(input_gradient, split->input_temp_);
     }
     tensor_resize_move(split->weights, split->filters, input_z, input_y, input_x);
     tensor_offset_move(split->weights, 0, 0, 0, 0);
@@ -944,7 +1031,7 @@ neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig) {
     uint64_t previous_x;
     assert(layerconfig[0]->layer_type == layer_input); /* Beginning layer has to be an input layer. */
     neuralnet.layer[0] = layer_alloc(layerconfig[0]);
-    for(int64_t layer = 1; layer < layers; layer++) {
+    for(uint64_t layer = 1; layer < layers; layer++) {
         previous_z = neuralnet.layer[layer - 1].activation->buffer->z_size;
         previous_y = neuralnet.layer[layer - 1].activation->buffer->y_size;
         previous_x = neuralnet.layer[layer - 1].activation->buffer->x_size;
@@ -987,7 +1074,7 @@ neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig) {
     return(neuralnet);
 }
 void neuralnet_free(neuralnet_t *neuralnet) {
-    for(int64_t i = 0; i < neuralnet->layers; i++) {
+    for(uint64_t i = 0; i < neuralnet->layers; i++) {
         layer_free(&neuralnet->layer[i]);
     }
     free(neuralnet->layer);
@@ -999,7 +1086,7 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     free(neuralnet->learn);
 }
 void neuralnet_random(neuralnet_t *neuralnet) {
-    for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
+    for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
                 tensor_random_unary(neuralnet->layer[layer].dense->biases);
@@ -1033,12 +1120,12 @@ void neuralnet_random(neuralnet_t *neuralnet) {
         }
     }
 }
-const double learning = 1e-3;
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only needs to be called once per neuralnet. */
 /* TODO: Maybe put this into `neuralnet_alloc()`. */
-void neuralnet_linearize(neuralnet_t *neuralnet) {
+/* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
+void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
     *neuralnet->forward = linearized_alloc();
-    for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
+    for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
                 dense_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation);
@@ -1098,22 +1185,22 @@ void neuralnet_linearize(neuralnet_t *neuralnet) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
                 dense_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->weights_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->weights->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 break;
             }
             case(layer_convolution): {
                 convolution_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].convolution, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->weights_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->weights->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 break;
             }
             case(layer_reduce): {
@@ -1134,47 +1221,58 @@ void neuralnet_linearize(neuralnet_t *neuralnet) {
                 exit(1);
             }
         }
-        // *neuralnet->learn = linearized_alloc();
-        // for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
-        //     switch(neuralnet->layer[layer].layer_type) {
-        //         case(layer_dense): {
-        //             break;
-        //         }
-        //         case(layer_convolution): {
-        //             tensor_multiply_unary(neuralnet->layer[layer].convolution->weights_g, learning);
-        //             tensor_subtract_binary(neuralnet->layer[layer].convolution->weights, neuralnet->layer[layer].convolution->weights_g);
-        //             linearized_from_op(neuralnet->learn->linearized, neuralnet->layer[layer].convolution->weights->op);
-        //             tensor_multiply_unary(neuralnet->layer[layer].convolution->biases_g, learning);
-        //             tensor_subtract_binary(neuralnet->layer[layer].convolution->biases, neuralnet->layer[layer].convolution->biases_g);
-        //             linearized_from_op(neuralnet->learn->linearized, neuralnet->layer[layer].convolution->biases->op);
-        //             break;
-        //         }
-        //         case(layer_reduce): {
-        //             /* NOTE: This has no parameters so there is nothing to update. */
-        //             break;
-        //         }
-        //         case(layer_split): {
-        //             tensor_multiply_unary(neuralnet->layer[layer].split->weights_g, learning);
-        //             tensor_subtract_binary(neuralnet->layer[layer].split->weights, neuralnet->layer[layer].split->weights_g);
-        //             linearized_from_op(neuralnet->learn->linearized, neuralnet->layer[layer].split->weights->op);
-        //             tensor_multiply_unary(neuralnet->layer[layer].split->biases_g, learning);
-        //             tensor_subtract_binary(neuralnet->layer[layer].split->biases, neuralnet->layer[layer].split->biases_g);
-        //             linearized_from_op(neuralnet->learn->linearized, neuralnet->layer[layer].split->biases->op);
-        //             break;
-        //         }
-        //         case(layer_input): {
-        //             fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        //             exit(1);
-        //         }
-        //     }
-        // }
+        *neuralnet->learn = linearized_alloc();
+        for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
+            switch(neuralnet->layer[layer].layer_type) {
+                case(layer_dense): {
+                    tensor_multiply_unary(neuralnet->layer[layer].dense->weights_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].dense->weights, neuralnet->layer[layer].dense->weights_g);
+                    tensor_set_unary(neuralnet->layer[layer].dense->weights_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].dense->weights->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].dense->weights_g->op);
+                    tensor_multiply_unary(neuralnet->layer[layer].dense->biases_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].dense->biases, neuralnet->layer[layer].dense->biases_g);
+                    tensor_set_unary(neuralnet->layer[layer].dense->biases_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].dense->biases->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].dense->biases_g->op);
+                    break;
+                }
+                case(layer_convolution): {
+                    tensor_multiply_unary(neuralnet->layer[layer].convolution->weights_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].convolution->weights, neuralnet->layer[layer].convolution->weights_g);
+                    tensor_set_unary(neuralnet->layer[layer].convolution->weights_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].convolution->weights->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].convolution->weights_g->op);
+                    tensor_multiply_unary(neuralnet->layer[layer].convolution->biases_g, learning);
+                    tensor_subtract_binary(neuralnet->layer[layer].convolution->biases, neuralnet->layer[layer].convolution->biases_g);
+                    tensor_set_unary(neuralnet->layer[layer].convolution->biases_g, 0);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].convolution->biases->op);
+                    linearized_from_op(neuralnet->learn, neuralnet->layer[layer].convolution->biases_g->op);
+                    break;
+                }
+                case(layer_reduce): {
+                    /* Nothing to update. */
+                    break;
+                }
+                case(layer_split): {
+                    break;
+                }
+                case(layer_input): {
+                    fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                    exit(1);
+                }
+            }
+        }
     }
 }
 /* WARN: neuralnet_linearize `has` to be called `once` before this one. */
 void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input) {
     assert(neuralnet->forward);
     tensor_copy_binary(NEURALNET_INPUT_(neuralnet).activation, input);
-    /* TODO: Think about how to remove this and have it be a part of the neuralnet linearization. Swap the pointers for C jit and pass different pointer as kernel arg for compiled? That might remove the need for an input layer with an activation tensor in it. */
+    /* 
+     * TODO: Think about how to remove this and have it be a part of the neuralnet linearization. Swap the pointers for C jit and pass different pointer as kernel arg for compiled? That might remove the need for an input layer with an activation tensor in it. 
+     * This might be far harder than thought initially. In all places where resizing or offsetting the tensor, it can create real problems, when using and offset or resized tensor in the first place. This happens for when doing backpropagation with multiple samples at once.
+     */
     tensor_cpu_realize(NEURALNET_INPUT_(neuralnet).activation);
     linearized_run(neuralnet->forward);
 }
@@ -1196,17 +1294,19 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
         neuralnet_forward(neuralnet, training_input);
         tensor_copy_binary(NEURALNET_OUTPUT_(neuralnet).activation_g, NEURALNET_OUTPUT_(neuralnet).activation);
         tensor_subtract_binary(NEURALNET_OUTPUT_(neuralnet).activation_g, training_output);
-        // tensor_multiply_unary(NEURALNET_OUTPUTG_(neuralnet), 2);
-        // tensor_cpu_realize(NEURALNET_OUTPUT_(neuralnet).activation_g);
-        // linearized_run(neuralnet->backward);
+        // tensor_multiply_unary(NEURALNET_OUTPUT_(neuralnet).activation_g, 2);
+        tensor_cpu_realize(NEURALNET_OUTPUT_(neuralnet).activation_g);
+        linearized_run(neuralnet->backward);
     }
     tensor_resize_move(training_input, training_samples, input_z, input_y, input_x);
     tensor_offset_move(training_input, 0, 0, 0, 0);
     tensor_resize_move(training_output, training_samples, output_z, output_y, output_x);
     tensor_offset_move(training_output, 0, 0, 0, 0);
 }
-void neuralnet_learn(neuralnet_t *neuralnet, double learning) {
+/* NOTE: Have to call `neuralnet_backward()` before this one. This also clears the gradients. */
+void neuralnet_learn(neuralnet_t *neuralnet) {
     assert(neuralnet->learn);
+    linearized_run(neuralnet->learn);
 }
 void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
     if(strcmp(name, "")) {
