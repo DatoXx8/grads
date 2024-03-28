@@ -501,9 +501,7 @@ ALWAYS_INLINE void op_single_op_cpu_realize(op_t *op) {
                         for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
                             for(uint64_t y = 0; y < op->out_buffer->y_size; y++) {
                                 for(uint64_t x = 0; x < op->out_buffer->x_size; x++) {
-                                    if(BUFFER_AT_(op->out_buffer, a, z, y, x) < 0) {
-                                        BUFFER_AT_(op->out_buffer, a, z, y, x) *= -1;
-                                    }
+                                    BUFFER_AT_(op->out_buffer, a, z, y, x) = fabs(BUFFER_AT_(op->out_buffer, a, z, y, x));
                                 }
                             }
                         }
