@@ -117,6 +117,16 @@ static void activation_activate_(tensor_t *tensor, activation_t *activation_type
             break;
         }
         case(activation_gelu): {
+            /* NOTE: This is an approximation and can be found here: https://paperswithcode.com/method/gelu */
+            /* TODO: Write a brute forcer that minimizes the error by varying the constant. */
+            tensor_copy_binary(activation_type->intermediary, tensor);
+            tensor_max_unary(tensor, 0);
+            tensor_multiply_unary(activation_type->intermediary, 1.703);
+            tensor_negate_unary(activation_type->intermediary);
+            tensor_exp_unary(activation_type->intermediary);
+            tensor_add_unary(activation_type->intermediary, 1);
+            tensor_reciprocal_unary(activation_type->intermediary);
+            tensor_multiply_binary(tensor, activation_type->intermediary);
             break;
         }
         case(activation_leaky): {
@@ -127,7 +137,7 @@ static void activation_activate_(tensor_t *tensor, activation_t *activation_type
         }
     }
 }
-static norm_t norm_alloc(enum norm_e type, tensor_t *tensor) {
+static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor) {
     norm_t norm = {
         .type = type,
     };
@@ -169,7 +179,7 @@ static norm_t norm_alloc(enum norm_e type, tensor_t *tensor) {
     }
     return(norm);
 }
-static void norm_free(norm_t *norm) {
+static void norm_free_(norm_t *norm) {
     switch(norm->type) {
         case(norm_none): {
             break;
@@ -214,7 +224,7 @@ static void norm_calculate_layer_(norm_t *norm, tensor_t *tensor) {
 /* This ones tricky. Even the function signature isn't obvious. */
 static void norm_calculate_batch_(void) {
 }
-static void norm_apply(norm_t *norm, tensor_t *tensor) {
+static void norm_apply_(norm_t *norm, tensor_t *tensor) {
     switch(norm->type) {
         case(norm_none): {
             break;
@@ -290,11 +300,9 @@ void dense_free(dense_t *dense) {
 }
 /* NOTE: Automagically "flattens" the input tensor to shape `{1, 1, a * z * y * x, 1}`. */
 void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
-    uint64_t output_a = output->buffer->a_inherent;
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
@@ -311,9 +319,9 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
         tensor_sum_reduce(output, dense->input_multiply_temp_);
     }
 
-    tensor_reshape_move(input, input_a, input_z, input_y, input_x);
+    tensor_reshape_move(input, 1, input_z, input_y, input_x);
     tensor_offset_move(input, 0, 0, 0, 0);
-    tensor_resize_move(output, output_a, output_z, output_y, output_x);
+    tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
     tensor_resize_move(dense->weights, 1, 1, dense->input_size_, dense->output_size);
     tensor_offset_move(dense->weights, 0, 0, 0, 0);
@@ -321,7 +329,6 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
     tensor_add_binary(output, dense->biases);
 }
 void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
@@ -341,7 +348,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
     }
     tensor_resize_move(dense->full_temp_, 1, 1, dense->input_size_, dense->output_size);
     tensor_offset_move(dense->full_temp_, 0, 0, 0, 0);
-    tensor_reshape_move(input, input_a, input_z, input_y, input_x);
+    tensor_reshape_move(input, 1, input_z, input_y, input_x);
     tensor_add_binary(dense->weights_g, dense->full_temp_);
     /* Previous activation grad */
     tensor_reshape_move(input_gradient, 1, 1, dense->input_size_, 1);
@@ -356,7 +363,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
         tensor_sum_reduce(input_gradient, dense->output_multiply_temp_);
         // tensor_avg_reduce(input_gradient, dense->output_multiply_temp_);
     }
-    tensor_reshape_move(input_gradient, input_a, input_z, input_y, input_x);
+    tensor_reshape_move(input_gradient, 1, input_z, input_y, input_x);
     tensor_offset_move(input_gradient, 0, 0, 0, 0);
     tensor_resize_move(dense->weights, 1, 1, dense->input_size_, dense->output_size);
     tensor_offset_move(dense->weights, 0, 0, 0, 0);
@@ -441,11 +448,9 @@ void convolution_free(convolution_t *convolution) {
     free(convolution->single_temp_);
 }
 void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output) {
-    uint64_t input_a = input->buffer->a_inherent;
     uint64_t input_z = input->buffer->z_inherent;
     uint64_t input_y = input->buffer->y_inherent;
     uint64_t input_x = input->buffer->x_inherent;
-    uint64_t output_a = output->buffer->a_inherent;
     uint64_t output_z = output->buffer->z_inherent;
     uint64_t output_y = output->buffer->y_inherent;
     uint64_t output_x = output->buffer->x_inherent;
@@ -459,7 +464,7 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
     tensor_resize_move(convolution->biases, 1, 1, 1, 1);
     tensor_resize_move(convolution->weights, 1, input_z, convolution->kernel_size, convolution->kernel_size);
     tensor_resize_move(output, 1, 1, 1, 1);
-    tensor_resize_move(convolution->padded_input_, input_a, input_z, input_y, input_x);
+    tensor_resize_move(convolution->padded_input_, 1, input_z, input_y, input_x);
     tensor_offset_move(convolution->padded_input_, 0, 0, convolution->kernel_padding, convolution->kernel_padding);
     tensor_copy_binary(convolution->padded_input_, input);
     tensor_resize_move(convolution->padded_input_, 1, input_z, convolution->kernel_size, convolution->kernel_size);
@@ -486,9 +491,9 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
     tensor_offset_move(convolution->biases, 0, 0, 0, 0);
     tensor_resize_move(convolution->weights, convolution->filters, convolution->input_channels_, convolution->kernel_size, convolution->kernel_size);
     tensor_offset_move(convolution->weights, 0, 0, 0, 0);
-    tensor_resize_move(output, output_a, output_z, output_y, output_x);
+    tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
-    tensor_resize_move(convolution->padded_input_, input_a, input_z, input_y + 2 * convolution->kernel_padding, input_x + 2 * convolution->kernel_padding);
+    tensor_resize_move(convolution->padded_input_, 1, input_z, input_y + 2 * convolution->kernel_padding, input_x + 2 * convolution->kernel_padding);
     tensor_offset_move(convolution->padded_input_, 0, 0, 0, 0);
 }
 void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution, tensor_t *output, tensor_t *output_gradient) {
@@ -681,7 +686,72 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     tensor_resize_move(output, 1, output_z, output_y, output_x);
     tensor_offset_move(output, 0, 0, 0, 0);
 }
-void reduce_backward(tensor_t *input, tensor_t *input_gradient, reduce_t *reduce, tensor_t *output, tensor_t *output_gradient) {
+/* TODO: Replace this "solution", that is just flat out wrong (it approximates it somewhat), with the real solution. */
+void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient) {
+    uint64_t input_z = input_gradient->buffer->z_inherent;
+    uint64_t input_y = input_gradient->buffer->y_inherent;
+    uint64_t input_x = input_gradient->buffer->x_inherent;
+    uint64_t output_z = output_gradient->buffer->z_inherent;
+    uint64_t output_y = output_gradient->buffer->y_inherent;
+    uint64_t output_x = output_gradient->buffer->x_inherent;
+    uint64_t input_y_i;
+    uint64_t input_x_i;
+    tensor_resize_move(input_gradient, 1, 1, reduce->kernel_size, reduce->kernel_size);
+    tensor_resize_move(output_gradient, 1, 1, 1, 1);
+    switch(reduce->type) {
+        case(layer_reduce_max): {
+            for(uint64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(uint64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(uint64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_offset_move(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_offset_move(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_add_like_binary(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
+                }
+            }
+            break;
+        }
+        case(layer_reduce_min): {
+            for(uint64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(uint64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(uint64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_offset_move(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_offset_move(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_add_like_binary(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
+                }
+            }
+            break;
+        }
+        case(layer_reduce_avg): {
+            for(uint64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(uint64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(uint64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_offset_move(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_offset_move(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_add_like_binary(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
+                }
+            }
+            break;
+        }
+    }
+    tensor_resize_move(input_gradient, 1, input_z, input_y, input_x);
+    tensor_offset_move(input_gradient, 0, 0, 0, 0);
+    tensor_resize_move(output_gradient, 1, output_z, output_y, output_x);
+    tensor_offset_move(output_gradient, 0, 0, 0, 0);
 }
 void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
     if(strcmp(name, "")) {
@@ -844,16 +914,16 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
-            layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, 1, 1, layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, 1, 1, layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
-            *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_dense;
             layer.dense = calloc(1, sizeof(dense_t));
             *layer.dense = dense_alloc(layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_, layerconfig->dense_output_size);
             assert(layer.activation);
             assert(layer.activation_g);
-            assert(layer.activation_type);
+            assert(layer.activation_function);
             assert(layer.norm);
             assert(layer.dense);
             break;
@@ -865,16 +935,16 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
-            layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
-            *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_convolution;
             layer.convolution = calloc(1, sizeof(convolution_t));
             *layer.convolution = convolution_alloc(layerconfig->convolution_input_channels_, layerconfig->convolution_input_y_, layerconfig->convolution_input_x_, layerconfig->convolution_filters, layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
             assert(layer.activation);
             assert(layer.activation_g);
-            assert(layer.activation_type);
+            assert(layer.activation_function);
             assert(layer.norm);
             assert(layer.convolution);
             break;
@@ -892,7 +962,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             assert(layer.activation);
             assert(layer.activation_g);
             assert(layerconfig->norm_type == norm_none);
-            assert(layerconfig->activation_type == activation_identity);
+            assert(layerconfig->activation_function == activation_identity);
             assert(layer.reduce);
             break;
         }
@@ -901,16 +971,16 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_, layerconfig->split_input_y_, layerconfig->split_input_x_);
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_, layerconfig->split_input_y_, layerconfig->split_input_x_);
-            layer.activation_type = calloc(1, sizeof(activation_t));
-            *layer.activation_type = activation_alloc_(layerconfig->activation_type, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_, layerconfig->dense_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
-            *layer.norm = norm_alloc(layerconfig->norm_type, layer.activation);
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_split;
             layer.split = calloc(1, sizeof(split_t));
             *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels_, layerconfig->split_input_y_, layerconfig->split_input_x_);
             assert(layer.activation);
             assert(layer.activation_g);
-            assert(layer.activation_type);
+            assert(layer.activation_function);
             assert(layer.norm);
             assert(layer.split);
             break;
@@ -934,9 +1004,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             dense_free(layer->dense);
             free(layer->dense);
-            activation_free_(layer->activation_type);
-            free(layer->activation_type);
-            norm_free(layer->norm);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
             free(layer->norm);
             break;
         }
@@ -947,9 +1017,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             convolution_free(layer->convolution);
             free(layer->convolution);
-            activation_free_(layer->activation_type);
-            free(layer->activation_type);
-            norm_free(layer->norm);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
             free(layer->norm);
             break;
         }
@@ -969,9 +1039,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             split_free(layer->split);
             free(layer->split);
-            activation_free_(layer->activation_type);
-            free(layer->activation_type);
-            norm_free(layer->norm);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
             free(layer->norm);
             break;
         }
@@ -1094,14 +1164,14 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
                 dense_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation);
-                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
-                norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_function);
+                norm_apply_(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
             case(layer_convolution): {
                 convolution_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].convolution, neuralnet->layer[layer].activation);
-                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
-                norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_function);
+                norm_apply_(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
             case(layer_reduce): {
@@ -1110,8 +1180,8 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
             }
             case(layer_split): {
                 split_forward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer].split, neuralnet->layer[layer].activation);
-                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_type);
-                norm_apply(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
+                activation_activate_(neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_function);
+                norm_apply_(neuralnet->layer[layer].norm, neuralnet->layer[layer].activation);
                 break;
             }
             case(layer_input): {
@@ -1145,33 +1215,42 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
             }
         }
     }
+    /* TODO: Check where `tensor_set_unary(neuralnet->layer[layer - 1].activation_g, 0);` is supposed to go. */
     *neuralnet->backward = linearized_alloc();
     for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
             case(layer_dense): {
+                tensor_set_unary(neuralnet->layer[layer - 1].activation_g, 0);
                 dense_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].dense, neuralnet->layer[layer].activation_g);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases_g->op);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->weights_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->weights->op);
-                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].dense->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 break;
             }
             case(layer_convolution): {
+                /* NOTE: This is `padded_grad_` here, because gradients get calculate in there and then copied into `activation_g`. */
+                tensor_set_unary(neuralnet->layer[layer].convolution->padded_grad_, 0);
                 convolution_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].convolution, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->biases->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->weights_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->weights->op);
+                break;
+            }
+            case(layer_reduce): {
+                tensor_set_unary(neuralnet->layer[layer - 1].activation_g, 0);
+                reduce_backward(neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].reduce, neuralnet->layer[layer].activation_g);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 break;
             }
-            case(layer_reduce): {
-                break;
-            }
             case(layer_split): {
+                tensor_set_unary(neuralnet->layer[layer - 1].activation_g, 0);
                 split_backward(neuralnet->layer[layer - 1].activation, neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].split, neuralnet->layer[layer].activation, neuralnet->layer[layer].activation_g);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->biases_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->biases->op);
@@ -1275,8 +1354,10 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
     }
     tensor_resize_move(training_input, training_samples, input_z, input_y, input_x);
     tensor_offset_move(training_input, 0, 0, 0, 0);
+    tensor_cpu_realize(training_input);
     tensor_resize_move(training_output, training_samples, output_z, output_y, output_x);
     tensor_offset_move(training_output, 0, 0, 0, 0);
+    tensor_cpu_realize(training_output);
 }
 /* NOTE: Have to call `neuralnet_backward()` before this one. This also clears the gradients. */
 void neuralnet_learn(neuralnet_t *neuralnet) {
