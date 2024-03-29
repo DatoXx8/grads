@@ -110,7 +110,7 @@ typedef struct {
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride) ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
 extern reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_t input_y, uint64_t input_x, uint64_t kernel_size, uint64_t kernel_stride);
 extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
-extern void reduce_backward(tensor_t *input, tensor_t *input_gradient, reduce_t *reduce, tensor_t *output, tensor_t *output_gradient);
+extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
@@ -195,14 +195,14 @@ typedef struct {
     uint64_t residual_convolution_kernel_padding;
 
     /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
-    enum activation_e activation_type;
+    enum activation_e activation_function;
     /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     enum norm_e norm_type;
 } layerconfig_t;
 
 typedef struct {
     enum layer_e layer_type;
-    activation_t *activation_type;
+    activation_t *activation_function;
     norm_t *norm;
 
     dense_t *dense;
