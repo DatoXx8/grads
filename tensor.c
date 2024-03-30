@@ -34,15 +34,15 @@ ALWAYS_INLINE buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t
         .cl_x_stride = 1,
     };
     assert(buffer.values);
-    for(uint64_t i = 0; i < CL_NAME_SIZE; i++) {
+    for(uint64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
         buffer.cl_name[i] = 'a';
     }
     uint64_t name_offset = name_start++;
-    for(int64_t i = CL_NAME_SIZE - 1; i >= 0; i--) {
+    for(int64_t i = BUFFER_NAME_SIZE - 1; i >= 0; i--) {
         buffer.cl_name[i] += name_offset / (uint64_t) pow(26, i);
         name_offset= name_offset % (uint64_t) pow(26, i);
     }
-    buffer.cl_name[CL_NAME_SIZE] = '\0';
+    buffer.cl_name[BUFFER_NAME_SIZE] = '\0';
     return(buffer);
 }
 void buffer_free(buffer_t *buffer) {

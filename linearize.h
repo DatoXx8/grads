@@ -18,7 +18,7 @@ typedef struct {
     uint64_t x_stride;
     uint64_t offset;
     double *values;
-    char name[CL_NAME_SIZE + 1];
+    char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
 #define SIMPLE_AT(simple, a, z, y, x) (simple).values[a * (simple).a_stride + z * (simple).z_stride + y * (simple).y_stride + x * (simple).x_stride + (simple).offset]
