@@ -12,6 +12,13 @@
 #include "linearize.h"
 #include "tensor.h"
 
+/* TODO: Add other compile languages like CUDA. */
+enum compile_e {
+    compile_none, compile_c, compile_cl
+};
+
+/* TODO: Optimisation enum passed to compiler? */
+
 /* NOTE: These each get compiled and are the most basic descriptors of compute in this framework. */
 /* TODO: Indices shouldn't be stored I think. They should be computed via get_global_id() and stuff like that, as each loop has to be computed by the same kernel, which would be impossible if it was done with constant indices. */
 typedef struct {
