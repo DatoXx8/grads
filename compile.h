@@ -14,26 +14,23 @@
 
 /* TODO: Add other compile languages like CUDA. */
 enum compile_e {
-    compile_none, compile_c, compile_cl
+    compile_none, compile_cl
 };
 
-/* TODO: Optimisation enum passed to compiler? */
+/* TODO: Different optimisation enums for debugging. No-Copy, fusing ops once, twice etc. */
 
-/* NOTE: These each get compiled and are the most basic descriptors of compute in this framework. */
-/* TODO: Indices shouldn't be stored I think. They should be computed via get_global_id() and stuff like that, as each loop has to be computed by the same kernel, which would be impossible if it was done with constant indices. */
+/* These are instructions that happen again and only the offsets change, not the relative differences if ya catch my drift. */
 typedef struct {
-    char o_name[BUFFER_NAME_SIZE + 1];
-    uint64_t o_index;
-    char i_name[BUFFER_NAME_SIZE + 1];
-    uint64_t i_index;
-    enum operation_e type;
-    enum unary_e unary_type;
-    double unary_value;
-    enum binary_e binary_type;
-    enum reduce_e reduce_type;
-} compile_op_t;
+    uint64_t loop_number;
+    uint64_t loop_length;
+    simple_op_t **loop_instance;
+} compile_loop_t;
+/* These will tell neuralnet_forward how to call each compiled program via the kernels within it. These should exist for each compile option. */
+typedef struct {
+} cl_kernel_t;
+typedef struct {
+} cl_compiled_t;
 
-/* NOTE: This is solely a test function to see how to approach this. */
-extern void compile_linearized_to_c(const char *filename, linearized_t *linearized);
+extern void compile_linearized_to_cl(const char *filename, linearized_t *linearized);
 
 #endif /* COMPILE_H_ */

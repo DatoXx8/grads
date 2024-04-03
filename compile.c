@@ -2,9 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "linearize.h"
 #include "tensor.h"
+#include "utils.h"
 #include "compile.h"
 
 const int64_t initial_source_size = 100;
@@ -646,4 +648,76 @@ void compile_linearized_to_c(const char *filename, linearized_t *linearized) {
     fwrite("}\n", 1, 2, source_file);
     fclose(source_file);
     free(source);
+}
+static void compile_loop_free(compile_loop_t *compile_loop) {
+    for(uint64_t i = 0; i < compile_loop->loop_number; i++) {
+        free(compile_loop->loop_instance[i]);
+    }
+    free(compile_loop->loop_instance);
+}
+static void compile_loop_configure(compile_loop_t *compile_loop, simple_op_t **simple_op, uint64_t loop_length, uint64_t loop_number) {
+    compile_loop->loop_length = loop_length;
+    compile_loop->loop_number = loop_number;
+    compile_loop->loop_instance = calloc(loop_number, sizeof(simple_op_t *));
+    for(uint64_t i = 0; i < loop_number; i++) {
+        compile_loop->loop_instance = calloc(loop_length, sizeof(simple_op_t));
+        for(uint64_t j = 0; j < loop_length; j++) {
+            compile_loop->loop_instance[i][j] = simple_op[i][j];
+        }
+    }
+}
+/* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
+static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op, simple_op_t *compared_op) {
+    /* NOTE: This comparison is probably not needed technically. */
+    if(starting_op->type != compared_op->type) { return(false); }
+    /* NOTE: Always checking every single one cuz it probably takes longer to go to the different cases. */
+    if(starting_op->unary_type != compared_op->unary_type) { return(false); }
+    if(starting_op->binary_type != compared_op->binary_type) { return(false); }
+    if(starting_op->reduce_type != compared_op->reduce_type) { return(false); }
+    if(starting_op->in_buffer.name != compared_op->in_buffer.name) { return(false); }
+    if(starting_op->in_buffer.a_size != compared_op->in_buffer.a_size) { return(false); }
+    if(starting_op->in_buffer.z_size != compared_op->in_buffer.z_size) { return(false); }
+    if(starting_op->in_buffer.y_size != compared_op->in_buffer.y_size) { return(false); }
+    if(starting_op->in_buffer.x_size != compared_op->in_buffer.x_size) { return(false); }
+    // if(starting_op->in_buffer.offset != compared_op->in_buffer.offset) { return(false); }
+    /* NOTE: Not just doing `if(starting_op->type)` here, because I might add another `operation_e` member which would break it if `operation_unary` is no longer 0. */
+    if(starting_op->type != operation_unary) {
+        if(starting_op->out_buffer.name != compared_op->out_buffer.name) { return(false); }
+        if(starting_op->out_buffer.a_size != compared_op->out_buffer.a_size) { return(false); }
+        if(starting_op->out_buffer.z_size != compared_op->out_buffer.z_size) { return(false); }
+        if(starting_op->out_buffer.y_size != compared_op->out_buffer.y_size) { return(false); }
+        if(starting_op->out_buffer.x_size != compared_op->out_buffer.x_size) { return(false); }
+        // if(starting_op->out_buffer.offset != compared_op->out_buffer.offset) { return(false); }
+    }
+    return(true);
+}
+/* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf` for format-string appending. */
+static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop, linearized_t *linearized, uint64_t start_index) {
+    uint64_t loop_length = 0;
+    uint64_t loop_number = 0;
+    uint64_t simulated_number = 5;
+    /* TODO: Allocate this only once when `loop_number` has been determined. */
+    simple_op_t **loop_instances = calloc(simulated_number, sizeof(simple_op_t *));
+    loop_instances[0] = calloc(simulated_number, sizeof(simple_op_t));
+    /* Tried to find loops starting at the last index. */
+    /* FIX: Should probably already be handled by the "normal" loop. */
+    if(start_index == linearized->op_count - 1) {
+        loop_instances[0][0] = linearized->simple[linearized->op_count - 1];
+        compile_loop_configure(compile_loop, loop_instances, 1, 1);
+        free(loop_instances[0]);
+        free(loop_instances);
+        return(1);
+    }
+
+    simple_op_t starting_op = linearized->simple[start_index];
+    for(uint64_t i = start_index; i < linearized->op_count; i++) {
+    }
+
+    for(uint64_t i = 0; i < simulated_number; i++) {
+        free(loop_instances[i]);
+    }
+    free(loop_instances);
+    return(0);
+}
+void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
 }
