@@ -50,11 +50,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->out_buffer.x_stride = op->out_buffer->cl_x_stride;
     simple_op->out_buffer.offset = op->out_buffer->cl_offset;
     simple_op->out_buffer.values = op->out_buffer->values;
-    /* TODO: This should be memcpy. */
-    for(uint64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
-        simple_op->out_buffer.name[i] = op->out_buffer->cl_name[i];
-    }
-    simple_op->out_buffer.name[BUFFER_NAME_SIZE] = '\0';
+    strncpy(simple_op->out_buffer.name, op->out_buffer->cl_name, BUFFER_NAME_SIZE + 1);
     if((op->type == operation_binary) || (op->type == operation_reduce)) {
         simple_op->in_buffer.a_size = op->in_buffer->cl_a_size;
         simple_op->in_buffer.z_size = op->in_buffer->cl_z_size;
@@ -66,11 +62,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
         simple_op->in_buffer.x_stride = op->in_buffer->cl_x_stride;
         simple_op->in_buffer.offset = op->in_buffer->cl_offset;
         simple_op->in_buffer.values = op->in_buffer->values;
-        /* TODO: This should be memcpy. */
-        for(uint64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
-            simple_op->in_buffer.name[i] = op->in_buffer->cl_name[i];
-        }
-        simple_op->in_buffer.name[BUFFER_NAME_SIZE] = '\0';
+        strncpy(simple_op->in_buffer.name, op->in_buffer->cl_name, BUFFER_NAME_SIZE + 1);
     }
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
