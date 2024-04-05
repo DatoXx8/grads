@@ -5,7 +5,7 @@
 
 #include "utils.h"
 
-#define BUFFER_NAME_SIZE 16 
+#define BUFFER_NAME_SIZE 16
 typedef struct {
     uint64_t a_inherent;
     uint64_t z_inherent;
@@ -32,41 +32,62 @@ typedef struct {
     uint64_t cl_y_size;
     uint64_t cl_x_size;
     uint64_t cl_offset;
-
+    uint64_t cl_a_offset;
+    uint64_t cl_z_offset;
+    uint64_t cl_y_offset;
+    uint64_t cl_x_offset;
 } buffer_t;
 
 extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 extern void buffer_free(buffer_t *buffer);
 
-#define BUFFER_AT(buffer, a, z, y, x) ((buffer).values[(buffer).a_stride * (a) + (buffer).z_stride * (z) + (buffer).y_stride * (y) + (buffer).x_stride * (x) + (buffer).offset])
-#define BUFFER_AT_(buffer, a, z, y, x) ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
+#define BUFFER_AT(buffer, a, z, y, x)                                                                                                                          \
+    ((buffer).values[(buffer).a_stride * (a) + (buffer).z_stride * (z) + (buffer).y_stride * (y) + (buffer).x_stride * (x) + (buffer).offset])
+#define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
+    ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
 
 /* TODO: Op that specifies parallelization? like spec_parallel that has a parallelization id, where ops with the same id can get compiled to be in parallel? and then spec_break for making a new parallelization group? */
 
-enum operation_e {
-    operation_unary, operation_binary, operation_reduce, operation_move
-};
+enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
-    unary_add, unary_subtract, unary_multiply, unary_divide,
-    unary_exp, unary_log, unary_square, unary_sqrt,
-    unary_negate, unary_reciprocal, unary_max, unary_min,
-    unary_set, unary_random, unary_tanh, unary_absolute, unary_sign
+    unary_add,
+    unary_subtract,
+    unary_multiply,
+    unary_divide,
+    unary_exp,
+    unary_log,
+    unary_square,
+    unary_sqrt,
+    unary_negate,
+    unary_reciprocal,
+    unary_max,
+    unary_min,
+    unary_set,
+    unary_random,
+    unary_tanh,
+    unary_absolute,
+    unary_sign
 };
 enum binary_e {
-    binary_add, binary_subtract, binary_multiply, binary_divide,
-    binary_max, binary_min, binary_copy,
-    /* Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
-    binary_add_like, binary_subtract_like, binary_multiply_like, binary_divide_like,
-    /* Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
-    binary_max_like, binary_min_like, binary_copy_like
+    binary_add,
+    binary_subtract,
+    binary_multiply,
+    binary_divide,
+    binary_max,
+    binary_min,
+    binary_copy,
+    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
+    binary_add_like,
+    binary_subtract_like,
+    binary_multiply_like,
+    binary_divide_like,
+    binary_max_like,
+    binary_min_like,
+    binary_copy_like
 };
-enum reduce_e {
-    reduce_sum, reduce_max, reduce_avg, reduce_min
-};
+enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
 /* NOTE: Move ops have 0 cost, aside from the upfront cost when linearizing and compiling. */
-enum move_e {
-    move_reshape, move_resize, move_offset
-};
+enum move_e { move_reshape, move_resize, move_offset };
 
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
 typedef struct op {
