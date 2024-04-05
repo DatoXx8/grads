@@ -17,12 +17,18 @@ typedef struct {
     uint64_t y_stride;
     uint64_t x_stride;
     uint64_t offset;
+    uint64_t a_offset;
+    uint64_t z_offset;
+    uint64_t y_offset;
+    uint64_t x_offset;
     double *values;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
-#define SIMPLE_AT(simple, a, z, y, x) (simple).values[a * (simple).a_stride + z * (simple).z_stride + y * (simple).y_stride + x * (simple).x_stride + (simple).offset]
-#define SIMPLE_AT_(simple, a, z, y, x) (simple)->values[a * (simple)->a_stride + z * (simple)->z_stride + y * (simple)->y_stride + x * (simple)->x_stride + (simple)->offset]
+#define SIMPLE_AT(simple, a, z, y, x)                                                                                                                          \
+    (simple).values[a * (simple).a_stride + z * (simple).z_stride + y * (simple).y_stride + x * (simple).x_stride + (simple).offset]
+#define SIMPLE_AT_(simple, a, z, y, x)                                                                                                                         \
+    (simple)->values[a * (simple)->a_stride + z * (simple)->z_stride + y * (simple)->y_stride + x * (simple)->x_stride + (simple)->offset]
 
 /* NOTE: Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
