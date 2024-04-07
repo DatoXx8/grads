@@ -107,12 +107,11 @@ static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop,
     free(loop_instances);
     return (loop_length * loop_number);
 }
-const int64_t initial_source_size = 1000;
-const int64_t initial_arg_num = 10;
-const int64_t max_arg_size = 24;
-const int64_t max_index_digits = 9;
+const uint64_t initial_source_size = 1000;
+const uint64_t max_arg_size = 24;
+const uint64_t max_index_digits = 9;
 /* NOTE: Biggest I found was 131 for `max` or `min` binary ops*/
-const int64_t max_op_size = 320;
+const uint64_t max_op_size = 320;
 #define EXPAND_SOURCE_IF_NEEDED()                                                                                                                              \
     if(source_size - (curr - source) < max_op_size) {                                                                                                          \
         source_size *= 2;                                                                                                                                      \
@@ -138,9 +137,9 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 curr +=
                     snprintf(curr, max_op_size,
                              "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_size,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_size, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_size, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_size);
+                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].unary_type) {
@@ -381,17 +380,17 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 curr +=
                     snprintf(curr, max_op_size,
                              "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_size,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_size, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_size, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_size);
+                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 curr +=
                     snprintf(curr, max_op_size,
                              "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_size,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_size, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_size, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_size);
+                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].binary_type) {
@@ -583,17 +582,17 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 curr +=
                     snprintf(curr, max_op_size,
                              "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_size,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_size, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_size, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_size);
+                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 curr +=
                     snprintf(curr, max_op_size,
                              "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_size,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_size, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_size, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_size);
+                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].reduce_type) {
@@ -605,7 +604,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                             for(uint64_t z = 0; z < compile_loop->loop_instance[0][i].in_buffer.z_size; z++) {
                                 for(uint64_t y = 0; y < compile_loop->loop_instance[0][i].in_buffer.y_size; y++) {
                                     for(uint64_t x = 0; x < compile_loop->loop_instance[0][i].in_buffer.x_size; x++) {
-                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu] = %s[%s_off_%lu + %lu];\n",
+                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu] += %s[%s_off_%lu + %lu];\n",
                                                          compile_loop->loop_instance[0][i].out_buffer.name, compile_loop->loop_instance[0][i].out_buffer.name,
                                                          i, compile_loop->loop_instance[0][i].in_buffer.name, compile_loop->loop_instance[0][i].in_buffer.name,
                                                          i, SIMPLE_INDEX(compile_loop->loop_instance[0][i].in_buffer, a, z, y, x));
@@ -621,7 +620,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                             for(uint64_t z = 0; z < compile_loop->loop_instance[0][i].in_buffer.z_size; z++) {
                                 for(uint64_t y = 0; y < compile_loop->loop_instance[0][i].in_buffer.y_size; y++) {
                                     for(uint64_t x = 0; x < compile_loop->loop_instance[0][i].in_buffer.x_size; x++) {
-                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu] = %s[%s_off_%lu + %lu];\n",
+                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu] += %s[%s_off_%lu + %lu];\n",
                                                          compile_loop->loop_instance[0][i].out_buffer.name, compile_loop->loop_instance[0][i].out_buffer.name,
                                                          i, compile_loop->loop_instance[0][i].in_buffer.name, compile_loop->loop_instance[0][i].in_buffer.name,
                                                          i, SIMPLE_INDEX(compile_loop->loop_instance[0][i].in_buffer, a, z, y, x));
@@ -649,11 +648,12 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 break;
             }
             case(operation_move): {
-                fprintf(stderr, "ERROR: Tried to compile move operation to OpenCL at index %lu\n", i);
-                exit(1);
+                ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", i);
             }
         }
     }
+    uint64_t arg_num = 1;
+    char **args = malloc(arg_num * sizeof(char *));
 
     fwrite(source, sizeof(char), curr - source, f);
     fclose(f);
@@ -663,139 +663,8 @@ void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
     /* Clears file. */
     FILE *f = fopen(filename, "w");
     fclose(f);
-    uint64_t i = compile_loop_from_linearized_index(&compile_loop, linearized, 1);
+    uint64_t i = compile_loop_from_linearized_index(&compile_loop, linearized, 0);
     printf("len %lu\n", i);
     compile_loop_print(&compile_loop, 4, 0, "");
     compile_loop_to_cl(filename, &compile_loop, 2, 3);
 }
-
-/* 
-    So, how to do offsetting when I only have a single kernel, that computes a loop (For now, maybe the whole thing eventually)? Passing different pointers, such that the constant offsets work seems impossible. get_global_id seems like the only way. This will require some more thinking.
- */
-
-/* TODO: Use this as a template for compiling single ops to OpenCL code. */
-// static void compile_single_op_cl(const char *filename, simple_op_t *simple_op) {
-//     int64_t arg_capacity = initial_arg_num;
-//     int64_t source_size = initial_source_size;
-//     int64_t offset;
-//     int64_t arg_num = 0;
-//     int64_t found_o;
-//     int64_t found_i;
-//     FILE *source_file = fopen(filename, "w");
-//     char *source = calloc(initial_source_size, sizeof(char));
-//     char *curr = source;
-//     char *func_name = "my_net";
-//     char **args = calloc(initial_arg_num, sizeof(char *));
-//     for(uint64_t i = 0; i < initial_arg_num; i++) {
-//         args[i] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-//     }
-//
-//     for(uint64_t i = 0; i < linearized->op_count; i++) {
-//         switch(linearized->simple[i].type) {
-//             case(operation_unary): {
-//                 found_o = 0;
-//                 for(int64_t j = 0; j < arg_num; j++) {
-//                     if(!strcmp(args[j], linearized->simple[i].out_buffer.name)) {
-//                         found_o = 1;
-//                         break;
-//                     }
-//                 }
-//                 if(!found_o) {
-//                     if(arg_num == arg_capacity) {
-//                         arg_capacity *= 2;
-//                         args = realloc(args, arg_capacity);
-//                     }
-//                     args[arg_num] = strncpy(args[arg_num], linearized->simple[i].out_buffer.name, BUFFER_NAME_SIZE + 1);
-//                     arg_num++;
-//                 }
-//                 break;
-//             }
-//             case(operation_binary): {
-//                 found_o = 0;
-//                 for(int64_t j = 0; j < arg_num; j++) {
-//                     if(!strcmp(args[j], linearized->simple[i].out_buffer.name)) {
-//                         found_o = 1;
-//                         break;
-//                     }
-//                 }
-//                 if(!found_o) {
-//                     if(arg_num == arg_capacity) {
-//                         arg_capacity *= 2;
-//                         args = realloc(args, arg_capacity);
-//                     }
-//                     args[arg_num] = strncpy(args[arg_num], linearized->simple[i].out_buffer.name, BUFFER_NAME_SIZE + 1);
-//                     arg_num++;
-//                 }
-//                 found_i = 0;
-//                 for(int64_t j = 0; j < arg_num; j++) {
-//                     if(!strcmp(args[j], linearized->simple[i].in_buffer.name)) {
-//                         found_i = 1;
-//                         break;
-//                     }
-//                 }
-//                 if(!found_i) {
-//                     if(arg_num == arg_capacity) {
-//                         arg_capacity *= 2;
-//                         args = realloc(args, arg_capacity);
-//                     }
-//                     args[arg_num] = strncpy(args[arg_num], linearized->simple[i].in_buffer.name, BUFFER_NAME_SIZE + 1);
-//                     arg_num++;
-//                 }
-//                 break;
-//             }
-//             case(operation_reduce): {
-//                 found_o = 0;
-//                 for(int64_t j = 0; j < arg_num; j++) {
-//                     if(!strcmp(args[j], linearized->simple[i].out_buffer.name)) {
-//                         found_o = 1;
-//                         break;
-//                     }
-//                 }
-//                 if(!found_o) {
-//                     if(arg_num == arg_capacity) {
-//                         arg_capacity *= 2;
-//                         args = realloc(args, arg_capacity);
-//                     }
-//                     args[arg_num] = strncpy(args[arg_num], linearized->simple[i].out_buffer.name, BUFFER_NAME_SIZE + 1);
-//                     arg_num++;
-//                 }
-//                 found_i = 0;
-//                 for(int64_t j = 0; j < arg_num; j++) {
-//                     if(!strcmp(args[j], linearized->simple[i].in_buffer.name)) {
-//                         found_i = 1;
-//                         break;
-//                     }
-//                 }
-//                 if(!found_i) {
-//                     if(arg_num == arg_capacity) {
-//                         arg_capacity *= 2;
-//                         args = realloc(args, arg_capacity);
-//                     }
-//                     args[arg_num] = strncpy(args[arg_num], linearized->simple[i].in_buffer.name, BUFFER_NAME_SIZE + 1);
-//                     arg_num++;
-//                 }
-//                 break;
-//             }
-//             case(operation_move): {
-//                 fprintf(stderr, "ERROR: Tried to compile move operation for file %s at index %lu.\n", filename, i);
-//             }
-//         }
-//     }
-//     fwrite("void ", 1, 5, source_file);
-//     fwrite(func_name, 1, strlen(func_name), source_file);
-//     fwrite("(", 1, 1, source_file);
-//     for(int64_t i = 0; i < arg_num; i++) {
-//         fwrite("double *", 1, 8, source_file);
-//         fwrite(args[i], 1, strlen(args[i]), source_file);
-//         if(i != arg_num - 1) {
-//             fwrite(", ", 1, 2, source_file);
-//         }
-//         free(args[i]);
-//     }
-//     fwrite(") {\n", 1, 4, source_file);
-//     free(args);
-//     fwrite(source, 1, strlen(source), source_file);
-//     fwrite("}\n", 1, 2, source_file);
-//     fclose(source_file);
-//     free(source);
-// }
