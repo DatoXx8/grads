@@ -16,5 +16,6 @@
 #define PRINT_TIME                                                                                                                                             \
     printf("TIME: %.9lfs\n", ((double)stop.tv_sec + 1.0e-9 * stop.tv_nsec) - ((double)start.tv_sec + 1.0e-9 * start.tv_nsec));                                 \
     printf("TIME:   %*smmmµµµnnn\n", (int)(floor(log10(stop.tv_sec - start.tv_sec))), "");
+#define TODO() fprintf(stderr, "ERROR: Tried to execute not implemented feature at line %d in %s\n", __LINE__, __FILE__);
 
 #endif
