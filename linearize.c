@@ -851,7 +851,7 @@ linearized_t linearized_alloc(void) {
     };
     assert(linearized.simple);
 
-    return (linearized);
+    return linearized;
 }
 /* NOTE: Does `not` override the linearized ops instead appends ops. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {

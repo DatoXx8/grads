@@ -41,7 +41,7 @@ ALWAYS_INLINE buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t
         name_offset = name_offset % (uint64_t)pow(26, i);
     }
     buffer.cl_name[BUFFER_NAME_SIZE] = '\0';
-    return (buffer);
+    return buffer;
 }
 void buffer_free(buffer_t *buffer) {
     free(buffer->values);
@@ -59,7 +59,7 @@ op_t op_alloc(void) {
     op.child_capacity = initial_child_number;
     op.child = calloc(initial_child_number, sizeof(op_t *));
     assert(op.child);
-    return (op);
+    return op;
 }
 void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
     if(output_parent) {
@@ -866,7 +866,7 @@ tensor_t tensor_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
     };
     assert(tensor.buffer);
     *tensor.buffer = buffer_alloc(a, z, y, x);
-    return (tensor);
+    return tensor;
 }
 void tensor_free(tensor_t *tensor) {
     if(tensor->op) {

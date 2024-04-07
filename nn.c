@@ -50,7 +50,7 @@ static activation_t activation_alloc_(enum activation_e activation_type, uint64_
             break;
         }
     }
-    return (activation);
+    return activation;
 }
 static void activation_free_(activation_t *activation) {
     switch(activation->type) {
@@ -179,7 +179,7 @@ static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor) {
             break;
         }
     }
-    return (norm);
+    return norm;
 }
 static void norm_free_(norm_t *norm) {
     switch(norm->type) {
@@ -281,7 +281,7 @@ dense_t dense_alloc(uint64_t input_size, uint64_t output_size) {
     *dense.output_multiply_temp_ = tensor_alloc(1, 1, 1, output_size);
     *dense.full_temp_ = tensor_alloc(1, 1, input_size, output_size);
 
-    return (dense);
+    return dense;
 }
 void dense_free(dense_t *dense) {
     tensor_free(dense->biases);
@@ -431,7 +431,7 @@ convolution_t convolution_alloc(uint64_t input_channels, uint64_t input_y, uint6
     *convolution.kernel_temp_ = tensor_alloc(1, input_channels, kernel_size, kernel_size);
     *convolution.single_temp_ = tensor_alloc(1, 1, 1, 1);
 
-    return (convolution);
+    return convolution;
 }
 void convolution_free(convolution_t *convolution) {
     tensor_free(convolution->biases);
@@ -620,7 +620,7 @@ reduce_t reduce_alloc(enum layer_reduce_e type, uint64_t input_channels, uint64_
         .kernel_stride = kernel_stride,
     };
 
-    return (reduce);
+    return reduce;
 }
 void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     uint64_t input_z = input->buffer->z_inherent;
@@ -799,7 +799,7 @@ split_t split_alloc(uint64_t filters, uint64_t input_channels, uint64_t input_y,
     *split.weights_g = tensor_alloc(filters, input_channels, input_y, input_x);
     *split.input_temp_ = tensor_alloc(1, input_channels, input_y, input_x);
 
-    return (split);
+    return split;
 }
 void split_free(split_t *split) {
     tensor_free(split->biases);
@@ -1007,7 +1007,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             break;
         }
     }
-    return (layer);
+    return layer;
 }
 void layer_free(layer_t *layer) {
     switch(layer->layer_type) {
@@ -1126,7 +1126,7 @@ neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig) {
         }
     }
 
-    return (neuralnet);
+    return neuralnet;
 }
 void neuralnet_free(neuralnet_t *neuralnet) {
     for(uint64_t i = 0; i < neuralnet->layers; i++) { layer_free(&neuralnet->layer[i]); }

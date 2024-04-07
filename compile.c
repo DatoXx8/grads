@@ -44,27 +44,26 @@ static void compile_loop_print(compile_loop_t *compile_loop, int padding, int of
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
 static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op, simple_op_t *compared_op) {
     /* NOTE: This comparison is probably not needed technically. */
-    if(starting_op->type != compared_op->type) { return (false); }
+    if(starting_op->type != compared_op->type) { return false; }
     /* NOTE: Always checking every single one cuz it probably takes longer to go to the different cases. */
-    if(starting_op->unary_type != compared_op->unary_type) { return (false); }
-    if(starting_op->binary_type != compared_op->binary_type) { return (false); }
-    if(starting_op->reduce_type != compared_op->reduce_type) { return (false); }
-    if(strncmp(starting_op->out_buffer.name, compared_op->out_buffer.name, BUFFER_NAME_SIZE)) { return (false); }
-    if(starting_op->out_buffer.a_size != compared_op->out_buffer.a_size) { return (false); }
-    if(starting_op->out_buffer.z_size != compared_op->out_buffer.z_size) { return (false); }
-    if(starting_op->out_buffer.y_size != compared_op->out_buffer.y_size) { return (false); }
-    if(starting_op->out_buffer.x_size != compared_op->out_buffer.x_size) { return (false); }
-    // if(starting_op->out_buffer.offset != compared_op->out_buffer.offset) { return(false); }
+    if(starting_op->unary_type != compared_op->unary_type) { return false; }
+    if(starting_op->binary_type != compared_op->binary_type) { return false; }
+    if(starting_op->reduce_type != compared_op->reduce_type) { return false; }
+
+    if(strncmp(starting_op->out_buffer.name, compared_op->out_buffer.name, BUFFER_NAME_SIZE)) { return false; }
+    if(starting_op->out_buffer.a_size != compared_op->out_buffer.a_size) { return false; }
+    if(starting_op->out_buffer.z_size != compared_op->out_buffer.z_size) { return false; }
+    if(starting_op->out_buffer.y_size != compared_op->out_buffer.y_size) { return false; }
+    if(starting_op->out_buffer.x_size != compared_op->out_buffer.x_size) { return false; }
     /* NOTE: Not just doing `if(starting_op->type)` here, because I might add another `operation_e` member which would break it if `operation_unary` is no longer 0. */
     if(starting_op->type != operation_unary) {
-        if(strncmp(starting_op->in_buffer.name, compared_op->in_buffer.name, BUFFER_NAME_SIZE)) { return (false); }
-        if(starting_op->in_buffer.a_size != compared_op->in_buffer.a_size) { return (false); }
-        if(starting_op->in_buffer.z_size != compared_op->in_buffer.z_size) { return (false); }
-        if(starting_op->in_buffer.y_size != compared_op->in_buffer.y_size) { return (false); }
-        if(starting_op->in_buffer.x_size != compared_op->in_buffer.x_size) { return (false); }
-        // if(starting_op->in_buffer.offset != compared_op->in_buffer.offset) { return(false); }
+        if(strncmp(starting_op->in_buffer.name, compared_op->in_buffer.name, BUFFER_NAME_SIZE)) { return false; }
+        if(starting_op->in_buffer.a_size != compared_op->in_buffer.a_size) { return false; }
+        if(starting_op->in_buffer.z_size != compared_op->in_buffer.z_size) { return false; }
+        if(starting_op->in_buffer.y_size != compared_op->in_buffer.y_size) { return false; }
+        if(starting_op->in_buffer.x_size != compared_op->in_buffer.x_size) { return false; }
     }
-    return (true);
+    return true;
 }
 /* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf` for format-string appending. */
 static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop, linearized_t *linearized, uint64_t start_index) {
@@ -85,7 +84,7 @@ static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop,
         compile_loop_configure(compile_loop, loop_instances, 1, 1);
         free(loop_instances[0]);
         free(loop_instances);
-        return (1);
+        return 1;
     }
     for(uint64_t i = start_index; i < linearized->op_count; i += loop_length) {
         if(compile_loop_simple_op_equal(&starting_op, &linearized->simple[i])) {
@@ -105,12 +104,12 @@ static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop,
 
     for(uint64_t i = 0; i < loop_number; i++) { free(loop_instances[i]); }
     free(loop_instances);
-    return (loop_length * loop_number);
+    return loop_length * loop_number;
 }
 const uint64_t initial_source_size = 1000;
 const uint64_t max_arg_size = 24;
 const uint64_t max_index_digits = 9;
-/* NOTE: Biggest I found was 131 for `max` or `min` binary ops*/
+/* NOTE: Biggest I found was 131 for `max` or `min` binary ops. */
 const uint64_t max_op_size = 320;
 #define EXPAND_SOURCE_IF_NEEDED()                                                                                                                              \
     if(source_size - (curr - source) < max_op_size) {                                                                                                          \
@@ -119,7 +118,7 @@ const uint64_t max_op_size = 320;
         source = realloc(source, source_size);                                                                                                                 \
         curr = source + offset;                                                                                                                                \
     }
-/* NOTE: Appends code for kernel that computes `compile_loop` utilizing `work_groups` work groups with `work_items` work items a piece. */
+/* Appends code for kernel that computes `compile_loop` utilizing `work_groups` work groups with `work_items` work items a piece. */
 static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loop, uint64_t work_groups, uint64_t work_items) {
     uint64_t loops_per_workgroup = compile_loop->loop_number / work_groups;
     uint64_t leftover_loops = compile_loop->loop_number % work_groups;
@@ -128,6 +127,12 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     char *curr = source;
     uint64_t global_id_counter = 0;
     uint64_t offset;
+
+    /* TODO: Think about how to handle cases where `global_id` skips numbers, like with stride 2 convolutions. */
+    /* TODO: Gather all args. */
+    uint64_t arg_num = 1;
+    char **args = malloc(arg_num * sizeof(char *));
+    args[0] = malloc(max_arg_size * sizeof(char));
 
     FILE *f = fopen(filename, "a");
 
@@ -263,7 +268,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                             for(uint64_t z = 0; z < compile_loop->loop_instance[0][i].out_buffer.z_size; z++) {
                                 for(uint64_t y = 0; y < compile_loop->loop_instance[0][i].out_buffer.y_size; y++) {
                                     for(uint64_t x = 0; x < compile_loop->loop_instance[0][i].out_buffer.x_size; x++) {
-                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu + %lu] = log(%s[%s_off_%lu + %lu]);\n",
+                                        curr += snprintf(curr, max_op_size, "%s[%s_off_%lu + %lu] = sqrt(%s[%s_off_%lu + %lu]);\n",
                                                          compile_loop->loop_instance[0][i].out_buffer.name, compile_loop->loop_instance[0][i].out_buffer.name,
                                                          i, SIMPLE_INDEX(compile_loop->loop_instance[0][i].out_buffer, a, z, y, x),
                                                          compile_loop->loop_instance[0][i].out_buffer.name, compile_loop->loop_instance[0][i].out_buffer.name,
@@ -652,11 +657,15 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
             }
         }
     }
-    uint64_t arg_num = 1;
-    char **args = malloc(arg_num * sizeof(char *));
 
     fwrite(source, sizeof(char), curr - source, f);
     fclose(f);
+
+    free(source);
+    for(uint64_t i = 0; i < arg_num; i++) {
+        free(args[i]);
+    }
+    free(args);
 }
 void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
     compile_loop_t compile_loop;

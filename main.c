@@ -70,7 +70,7 @@ int main(void) {
         .activation_function = activation_identity,
     };
     layerconfig[0] = &l0;
-    layerconfig[1] = &l1;
+    layerconfig[1] = &l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(layers, layerconfig);
 
@@ -89,5 +89,5 @@ int main(void) {
 
     STOP_TIME();
     PRINT_TIME();
-    return (0);
+    return 0;
 }
