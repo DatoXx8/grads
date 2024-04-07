@@ -369,8 +369,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
             break;
         }
         case(operation_move): {
-            fprintf(stderr, "ERROR: simple_op should not be a move operation!\n");
-            exit(1);
+            ERROR("ERROR: simple_op should not be a move operation!\n");
         }
     }
 }
@@ -837,8 +836,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             break;
         }
         case(operation_move): {
-            fprintf(stderr, "ERROR: simple_op should not be a move operation!\n");
-            exit(1);
+            ERROR("ERROR: simple_op should not be a move operation!\n");
         }
     }
 }

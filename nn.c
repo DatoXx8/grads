@@ -7,6 +7,7 @@
 #include "linearize.h"
 #include "nn.h"
 #include "tensor.h"
+#include "utils.h"
 
 static activation_t activation_alloc_(enum activation_e activation_type, uint64_t a, uint64_t z, uint64_t y, uint64_t x) {
     activation_t activation = {0};
@@ -1120,8 +1121,7 @@ neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig) {
                 break;
             }
             case(layer_input): {
-                fprintf(stderr, "ERROR: Tried to allocate input layer at a layer with index %lu\n", layer);
-                exit(1);
+                ERROR("ERROR: Tried to allocate input layer at a layer with index %lu\n", layer);
             }
         }
     }
@@ -1167,8 +1167,7 @@ void neuralnet_random(neuralnet_t *neuralnet) {
                 break;
             }
             case(layer_input): {
-                fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-                exit(1);
+                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
@@ -1203,8 +1202,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                 break;
             }
             case(layer_input): {
-                fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-                exit(1);
+                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
@@ -1282,8 +1280,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                 break;
             }
             case(layer_input): {
-                fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-                exit(1);
+                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
         *neuralnet->learn = linearized_alloc();
@@ -1333,8 +1330,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                     break;
                 }
                 case(layer_input): {
-                    fprintf(stderr, "ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-                    exit(1);
+                    ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
                 }
             }
         }
