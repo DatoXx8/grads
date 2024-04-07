@@ -79,7 +79,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     }
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) { printf("%*s%s\n", offset, "", name); }
+    if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *)simple_op);
     switch(simple_op->type) {
         case(operation_unary): {
@@ -882,7 +882,7 @@ void linearized_run(linearized_t *linearized) {
 }
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
     if(!linearized) { return; }
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_count, linearized->op_capacity, name);
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);

@@ -1,7 +1,7 @@
 #ifndef COMPILE_H_
 #define COMPILE_H_
 
-/* 
+/*
     1. Function recognizes loops in linearized_t (could also be of size 1, meaning a singular op)
     2. Function assigns loops to work groups
     3. Each loop gets split up into multiple work items

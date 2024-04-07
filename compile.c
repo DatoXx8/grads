@@ -28,7 +28,7 @@ static void compile_loop_configure(compile_loop_t *compile_loop, simple_op_t **s
     }
 }
 static void compile_loop_print(compile_loop_t *compile_loop, int padding, int offset, const char *name) {
-    if(!strcmp(name, "")) {
+    if(!strncmp(name, "", 1)) {
         printf("%*scompile loop\n", offset, "");
     } else {
         printf("%*s %s\n", offset, "", name);
@@ -55,7 +55,8 @@ static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op,
     if(starting_op->out_buffer.z_size != compared_op->out_buffer.z_size) { return false; }
     if(starting_op->out_buffer.y_size != compared_op->out_buffer.y_size) { return false; }
     if(starting_op->out_buffer.x_size != compared_op->out_buffer.x_size) { return false; }
-    /* NOTE: Not just doing `if(starting_op->type)` here, because I might add another `operation_e` member which would break it if `operation_unary` is no longer 0. */
+    /* NOTE: Not just doing `if(starting_op->type)` here, because I might add another `operation_e` member which would break it if `operation_unary` is no
+     * longer 0. */
     if(starting_op->type != operation_unary) {
         if(strncmp(starting_op->in_buffer.name, compared_op->in_buffer.name, BUFFER_NAME_SIZE)) { return false; }
         if(starting_op->in_buffer.a_size != compared_op->in_buffer.a_size) { return false; }
@@ -139,12 +140,12 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     for(uint64_t i = 0; i < compile_loop->loop_length; i++) {
         switch(compile_loop->loop_instance[0][i].type) {
             case(operation_unary): {
-                curr +=
-                    snprintf(curr, max_op_size,
-                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr += snprintf(
+                    curr, max_op_size,
+                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].unary_type) {
@@ -382,20 +383,20 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 break;
             }
             case(operation_binary): {
-                curr +=
-                    snprintf(curr, max_op_size,
-                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr += snprintf(
+                    curr, max_op_size,
+                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
-                curr +=
-                    snprintf(curr, max_op_size,
-                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr += snprintf(
+                    curr, max_op_size,
+                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].binary_type) {
@@ -584,20 +585,20 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 break;
             }
             case(operation_reduce): {
-                curr +=
-                    snprintf(curr, max_op_size,
-                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr += snprintf(
+                    curr, max_op_size,
+                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
-                curr +=
-                    snprintf(curr, max_op_size,
-                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                             compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                             global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                             compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr += snprintf(
+                    curr, max_op_size,
+                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
+                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
+                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].reduce_type) {
@@ -662,9 +663,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     fclose(f);
 
     free(source);
-    for(uint64_t i = 0; i < arg_num; i++) {
-        free(args[i]);
-    }
+    for(uint64_t i = 0; i < arg_num; i++) { free(args[i]); }
     free(args);
 }
 void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {

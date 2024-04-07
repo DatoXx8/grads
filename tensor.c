@@ -109,7 +109,7 @@ void op_cleanup(op_t *op) {
     op->child_count = 0;
 }
 void op_single_print(op_t *op, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) { printf("%*s%s\n", offset, "", name); }
+    if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *)op);
     switch(op->type) {
         case(operation_unary): {
@@ -367,7 +367,7 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
 }
 void op_print(op_t *op, int padding, int offset, const char *name) {
     if(!op) { return; }
-    if(strcmp(name, "")) { printf("%*s%s\n", offset, "", name); }
+    if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     if(op == NULL) {
         printf("%*sNULL\n", offset + padding, "");
     } else {
@@ -1386,7 +1386,7 @@ void tensor_cpu_realize(tensor_t *tensor) {
 
 /* If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
         printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
@@ -1412,7 +1412,7 @@ const uint64_t y_max = 4;
 const uint64_t x_max = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
         printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);

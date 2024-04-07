@@ -370,7 +370,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
     tensor_offset_move(dense->weights, 0, 0, 0, 0);
 }
 void dense_print(dense_t *dense, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s dense\n", offset, "", name);
     } else {
         printf("%*sdense\n", offset, "");
@@ -381,7 +381,7 @@ void dense_print(dense_t *dense, int padding, int offset, const char *name) {
     tensor_print(dense->weights_g, padding, offset + padding, "weights_g");
 }
 void dense_print_shape(dense_t *dense, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s dense shape\n", offset, "", name);
     } else {
         printf("%*sdense shape\n", offset, "");
@@ -587,7 +587,7 @@ void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution
     tensor_offset_move(convolution->padded_grad_, 0, 0, 0, 0);
 }
 void convolution_print(convolution_t *convolution, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s convolution\n", offset, "", name);
     } else {
         printf("%*sconvolution\n", offset, "");
@@ -598,7 +598,7 @@ void convolution_print(convolution_t *convolution, int padding, int offset, cons
     tensor_print(convolution->weights_g, padding, offset + padding, "weights_g");
 }
 void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s convolution shape\n", offset, "", name);
     } else {
         printf("%*sconvolution shape\n", offset, "");
@@ -760,7 +760,7 @@ void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *outpu
     tensor_offset_move(output_gradient, 0, 0, 0, 0);
 }
 void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s convolution\n", offset, "", name);
     } else {
         printf("%*sconvolution\n", offset, "");
@@ -882,7 +882,7 @@ void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, t
     tensor_offset_move(output_gradient, 0, 0, 0, 0);
 }
 void split_print(split_t *split, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s split\n", offset, "", name);
     } else {
         printf("%*ssplit\n", offset, "");
@@ -893,7 +893,7 @@ void split_print(split_t *split, int padding, int offset, const char *name) {
     tensor_print(split->weights_g, padding, offset + padding, "weights_g");
 }
 void split_print_shape(split_t *split, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s split shape\n", offset, "", name);
     } else {
         printf("%*ssplit shape\n", offset, "");
@@ -1382,7 +1382,7 @@ void neuralnet_learn(neuralnet_t *neuralnet) {
     linearized_run(neuralnet->learn);
 }
 void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s\n", offset, "", name);
     } else {
         printf("%*sneuralnet\n", offset, "");
@@ -1419,7 +1419,7 @@ void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char
     }
 }
 void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
-    if(strcmp(name, "")) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s shape\n", offset, "", name);
     } else {
         printf("%*sneuralnet shape\n", offset, "");
