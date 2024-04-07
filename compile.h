@@ -13,6 +13,7 @@
 #include "tensor.h"
 
 /* TODO: Add other compile languages like CUDA. */
+/* TODO: Add compilation to fixed binaries and also just the "normal" compilation. */
 enum compile_e { compile_none, compile_cl };
 
 /* TODO: Different optimisation enums for debugging. No-Copy, fusing ops once, twice etc. */
