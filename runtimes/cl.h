@@ -1,0 +1,1 @@
+/* Useful functions and macros for building and running OpenCL programs. */
