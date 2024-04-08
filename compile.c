@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -121,6 +122,7 @@ const uint64_t max_op_size = 320;
     }
 /* Appends code for kernel that computes `compile_loop` utilizing `work_groups` work groups with `work_items` work items a piece. */
 static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loop, uint64_t work_groups, uint64_t work_items) {
+    char *func_name = "money";
     uint64_t loops_per_workgroup = compile_loop->loop_number / work_groups;
     uint64_t leftover_loops = compile_loop->loop_number % work_groups;
     uint64_t source_size = initial_source_size;
@@ -130,12 +132,40 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     uint64_t offset;
 
     /* TODO: Think about how to handle cases where `global_id` skips numbers, like with stride 2 convolutions. */
-    /* TODO: Gather all args. */
-    uint64_t arg_num = 1;
-    char **args = malloc(arg_num * sizeof(char *));
-    args[0] = malloc(max_arg_size * sizeof(char));
-
-    FILE *f = fopen(filename, "a");
+    /* NOTE: Realloc behaves like malloc if the pointer supplied is NULL, which is really neat. */
+    uint64_t arg_num = 0;
+    char **args = NULL;
+    uint64_t found;
+    for(uint64_t i = 0; i < compile_loop->loop_length; i++) {
+        found = 0;
+        for(uint64_t j = 0; j < arg_num; j++) {
+            if(!strncmp(compile_loop->loop_instance[0][i].out_buffer.name, args[j], BUFFER_NAME_SIZE + 1)) {
+                found = 1;
+                break;
+            }
+        }
+        if(!found) {
+            arg_num++;
+            args = realloc(args, arg_num * sizeof(char *));
+            args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+            strncpy(args[arg_num - 1], compile_loop->loop_instance[0][i].out_buffer.name, BUFFER_NAME_SIZE);
+        }
+        if(compile_loop->loop_instance[0][i].type != operation_unary) {
+            found = 0;
+            for(uint64_t j = 0; j < arg_num; j++) {
+                if(!strncmp(compile_loop->loop_instance[0][i].in_buffer.name, args[j], BUFFER_NAME_SIZE)) {
+                    found = 1;
+                    break;
+                }
+            }
+            if(!found) {
+                arg_num++;
+                args = realloc(args, arg_num * sizeof(char *));
+                args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                strncpy(args[arg_num - 1], compile_loop->loop_instance[0][i].in_buffer.name, BUFFER_NAME_SIZE);
+            }
+        }
+    }
 
     for(uint64_t i = 0; i < compile_loop->loop_length; i++) {
         switch(compile_loop->loop_instance[0][i].type) {
@@ -337,7 +367,18 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                         }
                         break;
                     }
+                    /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                     case(unary_random): {
+                        /*
+                         this isn't really random at all but it should be sufficient for initializing
+                         seed here is like the grid id or something
+                         have to make sure that 1/epsilon isn't nan or inf
+                         double random(int seed) {
+                            double epsilon = 1e-4;
+                            double modified = (sin(seed) / 100) + epsilon;
+                            return(sin(1/modified));
+                         }
+                         */
                         TODO();
                         break;
                     }
@@ -391,12 +432,12 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                     compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
-                curr += snprintf(
-                    curr, max_op_size,
-                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr +=
+                    snprintf(curr, max_op_size,
+                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                             compile_loop->loop_instance[0][i].in_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].in_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].in_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].in_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].in_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].binary_type) {
@@ -593,12 +634,12 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                     compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
-                curr += snprintf(
-                    curr, max_op_size,
-                    "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
-                    compile_loop->loop_instance[0][i].out_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].out_buffer.a_stride,
-                    global_id_counter + 1, compile_loop->loop_instance[0][i].out_buffer.z_stride, global_id_counter + 2,
-                    compile_loop->loop_instance[0][i].out_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].out_buffer.x_stride);
+                curr +=
+                    snprintf(curr, max_op_size,
+                             "int %s_off_%lu = get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu + get_global_id(%lu) * %lu;\n",
+                             compile_loop->loop_instance[0][i].in_buffer.name, i, global_id_counter, compile_loop->loop_instance[0][i].in_buffer.a_stride,
+                             global_id_counter + 1, compile_loop->loop_instance[0][i].in_buffer.z_stride, global_id_counter + 2,
+                             compile_loop->loop_instance[0][i].in_buffer.y_stride, global_id_counter + 3, compile_loop->loop_instance[0][i].in_buffer.x_stride);
                 EXPAND_SOURCE_IF_NEEDED();
                 global_id_counter += 4;
                 switch(compile_loop->loop_instance[0][i].reduce_type) {
@@ -659,10 +700,28 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
         }
     }
 
-    fwrite(source, sizeof(char), curr - source, f);
+    assert(arg_num != 0);
+    /* This formula is very jank, but it makes sense, if you think about it. */
+    uint64_t kernel_size = strlen("__kernel void ") + strlen(func_name) + (strlen("__global double *") + BUFFER_NAME_SIZE) * arg_num + strlen(", ") * (arg_num - 1) +
+                           strlen(") {\n") + (curr - source) + strlen("}\n");
+    char *kernel = malloc(kernel_size);
+    char *kernel_i = kernel;
+    kernel_i += sprintf(kernel_i, "__kernel void %s(", func_name);
+    for(uint64_t i = 0; i < arg_num; i++) {
+        if(i != arg_num - 1) {
+            kernel_i += sprintf(kernel_i, "__global double *%s, ", args[i]);
+        } else {
+            kernel_i += sprintf(kernel_i, "__global double *%s) {\n", args[i]);
+        }
+    }
+    kernel_i += sprintf(kernel_i, "%s}\n", source);
+
+    FILE *f = fopen(filename, "a");
+    fwrite(kernel, sizeof(char), kernel_size, f);
     fclose(f);
 
     free(source);
+    free(kernel);
     for(uint64_t i = 0; i < arg_num; i++) { free(args[i]); }
     free(args);
 }
