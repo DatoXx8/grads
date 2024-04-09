@@ -192,6 +192,7 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                            op->out_buffer->x_size, op->out_buffer->offset, op->var_unary, (void *)op->out_buffer);
                     break;
                 }
+                /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case(unary_random): {
                     printf("U ran [%lu, %lu, %lu, %lu] > {%lu, %lu, %lu, %lu} %lu [%p]\n", op->out_buffer->a_inherent, op->out_buffer->z_inherent,
                            op->out_buffer->y_inherent, op->out_buffer->x_inherent, op->out_buffer->a_size, op->out_buffer->z_size, op->out_buffer->y_size,
@@ -525,6 +526,7 @@ ALWAYS_INLINE void op_single_op_cpu_realize(op_t *op) {
                     }
                     break;
                 }
+                /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case(unary_random): {
                     for(uint64_t a = 0; a < op->out_buffer->a_size; a++) {
                         for(uint64_t z = 0; z < op->out_buffer->z_size; z++) {
@@ -1042,6 +1044,7 @@ void tensor_set_unary(tensor_t *tensor, double value) {
     tensor->op->var_unary = value;
     tensor->op->out_buffer = tensor->buffer;
 }
+/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 void tensor_random_unary(tensor_t *tensor) {
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));

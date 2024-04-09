@@ -169,6 +169,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->out_buffer.name);
                     break;
                 }
+                /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case(unary_random): {
                     printf("U ran {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,

@@ -63,6 +63,7 @@ enum unary_e {
     unary_max,
     unary_min,
     unary_set,
+    /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
     unary_random,
     unary_tanh,
     unary_absolute,
@@ -145,6 +146,7 @@ extern void tensor_square_unary(tensor_t *tensor);
 extern void tensor_sqrt_unary(tensor_t *tensor);
 extern void tensor_negate_unary(tensor_t *tensor);
 extern void tensor_reciprocal_unary(tensor_t *tensor);
+/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 extern void tensor_random_unary(tensor_t *tensor);
 extern void tensor_tanh_unary(tensor_t *tensor);
 extern void tensor_max_unary(tensor_t *tensor, double value);
