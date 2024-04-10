@@ -30,7 +30,7 @@ int main(void) {
 
     const uint64_t layers = 2;
     const uint64_t input_channels = 2;
-    const uint64_t input_y = 5;
+    const uint64_t input_y = 3;
     const uint64_t input_x = input_y;
     layerconfig_t **layerconfig = calloc(layers, sizeof(layerconfig_t *));
     layerconfig_t l0 = {
@@ -51,7 +51,7 @@ int main(void) {
     layerconfig_t l2 = {
         .layer_type = layer_split,
         .norm_type = norm_none,
-        .split_filters = 2,
+        .split_filters = 4,
         .activation_function = activation_identity,
     };
     layerconfig_t l3 = {
@@ -67,7 +67,7 @@ int main(void) {
         .activation_function = activation_identity,
     };
     layerconfig[0] = &l0;
-    layerconfig[1] = &l1;
+    layerconfig[1] = &l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(layers, layerconfig);
 
@@ -81,7 +81,7 @@ int main(void) {
     tensor_random_unary(&input);
     neuralnet_random(&neuralnet);
     neuralnet_linearize(&neuralnet, 1e-2);
-    // LINEARIZED_PRINT_(neuralnet.forward);
+    LINEARIZED_PRINT_(neuralnet.forward);
     compile_linearized_to_cl("source.cl", neuralnet.forward);
 
     STOP_TIME();

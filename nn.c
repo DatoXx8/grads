@@ -215,7 +215,8 @@ const double epsilon = 1e-6;
 static void norm_calculate_layer_(norm_t *norm, tensor_t *tensor) {
     tensor_avg_reduce(norm->layer_expected, tensor);
     tensor_copy_binary(norm->layer_intermediary, tensor);
-    /* NOTE: The reason this is commented out is quite ugly. Basically when realizing the tensor the expected value already gets subtracted before in the calculation. I understand that isn't nice, but otherwise I would have to make a copy here and that would be worse. */
+    /* NOTE: The reason this is commented out is quite ugly. Basically when realizing the tensor the expected value already gets subtracted before in the
+     * calculation. I understand that isn't nice, but otherwise I would have to make a copy here and that would be worse. */
     // tensor_subtract_like_binary(norm->layer_intermediary, norm->layer_expected);
     tensor_square_unary(norm->layer_intermediary);
     tensor_avg_reduce(norm->layer_variance, norm->layer_intermediary);
@@ -1337,16 +1338,20 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
     }
 }
 /* WARN: neuralnet_linearize `has` to be called `once` before this one. */
+/* TODO: If neuralnet_linearize hasn't been called, then just do that instead of crashing. */
 void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input) {
     assert(neuralnet->forward);
     tensor_copy_binary(NEURALNET_INPUT_(neuralnet).activation, input);
-    /* 
-     * TODO: Think about how to remove this and have it be a part of the neuralnet linearization. Swap the pointers for C jit and pass different pointer as kernel arg for compiled? That might remove the need for an input layer with an activation tensor in it. 
-     * This might be far harder than thought initially. In all places where resizing or offsetting the tensor, it can create real problems, when using and offset or resized tensor in the first place. This happens for when doing backpropagation with multiple samples at once.
+    /*
+     * TODO: Think about how to remove this and have it be a part of the neuralnet linearization. Swap the pointers for C jit and pass different pointer as
+     * kernel arg for compiled? That might remove the need for an input layer with an activation tensor in it. This might be far harder than thought initially.
+     * In all places where resizing or offsetting the tensor, it can create real problems, when using and offset or resized tensor in the first place. This
+     * happens for when doing backpropagation with multiple samples at once.
      */
     tensor_cpu_realize(NEURALNET_INPUT_(neuralnet).activation);
     linearized_run(neuralnet->forward);
 }
+/* TODO: If neuralnet_linearize hasn't been called, then just do that instead of crashing. */
 void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output) {
     assert(training_input->buffer->a_size == training_output->buffer->a_size);
     assert(neuralnet->backward);
@@ -1377,6 +1382,7 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
     tensor_cpu_realize(training_output);
 }
 /* NOTE: Have to call `neuralnet_backward()` before this one. This also clears the gradients. */
+/* TODO: If neuralnet_linearize hasn't been called, then just do that instead of crashing. */
 void neuralnet_learn(neuralnet_t *neuralnet) {
     assert(neuralnet->learn);
     linearized_run(neuralnet->learn);

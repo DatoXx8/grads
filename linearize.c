@@ -80,7 +80,7 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
-    printf("%*s<%p> ", offset + padding, "", (void *)simple_op);
+    printf("%*s<%p> ", offset + padding, "", (void *) simple_op);
     switch(simple_op->type) {
         case(operation_unary): {
             switch(simple_op->unary_type) {
@@ -543,7 +543,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
                                 for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = ((double)rand() / RAND_MAX) * 2 - 1;
+                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
                                 }
                             }
                         }
