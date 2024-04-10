@@ -13,3 +13,5 @@ SpaceBeforeParensOptions:
   AfterControlStatements: false
   AfterFunctionDefinitionName: false
 IndentCaseLabels: true
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
