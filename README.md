@@ -1,3 +1,5 @@
+## I WILL BE LESS ACTIVE HERE FOR A WHILE CUZ I HAVE SOMETHING AKIN TO FINALS COMING UP
+
 # C Grad
 
 C Grad is a deep learning framework written in C. It is mainly a recreational project, though you can use it if you like.
