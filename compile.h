@@ -55,6 +55,12 @@ typedef struct {
     uint64_t global_size;
     uint64_t local_size;
 } cl_kernel_t;
+typedef struct {
+    /* NOTE: These should be ordered according to when they are executed. */
+    cl_kernel_t *kernel;
+    uint64_t kernel_num;
+    const char *filename;
+} cl_program_t;
 
 extern void compile_linearized_to_cl(const char *filename, linearized_t *linearized);
 

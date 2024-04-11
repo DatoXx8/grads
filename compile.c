@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -36,9 +37,7 @@ static void compile_loop_free(compile_loop_t *compile_loop) {
 }
 /* TODO: Check if `compile_loop` has already been configured, by checking pointers for NULL. */
 static void compile_loop_configure(compile_loop_t *compile_loop, simple_op_t **simple_op, uint64_t loop_length, uint64_t loop_number) {
-    if(compile_loop->loop_instance) {
-        compile_loop_free(compile_loop);
-    }
+    if(compile_loop->loop_instance) { compile_loop_free(compile_loop); }
     compile_loop->loop_length = loop_length;
     compile_loop->loop_number = loop_number;
     compile_loop->loop_instance = calloc(loop_number, sizeof(simple_op_t *));
@@ -319,20 +318,17 @@ static void compile_loop_print(compile_loop_t *compile_loop, int padding, int of
     }
 }
 static void cl_kernel_free(cl_kernel_t *kernel) {
-    for(uint64_t i = 0; i < kernel->arg_num; i++) {
-        free(kernel->args[i]);
-    }
+    for(uint64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
     free(kernel->args);
+    free((void *) kernel->name);
 }
 static void cl_kernel_print(cl_kernel_t *kernel, int padding, int offset, const char *name) {
-    if(!strncmp(name, "", 1)) {
+    if(strncmp(name, "", 1)) {
         printf("%*s%s %s\n", offset, "", name, kernel->name);
     } else {
         printf("%*scl kernel %s\n", offset, "", kernel->name);
     }
-    for(uint64_t i = 0; i < kernel->arg_num; i++) {
-        printf("%*s[%lu] %s\n", padding + offset, "", i, kernel->args[i]);
-    }
+    for(uint64_t i = 0; i < kernel->arg_num; i++) { printf("%*s[%lu] %s\n", padding + offset, "", i, kernel->args[i]); }
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
 static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op, simple_op_t *compared_op) {
@@ -411,11 +407,14 @@ const uint64_t max_op_size = 256;
         source = realloc(source, source_size);                                                                                                                 \
         curr = source + offset;                                                                                                                                \
     }
+int kernel_counter = 0;
 /* TODO: Make use of multiple work-items per workgroup. */
 /* Appends code for kernel that computes `compile_loop` with the specified global and local size. */
 static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile_loop, uint64_t global_size, uint64_t local_size) {
-    char *func_name = "money";
-    // /* TODO: Remove this after initial testing. */
+    // /* TODO: Support `local_size > 1`. */
+    char *func_name = calloc(1 + log10(kernel_counter + 1) + 3, sizeof(char));
+    snprintf(func_name, 1 + log10(kernel_counter + 1) + 3, "k%d", kernel_counter);
+    kernel_counter++;
     assert(local_size == 1);
     uint64_t leftover_loops = compile_loop->loop_number % global_size;
     uint64_t assigned_loops = (compile_loop->loop_number - leftover_loops) / global_size;
@@ -1078,7 +1077,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     cl_kernel_t kernel = {
         .arg_num = arg_num,
         .args = calloc(arg_num, sizeof(char *)),
-        .name = "",
+        .name = strndup(func_name, strlen(func_name)),
         .local_size = local_size,
         .global_size = global_size,
     };
@@ -1089,22 +1088,25 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     free(args);
     free(source);
     free(kernel_source);
-    return(kernel);
+    free(func_name);
+    return (kernel);
 }
 void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
     compile_loop_t compile_loop = {0};
+    uint64_t global_size = 9;
+    uint64_t local_size = 1;
     /* Clears file. */
     FILE *f = fopen(filename, "w");
     fclose(f);
-    uint64_t i = compile_loop_from_linearized_index(&compile_loop, linearized, 0);
-    compile_loop_print(&compile_loop, 4, 0, "");
-
-    uint64_t global_size = 9;
-    uint64_t local_size = 1;
-
-    cl_kernel_t kernel = compile_loop_to_cl(filename, &compile_loop, global_size, local_size);
-    cl_kernel_print(&kernel, 4, 0, "");
+    uint64_t i = 0;
+    cl_kernel_t kernel;
+    while(i < linearized->op_count) {
+        i += compile_loop_from_linearized_index(&compile_loop, linearized, i);
+        compile_loop_print(&compile_loop, 4, 0, "");
+        kernel = compile_loop_to_cl(filename, &compile_loop, global_size, local_size);
+        cl_kernel_print(&kernel, 4, 0, "");
+        cl_kernel_free(&kernel);
+    }
 
     compile_loop_free(&compile_loop);
-    cl_kernel_free(&kernel);
 }
