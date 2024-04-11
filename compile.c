@@ -36,7 +36,9 @@ static void compile_loop_free(compile_loop_t *compile_loop) {
 }
 /* TODO: Check if `compile_loop` has already been configured, by checking pointers for NULL. */
 static void compile_loop_configure(compile_loop_t *compile_loop, simple_op_t **simple_op, uint64_t loop_length, uint64_t loop_number) {
-    /* Can not currently re-use compile loops, but it should be a pretty quick fix. */
+    if(compile_loop->loop_instance) {
+        compile_loop_free(compile_loop);
+    }
     compile_loop->loop_length = loop_length;
     compile_loop->loop_number = loop_number;
     compile_loop->loop_instance = calloc(loop_number, sizeof(simple_op_t *));
@@ -44,8 +46,6 @@ static void compile_loop_configure(compile_loop_t *compile_loop, simple_op_t **s
         compile_loop->loop_instance[i] = calloc(loop_length, sizeof(simple_op_t));
         for(uint64_t j = 0; j < loop_length; j++) { compile_loop->loop_instance[i][j] = simple_op[i][j]; }
     }
-    /* TODO: this one. */
-    /* Gather per_dim_off, per_dim_str, per_dim_loop_reset, per_dim_loop_wait. */
     compile_loop->per_dim_off_a = calloc(loop_length * 2, sizeof(uint64_t *));
     compile_loop->per_dim_off_z = calloc(loop_length * 2, sizeof(uint64_t *));
     compile_loop->per_dim_off_y = calloc(loop_length * 2, sizeof(uint64_t *));
@@ -318,6 +318,22 @@ static void compile_loop_print(compile_loop_t *compile_loop, int padding, int of
         }
     }
 }
+static void cl_kernel_free(cl_kernel_t *kernel) {
+    for(uint64_t i = 0; i < kernel->arg_num; i++) {
+        free(kernel->args[i]);
+    }
+    free(kernel->args);
+}
+static void cl_kernel_print(cl_kernel_t *kernel, int padding, int offset, const char *name) {
+    if(!strncmp(name, "", 1)) {
+        printf("%*s%s %s\n", offset, "", name, kernel->name);
+    } else {
+        printf("%*scl kernel %s\n", offset, "", kernel->name);
+    }
+    for(uint64_t i = 0; i < kernel->arg_num; i++) {
+        printf("%*s[%lu] %s\n", padding + offset, "", i, kernel->args[i]);
+    }
+}
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
 static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op, simple_op_t *compared_op) {
     /* NOTE: This comparison is probably not needed technically. */
@@ -383,13 +399,13 @@ static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop,
 
     return loop_length * loop_number;
 }
-const uint64_t initial_source_size = 1000;
+const uint64_t initial_source_size = 1024;
 const uint64_t max_arg_size = 24;
 const uint64_t max_index_digits = 9;
 /* NOTE: Biggest I found was 131 for `max` or `min` binary ops. */
 const uint64_t max_op_size = 256;
 #define EXPAND_SOURCE_IF_NEEDED()                                                                                                                              \
-    if(source_size - (curr - source) < max_op_size) {                                                                                                          \
+    if(source_size - (curr - source) <= max_op_size) {                                                                                                         \
         source_size *= 2;                                                                                                                                      \
         offset = curr - source;                                                                                                                                \
         source = realloc(source, source_size);                                                                                                                 \
@@ -397,9 +413,9 @@ const uint64_t max_op_size = 256;
     }
 /* TODO: Make use of multiple work-items per workgroup. */
 /* Appends code for kernel that computes `compile_loop` with the specified global and local size. */
-static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loop, uint64_t global_size, uint64_t local_size) {
+static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile_loop, uint64_t global_size, uint64_t local_size) {
     char *func_name = "money";
-    /* TODO: Remove this after initial testing. */
+    // /* TODO: Remove this after initial testing. */
     assert(local_size == 1);
     uint64_t leftover_loops = compile_loop->loop_number % global_size;
     uint64_t assigned_loops = (compile_loop->loop_number - leftover_loops) / global_size;
@@ -411,7 +427,8 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     }
 
     uint64_t source_size = initial_source_size;
-    char *source = malloc(initial_source_size);
+    /* Calloc is needed here to make strlen and sprintf work. */
+    char *source = calloc(source_size, sizeof(char));
     char *curr = source;
     uint64_t offset;
 
@@ -468,8 +485,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 case(operation_unary): {
                     curr += snprintf(
                         curr, max_op_size,
-                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) "
-                        "+ (((id %% %lu) / %lu) * %lu + %lu);\n",
+                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
                         compile_loop->loop_instance[0][j].out_buffer.name, i, j, compile_loop->per_dim_reset_a[2 * j], compile_loop->per_dim_wait_a[2 * j],
                         compile_loop->per_dim_str_a[2 * j], compile_loop->per_dim_off_a[2 * j], compile_loop->per_dim_reset_z[2 * j],
                         compile_loop->per_dim_wait_z[2 * j], compile_loop->per_dim_str_z[2 * j], compile_loop->per_dim_off_z[2 * j],
@@ -738,8 +754,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 case(operation_binary): {
                     curr += snprintf(
                         curr, max_op_size,
-                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) "
-                        "+ (((id %% %lu) / %lu) * %lu + %lu);\n",
+                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
                         compile_loop->loop_instance[0][j].out_buffer.name, i, j, compile_loop->per_dim_reset_a[2 * j], compile_loop->per_dim_wait_a[2 * j],
                         compile_loop->per_dim_str_a[2 * j], compile_loop->per_dim_off_a[2 * j], compile_loop->per_dim_reset_z[2 * j],
                         compile_loop->per_dim_wait_z[2 * j], compile_loop->per_dim_str_z[2 * j], compile_loop->per_dim_off_z[2 * j],
@@ -749,8 +764,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                     EXPAND_SOURCE_IF_NEEDED();
                     curr += snprintf(
                         curr, max_op_size,
-                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) "
-                        "+ (((id %% %lu) / %lu) * %lu + %lu);\n",
+                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
                         compile_loop->loop_instance[0][j].in_buffer.name, i, j, compile_loop->per_dim_reset_a[2 * j + 1],
                         compile_loop->per_dim_wait_a[2 * j + 1], compile_loop->per_dim_str_a[2 * j + 1], compile_loop->per_dim_off_a[2 * j + 1],
                         compile_loop->per_dim_reset_z[2 * j + 1], compile_loop->per_dim_wait_z[2 * j + 1], compile_loop->per_dim_str_z[2 * j + 1],
@@ -956,8 +970,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                 case(operation_reduce): {
                     curr += snprintf(
                         curr, max_op_size,
-                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) "
-                        "+ (((id %% %lu) / %lu) * %lu + %lu);\n",
+                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
                         compile_loop->loop_instance[0][j].out_buffer.name, i, j, compile_loop->per_dim_reset_a[2 * j], compile_loop->per_dim_wait_a[2 * j],
                         compile_loop->per_dim_str_a[2 * j], compile_loop->per_dim_off_a[2 * j], compile_loop->per_dim_reset_z[2 * j],
                         compile_loop->per_dim_wait_z[2 * j], compile_loop->per_dim_str_z[2 * j], compile_loop->per_dim_off_z[2 * j],
@@ -967,8 +980,7 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
                     EXPAND_SOURCE_IF_NEEDED();
                     curr += snprintf(
                         curr, max_op_size,
-                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) "
-                        "+ (((id %% %lu) / %lu) * %lu + %lu);\n",
+                        "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
                         compile_loop->loop_instance[0][j].in_buffer.name, i, j, compile_loop->per_dim_reset_a[2 * j + 1],
                         compile_loop->per_dim_wait_a[2 * j + 1], compile_loop->per_dim_str_a[2 * j + 1], compile_loop->per_dim_off_a[2 * j + 1],
                         compile_loop->per_dim_reset_z[2 * j + 1], compile_loop->per_dim_wait_z[2 * j + 1], compile_loop->per_dim_str_z[2 * j + 1],
@@ -1042,11 +1054,11 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
     }
 
     assert(arg_num != 0);
-    /* This formula is very jank, but it makes sense, if you think about it. */
+    // /* This formula is very jank, but it makes sense, if you think about it except for the ` + 3` that is just magic. */
     uint64_t kernel_size = strlen("__kernel void ") + strlen(func_name) + (strlen("__global double *") + BUFFER_NAME_SIZE) * arg_num +
-                           strlen(", ") * (arg_num - 1) + strlen(") {\n") + (curr - source) + strlen("}\n");
-    char *kernel = malloc(kernel_size);
-    char *kernel_i = kernel;
+                           strlen(", ") * (arg_num - 1) + strlen(") {\n") + (curr - source) + strlen("}\n") + 3;
+    char *kernel_source = calloc(kernel_size, sizeof(char));
+    char *kernel_i = kernel_source;
     kernel_i += sprintf(kernel_i, "__kernel void %s(", func_name);
     for(uint64_t i = 0; i < arg_num; i++) {
         if(i != arg_num - 1) {
@@ -1055,28 +1067,44 @@ static void compile_loop_to_cl(const char *filename, compile_loop_t *compile_loo
             kernel_i += sprintf(kernel_i, "__global double *%s) {\n", args[i]);
         }
     }
-    /* This one is very sus. Doing sprintf crashes the program and I have no clue why. This desperatly needs to be investigated. */
-    kernel_i += sprintf(kernel_i, "%s}\n", source);
+    /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
+    kernel_i += snprintf(kernel_i, curr - source + 1, "%s", source);
+    kernel_i += snprintf(kernel_i, 3, "}\n");
 
     FILE *f = fopen(filename, "a");
-    fwrite(kernel, sizeof(char), kernel_size, f);
+    fwrite(kernel_source, sizeof(char), kernel_i - kernel_source, f);
     fclose(f);
 
-    printf("%lu %lu\n", strlen(source), curr - source);
-    free(source);
-    free(kernel);
-    for(uint64_t i = 0; i < arg_num; i++) { free(args[i]); }
+    cl_kernel_t kernel = {
+        .arg_num = arg_num,
+        .args = calloc(arg_num, sizeof(char *)),
+        .name = "",
+        .local_size = local_size,
+        .global_size = global_size,
+    };
+    for(uint64_t i = 0; i < arg_num; i++) {
+        kernel.args[i] = strndup(args[i], BUFFER_NAME_SIZE + 1);
+        free(args[i]);
+    }
     free(args);
+    free(source);
+    free(kernel_source);
+    return(kernel);
 }
 void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
     compile_loop_t compile_loop = {0};
     /* Clears file. */
     FILE *f = fopen(filename, "w");
     fclose(f);
-    // uint64_t i = compile_loop_from_linearized_index(&compile_loop, linearized, 1);
     uint64_t i = compile_loop_from_linearized_index(&compile_loop, linearized, 0);
     compile_loop_print(&compile_loop, 4, 0, "");
+
     uint64_t global_size = 9;
     uint64_t local_size = 1;
-    compile_loop_to_cl(filename, &compile_loop, global_size, local_size);
+
+    cl_kernel_t kernel = compile_loop_to_cl(filename, &compile_loop, global_size, local_size);
+    cl_kernel_print(&kernel, 4, 0, "");
+
+    compile_loop_free(&compile_loop);
+    cl_kernel_free(&kernel);
 }

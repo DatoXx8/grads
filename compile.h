@@ -49,9 +49,12 @@ typedef struct {
 } compile_loop_t;
 /* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile option. */
 typedef struct {
+    const char *name;
+    char **args;
+    uint64_t arg_num;
+    uint64_t global_size;
+    uint64_t local_size;
 } cl_kernel_t;
-typedef struct {
-} cl_program_t;
 
 extern void compile_linearized_to_cl(const char *filename, linearized_t *linearized);
 
