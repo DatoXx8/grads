@@ -807,10 +807,12 @@ void split_free(split_t *split) {
     tensor_free(split->biases_g);
     tensor_free(split->weights);
     tensor_free(split->weights_g);
+    tensor_free(split->input_temp_);
     free(split->biases);
     free(split->biases_g);
     free(split->weights);
     free(split->weights_g);
+    free(split->input_temp_);
 }
 void split_forward(tensor_t *input, split_t *split, tensor_t *output) {
     uint64_t input_z = input->buffer->z_inherent;
@@ -1259,6 +1261,9 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->weights->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->padded_grad_->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].convolution->padded_input_->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].activation_g->op);
                 break;
             }
             case(layer_reduce): {
@@ -1266,6 +1271,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                 reduce_backward(neuralnet->layer[layer - 1].activation_g, neuralnet->layer[layer].reduce, neuralnet->layer[layer].activation_g);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].activation_g->op);
                 break;
             }
             case(layer_split): {
@@ -1278,6 +1284,7 @@ void neuralnet_linearize(neuralnet_t *neuralnet, double learning) {
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer].split->weights->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation_g->op);
                 linearized_from_op(neuralnet->backward, neuralnet->layer[layer - 1].activation->op);
+                linearized_from_op(neuralnet->backward, neuralnet->layer[layer].activation_g->op);
                 break;
             }
             case(layer_input): {
