@@ -359,8 +359,8 @@ static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop,
     uint64_t loop_number = 0;
     simple_op_t starting_op = linearized->simple[start_index];
     for(uint64_t i = start_index + 1; i < linearized->op_count; i++) {
-        /* This is kind of a heuristic. I am 99% sure it works tho. */
         if(compile_loop_simple_op_equal(&starting_op, &linearized->simple[i])) {
+            /* TODO: Check the other ops here aswell. */
             loop_length = i - start_index;
             break;
         }
@@ -481,7 +481,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
         }
         for(uint64_t j = 0; j < compile_loop->loop_length; j++) {
             switch(compile_loop->loop_instance[0][j].type) {
-                case(operation_unary): {
+                case operation_unary: {
                     curr += snprintf(
                         curr, max_op_size,
                         "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
@@ -493,16 +493,18 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                         compile_loop->per_dim_str_x[2 * j], compile_loop->per_dim_off_x[2 * j]);
                     EXPAND_SOURCE_IF_NEEDED();
                     switch(compile_loop->loop_instance[0][j].unary_type) {
-                        case(unary_add): {
+                        case unary_add: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].var_unary);
+                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -510,16 +512,18 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_subtract): {
+                        case unary_subtract: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %.16lf;\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].var_unary);
+                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %.16lf;\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -527,16 +531,18 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_multiply): {
+                        case unary_multiply: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %.16lf;\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].var_unary);
+                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %.16lf;\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -544,16 +550,18 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_divide): {
+                        case unary_divide: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %.16lf;\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].var_unary);
+                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %.16lf;\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -561,17 +569,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_exp): {
+                        case unary_exp: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = exp(%s[%s_%luoff%lu + %lu]);\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = exp(%s[%s%luoff%lu + %lu]);\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -579,17 +591,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_log): {
+                        case unary_log: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = log(%s[%s_%luoff%lu + %lu]);\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = log(%s[%s%luoff%lu + %lu]);\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -597,17 +613,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_square): {
+                        case unary_square: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s_%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -615,17 +635,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_sqrt): {
+                        case unary_sqrt: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = sqrt(%s[%s_%luoff%lu + %lu]);\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = sqrt(%s[%s%luoff%lu + %lu]);\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -633,7 +657,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_negate): {
+                        case unary_negate: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -641,7 +665,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr +=
                                                 snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] *= -1;\n", compile_loop->loop_instance[0][j].out_buffer.name,
                                                          compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                         SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                                         SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                                      (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                                      (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -649,17 +675,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_reciprocal): {
+                        case unary_reciprocal: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = 1 / %s[%s_%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = 1 / %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -667,24 +697,66 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_max): {
-                            TODO();
-                            break;
-                        }
-                        case(unary_min): {
-                            TODO();
-                            break;
-                        }
-                        case(unary_set): {
+                        case unary_max: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = %.16lf;\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].var_unary);
+                                            curr += snprintf(curr, max_op_size, "if(%s[%s%luoff%lu + %lu] < %lf) { %s[%s%luoff%lu + %lu] = %lf; }\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary, compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        case unary_min: {
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
+                                            curr += snprintf(curr, max_op_size, "if(%s[%s%luoff%lu + %lu] < %lf) { %s[%s%luoff%lu + %lu] = %lf; }\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary, compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        case unary_set: {
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
+                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = %.16lf;\n",
+                                                             compile_loop->loop_instance[0][j].out_buffer.name,
+                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                             SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer,
+                                                                          (a - compile_loop->per_dim_off_a[2 * j]), (z - compile_loop->per_dim_off_z[2 * j]),
+                                                                          (y - compile_loop->per_dim_off_y[2 * j]), (x - compile_loop->per_dim_off_x[2 * j])),
+                                                             compile_loop->loop_instance[0][j].var_unary);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -693,31 +765,37 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             break;
                         }
                         /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
-                        case(unary_random): {
+                        case unary_random: {
                             /*
-                         this isn't really random at all but it should be sufficient for initializing
-                         seed here is like the grid id or something
-                         have to make sure that 1/epsilon isn't nan or inf
-                         double random(int seed) {
-                            double epsilon = 1e-4;
-                            double modified = (sin(seed) / 100) + epsilon;
-                            return(sin(1/modified));
-                         }
+                            Actually I might not support this for OpenCL
+
+                            this isn't really random at all but it should be sufficient for initializing
+                            seed here is like the grid id or something
+                            have to make sure that 1/epsilon isn't nan or inf
+                            double random(int seed) {
+                                double epsilon = 1e-4;
+                                double modified = (sin(seed) / 100) + epsilon;
+                                return(sin(1/modified));
+                            }
                          */
                             TODO();
                             break;
                         }
-                        case(unary_tanh): {
+                        case unary_tanh: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = tanh(%s[%s_%luoff%lu + %lu]);\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = tanh(%s[%s%luoff%lu + %lu]);\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -725,17 +803,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_absolute): {
+                        case unary_absolute: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = fabs(%s[%s_%luoff%lu + %lu]);\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = fabs(%s[%s%luoff%lu + %lu]);\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -743,14 +825,45 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(unary_sign): {
-                            TODO();
+                        case unary_sign: {
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
+                                            curr += snprintf(
+                                                curr, max_op_size,
+                                                "if(%s[%s%luoff%lu + %lu] < 0) { %s[%s%luoff%lu + %lu] = -1; } else if(%s[%s%luoff%lu + %lu] > 0) { %s[%s%luoff%lu + %lu] = 1; } else { %s[%s%luoff%lu + %lu] = 0; }\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])));
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
                             break;
                         }
                     }
                     break;
                 }
-                case(operation_binary): {
+                case operation_binary: {
                     curr += snprintf(
                         curr, max_op_size,
                         "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
@@ -772,17 +885,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                         compile_loop->per_dim_wait_x[2 * j + 1], compile_loop->per_dim_str_x[2 * j + 1], compile_loop->per_dim_off_x[2 * j + 1]);
                     EXPAND_SOURCE_IF_NEEDED();
                     switch(compile_loop->loop_instance[0][j].binary_type) {
-                        case(binary_add): {
+                        case binary_add: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] += %s[%s%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i,
-                                                         j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] += %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -790,17 +907,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_subtract): {
+                        case binary_subtract: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %s[%s%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i,
-                                                         j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -808,17 +929,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_multiply): {
+                        case binary_multiply: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i,
-                                                         j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -826,17 +951,21 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_divide): {
+                        case binary_divide: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %s[%s%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i,
-                                                         j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -844,25 +973,30 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_max): {
-                            TODO();
-                            break;
-                        }
-                        case(binary_min): {
-                            TODO();
-                            break;
-                        }
-                        case(binary_copy): {
+                        case binary_max: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
-                                            curr +=
-                                                snprintf(curr, max_op_size, "%s[%s%luoff%lu + %lu] = %s[%s%luoff%lu + %lu];\n",
-                                                         compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name,
-                                                         i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
-                                                         compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i,
-                                                         j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size,
+                                                "if(%s[%s%luoff%lu + %lu] < %s[%s%luoff%lu + %lu]) { %s[%s%luoff%lu + %lu] = %s[%s%luoff%lu + %lu]; }\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -870,7 +1004,60 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_add_like): {
+                        case binary_min: {
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
+                                            curr += snprintf(
+                                                curr, max_op_size,
+                                                "if(%s[%s%luoff%lu + %lu] > %s[%s%luoff%lu + %lu]) { %s[%s%luoff%lu + %lu] = %s[%s%luoff%lu + %lu]; }\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])),
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        case binary_copy: {
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].out_buffer.x_size; x++) {
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu + %lu] = %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        case binary_add_like: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -878,7 +1065,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr += snprintf(
                                                 curr, max_op_size, "%s[%s%luoff%lu + %lu] += %s[%s%luoff%lu];\n",
                                                 compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
                                                 compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
@@ -887,7 +1076,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_subtract_like): {
+                        case binary_subtract_like: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -895,7 +1084,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr += snprintf(
                                                 curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %s[%s%luoff%lu];\n",
                                                 compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
                                                 compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
@@ -904,7 +1095,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_multiply_like): {
+                        case binary_multiply_like: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -912,7 +1103,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr += snprintf(
                                                 curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu];\n",
                                                 compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
                                                 compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
@@ -921,7 +1114,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_divide_like): {
+                        case binary_divide_like: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -929,7 +1122,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr += snprintf(
                                                 curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %s[%s%luoff%lu];\n",
                                                 compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
                                                 compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
@@ -938,15 +1133,15 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(binary_max_like): {
+                        case binary_max_like: {
+                            TODO()
+                            break;
+                        }
+                        case binary_min_like: {
                             TODO();
                             break;
                         }
-                        case(binary_min_like): {
-                            TODO();
-                            break;
-                        }
-                        case(binary_copy_like): {
+                        case binary_copy_like: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].out_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].out_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].out_buffer.y_size; y++) {
@@ -954,7 +1149,9 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                             curr += snprintf(
                                                 curr, max_op_size, "%s[%s%luoff%lu + %lu] = %s[%s%luoff%lu];\n",
                                                 compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, a, z, y, x),
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].out_buffer, (a - compile_loop->per_dim_off_a[2 * j]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j]), (y - compile_loop->per_dim_off_y[2 * j]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j])),
                                                 compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j);
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
@@ -966,7 +1163,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                     }
                     break;
                 }
-                case(operation_reduce): {
+                case operation_reduce: {
                     curr += snprintf(
                         curr, max_op_size,
                         "int %s%luoff%lu = (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu) + (((id %% %lu) / %lu) * %lu + %lu);\n",
@@ -988,7 +1185,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                         compile_loop->per_dim_wait_x[2 * j + 1], compile_loop->per_dim_str_x[2 * j + 1], compile_loop->per_dim_off_x[2 * j + 1]);
                     EXPAND_SOURCE_IF_NEEDED();
                     switch(compile_loop->loop_instance[0][j].reduce_type) {
-                        case(reduce_sum): {
+                        case reduce_sum: {
                             curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu] = %lf;\n", compile_loop->loop_instance[0][j].out_buffer.name,
                                              compile_loop->loop_instance[0][j].out_buffer.name, i, j, 0.0);
                             EXPAND_SOURCE_IF_NEEDED();
@@ -996,11 +1193,13 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].in_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].in_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].in_buffer.x_size; x++) {
-                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
-                                                             compile_loop->loop_instance[0][j].out_buffer.name,
-                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                             compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name,
-                                                             i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -1008,16 +1207,18 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             }
                             break;
                         }
-                        case(reduce_avg): {
+                        case reduce_avg: {
                             for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].in_buffer.a_size; a++) {
                                 for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].in_buffer.z_size; z++) {
                                     for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].in_buffer.y_size; y++) {
                                         for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].in_buffer.x_size; x++) {
-                                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
-                                                             compile_loop->loop_instance[0][j].out_buffer.name,
-                                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j,
-                                                             compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name,
-                                                             i, j, SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, a, z, y, x));
+                                            curr += snprintf(
+                                                curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
+                                                compile_loop->loop_instance[0][j].out_buffer.name, compile_loop->loop_instance[0][j].out_buffer.name, i, j,
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
                                             EXPAND_SOURCE_IF_NEEDED();
                                         }
                                     }
@@ -1030,18 +1231,66 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                             EXPAND_SOURCE_IF_NEEDED();
                             break;
                         }
-                        case(reduce_max): {
-                            TODO();
+                        case reduce_max: {
+                            curr += snprintf(curr, max_op_size, "double _%lumax%lu = -INFINITY;\n", i, j);
+                            EXPAND_SOURCE_IF_NEEDED();
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].in_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].in_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].in_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].in_buffer.x_size; x++) {
+                                            curr += snprintf(
+                                                curr, max_op_size, "if(%s[%s%luoff%lu + %lu] < _%lumax%lu) { _%lumax%lu = %s[%s%luoff%lu + %lu]; }\n",
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])),
+                                                i, j, i, j, compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name,
+                                                i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu] = _%lumax%lu;\n", compile_loop->loop_instance[0][j].out_buffer.name,
+                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j, i, j);
+                            EXPAND_SOURCE_IF_NEEDED();
                             break;
                         }
-                        case(reduce_min): {
-                            TODO();
+                        case reduce_min: {
+                            curr += snprintf(curr, max_op_size, "double _%lumin%lu = INFINITY;\n", i, j);
+                            EXPAND_SOURCE_IF_NEEDED();
+                            for(uint64_t a = 0; a < compile_loop->loop_instance[0][j].in_buffer.a_size; a++) {
+                                for(uint64_t z = 0; z < compile_loop->loop_instance[0][j].in_buffer.z_size; z++) {
+                                    for(uint64_t y = 0; y < compile_loop->loop_instance[0][j].in_buffer.y_size; y++) {
+                                        for(uint64_t x = 0; x < compile_loop->loop_instance[0][j].in_buffer.x_size; x++) {
+                                            curr += snprintf(
+                                                curr, max_op_size, "if(%s[%s%luoff%lu + %lu] > _%lumin%lu) { _%lumin%lu = %s[%s%luoff%lu + %lu]; }\n",
+                                                compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name, i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])),
+                                                i, j, i, j, compile_loop->loop_instance[0][j].in_buffer.name, compile_loop->loop_instance[0][j].in_buffer.name,
+                                                i, j,
+                                                SIMPLE_INDEX(compile_loop->loop_instance[0][j].in_buffer, (a - compile_loop->per_dim_off_a[2 * j + 1]),
+                                                             (z - compile_loop->per_dim_off_z[2 * j + 1]), (y - compile_loop->per_dim_off_y[2 * j + 1]),
+                                                             (x - compile_loop->per_dim_off_x[2 * j + 1])));
+                                            EXPAND_SOURCE_IF_NEEDED();
+                                        }
+                                    }
+                                }
+                            }
+                            curr += snprintf(curr, max_op_size, "%s[%s%luoff%lu] = _%lumin%lu;\n", compile_loop->loop_instance[0][j].out_buffer.name,
+                                             compile_loop->loop_instance[0][j].out_buffer.name, i, j, i, j);
+                            EXPAND_SOURCE_IF_NEEDED();
                             break;
                         }
                     }
                     break;
                 }
-                case(operation_move): {
+                case operation_move: {
                     ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", j);
                 }
             }
@@ -1089,9 +1338,16 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     free(source);
     free(kernel_source);
     free(func_name);
-    return (kernel);
+    return kernel;
 }
-void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
+/* Could also be called `cl_program_alloc()`. */
+cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
+    cl_program_t program = {
+        .filename = filename,
+        .kernel_num = 0,
+        .kernel = NULL,
+    };
+
     compile_loop_t compile_loop = {0};
     uint64_t global_size = 9;
     uint64_t local_size = 1;
@@ -1105,8 +1361,15 @@ void compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
         compile_loop_print(&compile_loop, 4, 0, "");
         kernel = compile_loop_to_cl(filename, &compile_loop, global_size, local_size);
         cl_kernel_print(&kernel, 4, 0, "");
-        cl_kernel_free(&kernel);
+        program.kernel_num++;
+        program.kernel = realloc(program.kernel, program.kernel_num * sizeof(cl_kernel_t));
+        program.kernel[program.kernel_num - 1] = kernel;
     }
 
     compile_loop_free(&compile_loop);
+    return program;
+}
+void cl_program_free(cl_program_t *program) {
+    for(uint64_t i = 0; i < program->kernel_num; i++) { cl_kernel_free(&program->kernel[i]); }
+    free(program->kernel);
 }
