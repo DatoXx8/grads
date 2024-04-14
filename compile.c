@@ -357,12 +357,24 @@ static ALWAYS_INLINE bool compile_loop_simple_op_equal(simple_op_t *starting_op,
 static uint64_t compile_loop_from_linearized_index(compile_loop_t *compile_loop, linearized_t *linearized, uint64_t start_index) {
     uint64_t loop_length = 0;
     uint64_t loop_number = 0;
+    uint64_t diff;
     simple_op_t starting_op = linearized->simple[start_index];
     for(uint64_t i = start_index + 1; i < linearized->op_count; i++) {
         if(compile_loop_simple_op_equal(&starting_op, &linearized->simple[i])) {
-            /* TODO: Check the other ops here aswell. */
-            loop_length = i - start_index;
-            break;
+            /* TODO: This could probably just be done in the `for` statement. */
+            if(2 * i - start_index < linearized->op_count) {
+                diff = 0;
+                for(uint64_t j = 0; j < i - start_index; j++) {
+                    if(!compile_loop_simple_op_equal(&linearized->simple[start_index + j], &linearized->simple[i + j])) {
+                        diff = 1;
+                        break;
+                    }
+                }
+                if(!diff) {
+                    loop_length = i - start_index;
+                    break;
+                }
+            }
         }
     }
     if(!loop_length) { /* Could not find loop. */
