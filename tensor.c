@@ -1384,7 +1384,7 @@ void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
-        printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
+        printf("%*sCL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a) {
@@ -1410,7 +1410,7 @@ void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name)
     if(strncmp(name, "", 1)) {
         printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
     } else {
-        printf("%*s CL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
+        printf("%*sCL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a >= a_max) {

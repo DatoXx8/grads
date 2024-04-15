@@ -10,7 +10,7 @@
 
 void ALWAYS_INLINE simple_op_simulate_move(op_t *op) {
     switch(op->move_type) {
-        case(move_reshape): {
+        case move_reshape: {
             op->out_buffer->cl_a_size = op->var_a;
             op->out_buffer->cl_z_size = op->var_z;
             op->out_buffer->cl_y_size = op->var_y;
@@ -21,14 +21,14 @@ void ALWAYS_INLINE simple_op_simulate_move(op_t *op) {
             op->out_buffer->cl_x_stride = 1;
             break;
         }
-        case(move_resize): {
+        case move_resize: {
             op->out_buffer->cl_a_size = op->var_a;
             op->out_buffer->cl_z_size = op->var_z;
             op->out_buffer->cl_y_size = op->var_y;
             op->out_buffer->cl_x_size = op->var_x;
             break;
         }
-        case(move_offset): {
+        case move_offset: {
             op->out_buffer->cl_offset = op->out_buffer->cl_a_stride * op->var_a + op->out_buffer->cl_z_stride * op->var_z +
                                         op->out_buffer->cl_y_stride * op->var_y + op->out_buffer->cl_x_stride * op->var_x;
             op->out_buffer->cl_a_offset = op->var_a;
@@ -82,87 +82,87 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
     if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *) simple_op);
     switch(simple_op->type) {
-        case(operation_unary): {
+        case operation_unary: {
             switch(simple_op->unary_type) {
-                case(unary_add): {
+                case unary_add: {
                     printf("U add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_subtract): {
+                case unary_subtract: {
                     printf("U sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_multiply): {
+                case unary_multiply: {
                     printf("U mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_divide): {
+                case unary_divide: {
                     printf("U div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_exp): {
+                case unary_exp: {
                     printf("U exp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_log): {
+                case unary_log: {
                     printf("U log {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_square): {
+                case unary_square: {
                     printf("U sqr {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_sqrt): {
+                case unary_sqrt: {
                     printf("U sqt {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_negate): {
+                case unary_negate: {
                     printf("U neg {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_reciprocal): {
+                case unary_reciprocal: {
                     printf("U rcp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_max): {
+                case unary_max: {
                     printf("U max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_min): {
+                case unary_min: {
                     printf("U min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
                            simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_set): {
+                case unary_set: {
                     printf("U set {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
@@ -170,25 +170,25 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                     break;
                 }
                 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
-                case(unary_random): {
+                case unary_random: {
                     printf("U ran {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_tanh): {
+                case unary_tanh: {
                     printf("U tnh {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_absolute): {
+                case unary_absolute: {
                     printf("U abs {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
                     break;
                 }
-                case(unary_sign): {
+                case unary_sign: {
                     printf("U sng {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
                            simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
                            simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
@@ -197,9 +197,9 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
             }
             break;
         }
-        case(operation_binary): {
+        case operation_binary: {
             switch(simple_op->binary_type) {
-                case(binary_add): {
+                case binary_add: {
                     printf("B add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -208,7 +208,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_subtract): {
+                case binary_subtract: {
                     printf("B sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -217,7 +217,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_multiply): {
+                case binary_multiply: {
                     printf("B mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -226,7 +226,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_divide): {
+                case binary_divide: {
                     printf("B div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -235,7 +235,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_max): {
+                case binary_max: {
                     printf("B max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -244,7 +244,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_min): {
+                case binary_min: {
                     printf("B min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -253,7 +253,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_copy): {
+                case binary_copy: {
                     printf("B cpy {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -262,7 +262,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_add_like): {
+                case binary_add_like: {
                     printf("L add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -271,7 +271,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_subtract_like): {
+                case binary_subtract_like: {
                     printf("L sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -280,7 +280,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_multiply_like): {
+                case binary_multiply_like: {
                     printf("L mul{%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -289,7 +289,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_divide_like): {
+                case binary_divide_like: {
                     printf("L div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -298,7 +298,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_max_like): {
+                case binary_max_like: {
                     printf("L max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -307,7 +307,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_min_like): {
+                case binary_min_like: {
                     printf("L min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -316,7 +316,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(binary_copy_like): {
+                case binary_copy_like: {
                     printf("L cpy {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -328,9 +328,9 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
             }
             break;
         }
-        case(operation_reduce): {
+        case operation_reduce: {
             switch(simple_op->reduce_type) {
-                case(reduce_sum): {
+                case reduce_sum: {
                     printf("R sum {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -339,7 +339,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(reduce_avg): {
+                case reduce_avg: {
                     printf("R avg {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -348,7 +348,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(reduce_max): {
+                case reduce_max: {
                     printf("R max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -357,7 +357,7 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
                            simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
                     break;
                 }
-                case(reduce_min): {
+                case reduce_min: {
                     printf("R min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
                            simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
@@ -369,16 +369,16 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
             }
             break;
         }
-        case(operation_move): {
+        case operation_move: {
             ERROR("ERROR: simple_op should not be a move operation!\n");
         }
     }
 }
 ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
     switch(simple_op->type) {
-        case(operation_unary): {
+        case operation_unary: {
             switch(simple_op->unary_type) {
-                case(unary_add): {
+                case unary_add: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -390,7 +390,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_subtract): {
+                case unary_subtract: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -402,7 +402,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_multiply): {
+                case unary_multiply: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -414,7 +414,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_divide): {
+                case unary_divide: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -426,7 +426,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_exp): {
+                case unary_exp: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -438,7 +438,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_log): {
+                case unary_log: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -450,7 +450,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_square): {
+                case unary_square: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -462,7 +462,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_sqrt): {
+                case unary_sqrt: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -474,7 +474,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_negate): {
+                case unary_negate: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -486,7 +486,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_reciprocal): {
+                case unary_reciprocal: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -498,7 +498,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_max): {
+                case unary_max: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -512,7 +512,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_min): {
+                case unary_min: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -526,7 +526,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_set): {
+                case unary_set: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -538,7 +538,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_random): {
+                case unary_random: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -550,7 +550,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_tanh): {
+                case unary_tanh: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -562,7 +562,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_absolute): {
+                case unary_absolute: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -574,7 +574,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(unary_sign): {
+                case unary_sign: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -597,9 +597,9 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(operation_binary): {
+        case operation_binary: {
             switch(simple_op->binary_type) {
-                case(binary_add): {
+                case binary_add: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -611,7 +611,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_subtract): {
+                case binary_subtract: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -623,7 +623,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_multiply): {
+                case binary_multiply: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -635,7 +635,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_divide): {
+                case binary_divide: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -647,7 +647,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_max): {
+                case binary_max: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -661,7 +661,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_min): {
+                case binary_min: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -675,7 +675,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_copy): {
+                case binary_copy: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -687,7 +687,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_add_like): {
+                case binary_add_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -699,7 +699,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_subtract_like): {
+                case binary_subtract_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -711,7 +711,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_multiply_like): {
+                case binary_multiply_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -723,7 +723,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_divide_like): {
+                case binary_divide_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -735,7 +735,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_max_like): {
+                case binary_max_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -749,7 +749,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_min_like): {
+                case binary_min_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -763,7 +763,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     }
                     break;
                 }
-                case(binary_copy_like): {
+                case binary_copy_like: {
                     for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
                             for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
@@ -778,9 +778,9 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(operation_reduce): {
+        case operation_reduce: {
             switch(simple_op->reduce_type) {
-                case(reduce_sum): {
+                case reduce_sum: {
                     double temp = 0;
                     for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
@@ -792,7 +792,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) = temp;
                     break;
                 }
-                case(reduce_max): {
+                case reduce_max: {
                     double temp = -INFINITY;
                     for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
@@ -806,7 +806,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) = temp;
                     break;
                 }
-                case(reduce_avg): {
+                case reduce_avg: {
                     double temp = 0;
                     for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
@@ -819,7 +819,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                         temp / (simple_op->in_buffer.x_size * simple_op->in_buffer.y_size * simple_op->in_buffer.z_size * simple_op->in_buffer.a_size);
                     break;
                 }
-                case(reduce_min): {
+                case reduce_min: {
                     double temp = INFINITY;
                     for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
                         for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
@@ -836,7 +836,7 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             }
             break;
         }
-        case(operation_move): {
+        case operation_move: {
             ERROR("ERROR: simple_op should not be a move operation!\n");
         }
     }
