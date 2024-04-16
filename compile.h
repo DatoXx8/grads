@@ -16,11 +16,10 @@
 /* TODO: Add compilation to fixed binaries and also just the "normal" compilation. */
 enum compile_e { compile_none, compile_cl };
 
-/* TODO: Could probably just store one instance of the loop, since it's all the same and the indices can be computed via the `per_dim` stuff. */
 typedef struct {
-    uint64_t loop_number;
-    uint64_t loop_length;
-    simple_op_t **loop_instance;
+    uint64_t loop_num;
+    uint64_t loop_len;
+    simple_op_t *loop_instance;
     /* These following ones are essentialy x[number_of_tensors <= loop_length * 2][4]. In tensors are at x[even] and out tensors are at x[odd], and the 4 is cuz
      * of the 4 possible dimensions a tensor can have.
      * Doing it like this is extremely natural if you think about the way I do it just in the normal case on the CPU. */
@@ -45,15 +44,29 @@ typedef struct {
 #define OPTIMIZE_INLINE (1UL)
 #define OPTIMIZE_FUSE (1UL << 1)
 #define OPTIMIZE_ALL (OPTIMIZE_INLINE | OPTIMIZE_FUSE)
-/* TODO: Could probably just store one instance of the loop, since it's all the same and the indices can be computed via the `per_dim` stuff. That way we also
- * don't have to do *** and ** .*/
 typedef struct {
     uint64_t optimizations;
-    simple_op_t ***op;
-    uint64_t **op_num;
-    uint64_t **op_cap;
     uint64_t loop_num;
     uint64_t loop_len;
+    simple_op_t **op;
+    uint64_t **per_dim_off_a;
+    uint64_t **per_dim_off_z;
+    uint64_t **per_dim_off_y;
+    uint64_t **per_dim_off_x;
+    uint64_t **per_dim_str_a;
+    uint64_t **per_dim_str_z;
+    uint64_t **per_dim_str_y;
+    uint64_t **per_dim_str_x;
+    uint64_t **per_dim_reset_a;
+    uint64_t **per_dim_reset_z;
+    uint64_t **per_dim_reset_y;
+    uint64_t **per_dim_reset_x;
+    uint64_t **per_dim_wait_a;
+    uint64_t **per_dim_wait_z;
+    uint64_t **per_dim_wait_y;
+    uint64_t **per_dim_wait_x;
+    uint64_t *op_num;
+    uint64_t *op_cap;
 } compile_loop_t;
 
 /* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile option. */
