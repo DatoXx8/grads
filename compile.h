@@ -16,9 +16,7 @@
 /* TODO: Add compilation to fixed binaries and also just the "normal" compilation. */
 enum compile_e { compile_none, compile_cl };
 
-/* TODO: Different optimisation enums for debugging. No-Copy, fusing ops once, twice etc. */
-
-/* These are instructions that repeat and only the offsets change, not the relative differences if ya catch my drift. */
+/* TODO: Could probably just store one instance of the loop, since it's all the same and the indices can be computed via the `per_dim` stuff. */
 typedef struct {
     uint64_t loop_number;
     uint64_t loop_length;
@@ -42,7 +40,22 @@ typedef struct {
     uint64_t *per_dim_wait_z;
     uint64_t *per_dim_wait_y;
     uint64_t *per_dim_wait_x;
+} simple_loop_t;
+/* TODO: Maybe do this in an enum. */
+#define OPTIMIZE_INLINE (1UL)
+#define OPTIMIZE_FUSE (1UL << 1)
+#define OPTIMIZE_ALL (OPTIMIZE_INLINE | OPTIMIZE_FUSE)
+/* TODO: Could probably just store one instance of the loop, since it's all the same and the indices can be computed via the `per_dim` stuff. That way we also
+ * don't have to do *** and ** .*/
+typedef struct {
+    uint64_t optimizations;
+    simple_op_t ***op;
+    uint64_t **op_num;
+    uint64_t **op_cap;
+    uint64_t loop_num;
+    uint64_t loop_len;
 } compile_loop_t;
+
 /* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile option. */
 typedef struct {
     const char *name;
