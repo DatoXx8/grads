@@ -862,6 +862,7 @@ void linearized_from_op(linearized_t *linearized, op_t *op) {
     if(linearized->op_capacity == linearized->op_count) {
         linearized->op_capacity *= 2;
         linearized->simple = realloc(linearized->simple, linearized->op_capacity * sizeof(simple_op_t));
+        assert(linearized->simple);
     }
     if(op->type == operation_move) {
         simple_op_simulate_move(op);
