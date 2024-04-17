@@ -17,28 +17,45 @@
 enum compile_e { compile_none, compile_cl };
 
 typedef struct {
+    uint64_t off_a_in;
+    uint64_t off_z_in;
+    uint64_t off_y_in;
+    uint64_t off_x_in;
+    uint64_t str_a_in;
+    uint64_t str_z_in;
+    uint64_t str_y_in;
+    uint64_t str_x_in;
+    uint64_t reset_a_in;
+    uint64_t reset_z_in;
+    uint64_t reset_y_in;
+    uint64_t reset_x_in;
+    uint64_t wait_a_in;
+    uint64_t wait_z_in;
+    uint64_t wait_y_in;
+    uint64_t wait_x_in;
+    uint64_t off_a_out;
+    uint64_t off_z_out;
+    uint64_t off_y_out;
+    uint64_t off_x_out;
+    uint64_t str_a_out;
+    uint64_t str_z_out;
+    uint64_t str_y_out;
+    uint64_t str_x_out;
+    uint64_t reset_a_out;
+    uint64_t reset_z_out;
+    uint64_t reset_y_out;
+    uint64_t reset_x_out;
+    uint64_t wait_a_out;
+    uint64_t wait_z_out;
+    uint64_t wait_y_out;
+    uint64_t wait_x_out;
+} dim_info_t;
+
+typedef struct {
     uint64_t loop_num;
     uint64_t loop_len;
     simple_op_t *loop_instance;
-    /* These following ones are essentialy x[number_of_tensors <= loop_length * 2][4]. In tensors are at x[even] and out tensors are at x[odd], and the 4 is cuz
-     * of the 4 possible dimensions a tensor can have.
-     * Doing it like this is extremely natural if you think about the way I do it just in the normal case on the CPU. */
-    uint64_t *per_dim_off_a;
-    uint64_t *per_dim_off_z;
-    uint64_t *per_dim_off_y;
-    uint64_t *per_dim_off_x;
-    uint64_t *per_dim_str_a;
-    uint64_t *per_dim_str_z;
-    uint64_t *per_dim_str_y;
-    uint64_t *per_dim_str_x;
-    uint64_t *per_dim_reset_a;
-    uint64_t *per_dim_reset_z;
-    uint64_t *per_dim_reset_y;
-    uint64_t *per_dim_reset_x;
-    uint64_t *per_dim_wait_a;
-    uint64_t *per_dim_wait_z;
-    uint64_t *per_dim_wait_y;
-    uint64_t *per_dim_wait_x;
+    dim_info_t *dim_info;
 } simple_loop_t;
 /* TODO: Maybe do this in an enum. */
 #define OPTIMIZE_INLINE (1UL)
@@ -49,22 +66,8 @@ typedef struct {
     uint64_t loop_num;
     uint64_t loop_len;
     simple_op_t **op;
-    uint64_t **per_dim_off_a;
-    uint64_t **per_dim_off_z;
-    uint64_t **per_dim_off_y;
-    uint64_t **per_dim_off_x;
-    uint64_t **per_dim_str_a;
-    uint64_t **per_dim_str_z;
-    uint64_t **per_dim_str_y;
-    uint64_t **per_dim_str_x;
-    uint64_t **per_dim_reset_a;
-    uint64_t **per_dim_reset_z;
-    uint64_t **per_dim_reset_y;
-    uint64_t **per_dim_reset_x;
-    uint64_t **per_dim_wait_a;
-    uint64_t **per_dim_wait_z;
-    uint64_t **per_dim_wait_y;
-    uint64_t **per_dim_wait_x;
+    /* TODO: These need to be refactor having to do `2 * i + off` everywhere is horrible. Solve this by extracting all of these to a `dimension_info_t` struct. */
+    dim_info_t **dim_info;
     uint64_t *op_num;
     uint64_t *op_cap;
 } compile_loop_t;

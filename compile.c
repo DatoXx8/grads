@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include "compile.h"
 #include "linearize.h"
@@ -16,22 +17,7 @@
     ((simple)->a_stride * (a) + (simple)->z_stride * (z) + (simple)->y_stride * (y) + (simple)->x_stride * (x) + (simple)->offset)
 static void simple_loop_free(simple_loop_t *simple_loop) {
     free(simple_loop->loop_instance);
-    free(simple_loop->per_dim_off_a);
-    free(simple_loop->per_dim_off_z);
-    free(simple_loop->per_dim_off_y);
-    free(simple_loop->per_dim_off_x);
-    free(simple_loop->per_dim_str_a);
-    free(simple_loop->per_dim_str_z);
-    free(simple_loop->per_dim_str_y);
-    free(simple_loop->per_dim_str_x);
-    free(simple_loop->per_dim_wait_a);
-    free(simple_loop->per_dim_wait_z);
-    free(simple_loop->per_dim_wait_y);
-    free(simple_loop->per_dim_wait_x);
-    free(simple_loop->per_dim_reset_a);
-    free(simple_loop->per_dim_reset_z);
-    free(simple_loop->per_dim_reset_y);
-    free(simple_loop->per_dim_reset_x);
+    free(simple_loop->dim_info);
 }
 /* TODO: Check if `simple_loop` has already been configured, by checking pointers for NULL. */
 /* TODO: Don't pass all the loops and just check earlier, that it they are all valid repetitions of each other. */
@@ -42,50 +28,20 @@ static void simple_loop_configure(simple_loop_t *simple_loop, simple_op_t **simp
     simple_loop->loop_instance = calloc(loop_length, sizeof(simple_op_t));
     assert(simple_loop->loop_instance);
     for(uint64_t i = 0; i < loop_length; i++) { simple_loop->loop_instance[i] = simple_op[0][i]; }
-    simple_loop->per_dim_off_a = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_off_a);
-    simple_loop->per_dim_off_z = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_off_z);
-    simple_loop->per_dim_off_y = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_off_y);
-    simple_loop->per_dim_off_x = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_off_x);
-    simple_loop->per_dim_str_a = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_str_a);
-    simple_loop->per_dim_str_z = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_str_z);
-    simple_loop->per_dim_str_y = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_str_y);
-    simple_loop->per_dim_str_x = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_str_x);
-    simple_loop->per_dim_reset_a = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_reset_a);
-    simple_loop->per_dim_reset_z = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_reset_z);
-    simple_loop->per_dim_reset_y = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_reset_y);
-    simple_loop->per_dim_reset_x = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_reset_x);
-    simple_loop->per_dim_wait_a = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_wait_a);
-    simple_loop->per_dim_wait_z = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_wait_z);
-    simple_loop->per_dim_wait_y = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_wait_y);
-    simple_loop->per_dim_wait_x = calloc(loop_length * 2, sizeof(uint64_t));
-    assert(simple_loop->per_dim_wait_x);
+    simple_loop->dim_info = calloc(loop_length, sizeof(dim_info_t));
+    assert(simple_loop->dim_info);
     /* FIX: Currently we assume that the initial op necessarily has the lowest indices, this should *really* be fixed to have some sorting. This would also fix
      * potentially negative strides. */
     for(uint64_t i = 0; i < loop_length; i++) {
-        simple_loop->per_dim_off_a[2 * i] = simple_loop->loop_instance[i].out_buffer.a_offset;
-        simple_loop->per_dim_off_z[2 * i] = simple_loop->loop_instance[i].out_buffer.z_offset;
-        simple_loop->per_dim_off_y[2 * i] = simple_loop->loop_instance[i].out_buffer.y_offset;
-        simple_loop->per_dim_off_x[2 * i] = simple_loop->loop_instance[i].out_buffer.x_offset;
+        simple_loop->dim_info[i].off_a_out = simple_loop->loop_instance[i].out_buffer.a_offset;
+        simple_loop->dim_info[i].off_a_out = simple_loop->loop_instance[i].out_buffer.z_offset;
+        simple_loop->dim_info[i].off_a_out = simple_loop->loop_instance[i].out_buffer.y_offset;
+        simple_loop->dim_info[i].off_a_out = simple_loop->loop_instance[i].out_buffer.x_offset;
         if(simple_loop->loop_instance[i].type != operation_unary) {
-            simple_loop->per_dim_off_a[2 * i + 1] = simple_loop->loop_instance[i].in_buffer.a_offset;
-            simple_loop->per_dim_off_z[2 * i + 1] = simple_loop->loop_instance[i].in_buffer.z_offset;
-            simple_loop->per_dim_off_y[2 * i + 1] = simple_loop->loop_instance[i].in_buffer.y_offset;
-            simple_loop->per_dim_off_x[2 * i + 1] = simple_loop->loop_instance[i].in_buffer.x_offset;
+            simple_loop->dim_info[i].off_a_in = simple_loop->loop_instance[i].in_buffer.a_offset;
+            simple_loop->dim_info[i].off_z_in = simple_loop->loop_instance[i].in_buffer.z_offset;
+            simple_loop->dim_info[i].off_y_in = simple_loop->loop_instance[i].in_buffer.y_offset;
+            simple_loop->dim_info[i].off_x_in = simple_loop->loop_instance[i].in_buffer.x_offset;
         }
     }
     uint64_t found_a_o, found_a_i;
@@ -105,81 +61,81 @@ static void simple_loop_configure(simple_loop_t *simple_loop, simple_op_t **simp
         found_y_i = 0;
         found_x_i = 0;
         for(uint64_t j = 1; j < loop_number; j++) {
-            if((!found_a_o) && simple_op[j][i].out_buffer.a_offset != simple_loop->per_dim_off_a[2 * i]) {
-                simple_loop->per_dim_str_a[2 * i] = simple_op[j][i].out_buffer.a_offset - simple_loop->per_dim_off_a[2 * i];
-                simple_loop->per_dim_wait_a[2 * i] = j;
+            if((!found_a_o) && simple_op[j][i].out_buffer.a_offset != simple_loop->dim_info[i].off_a_out) {
+                simple_loop->dim_info[i].str_a_out = simple_op[j][i].out_buffer.a_offset - simple_loop->dim_info[i].off_a_out;
+                simple_loop->dim_info[i].wait_a_out = j;
                 found_a_o = 1;
             }
-            if((!found_z_o) && simple_op[j][i].out_buffer.z_offset != simple_loop->per_dim_off_z[2 * i]) {
-                simple_loop->per_dim_str_z[2 * i] = simple_op[j][i].out_buffer.z_offset - simple_loop->per_dim_off_z[2 * i];
-                simple_loop->per_dim_wait_z[2 * i] = j;
+            if((!found_z_o) && simple_op[j][i].out_buffer.z_offset != simple_loop->dim_info[i].off_z_out) {
+                simple_loop->dim_info[i].str_z_out = simple_op[j][i].out_buffer.z_offset - simple_loop->dim_info[i].off_z_out;
+                simple_loop->dim_info[i].wait_z_out = j;
                 found_z_o = 1;
             }
-            if((!found_y_o) && simple_op[j][i].out_buffer.y_offset != simple_loop->per_dim_off_y[2 * i]) {
-                simple_loop->per_dim_str_y[2 * i] = simple_op[j][i].out_buffer.y_offset - simple_loop->per_dim_off_y[2 * i];
-                simple_loop->per_dim_wait_y[2 * i] = j;
+            if((!found_y_o) && simple_op[j][i].out_buffer.y_offset != simple_loop->dim_info[i].off_y_out) {
+                simple_loop->dim_info[i].str_y_out = simple_op[j][i].out_buffer.y_offset - simple_loop->dim_info[i].off_y_out;
+                simple_loop->dim_info[i].wait_y_out = j;
                 found_y_o = 1;
             }
-            if((!found_x_o) && simple_op[j][i].out_buffer.x_offset != simple_loop->per_dim_off_x[2 * i]) {
-                simple_loop->per_dim_str_x[2 * i] = simple_op[j][i].out_buffer.x_offset - simple_loop->per_dim_off_x[2 * i];
-                simple_loop->per_dim_wait_x[2 * i] = j;
+            if((!found_x_o) && simple_op[j][i].out_buffer.x_offset != simple_loop->dim_info[i].off_x_out) {
+                simple_loop->dim_info[i].str_x_out = simple_op[j][i].out_buffer.x_offset - simple_loop->dim_info[i].off_x_out;
+                simple_loop->dim_info[i].wait_x_out = j;
                 found_x_o = 1;
             }
             if(simple_loop->loop_instance[i].type != operation_unary) {
-                if((!found_a_i) && simple_op[j][i].in_buffer.a_offset != simple_loop->per_dim_off_a[2 * i + 1]) {
-                    simple_loop->per_dim_str_a[2 * i + 1] = simple_op[j][i].in_buffer.a_offset - simple_loop->per_dim_off_a[2 * i + 1];
-                    simple_loop->per_dim_wait_a[2 * i + 1] = j;
+                if((!found_a_i) && simple_op[j][i].in_buffer.a_offset != simple_loop->dim_info[i].off_a_in) {
+                    simple_loop->dim_info[i].str_a_in = simple_op[j][i].in_buffer.a_offset - simple_loop->dim_info[i].off_a_in;
+                    simple_loop->dim_info[i].wait_a_in = j;
                     found_a_i = 1;
                 }
-                if((!found_z_i) && simple_op[j][i].in_buffer.z_offset != simple_loop->per_dim_off_z[2 * i + 1]) {
-                    simple_loop->per_dim_str_z[2 * i + 1] = simple_op[j][i].in_buffer.z_offset - simple_loop->per_dim_off_z[2 * i + 1];
-                    simple_loop->per_dim_wait_z[2 * i + 1] = j;
+                if((!found_z_i) && simple_op[j][i].in_buffer.z_offset != simple_loop->dim_info[i].off_z_in) {
+                    simple_loop->dim_info[i].str_z_in = simple_op[j][i].in_buffer.z_offset - simple_loop->dim_info[i].off_z_in;
+                    simple_loop->dim_info[i].wait_z_in = j;
                     found_z_i = 1;
                 }
-                if((!found_y_i) && simple_op[j][i].in_buffer.y_offset != simple_loop->per_dim_off_y[2 * i + 1]) {
-                    simple_loop->per_dim_str_y[2 * i + 1] = simple_op[j][i].in_buffer.y_offset - simple_loop->per_dim_off_y[2 * i + 1];
-                    simple_loop->per_dim_wait_y[2 * i + 1] = j;
+                if((!found_y_i) && simple_op[j][i].in_buffer.y_offset != simple_loop->dim_info[i].off_y_in) {
+                    simple_loop->dim_info[i].str_y_in = simple_op[j][i].in_buffer.y_offset - simple_loop->dim_info[i].off_y_in;
+                    simple_loop->dim_info[i].wait_y_in = j;
                     found_y_i = 1;
                 }
-                if((!found_x_i) && simple_op[j][i].in_buffer.x_offset != simple_loop->per_dim_off_x[2 * i + 1]) {
-                    simple_loop->per_dim_str_x[2 * i + 1] = simple_op[j][i].in_buffer.x_offset - simple_loop->per_dim_off_x[2 * i + 1];
-                    simple_loop->per_dim_wait_x[2 * i + 1] = j;
+                if((!found_x_i) && simple_op[j][i].in_buffer.x_offset != simple_loop->dim_info[i].off_x_in) {
+                    simple_loop->dim_info[i].str_x_in = simple_op[j][i].in_buffer.x_offset - simple_loop->dim_info[i].off_x_in;
+                    simple_loop->dim_info[i].wait_x_in = j;
                     found_x_i = 1;
                 }
             }
         }
         if(!found_a_o) {
-            simple_loop->per_dim_str_a[2 * i] = 0;
-            simple_loop->per_dim_wait_a[2 * i] = loop_number;
+            simple_loop->dim_info[i].str_a_out = 0;
+            simple_loop->dim_info[i].wait_a_out = loop_number;
         }
         if(!found_z_o) {
-            simple_loop->per_dim_str_z[2 * i] = 0;
-            simple_loop->per_dim_wait_z[2 * i] = loop_number;
+            simple_loop->dim_info[i].str_z_out = 0;
+            simple_loop->dim_info[i].wait_z_out = loop_number;
         }
         if(!found_y_o) {
-            simple_loop->per_dim_str_y[2 * i] = 0;
-            simple_loop->per_dim_wait_y[2 * i] = loop_number;
+            simple_loop->dim_info[i].str_y_out = 0;
+            simple_loop->dim_info[i].wait_y_out = loop_number;
         }
         if(!found_x_o) {
-            simple_loop->per_dim_str_x[2 * i] = 0;
-            simple_loop->per_dim_wait_x[2 * i] = loop_number;
+            simple_loop->dim_info[i].str_x_out = 0;
+            simple_loop->dim_info[i].wait_x_out = loop_number;
         }
         if(simple_loop->loop_instance[i].type != operation_unary) {
             if(!found_a_i) {
-                simple_loop->per_dim_str_a[2 * i + 1] = 0;
-                simple_loop->per_dim_wait_a[2 * i + 1] = loop_number;
+                simple_loop->dim_info[i].str_a_in = 0;
+                simple_loop->dim_info[i].wait_a_in = loop_number;
             }
             if(!found_z_i) {
-                simple_loop->per_dim_str_z[2 * i + 1] = 0;
-                simple_loop->per_dim_wait_z[2 * i + 1] = loop_number;
+                simple_loop->dim_info[i].str_z_in = 0;
+                simple_loop->dim_info[i].wait_z_in = loop_number;
             }
             if(!found_y_i) {
-                simple_loop->per_dim_str_y[2 * i + 1] = 0;
-                simple_loop->per_dim_wait_y[2 * i + 1] = loop_number;
+                simple_loop->dim_info[i].str_y_in = 0;
+                simple_loop->dim_info[i].wait_y_in = loop_number;
             }
             if(!found_x_i) {
-                simple_loop->per_dim_str_x[2 * i + 1] = 0;
-                simple_loop->per_dim_wait_x[2 * i + 1] = loop_number;
+                simple_loop->dim_info[i].str_x_in = 0;
+                simple_loop->dim_info[i].wait_x_in = loop_number;
             }
         }
     }
@@ -209,58 +165,58 @@ static void simple_loop_configure(simple_loop_t *simple_loop, simple_op_t **simp
         left_y_i = 0;
         left_x_i = 0;
         for(uint64_t j = 1; j < loop_number; j++) {
-            if((!left_a_o) && (!found_a_o) && simple_op[j][i].out_buffer.a_offset != simple_loop->per_dim_off_a[2 * i]) { left_a_o = 1; }
-            if(left_a_o && (!found_a_o) && simple_op[j][i].out_buffer.a_offset == simple_loop->per_dim_off_a[2 * i]) {
-                simple_loop->per_dim_reset_a[2 * i] = j;
+            if((!left_a_o) && (!found_a_o) && simple_op[j][i].out_buffer.a_offset != simple_loop->dim_info[i].off_a_out) { left_a_o = 1; }
+            if(left_a_o && (!found_a_o) && simple_op[j][i].out_buffer.a_offset == simple_loop->dim_info[i].off_a_out) {
+                simple_loop->dim_info[i].reset_a_out = j;
                 found_a_o = 1;
             }
-            if((!left_z_o) && (!found_z_o) && simple_op[j][i].out_buffer.z_offset != simple_loop->per_dim_off_z[2 * i]) { left_z_o = 1; }
-            if(left_z_o && (!found_z_o) && simple_op[j][i].out_buffer.z_offset == simple_loop->per_dim_off_z[2 * i]) {
-                simple_loop->per_dim_reset_z[2 * i] = j;
+            if((!left_z_o) && (!found_z_o) && simple_op[j][i].out_buffer.z_offset != simple_loop->dim_info[i].off_z_out) { left_z_o = 1; }
+            if(left_z_o && (!found_z_o) && simple_op[j][i].out_buffer.z_offset == simple_loop->dim_info[i].off_z_out) {
+                simple_loop->dim_info[i].reset_z_out = j;
                 found_z_o = 1;
             }
-            if((!left_y_o) && (!found_y_o) && simple_op[j][i].out_buffer.y_offset != simple_loop->per_dim_off_y[2 * i]) { left_y_o = 1; }
-            if(left_y_o && (!found_y_o) && simple_op[j][i].out_buffer.y_offset == simple_loop->per_dim_off_y[2 * i]) {
-                simple_loop->per_dim_reset_y[2 * i] = j;
+            if((!left_y_o) && (!found_y_o) && simple_op[j][i].out_buffer.y_offset != simple_loop->dim_info[i].off_y_out) { left_y_o = 1; }
+            if(left_y_o && (!found_y_o) && simple_op[j][i].out_buffer.y_offset == simple_loop->dim_info[i].off_y_out) {
+                simple_loop->dim_info[i].reset_y_out = j;
                 found_y_o = 1;
             }
-            if((!left_x_o) && (!found_x_o) && simple_op[j][i].out_buffer.x_offset != simple_loop->per_dim_off_x[2 * i]) { left_x_o = 1; }
-            if(left_x_o && (!found_x_o) && simple_op[j][i].out_buffer.x_offset == simple_loop->per_dim_off_x[2 * i]) {
-                simple_loop->per_dim_reset_x[2 * i] = j;
+            if((!left_x_o) && (!found_x_o) && simple_op[j][i].out_buffer.x_offset != simple_loop->dim_info[i].off_x_out) { left_x_o = 1; }
+            if(left_x_o && (!found_x_o) && simple_op[j][i].out_buffer.x_offset == simple_loop->dim_info[i].off_x_out) {
+                simple_loop->dim_info[i].reset_x_out = j;
                 found_x_o = 1;
             }
             if(simple_loop->loop_instance[i].type != operation_unary) {
-                if((!left_a_i) && (!found_a_i) && simple_op[j][i].in_buffer.a_offset != simple_loop->per_dim_off_a[2 * i + 1]) { left_a_i = 1; }
-                if(left_a_i && (!found_a_i) && simple_op[j][i].in_buffer.a_offset == simple_loop->per_dim_off_a[2 * i + 1]) {
-                    simple_loop->per_dim_reset_a[2 * i + 1] = j;
+                if((!left_a_i) && (!found_a_i) && simple_op[j][i].in_buffer.a_offset != simple_loop->dim_info[i].off_a_in) { left_a_i = 1; }
+                if(left_a_i && (!found_a_i) && simple_op[j][i].in_buffer.a_offset == simple_loop->dim_info[i].off_a_in) {
+                    simple_loop->dim_info[i].reset_a_in = j;
                     found_a_i = 1;
                 }
-                if((!left_z_i) && (!found_z_i) && simple_op[j][i].in_buffer.z_offset != simple_loop->per_dim_off_z[2 * i + 1]) { left_z_i = 1; }
-                if(left_z_i && (!found_z_i) && simple_op[j][i].in_buffer.z_offset == simple_loop->per_dim_off_z[2 * i + 1]) {
-                    simple_loop->per_dim_reset_z[2 * i + 1] = j;
+                if((!left_z_i) && (!found_z_i) && simple_op[j][i].in_buffer.z_offset != simple_loop->dim_info[i].off_z_in) { left_z_i = 1; }
+                if(left_z_i && (!found_z_i) && simple_op[j][i].in_buffer.z_offset == simple_loop->dim_info[i].off_z_in) {
+                    simple_loop->dim_info[i].reset_z_in = j;
                     found_z_i = 1;
                 }
-                if((!left_y_i) && (!found_y_i) && simple_op[j][i].in_buffer.y_offset != simple_loop->per_dim_off_y[2 * i + 1]) { left_y_i = 1; }
-                if(left_y_i && (!found_y_i) && simple_op[j][i].in_buffer.y_offset == simple_loop->per_dim_off_y[2 * i + 1]) {
-                    simple_loop->per_dim_reset_y[2 * i + 1] = j;
+                if((!left_y_i) && (!found_y_i) && simple_op[j][i].in_buffer.y_offset != simple_loop->dim_info[i].off_y_in) { left_y_i = 1; }
+                if(left_y_i && (!found_y_i) && simple_op[j][i].in_buffer.y_offset == simple_loop->dim_info[i].off_y_in) {
+                    simple_loop->dim_info[i].reset_y_in = j;
                     found_y_i = 1;
                 }
-                if((!left_x_i) && (!found_x_i) && simple_op[j][i].in_buffer.x_offset != simple_loop->per_dim_off_x[2 * i + 1]) { left_x_i = 1; }
-                if(left_x_i && (!found_x_i) && simple_op[j][i].in_buffer.x_offset == simple_loop->per_dim_off_x[2 * i + 1]) {
-                    simple_loop->per_dim_reset_x[2 * i + 1] = j;
+                if((!left_x_i) && (!found_x_i) && simple_op[j][i].in_buffer.x_offset != simple_loop->dim_info[i].off_x_in) { left_x_i = 1; }
+                if(left_x_i && (!found_x_i) && simple_op[j][i].in_buffer.x_offset == simple_loop->dim_info[i].off_x_in) {
+                    simple_loop->dim_info[i].reset_x_in = j;
                     found_x_i = 1;
                 }
             }
         }
-        if(!found_a_o) { simple_loop->per_dim_reset_a[2 * i] = loop_number; }
-        if(!found_z_o) { simple_loop->per_dim_reset_z[2 * i] = loop_number; }
-        if(!found_y_o) { simple_loop->per_dim_reset_y[2 * i] = loop_number; }
-        if(!found_x_o) { simple_loop->per_dim_reset_x[2 * i] = loop_number; }
+        if(!found_a_o) { simple_loop->dim_info[i].reset_a_out = loop_number; }
+        if(!found_z_o) { simple_loop->dim_info[i].reset_z_out = loop_number; }
+        if(!found_y_o) { simple_loop->dim_info[i].reset_y_out = loop_number; }
+        if(!found_x_o) { simple_loop->dim_info[i].reset_x_out = loop_number; }
         if(simple_loop->loop_instance[i].type != operation_unary) {
-            if(!found_a_i) { simple_loop->per_dim_reset_a[2 * i + 1] = loop_number; }
-            if(!found_z_i) { simple_loop->per_dim_reset_z[2 * i + 1] = loop_number; }
-            if(!found_y_i) { simple_loop->per_dim_reset_y[2 * i + 1] = loop_number; }
-            if(!found_x_i) { simple_loop->per_dim_reset_x[2 * i + 1] = loop_number; }
+            if(!found_a_i) { simple_loop->dim_info[i].reset_a_in = loop_number; }
+            if(!found_z_i) { simple_loop->dim_info[i].reset_z_in = loop_number; }
+            if(!found_y_i) { simple_loop->dim_info[i].reset_y_in = loop_number; }
+            if(!found_x_i) { simple_loop->dim_info[i].reset_x_in = loop_number; }
         }
     }
 }
@@ -277,45 +233,45 @@ static void simple_loop_print(simple_loop_t *simple_loop, int padding, int offse
     printf("off\n");
     for(uint64_t i = 0; i < simple_loop->loop_len; i++) {
         if(simple_loop->loop_instance[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_off_a[2 * i], simple_loop->per_dim_off_z[2 * i], simple_loop->per_dim_off_y[2 * i],
-                   simple_loop->per_dim_off_x[2 * i]);
+            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].off_a_out, simple_loop->dim_info[i].off_z_out, simple_loop->dim_info[i].off_y_out,
+                   simple_loop->dim_info[i].off_x_out);
         } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_off_a[2 * i], simple_loop->per_dim_off_z[2 * i],
-                   simple_loop->per_dim_off_y[2 * i], simple_loop->per_dim_off_x[2 * i], simple_loop->per_dim_off_a[2 * i + 1],
-                   simple_loop->per_dim_off_z[2 * i + 1], simple_loop->per_dim_off_y[2 * i + 1], simple_loop->per_dim_off_x[2 * i + 1]);
+            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].off_a_out, simple_loop->dim_info[i].off_z_out,
+                   simple_loop->dim_info[i].off_y_out, simple_loop->dim_info[i].off_x_out, simple_loop->dim_info[i].off_a_in, simple_loop->dim_info[i].off_z_in,
+                   simple_loop->dim_info[i].off_y_in, simple_loop->dim_info[i].off_x_in);
         }
     }
     printf("str\n");
     for(uint64_t i = 0; i < simple_loop->loop_len; i++) {
         if(simple_loop->loop_instance[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_str_a[2 * i], simple_loop->per_dim_str_z[2 * i], simple_loop->per_dim_str_y[2 * i],
-                   simple_loop->per_dim_str_x[2 * i]);
+            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].str_a_out, simple_loop->dim_info[i].str_z_out, simple_loop->dim_info[i].str_y_out,
+                   simple_loop->dim_info[i].str_x_out);
         } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_str_a[2 * i], simple_loop->per_dim_str_z[2 * i],
-                   simple_loop->per_dim_str_y[2 * i], simple_loop->per_dim_str_x[2 * i], simple_loop->per_dim_str_a[2 * i + 1],
-                   simple_loop->per_dim_str_z[2 * i + 1], simple_loop->per_dim_str_y[2 * i + 1], simple_loop->per_dim_str_x[2 * i + 1]);
+            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].str_a_out, simple_loop->dim_info[i].str_z_out,
+                   simple_loop->dim_info[i].str_y_out, simple_loop->dim_info[i].str_x_out, simple_loop->dim_info[i].str_a_in, simple_loop->dim_info[i].str_z_in,
+                   simple_loop->dim_info[i].str_y_in, simple_loop->dim_info[i].str_x_in);
         }
     }
     printf("res\n");
     for(uint64_t i = 0; i < simple_loop->loop_len; i++) {
         if(simple_loop->loop_instance[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_reset_a[2 * i], simple_loop->per_dim_reset_z[2 * i], simple_loop->per_dim_reset_y[2 * i],
-                   simple_loop->per_dim_reset_x[2 * i]);
+            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].reset_a_out, simple_loop->dim_info[i].reset_z_out, simple_loop->dim_info[i].reset_y_out,
+                   simple_loop->dim_info[i].reset_x_out);
         } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_reset_a[2 * i], simple_loop->per_dim_reset_z[2 * i],
-                   simple_loop->per_dim_reset_y[2 * i], simple_loop->per_dim_reset_x[2 * i], simple_loop->per_dim_reset_a[2 * i + 1],
-                   simple_loop->per_dim_reset_z[2 * i + 1], simple_loop->per_dim_reset_y[2 * i + 1], simple_loop->per_dim_reset_x[2 * i + 1]);
+            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].reset_a_out, simple_loop->dim_info[i].reset_z_out,
+                   simple_loop->dim_info[i].reset_y_out, simple_loop->dim_info[i].reset_x_out, simple_loop->dim_info[i].reset_a_in,
+                   simple_loop->dim_info[i].reset_z_in, simple_loop->dim_info[i].reset_y_in, simple_loop->dim_info[i].reset_x_in);
         }
     }
     printf("wat\n");
     for(uint64_t i = 0; i < simple_loop->loop_len; i++) {
         if(simple_loop->loop_instance[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_wait_a[2 * i], simple_loop->per_dim_wait_z[2 * i], simple_loop->per_dim_wait_y[2 * i],
-                   simple_loop->per_dim_wait_x[2 * i]);
+            printf("{%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].wait_a_out, simple_loop->dim_info[i].wait_z_out, simple_loop->dim_info[i].wait_y_out,
+                   simple_loop->dim_info[i].wait_x_out);
         } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->per_dim_wait_a[2 * i], simple_loop->per_dim_wait_z[2 * i],
-                   simple_loop->per_dim_wait_y[2 * i], simple_loop->per_dim_wait_x[2 * i], simple_loop->per_dim_wait_a[2 * i + 1],
-                   simple_loop->per_dim_wait_z[2 * i + 1], simple_loop->per_dim_wait_y[2 * i + 1], simple_loop->per_dim_wait_x[2 * i + 1]);
+            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple_loop->dim_info[i].wait_a_out, simple_loop->dim_info[i].wait_z_out,
+                   simple_loop->dim_info[i].wait_y_out, simple_loop->dim_info[i].wait_x_out, simple_loop->dim_info[i].wait_a_in,
+                   simple_loop->dim_info[i].wait_z_in, simple_loop->dim_info[i].wait_y_in, simple_loop->dim_info[i].wait_x_in);
         }
     }
 }
@@ -425,12 +381,15 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
         uint64_t inline_cap = initial_cap;
         uint64_t inline_num = 0;
         simple_op_t *inlined = calloc(initial_cap, sizeof(simple_op_t));
+        dim_info_t *inlined_dim_info = calloc(initial_cap, sizeof(dim_info_t));
         assert(inlined);
 
+        /* FIX: If the op at [i][0] already has stuff inlined then that will get lost. This should not be the case. */
         for(uint64_t i = 0; i < compile->loop_len; i++) {
             if(compile->op[i][0].type == operation_binary && compile->op[i][0].binary_type == binary_copy) {
                 inline_num = 1;
                 inlined[0] = compile->op[i][0];
+                inlined_dim_info[0] = compile->dim_info[i][0];
                 simple_op_print(&inlined[0], 4, 0, "");
                 for(uint64_t j = 1; j < compile->loop_len - i; j++) {
                     if(!strncmp(compile->op[i][0].out_buffer.name, compile->op[i + j][0].out_buffer.name, BUFFER_NAME_SIZE)) {
@@ -442,8 +401,10 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
                             if(inline_num == inline_cap) {
                                 inline_cap *= 2;
                                 inlined = realloc(inlined, inline_cap * sizeof(simple_op_t));
+                                inlined_dim_info = realloc(inlined_dim_info, inline_cap * sizeof(dim_info_t));
                             }
                             inlined[inline_num - 1] = compile->op[i + j][0];
+                            inlined_dim_info[inline_num - 1] = compile->dim_info[i + j][0];
                         }
                     } else if(!strncmp(compile->op[i][0].out_buffer.name, compile->op[i + j][0].in_buffer.name, BUFFER_NAME_SIZE)) {
                         compile->op_num[i] = compile->op_cap[i];
@@ -451,88 +412,31 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
                         if(compile->op_num[i + j] >= compile->op_cap[i + j]) {
                             compile->op_cap[i + j] *= 2;
                             compile->op[i + j] = realloc(compile->op[i + j], compile->op_cap[i + j] * sizeof(simple_op_t));
+                            compile->dim_info[i + j] = realloc(compile->dim_info[i + j], compile->op_cap[i + j] * sizeof(dim_info_t));
                         }
-                        for(uint64_t k = 0; k < inline_num; k++) { compile->op[i + j][k + 1] = inlined[k]; }
+                        for(uint64_t k = 0; k < inline_num; k++) {
+                            compile->op[i + j][k + 1] = inlined[k];
+                            compile->dim_info[i + j][k + 1] = inlined_dim_info[k];
+                        }
                     }
                 }
             }
         }
         free(inlined);
+        free(inlined_dim_info);
         uint64_t c = 0;
         uint64_t new_len = compile->loop_len;
         /* Kinda stupid to do it here. */
         for(uint64_t i = 0; i < compile->loop_len; i++) {
             if(compile->op_num[i] == compile->op_cap[i]) {
                 free(compile->op[i]);
-                free(compile->per_dim_off_a[2 * i]);
-                free(compile->per_dim_off_z[2 * i]);
-                free(compile->per_dim_off_y[2 * i]);
-                free(compile->per_dim_off_x[2 * i]);
-                free(compile->per_dim_off_a[2 * i + 1]);
-                free(compile->per_dim_off_z[2 * i + 1]);
-                free(compile->per_dim_off_y[2 * i + 1]);
-                free(compile->per_dim_off_x[2 * i + 1]);
-                free(compile->per_dim_str_a[2 * i]);
-                free(compile->per_dim_str_z[2 * i]);
-                free(compile->per_dim_str_y[2 * i]);
-                free(compile->per_dim_str_x[2 * i]);
-                free(compile->per_dim_str_a[2 * i + 1]);
-                free(compile->per_dim_str_z[2 * i + 1]);
-                free(compile->per_dim_str_y[2 * i + 1]);
-                free(compile->per_dim_str_x[2 * i + 1]);
-                free(compile->per_dim_reset_a[2 * i]);
-                free(compile->per_dim_reset_z[2 * i]);
-                free(compile->per_dim_reset_y[2 * i]);
-                free(compile->per_dim_reset_x[2 * i]);
-                free(compile->per_dim_reset_a[2 * i + 1]);
-                free(compile->per_dim_reset_z[2 * i + 1]);
-                free(compile->per_dim_reset_y[2 * i + 1]);
-                free(compile->per_dim_reset_x[2 * i + 1]);
-                free(compile->per_dim_wait_a[2 * i]);
-                free(compile->per_dim_wait_z[2 * i]);
-                free(compile->per_dim_wait_y[2 * i]);
-                free(compile->per_dim_wait_x[2 * i]);
-                free(compile->per_dim_wait_a[2 * i + 1]);
-                free(compile->per_dim_wait_z[2 * i + 1]);
-                free(compile->per_dim_wait_y[2 * i + 1]);
-                free(compile->per_dim_wait_x[2 * i + 1]);
+                free(compile->dim_info[i]);
                 new_len--;
             } else {
                 compile->op_cap[c] = compile->op_cap[i];
                 compile->op_num[c] = compile->op_num[i];
                 compile->op[c] = compile->op[i];
-                compile->per_dim_off_a[2 * c] = compile->per_dim_off_a[2 * i];
-                compile->per_dim_off_z[2 * c] = compile->per_dim_off_z[2 * i];
-                compile->per_dim_off_y[2 * c] = compile->per_dim_off_y[2 * i];
-                compile->per_dim_off_x[2 * c] = compile->per_dim_off_x[2 * i];
-                compile->per_dim_off_a[2 * c + 1] = compile->per_dim_off_a[2 * i + 1];
-                compile->per_dim_off_z[2 * c + 1] = compile->per_dim_off_z[2 * i + 1];
-                compile->per_dim_off_y[2 * c + 1] = compile->per_dim_off_y[2 * i + 1];
-                compile->per_dim_off_x[2 * c + 1] = compile->per_dim_off_x[2 * i + 1];
-                compile->per_dim_str_a[2 * c] = compile->per_dim_str_a[2 * i];
-                compile->per_dim_str_z[2 * c] = compile->per_dim_str_z[2 * i];
-                compile->per_dim_str_y[2 * c] = compile->per_dim_str_y[2 * i];
-                compile->per_dim_str_x[2 * c] = compile->per_dim_str_x[2 * i];
-                compile->per_dim_str_a[2 * c + 1] = compile->per_dim_str_a[2 * i + 1];
-                compile->per_dim_str_z[2 * c + 1] = compile->per_dim_str_z[2 * i + 1];
-                compile->per_dim_str_y[2 * c + 1] = compile->per_dim_str_y[2 * i + 1];
-                compile->per_dim_str_x[2 * c + 1] = compile->per_dim_str_x[2 * i + 1];
-                compile->per_dim_reset_a[2 * c] = compile->per_dim_reset_a[2 * i];
-                compile->per_dim_reset_z[2 * c] = compile->per_dim_reset_z[2 * i];
-                compile->per_dim_reset_y[2 * c] = compile->per_dim_reset_y[2 * i];
-                compile->per_dim_reset_x[2 * c] = compile->per_dim_reset_x[2 * i];
-                compile->per_dim_reset_a[2 * c + 1] = compile->per_dim_reset_a[2 * i + 1];
-                compile->per_dim_reset_z[2 * c + 1] = compile->per_dim_reset_z[2 * i + 1];
-                compile->per_dim_reset_y[2 * c + 1] = compile->per_dim_reset_y[2 * i + 1];
-                compile->per_dim_reset_x[2 * c + 1] = compile->per_dim_reset_x[2 * i + 1];
-                compile->per_dim_wait_a[2 * c] = compile->per_dim_wait_a[2 * i];
-                compile->per_dim_wait_z[2 * c] = compile->per_dim_wait_z[2 * i];
-                compile->per_dim_wait_y[2 * c] = compile->per_dim_wait_y[2 * i];
-                compile->per_dim_wait_x[2 * c] = compile->per_dim_wait_x[2 * i];
-                compile->per_dim_wait_a[2 * c + 1] = compile->per_dim_wait_a[2 * i + 1];
-                compile->per_dim_wait_z[2 * c + 1] = compile->per_dim_wait_z[2 * i + 1];
-                compile->per_dim_wait_y[2 * c + 1] = compile->per_dim_wait_y[2 * i + 1];
-                compile->per_dim_wait_x[2 * c + 1] = compile->per_dim_wait_x[2 * i + 1];
+                compile->dim_info[c] = compile->dim_info[i];
                 c++;
             }
         }
@@ -556,47 +460,88 @@ static void compile_loop_print(compile_loop_t *compile, int padding, int offset,
             simple_op_print(&compile->op[i][j], 0, 0, "");
         }
     }
+    printf("off\n");
+    for(uint64_t i = 0; i < compile->loop_len; i++) {
+        for(uint64_t j = 0; j < compile->op_num[i]; j++) {
+            if(j) {
+                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+            } else {
+                printf("%*s[%lu, 0] ", padding + offset, "", i);
+            }
+            if(compile->op[i][j].type == operation_unary) {
+                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].off_a_out, compile->dim_info[i][j].off_z_out, compile->dim_info[i][j].off_y_out,
+                       compile->dim_info[i][j].off_x_out);
+            } else {
+                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].off_a_out, compile->dim_info[i][j].off_z_out,
+                       compile->dim_info[i][j].off_y_out, compile->dim_info[i][j].off_x_out, compile->dim_info[i][j].off_a_in, compile->dim_info[i][j].off_z_in,
+                       compile->dim_info[i][j].off_y_in, compile->dim_info[i][j].off_x_in);
+            }
+        }
+    }
+    printf("str\n");
+    for(uint64_t i = 0; i < compile->loop_len; i++) {
+        for(uint64_t j = 0; j < compile->op_num[i]; j++) {
+            if(j) {
+                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+            } else {
+                printf("%*s[%lu, 0] ", padding + offset, "", i);
+            }
+            if(compile->op[i][j].type == operation_unary) {
+                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out, compile->dim_info[i][j].str_y_out,
+                       compile->dim_info[i][j].str_x_out);
+            } else {
+                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out,
+                       compile->dim_info[i][j].str_y_out, compile->dim_info[i][j].str_x_out, compile->dim_info[i][j].str_a_in, compile->dim_info[i][j].str_z_in,
+                       compile->dim_info[i][j].str_y_in, compile->dim_info[i][j].str_x_in);
+            }
+        }
+    }
+    printf("reset\n");
+    for(uint64_t i = 0; i < compile->loop_len; i++) {
+        for(uint64_t j = 0; j < compile->op_num[i]; j++) {
+            if(j) {
+                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+            } else {
+                printf("%*s[%lu, 0] ", padding + offset, "", i);
+            }
+            if(compile->op[i][j].type == operation_unary) {
+                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].reset_a_out, compile->dim_info[i][j].reset_z_out, compile->dim_info[i][j].reset_y_out,
+                       compile->dim_info[i][j].reset_x_out);
+            } else {
+                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].reset_a_out, compile->dim_info[i][j].reset_z_out,
+                       compile->dim_info[i][j].reset_y_out, compile->dim_info[i][j].reset_x_out, compile->dim_info[i][j].reset_a_in,
+                       compile->dim_info[i][j].reset_z_in, compile->dim_info[i][j].reset_y_in, compile->dim_info[i][j].reset_x_in);
+            }
+        }
+    }
+    printf("wait\n");
+    for(uint64_t i = 0; i < compile->loop_len; i++) {
+        for(uint64_t j = 0; j < compile->op_num[i]; j++) {
+            if(j) {
+                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+            } else {
+                printf("%*s[%lu, 0] ", padding + offset, "", i);
+            }
+            if(compile->op[i][j].type == operation_unary) {
+                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wait_a_out, compile->dim_info[i][j].wait_z_out, compile->dim_info[i][j].wait_y_out,
+                       compile->dim_info[i][j].wait_x_out);
+            } else {
+                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wait_a_out, compile->dim_info[i][j].wait_z_out,
+                       compile->dim_info[i][j].wait_y_out, compile->dim_info[i][j].wait_x_out, compile->dim_info[i][j].wait_a_in,
+                       compile->dim_info[i][j].wait_z_in, compile->dim_info[i][j].wait_y_in, compile->dim_info[i][j].wait_x_in);
+            }
+        }
+    }
 }
 static void compile_loop_free(compile_loop_t *compile) {
-    for(uint64_t i = 0; i < compile->loop_len; i++) { free(compile->op[i]); }
-    printf("ll %lu\n", compile->loop_len);
-    for(uint64_t i = 0; i < 2 * compile->loop_len; i++) {
-        free(compile->per_dim_off_a[i]);
-        free(compile->per_dim_off_z[i]);
-        free(compile->per_dim_off_y[i]);
-        free(compile->per_dim_off_x[i]);
-        free(compile->per_dim_str_a[i]);
-        free(compile->per_dim_str_z[i]);
-        free(compile->per_dim_str_y[i]);
-        free(compile->per_dim_str_x[i]);
-        free(compile->per_dim_wait_a[i]);
-        free(compile->per_dim_wait_z[i]);
-        free(compile->per_dim_wait_y[i]);
-        free(compile->per_dim_wait_x[i]);
-        free(compile->per_dim_reset_a[i]);
-        free(compile->per_dim_reset_z[i]);
-        free(compile->per_dim_reset_x[i]);
-        free(compile->per_dim_reset_y[i]);
+    for(uint64_t i = 0; i < compile->loop_len; i++) {
+        free(compile->op[i]);
+        free(compile->dim_info[i]);
     }
     free(compile->op);
     free(compile->op_num);
     free(compile->op_cap);
-    free(compile->per_dim_off_a);
-    free(compile->per_dim_off_z);
-    free(compile->per_dim_off_y);
-    free(compile->per_dim_off_x);
-    free(compile->per_dim_str_a);
-    free(compile->per_dim_str_z);
-    free(compile->per_dim_str_y);
-    free(compile->per_dim_str_x);
-    free(compile->per_dim_wait_a);
-    free(compile->per_dim_wait_z);
-    free(compile->per_dim_wait_y);
-    free(compile->per_dim_wait_x);
-    free(compile->per_dim_reset_a);
-    free(compile->per_dim_reset_z);
-    free(compile->per_dim_reset_x);
-    free(compile->per_dim_reset_y);
+    free(compile->dim_info);
 }
 static compile_loop_t compile_loop_alloc(simple_loop_t *simple, uint64_t optim) {
     compile_loop_t compile = {
@@ -612,78 +557,19 @@ static compile_loop_t compile_loop_alloc(simple_loop_t *simple, uint64_t optim) 
     assert(compile.op_cap);
     compile.op = calloc(compile.loop_len, sizeof(simple_op_t *));
     assert(compile.op);
-    for(uint64_t i = 0; i < compile.loop_num; i++) {
+    compile.dim_info = calloc(compile.loop_len, sizeof(dim_info_t *));
+    assert(compile.dim_info);
+    for(uint64_t i = 0; i < compile.loop_len; i++) {
+        compile.dim_info[i] = calloc(initial_cap, sizeof(dim_info_t));
+        assert(compile.dim_info[i]);
+    }
+    for(uint64_t i = 0; i < compile.loop_len; i++) {
         compile.op_num[i] = 1;
         compile.op_cap[i] = initial_cap;
         compile.op[i] = calloc(initial_cap, sizeof(simple_op_t));
         assert(compile.op[i]);
         compile.op[i][0] = simple->loop_instance[i];
-    }
-    compile.per_dim_off_a = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_off_a);
-    compile.per_dim_off_z = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_off_z);
-    compile.per_dim_off_y = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_off_y);
-    compile.per_dim_off_x = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_off_x);
-    compile.per_dim_str_a = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_str_a);
-    compile.per_dim_str_z = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_str_z);
-    compile.per_dim_str_y = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_str_y);
-    compile.per_dim_str_x = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_str_x);
-    compile.per_dim_wait_a = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_wait_a);
-    compile.per_dim_wait_z = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_wait_z);
-    compile.per_dim_wait_y = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_wait_y);
-    compile.per_dim_wait_x = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_wait_x);
-    compile.per_dim_reset_a = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_reset_a);
-    compile.per_dim_reset_z = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_reset_z);
-    compile.per_dim_reset_y = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_reset_y);
-    compile.per_dim_reset_x = calloc(compile.loop_len * 2, sizeof(uint64_t *));
-    assert(compile.per_dim_reset_x);
-    for(uint64_t i = 0; i < compile.loop_len * 2; i++) {
-        compile.per_dim_off_a[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_off_a[i]);
-        compile.per_dim_off_z[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_off_z[i]);
-        compile.per_dim_off_y[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_off_y[i]);
-        compile.per_dim_off_x[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_off_x[i]);
-        compile.per_dim_str_a[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_str_a[i]);
-        compile.per_dim_str_z[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_str_z[i]);
-        compile.per_dim_str_y[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_str_y[i]);
-        compile.per_dim_str_x[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_str_x[i]);
-        compile.per_dim_wait_a[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_wait_a[i]);
-        compile.per_dim_wait_z[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_wait_z[i]);
-        compile.per_dim_wait_y[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_wait_y[i]);
-        compile.per_dim_wait_x[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_wait_x[i]);
-        compile.per_dim_reset_a[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_reset_a[i]);
-        compile.per_dim_reset_z[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_reset_z[i]);
-        compile.per_dim_reset_y[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_reset_y[i]);
-        compile.per_dim_reset_x[i] = calloc(initial_cap, sizeof(uint64_t));
-        assert(compile.per_dim_reset_x[i]);
+        compile.dim_info[i][0] = simple->dim_info[i];
     }
 
     simple_loop_print(simple, 4, 0, "");
