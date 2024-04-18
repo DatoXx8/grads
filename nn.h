@@ -113,7 +113,7 @@ typedef struct {
     uint64_t input_x_;        /* Not set directly. */
     uint64_t kernel_size;
     uint64_t kernel_stride;
-    //uint64_t kernel_padding;
+    // uint64_t kernel_padding;
 } reduce_t;
 
 /* Calculates output size per dimension. */
@@ -128,7 +128,8 @@ extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *
 enum residual_e { residual_identity, residual_convolution, residual_dense, residual_reduce };
 
 /* NOTE: Specifies a residual connection and not a residual block per se. Also only identity and convolutions are supported right now. */
-/* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can reuse the same layerconf and it is more similar to the standard residual block. */
+/* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can reuse the same layerconf and it is more
+ * similar to the standard residual block. */
 typedef struct {
     enum residual_e type;
     uint64_t connection_from_layer;
@@ -184,7 +185,7 @@ typedef struct {
     uint64_t reduce_input_x_;        /* Not set directly */
     uint64_t reduce_kernel_size;
     uint64_t reduce_kernel_stride;
-    //uint64_t reduce_kernel_padding;
+    // uint64_t reduce_kernel_padding;
 
     uint64_t split_input_channels_; /* Not set directly */
     uint64_t split_input_y_;        /* Not set directly */
@@ -232,11 +233,8 @@ typedef struct {
     layer_t *layer;
     enum compile_e compile_type;
     linearized_t *forward;
-    linearized_t *backward;
     linearized_t *learn;
-    // runtime_t *forward;
-    // runtime_t *backward;
-    // runtime_t *learn;
+    linearized_t *backward;
 } neuralnet_t;
 
 #define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0])
