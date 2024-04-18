@@ -444,9 +444,9 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
 }
 static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
     if(!strncmp(name, "", 1)) {
-        printf("%*scompile loop\n", offset, "");
+        printf("%*scompile loop repetitions %lu\n", offset, "", compile->loop_num);
     } else {
-        printf("%*s%s\n", offset, "", name);
+        printf("%*s%s %lu repetitions\n", offset, "", name, compile->loop_num);
     }
     for(uint64_t i = 0; i < compile->loop_len; i++) {
         for(uint64_t j = 0; j < compile->op_num[i]; j++) {
