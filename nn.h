@@ -242,12 +242,11 @@ typedef struct {
 #define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
-extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig);
+extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig, double learning);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 extern void neuralnet_random(neuralnet_t *neuralnet);
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
-extern void neuralnet_linearize(neuralnet_t *neuralnet, double learning);
 extern void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input);
 extern void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output);
 extern void neuralnet_learn(neuralnet_t *neuralnet);

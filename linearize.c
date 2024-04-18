@@ -856,7 +856,6 @@ linearized_t linearized_alloc(void) {
 }
 /* NOTE: Does `not` override the linearized ops instead appends ops. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
-    /* TODO: Maybe remove this eventually. */
     if(!op) { return; }
     while(op->parent_count > 0) { linearized_from_op(linearized, op->parent[0]); }
     if(linearized->op_capacity == linearized->op_count) {

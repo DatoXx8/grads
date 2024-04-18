@@ -66,7 +66,6 @@ typedef struct {
     uint64_t loop_num;
     uint64_t loop_len;
     simple_op_t **op;
-    /* TODO: These need to be refactor having to do `2 * i + off` everywhere is horrible. Solve this by extracting all of these to a `dimension_info_t` struct. */
     dim_info_t **dim_info;
     uint64_t *op_num;
     uint64_t *op_cap;

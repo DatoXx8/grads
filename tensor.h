@@ -46,8 +46,6 @@ extern void buffer_free(buffer_t *buffer);
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
     ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
 
-/* TODO: Op that specifies parallelization? like spec_parallel that has a parallelization id, where ops with the same id can get compiled to be in parallel? and then spec_break for making a new parallelization group? */
-
 enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
     unary_add,
@@ -77,7 +75,8 @@ enum binary_e {
     binary_max,
     binary_min,
     binary_copy,
-    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
+    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of
+       `{1, 1, 1, 1}`*/
     binary_add_like,
     binary_subtract_like,
     binary_multiply_like,
@@ -87,7 +86,7 @@ enum binary_e {
     binary_copy_like
 };
 enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
-/* NOTE: Move ops have 0 cost, aside from the upfront cost when linearizing and compiling. */
+/* NOTE: Move ops have 0 cost at runtime. */
 enum move_e { move_reshape, move_resize, move_offset };
 
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
@@ -121,7 +120,8 @@ extern void op_single_print(op_t *op, int padding, int offset, const char *name)
 extern void op_print(op_t *op, int padding, int offset, const char *name);
 extern void op_single_op_cpu_realize(op_t *op);
 extern void op_cpu_realize(op_t *op);
-// extern void op_cl_realize(op_t *op); Need to have seperate linearize.h file for this and then a calc.cl that takes in the linearized operations instead of as a tree
+// extern void op_cl_realize(op_t *op); Need to have seperate linearize.h file for this and then a calc.cl that takes in the linearized operations instead of as
+// a tree
 extern void op_tree(op_t *op);
 
 #define OP_PRINT(op) op_print(&op, 4, 0, (#op))

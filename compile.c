@@ -19,7 +19,6 @@ static void simple_loop_free(simple_loop_t *simple_loop) {
     free(simple_loop->loop_instance);
     free(simple_loop->dim_info);
 }
-/* TODO: Check if `simple_loop` has already been configured, by checking pointers for NULL. */
 /* TODO: Don't pass all the loops and just check earlier, that it they are all valid repetitions of each other. */
 static void simple_loop_configure(simple_loop_t *simple_loop, simple_op_t **simple_op, uint64_t loop_length, uint64_t loop_number) {
     if(simple_loop->loop_instance) { simple_loop_free(simple_loop); }
