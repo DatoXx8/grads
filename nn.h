@@ -244,6 +244,9 @@ typedef struct {
 
 extern neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig, double learning);
 extern void neuralnet_free(neuralnet_t *neuralnet);
+/* TODO: Make this save the neuralnet structure and not only the weights and biases. */
+extern int neuralnet_save(neuralnet_t *neuralnet, const char *filename);
+extern int neuralnet_load(neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_random(neuralnet_t *neuralnet);
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */

@@ -1071,7 +1071,7 @@ void layer_free(layer_t *layer) {
     }
 }
 
-/* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
+/* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a tensor. */
 neuralnet_t neuralnet_alloc(uint64_t layers, layerconfig_t **layerconfig, double learning) {
     neuralnet_t neuralnet = {
         .layers = layers,
@@ -1304,6 +1304,101 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     free(neuralnet->backward);
     linearized_free(neuralnet->learn);
     free(neuralnet->learn);
+}
+/* TODO: Make this save the neuralnet structure and not only the weights and biases. */
+/* NOTE: Returns 1 on error. */
+int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
+    int err;
+    FILE *f = fopen(filename, "wb");
+    if(!f) { return 1; }
+    for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
+        err = 0;
+        switch(neuralnet->layer[layer].layer_type) {
+            case layer_dense: {
+                uint64_t bias_size = neuralnet->layer[layer].dense->output_size;
+                uint64_t weight_size = neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_convolution: {
+                uint64_t bias_size = neuralnet->layer[layer].convolution->filters;
+                uint64_t weight_size = neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->input_channels_ *
+                                       neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
+                err |= fwrite(neuralnet->layer[layer].convolution->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fwrite(neuralnet->layer[layer].convolution->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_reduce: {
+                /* Nothing to initialize. */
+                break;
+            }
+            case layer_split: {
+                uint64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_channels *
+                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                uint64_t weight_size = bias_size;
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_input: {
+                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
+        }
+    }
+    err = fclose(f);
+    if(err) { return 1; }
+    return 0;
+}
+/* NOTE: Returns 1 on error. */
+int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
+    int err;
+    FILE *f = fopen(filename, "rb");
+    if(!f) { return 1; }
+    for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
+        err = 0;
+        switch(neuralnet->layer[layer].layer_type) {
+            case layer_dense: {
+                uint64_t bias_size = neuralnet->layer[layer].dense->output_size;
+                uint64_t weight_size = neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_convolution: {
+                uint64_t bias_size = neuralnet->layer[layer].convolution->filters;
+                uint64_t weight_size = neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->input_channels_ *
+                                       neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
+                err |= fread(neuralnet->layer[layer].convolution->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].convolution->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_reduce: {
+                /* Nothing to initialize. */
+                break;
+            }
+            case layer_split: {
+                uint64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_channels *
+                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                uint64_t weight_size = bias_size;
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->values, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->values, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_input: {
+                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
+        }
+    }
+    err = fclose(f);
+    if(err) { return 1; }
+    return 0;
 }
 void neuralnet_random(neuralnet_t *neuralnet) {
     for(uint64_t layer = 1; layer < neuralnet->layers; layer++) {
