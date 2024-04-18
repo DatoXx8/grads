@@ -34,17 +34,17 @@ ALWAYS_INLINE buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t
         .y_stride = x,
         .x_stride = 1,
         .values = calloc(a * z * y * x, sizeof(double)),
-        .cl_a_size = a,
-        .cl_z_size = z,
-        .cl_y_size = y,
-        .cl_x_size = x,
-        .cl_a_stride = z * y * x,
-        .cl_z_stride = y * x,
-        .cl_y_stride = x,
-        .cl_x_stride = 1,
+        .sim_a_size = a,
+        .sim_z_size = z,
+        .sim_y_size = y,
+        .sim_x_size = x,
+        .sim_a_stride = z * y * x,
+        .sim_z_stride = y * x,
+        .sim_y_stride = x,
+        .sim_x_stride = 1,
     };
     assert(buffer.values);
-    strncpy(buffer.cl_name, name, BUFFER_NAME_SIZE + 1);
+    strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
     name_update(name);
     return buffer;
 }
@@ -1384,9 +1384,9 @@ void tensor_cpu_realize(tensor_t *tensor) {
 /* If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) {
-        printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
+        printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
     } else {
-        printf("%*sCL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
+        printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a) {
@@ -1410,9 +1410,9 @@ const uint64_t x_max = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) {
-        printf("%*s%s CL_NAME: %s\n", offset, "", name, tensor->buffer->cl_name);
+        printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
     } else {
-        printf("%*sCL_NAME: %s\n", offset, "", tensor->buffer->cl_name);
+        printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);
     }
     for(uint64_t a = 0; a < tensor->buffer->a_size; a++) {
         if(a >= a_max) {

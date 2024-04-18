@@ -22,20 +22,20 @@ typedef struct {
     uint64_t offset;
     double *values;
     /* NOTE: Technically there are only finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
-    char cl_name[BUFFER_NAME_SIZE + 1];
-    uint64_t cl_a_stride;
-    uint64_t cl_z_stride;
-    uint64_t cl_y_stride;
-    uint64_t cl_x_stride;
-    uint64_t cl_a_size;
-    uint64_t cl_z_size;
-    uint64_t cl_y_size;
-    uint64_t cl_x_size;
-    uint64_t cl_offset;
-    uint64_t cl_a_offset;
-    uint64_t cl_z_offset;
-    uint64_t cl_y_offset;
-    uint64_t cl_x_offset;
+    char name[BUFFER_NAME_SIZE + 1];
+    uint64_t sim_a_stride;
+    uint64_t sim_z_stride;
+    uint64_t sim_y_stride;
+    uint64_t sim_x_stride;
+    uint64_t sim_a_size;
+    uint64_t sim_z_size;
+    uint64_t sim_y_size;
+    uint64_t sim_x_size;
+    uint64_t sim_offset;
+    uint64_t sim_a_offset;
+    uint64_t sim_z_offset;
+    uint64_t sim_y_offset;
+    uint64_t sim_x_offset;
 } buffer_t;
 
 extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
@@ -120,8 +120,6 @@ extern void op_single_print(op_t *op, int padding, int offset, const char *name)
 extern void op_print(op_t *op, int padding, int offset, const char *name);
 extern void op_single_op_cpu_realize(op_t *op);
 extern void op_cpu_realize(op_t *op);
-// extern void op_cl_realize(op_t *op); Need to have seperate linearize.h file for this and then a calc.cl that takes in the linearized operations instead of as
-// a tree
 extern void op_tree(op_t *op);
 
 #define OP_PRINT(op) op_print(&op, 4, 0, (#op))
@@ -179,7 +177,6 @@ extern void tensor_resize_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_
 extern void tensor_offset_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 
 extern void tensor_cpu_realize(tensor_t *tensor);
-// extern void tensor_cl_realize(tensor_t *tensor);
 
 extern void tensor_print(tensor_t *tensor, int padding, int offset, const char *name);
 extern void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name);
