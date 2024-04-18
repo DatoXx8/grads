@@ -11,30 +11,30 @@
 void ALWAYS_INLINE simple_op_simulate_move(op_t *op) {
     switch(op->move_type) {
         case move_reshape: {
-            op->out_buffer->cl_a_size = op->var_a;
-            op->out_buffer->cl_z_size = op->var_z;
-            op->out_buffer->cl_y_size = op->var_y;
-            op->out_buffer->cl_x_size = op->var_x;
-            op->out_buffer->cl_a_stride = op->var_z * op->var_y * op->var_x;
-            op->out_buffer->cl_z_stride = op->var_y * op->var_x;
-            op->out_buffer->cl_y_stride = op->var_x;
-            op->out_buffer->cl_x_stride = 1;
+            op->out_buffer->sim_a_size = op->var_a;
+            op->out_buffer->sim_z_size = op->var_z;
+            op->out_buffer->sim_y_size = op->var_y;
+            op->out_buffer->sim_x_size = op->var_x;
+            op->out_buffer->sim_a_stride = op->var_z * op->var_y * op->var_x;
+            op->out_buffer->sim_z_stride = op->var_y * op->var_x;
+            op->out_buffer->sim_y_stride = op->var_x;
+            op->out_buffer->sim_x_stride = 1;
             break;
         }
         case move_resize: {
-            op->out_buffer->cl_a_size = op->var_a;
-            op->out_buffer->cl_z_size = op->var_z;
-            op->out_buffer->cl_y_size = op->var_y;
-            op->out_buffer->cl_x_size = op->var_x;
+            op->out_buffer->sim_a_size = op->var_a;
+            op->out_buffer->sim_z_size = op->var_z;
+            op->out_buffer->sim_y_size = op->var_y;
+            op->out_buffer->sim_x_size = op->var_x;
             break;
         }
         case move_offset: {
-            op->out_buffer->cl_offset = op->out_buffer->cl_a_stride * op->var_a + op->out_buffer->cl_z_stride * op->var_z +
-                                        op->out_buffer->cl_y_stride * op->var_y + op->out_buffer->cl_x_stride * op->var_x;
-            op->out_buffer->cl_a_offset = op->var_a;
-            op->out_buffer->cl_z_offset = op->var_z;
-            op->out_buffer->cl_y_offset = op->var_y;
-            op->out_buffer->cl_x_offset = op->var_x;
+            op->out_buffer->sim_offset = op->out_buffer->sim_a_stride * op->var_a + op->out_buffer->sim_z_stride * op->var_z +
+                                        op->out_buffer->sim_y_stride * op->var_y + op->out_buffer->sim_x_stride * op->var_x;
+            op->out_buffer->sim_a_offset = op->var_a;
+            op->out_buffer->sim_z_offset = op->var_z;
+            op->out_buffer->sim_y_offset = op->var_y;
+            op->out_buffer->sim_x_offset = op->var_x;
             break;
         }
     }
@@ -45,37 +45,37 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->binary_type = op->binary_type;
     simple_op->reduce_type = op->reduce_type;
     simple_op->var_unary = op->var_unary;
-    simple_op->out_buffer.a_size = op->out_buffer->cl_a_size;
-    simple_op->out_buffer.z_size = op->out_buffer->cl_z_size;
-    simple_op->out_buffer.y_size = op->out_buffer->cl_y_size;
-    simple_op->out_buffer.x_size = op->out_buffer->cl_x_size;
-    simple_op->out_buffer.a_stride = op->out_buffer->cl_a_stride;
-    simple_op->out_buffer.z_stride = op->out_buffer->cl_z_stride;
-    simple_op->out_buffer.y_stride = op->out_buffer->cl_y_stride;
-    simple_op->out_buffer.x_stride = op->out_buffer->cl_x_stride;
-    simple_op->out_buffer.offset = op->out_buffer->cl_offset;
-    simple_op->out_buffer.a_offset = op->out_buffer->cl_a_offset;
-    simple_op->out_buffer.z_offset = op->out_buffer->cl_z_offset;
-    simple_op->out_buffer.y_offset = op->out_buffer->cl_y_offset;
-    simple_op->out_buffer.x_offset = op->out_buffer->cl_x_offset;
+    simple_op->out_buffer.a_size = op->out_buffer->sim_a_size;
+    simple_op->out_buffer.z_size = op->out_buffer->sim_z_size;
+    simple_op->out_buffer.y_size = op->out_buffer->sim_y_size;
+    simple_op->out_buffer.x_size = op->out_buffer->sim_x_size;
+    simple_op->out_buffer.a_stride = op->out_buffer->sim_a_stride;
+    simple_op->out_buffer.z_stride = op->out_buffer->sim_z_stride;
+    simple_op->out_buffer.y_stride = op->out_buffer->sim_y_stride;
+    simple_op->out_buffer.x_stride = op->out_buffer->sim_x_stride;
+    simple_op->out_buffer.offset = op->out_buffer->sim_offset;
+    simple_op->out_buffer.a_offset = op->out_buffer->sim_a_offset;
+    simple_op->out_buffer.z_offset = op->out_buffer->sim_z_offset;
+    simple_op->out_buffer.y_offset = op->out_buffer->sim_y_offset;
+    simple_op->out_buffer.x_offset = op->out_buffer->sim_x_offset;
     simple_op->out_buffer.values = op->out_buffer->values;
-    strncpy(simple_op->out_buffer.name, op->out_buffer->cl_name, BUFFER_NAME_SIZE + 1);
+    strncpy(simple_op->out_buffer.name, op->out_buffer->name, BUFFER_NAME_SIZE + 1);
     if((op->type == operation_binary) || (op->type == operation_reduce)) {
-        simple_op->in_buffer.a_size = op->in_buffer->cl_a_size;
-        simple_op->in_buffer.z_size = op->in_buffer->cl_z_size;
-        simple_op->in_buffer.y_size = op->in_buffer->cl_y_size;
-        simple_op->in_buffer.x_size = op->in_buffer->cl_x_size;
-        simple_op->in_buffer.a_stride = op->in_buffer->cl_a_stride;
-        simple_op->in_buffer.z_stride = op->in_buffer->cl_z_stride;
-        simple_op->in_buffer.y_stride = op->in_buffer->cl_y_stride;
-        simple_op->in_buffer.x_stride = op->in_buffer->cl_x_stride;
-        simple_op->in_buffer.offset = op->in_buffer->cl_offset;
-        simple_op->in_buffer.a_offset = op->in_buffer->cl_a_offset;
-        simple_op->in_buffer.z_offset = op->in_buffer->cl_z_offset;
-        simple_op->in_buffer.y_offset = op->in_buffer->cl_y_offset;
-        simple_op->in_buffer.x_offset = op->in_buffer->cl_x_offset;
+        simple_op->in_buffer.a_size = op->in_buffer->sim_a_size;
+        simple_op->in_buffer.z_size = op->in_buffer->sim_z_size;
+        simple_op->in_buffer.y_size = op->in_buffer->sim_y_size;
+        simple_op->in_buffer.x_size = op->in_buffer->sim_x_size;
+        simple_op->in_buffer.a_stride = op->in_buffer->sim_a_stride;
+        simple_op->in_buffer.z_stride = op->in_buffer->sim_z_stride;
+        simple_op->in_buffer.y_stride = op->in_buffer->sim_y_stride;
+        simple_op->in_buffer.x_stride = op->in_buffer->sim_x_stride;
+        simple_op->in_buffer.offset = op->in_buffer->sim_offset;
+        simple_op->in_buffer.a_offset = op->in_buffer->sim_a_offset;
+        simple_op->in_buffer.z_offset = op->in_buffer->sim_z_offset;
+        simple_op->in_buffer.y_offset = op->in_buffer->sim_y_offset;
+        simple_op->in_buffer.x_offset = op->in_buffer->sim_x_offset;
         simple_op->in_buffer.values = op->in_buffer->values;
-        strncpy(simple_op->in_buffer.name, op->in_buffer->cl_name, BUFFER_NAME_SIZE + 1);
+        strncpy(simple_op->in_buffer.name, op->in_buffer->name, BUFFER_NAME_SIZE + 1);
     }
 }
 void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
