@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 
 #include "compile.h"
 #include "linearize.h"
@@ -1551,13 +1550,9 @@ int kernel_counter = 0;
 //     free(func_name);
 //     return kernel;
 // }
-/* Could also be called `cl_program_alloc()`. */
-cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linearized) {
-    cl_program_t program = {
-        .filename = filename,
-        .kernel_num = 0,
-        .kernel = NULL,
-    };
+
+/* NOTE: Returns 1 if compilation failed. This could only really happen if the file writing failed. */
+int compile_linearized_to_cl(cl_program_t *program, const char *filename, linearized_t *linearized) {
 
     simple_loop_t simple = {0};
     // uint64_t global_size = 4;
@@ -1566,6 +1561,7 @@ cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linear
     compile_loop_t compile = compile_loop_alloc(&simple, OPTIMIZE_INLINE);
     /* Clears file. */
     // FILE *f = fopen(filename, "w");
+    // if(!f) { return 1; }
     // fclose(f);
     // uint64_t i = 0;
     // cl_kernel_t kernel;
@@ -1581,7 +1577,7 @@ cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linear
 
     compile_loop_free(&compile);
     simple_loop_free(&simple);
-    return program;
+    return 0;
 }
 void cl_program_free(cl_program_t *program) {
     for(uint64_t i = 0; i < program->kernel_num; i++) { cl_kernel_free(&program->kernel[i]); }

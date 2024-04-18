@@ -86,7 +86,7 @@ typedef struct {
 } cl_program_t;
 
 /* Could also be called `cl_program_alloc()`. */
-extern cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linearized);
+extern int compile_linearized_to_cl(cl_program_t *program, const char *filename, linearized_t *linearized);
 extern void cl_program_free(cl_program_t *program);
 
 #endif /* COMPILE_H_ */
