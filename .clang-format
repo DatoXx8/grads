@@ -15,3 +15,4 @@ SpaceBeforeParensOptions:
 IndentCaseLabels: true
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false
+BreakStringLiterals: false
