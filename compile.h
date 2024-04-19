@@ -58,6 +58,7 @@ typedef struct {
     dim_info_t *dim_info;
 } simple_loop_t;
 /* TODO: Maybe do this in an enum. */
+#define OPTIMIZE_NONE (0UL)
 #define OPTIMIZE_INLINE (1UL)
 #define OPTIMIZE_FUSE (1UL << 1)
 #define OPTIMIZE_ALL (OPTIMIZE_INLINE | OPTIMIZE_FUSE)
