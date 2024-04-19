@@ -7,44 +7,43 @@
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
-    uint64_t a_inherent;
-    uint64_t z_inherent;
-    uint64_t y_inherent;
-    uint64_t x_inherent;
-    uint64_t a_stride;
-    uint64_t z_stride;
-    uint64_t y_stride;
-    uint64_t x_stride;
-    uint64_t a_size;
-    uint64_t z_size;
-    uint64_t y_size;
-    uint64_t x_size;
-    uint64_t offset;
-    double *values;
+    uint64_t a_inh;
+    uint64_t z_inh;
+    uint64_t y_inh;
+    uint64_t x_inh;
+    uint64_t a_str;
+    uint64_t z_str;
+    uint64_t y_str;
+    uint64_t x_str;
+    uint64_t a_sze;
+    uint64_t z_sze;
+    uint64_t y_sze;
+    uint64_t x_sze;
+    uint64_t off;
+    double *val;
     /* NOTE: Technically there are only finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
     char name[BUFFER_NAME_SIZE + 1];
-    uint64_t sim_a_stride;
-    uint64_t sim_z_stride;
-    uint64_t sim_y_stride;
-    uint64_t sim_x_stride;
-    uint64_t sim_a_size;
-    uint64_t sim_z_size;
-    uint64_t sim_y_size;
-    uint64_t sim_x_size;
-    uint64_t sim_offset;
-    uint64_t sim_a_offset;
-    uint64_t sim_z_offset;
-    uint64_t sim_y_offset;
-    uint64_t sim_x_offset;
+    uint64_t sim_a_str;
+    uint64_t sim_z_str;
+    uint64_t sim_y_str;
+    uint64_t sim_x_str;
+    uint64_t sim_a_sze;
+    uint64_t sim_z_sze;
+    uint64_t sim_y_sze;
+    uint64_t sim_x_sze;
+    uint64_t sim_off;
+    uint64_t sim_a_off;
+    uint64_t sim_z_off;
+    uint64_t sim_y_off;
+    uint64_t sim_x_off;
 } buffer_t;
 
 extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 extern void buffer_free(buffer_t *buffer);
 
-#define BUFFER_AT(buffer, a, z, y, x)                                                                                                                          \
-    ((buffer).values[(buffer).a_stride * (a) + (buffer).z_stride * (z) + (buffer).y_stride * (y) + (buffer).x_stride * (x) + (buffer).offset])
+#define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).a_str * (a) + (buffer).z_str * (z) + (buffer).y_str * (y) + (buffer).x_str * (x) + (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
-    ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
+    ((buffer)->val[(buffer)->a_str * (a) + (buffer)->z_str * (z) + (buffer)->y_str * (y) + (buffer)->x_str * (x) + (buffer)->off])
 
 enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
@@ -56,7 +55,6 @@ enum unary_e {
     unary_log,
     unary_square,
     unary_sqrt,
-    unary_negate,
     unary_reciprocal,
     unary_max,
     unary_min,
@@ -142,7 +140,6 @@ extern void tensor_exp_unary(tensor_t *tensor);
 extern void tensor_log_unary(tensor_t *tensor);
 extern void tensor_square_unary(tensor_t *tensor);
 extern void tensor_sqrt_unary(tensor_t *tensor);
-extern void tensor_negate_unary(tensor_t *tensor);
 extern void tensor_reciprocal_unary(tensor_t *tensor);
 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 extern void tensor_random_unary(tensor_t *tensor);
