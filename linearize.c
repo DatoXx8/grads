@@ -11,30 +11,30 @@
 void ALWAYS_INLINE simple_op_simulate_move(op_t *op) {
     switch(op->move_type) {
         case move_reshape: {
-            op->out_buffer->sim_a_size = op->var_a;
-            op->out_buffer->sim_z_size = op->var_z;
-            op->out_buffer->sim_y_size = op->var_y;
-            op->out_buffer->sim_x_size = op->var_x;
-            op->out_buffer->sim_a_stride = op->var_z * op->var_y * op->var_x;
-            op->out_buffer->sim_z_stride = op->var_y * op->var_x;
-            op->out_buffer->sim_y_stride = op->var_x;
-            op->out_buffer->sim_x_stride = 1;
+            op->out_buffer->sim_a_sze = op->var_a;
+            op->out_buffer->sim_z_sze = op->var_z;
+            op->out_buffer->sim_y_sze = op->var_y;
+            op->out_buffer->sim_x_sze = op->var_x;
+            op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
+            op->out_buffer->sim_z_str = op->var_y * op->var_x;
+            op->out_buffer->sim_y_str = op->var_x;
+            op->out_buffer->sim_x_str = 1;
             break;
         }
         case move_resize: {
-            op->out_buffer->sim_a_size = op->var_a;
-            op->out_buffer->sim_z_size = op->var_z;
-            op->out_buffer->sim_y_size = op->var_y;
-            op->out_buffer->sim_x_size = op->var_x;
+            op->out_buffer->sim_a_sze = op->var_a;
+            op->out_buffer->sim_z_sze = op->var_z;
+            op->out_buffer->sim_y_sze = op->var_y;
+            op->out_buffer->sim_x_sze = op->var_x;
             break;
         }
         case move_offset: {
-            op->out_buffer->sim_offset = op->out_buffer->sim_a_stride * op->var_a + op->out_buffer->sim_z_stride * op->var_z +
-                                        op->out_buffer->sim_y_stride * op->var_y + op->out_buffer->sim_x_stride * op->var_x;
-            op->out_buffer->sim_a_offset = op->var_a;
-            op->out_buffer->sim_z_offset = op->var_z;
-            op->out_buffer->sim_y_offset = op->var_y;
-            op->out_buffer->sim_x_offset = op->var_x;
+            op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
+                                        op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
+            op->out_buffer->sim_a_off = op->var_a;
+            op->out_buffer->sim_z_off = op->var_z;
+            op->out_buffer->sim_y_off = op->var_y;
+            op->out_buffer->sim_x_off = op->var_x;
             break;
         }
     }
@@ -45,325 +45,319 @@ void ALWAYS_INLINE simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->binary_type = op->binary_type;
     simple_op->reduce_type = op->reduce_type;
     simple_op->var_unary = op->var_unary;
-    simple_op->out_buffer.a_size = op->out_buffer->sim_a_size;
-    simple_op->out_buffer.z_size = op->out_buffer->sim_z_size;
-    simple_op->out_buffer.y_size = op->out_buffer->sim_y_size;
-    simple_op->out_buffer.x_size = op->out_buffer->sim_x_size;
-    simple_op->out_buffer.a_stride = op->out_buffer->sim_a_stride;
-    simple_op->out_buffer.z_stride = op->out_buffer->sim_z_stride;
-    simple_op->out_buffer.y_stride = op->out_buffer->sim_y_stride;
-    simple_op->out_buffer.x_stride = op->out_buffer->sim_x_stride;
-    simple_op->out_buffer.offset = op->out_buffer->sim_offset;
-    simple_op->out_buffer.a_offset = op->out_buffer->sim_a_offset;
-    simple_op->out_buffer.z_offset = op->out_buffer->sim_z_offset;
-    simple_op->out_buffer.y_offset = op->out_buffer->sim_y_offset;
-    simple_op->out_buffer.x_offset = op->out_buffer->sim_x_offset;
-    simple_op->out_buffer.values = op->out_buffer->values;
+    simple_op->out_buffer.a_sze = op->out_buffer->sim_a_sze;
+    simple_op->out_buffer.z_sze = op->out_buffer->sim_z_sze;
+    simple_op->out_buffer.y_sze = op->out_buffer->sim_y_sze;
+    simple_op->out_buffer.x_sze = op->out_buffer->sim_x_sze;
+    simple_op->out_buffer.a_str = op->out_buffer->sim_a_str;
+    simple_op->out_buffer.z_str = op->out_buffer->sim_z_str;
+    simple_op->out_buffer.y_str = op->out_buffer->sim_y_str;
+    simple_op->out_buffer.x_str = op->out_buffer->sim_x_str;
+    simple_op->out_buffer.off = op->out_buffer->sim_off;
+    simple_op->out_buffer.a_off = op->out_buffer->sim_a_off;
+    simple_op->out_buffer.z_off = op->out_buffer->sim_z_off;
+    simple_op->out_buffer.y_off = op->out_buffer->sim_y_off;
+    simple_op->out_buffer.x_off = op->out_buffer->sim_x_off;
+    simple_op->out_buffer.val = op->out_buffer->val;
     strncpy(simple_op->out_buffer.name, op->out_buffer->name, BUFFER_NAME_SIZE + 1);
     if((op->type == operation_binary) || (op->type == operation_reduce)) {
-        simple_op->in_buffer.a_size = op->in_buffer->sim_a_size;
-        simple_op->in_buffer.z_size = op->in_buffer->sim_z_size;
-        simple_op->in_buffer.y_size = op->in_buffer->sim_y_size;
-        simple_op->in_buffer.x_size = op->in_buffer->sim_x_size;
-        simple_op->in_buffer.a_stride = op->in_buffer->sim_a_stride;
-        simple_op->in_buffer.z_stride = op->in_buffer->sim_z_stride;
-        simple_op->in_buffer.y_stride = op->in_buffer->sim_y_stride;
-        simple_op->in_buffer.x_stride = op->in_buffer->sim_x_stride;
-        simple_op->in_buffer.offset = op->in_buffer->sim_offset;
-        simple_op->in_buffer.a_offset = op->in_buffer->sim_a_offset;
-        simple_op->in_buffer.z_offset = op->in_buffer->sim_z_offset;
-        simple_op->in_buffer.y_offset = op->in_buffer->sim_y_offset;
-        simple_op->in_buffer.x_offset = op->in_buffer->sim_x_offset;
-        simple_op->in_buffer.values = op->in_buffer->values;
+        simple_op->in_buffer.a_sze = op->in_buffer->sim_a_sze;
+        simple_op->in_buffer.z_sze = op->in_buffer->sim_z_sze;
+        simple_op->in_buffer.y_sze = op->in_buffer->sim_y_sze;
+        simple_op->in_buffer.x_sze = op->in_buffer->sim_x_sze;
+        simple_op->in_buffer.a_str = op->in_buffer->sim_a_str;
+        simple_op->in_buffer.z_str = op->in_buffer->sim_z_str;
+        simple_op->in_buffer.y_str = op->in_buffer->sim_y_str;
+        simple_op->in_buffer.x_str = op->in_buffer->sim_x_str;
+        simple_op->in_buffer.off = op->in_buffer->sim_off;
+        simple_op->in_buffer.a_off = op->in_buffer->sim_a_off;
+        simple_op->in_buffer.z_off = op->in_buffer->sim_z_off;
+        simple_op->in_buffer.y_off = op->in_buffer->sim_y_off;
+        simple_op->in_buffer.x_off = op->in_buffer->sim_x_off;
+        simple_op->in_buffer.val = op->in_buffer->val;
         strncpy(simple_op->in_buffer.name, op->in_buffer->name, BUFFER_NAME_SIZE + 1);
     }
 }
-void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name) {
+void simple_op_print(simple_op_t *simple, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
-    printf("%*s<%p> ", offset + padding, "", (void *) simple_op);
-    switch(simple_op->type) {
+    printf("%*s<%p> ", offset + padding, "", (void *) simple);
+    switch(simple->type) {
         case operation_unary: {
-            switch(simple_op->unary_type) {
+            switch(simple->unary_type) {
                 case unary_add: {
-                    printf("U add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_subtract: {
-                    printf("U sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_multiply: {
-                    printf("U mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_divide: {
-                    printf("U div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_exp: {
-                    printf("U exp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U exp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_log: {
-                    printf("U log {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U log {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_square: {
-                    printf("U sqr {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U sqr {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_sqrt: {
-                    printf("U sqt {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
-                    break;
-                }
-                case unary_negate: {
-                    printf("U neg {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U sqt {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_reciprocal: {
-                    printf("U rcp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U rcp {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_max: {
-                    printf("U max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_min: {
-                    printf("U min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 case unary_set: {
-                    printf("U set {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->var_unary,
-                           simple_op->out_buffer.name);
+                    printf("U set {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %lf %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->var_unary,
+                           simple->out_buffer.name);
                     break;
                 }
                 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case unary_random: {
-                    printf("U ran {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U ran {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_tanh: {
-                    printf("U tnh {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U tnh {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_absolute: {
-                    printf("U abs {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U abs {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
                 case unary_sign: {
-                    printf("U sng {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple_op->out_buffer.a_size, simple_op->out_buffer.z_size,
-                           simple_op->out_buffer.y_size, simple_op->out_buffer.x_size, simple_op->out_buffer.offset, simple_op->out_buffer.a_offset,
-                           simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset, simple_op->out_buffer.x_offset, simple_op->out_buffer.name);
+                    printf("U sng {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s\n", simple->out_buffer.a_sze, simple->out_buffer.z_sze,
+                           simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off, simple->out_buffer.a_off,
+                           simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->out_buffer.name);
                     break;
                 }
             }
             break;
         }
         case operation_binary: {
-            switch(simple_op->binary_type) {
+            switch(simple->binary_type) {
                 case binary_add: {
                     printf("B add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_subtract: {
                     printf("B sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_multiply: {
                     printf("B mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_divide: {
                     printf("B div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_max: {
                     printf("B max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_min: {
                     printf("B min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_copy: {
                     printf("B cpy {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_add_like: {
                     printf("L add {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_subtract_like: {
                     printf("L sub {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_multiply_like: {
                     printf("L mul{%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_divide_like: {
                     printf("L div {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_max_like: {
                     printf("L max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_min_like: {
                     printf("L min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case binary_copy_like: {
                     printf("L cpy {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
             }
             break;
         }
         case operation_reduce: {
-            switch(simple_op->reduce_type) {
+            switch(simple->reduce_type) {
                 case reduce_sum: {
                     printf("R sum {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case reduce_avg: {
                     printf("R avg {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case reduce_max: {
                     printf("R max {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
                 case reduce_min: {
                     printf("R min {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
-                           simple_op->out_buffer.a_size, simple_op->out_buffer.z_size, simple_op->out_buffer.y_size, simple_op->out_buffer.x_size,
-                           simple_op->out_buffer.offset, simple_op->out_buffer.a_offset, simple_op->out_buffer.z_offset, simple_op->out_buffer.y_offset,
-                           simple_op->out_buffer.x_offset, simple_op->in_buffer.a_size, simple_op->in_buffer.z_size, simple_op->in_buffer.y_size,
-                           simple_op->in_buffer.x_size, simple_op->in_buffer.offset, simple_op->in_buffer.a_offset, simple_op->in_buffer.z_offset,
-                           simple_op->in_buffer.y_offset, simple_op->in_buffer.x_offset, simple_op->out_buffer.name, simple_op->in_buffer.name);
+                           simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze,
+                           simple->out_buffer.off, simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off,
+                           simple->out_buffer.x_off, simple->in_buffer.a_sze, simple->in_buffer.z_sze, simple->in_buffer.y_sze,
+                           simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off, simple->in_buffer.z_off,
+                           simple->in_buffer.y_off, simple->in_buffer.x_off, simple->out_buffer.name, simple->in_buffer.name);
                     break;
                 }
             }
@@ -374,16 +368,16 @@ void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char
         }
     }
 }
-ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
-    switch(simple_op->type) {
+ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
+    switch(simple->type) {
         case operation_unary: {
-            switch(simple_op->unary_type) {
+            switch(simple->unary_type) {
                 case unary_add: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) += simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) += simple->var_unary;
                                 }
                             }
                         }
@@ -391,11 +385,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_subtract: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) -= simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) -= simple->var_unary;
                                 }
                             }
                         }
@@ -403,11 +397,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_multiply: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) *= simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) *= simple->var_unary;
                                 }
                             }
                         }
@@ -415,11 +409,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_divide: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) /= simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) /= simple->var_unary;
                                 }
                             }
                         }
@@ -427,11 +421,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_exp: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = exp(SIMPLE_AT(simple_op->out_buffer, a, z, y, x));
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = exp(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -439,11 +433,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_log: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = log(SIMPLE_AT(simple_op->out_buffer, a, z, y, x));
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = log(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -451,11 +445,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_square: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) *= SIMPLE_AT(simple_op->out_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->out_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -463,23 +457,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_sqrt: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = sqrt(SIMPLE_AT(simple_op->out_buffer, a, z, y, x));
-                                }
-                            }
-                        }
-                    }
-                    break;
-                }
-                case unary_negate: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = -SIMPLE_AT(simple_op->out_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = sqrt(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -487,11 +469,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_reciprocal: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = 1 / SIMPLE_AT(simple_op->out_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = 1 / SIMPLE_AT(simple->out_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -499,12 +481,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_max: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < simple_op->var_unary) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < simple->var_unary) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                     }
                                 }
                             }
@@ -513,12 +495,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_min: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) > simple_op->var_unary) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > simple->var_unary) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                     }
                                 }
                             }
@@ -527,11 +509,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_set: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = simple_op->var_unary;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                 }
                             }
                         }
@@ -539,11 +521,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_random: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
                                 }
                             }
                         }
@@ -551,11 +533,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_tanh: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = tanh(SIMPLE_AT(simple_op->out_buffer, a, z, y, x));
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = tanh(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -563,11 +545,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_absolute: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = fabs(SIMPLE_AT(simple_op->out_buffer, a, z, y, x));
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = fabs(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
                         }
@@ -575,18 +557,18 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case unary_sign: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < 0) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = -1;
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < 0) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = -1;
                                         /* Better perf but kinda ugly */
                                         // } else if(!SIMPLE_AT(simple_op->out_buffer, a, z, y, x)) {
-                                    } else if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) == 0) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = 0;
+                                    } else if(SIMPLE_AT(simple->out_buffer, a, z, y, x) == 0) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = 0;
                                     } else {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = 1;
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = 1;
                                     }
                                 }
                             }
@@ -598,13 +580,13 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             break;
         }
         case operation_binary: {
-            switch(simple_op->binary_type) {
+            switch(simple->binary_type) {
                 case binary_add: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) += SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) += SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -612,11 +594,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_subtract: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) -= SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) -= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -624,11 +606,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_multiply: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) *= SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -636,11 +618,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_divide: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) /= SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) /= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -648,12 +630,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_max: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < SIMPLE_AT(simple_op->in_buffer, a, z, y, x)) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < SIMPLE_AT(simple->in_buffer, a, z, y, x)) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                     }
                                 }
                             }
@@ -662,12 +644,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_min: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) > SIMPLE_AT(simple_op->in_buffer, a, z, y, x)) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > SIMPLE_AT(simple->in_buffer, a, z, y, x)) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                     }
                                 }
                             }
@@ -676,11 +658,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_copy: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, a, z, y, x);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
                         }
@@ -688,11 +670,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_add_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) += SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) += SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -700,11 +682,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_subtract_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) -= SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) -= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -712,11 +694,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_multiply_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) *= SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -724,11 +706,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_divide_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) /= SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) /= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -736,12 +718,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_max_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) < SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0)) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0)) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                     }
                                 }
                             }
@@ -750,12 +732,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_min_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    if(SIMPLE_AT(simple_op->out_buffer, a, z, y, x) > SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0)) {
-                                        SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0)) {
+                                        SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                     }
                                 }
                             }
@@ -764,11 +746,11 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
                     break;
                 }
                 case binary_copy_like: {
-                    for(uint64_t a = 0; a < simple_op->out_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->out_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->out_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->out_buffer.x_size; x++) {
-                                    SIMPLE_AT(simple_op->out_buffer, a, z, y, x) = SIMPLE_AT(simple_op->in_buffer, 0, 0, 0, 0);
+                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                                    SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -779,58 +761,58 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple_op) {
             break;
         }
         case operation_reduce: {
-            switch(simple_op->reduce_type) {
+            switch(simple->reduce_type) {
                 case reduce_sum: {
                     double temp = 0;
-                    for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->in_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->in_buffer.x_size; x++) { temp += SIMPLE_AT(simple_op->in_buffer, a, z, y, x); }
+                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                             }
                         }
                     }
-                    SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    SIMPLE_AT(simple->out_buffer, 0, 0, 0, 0) = temp;
                     break;
                 }
                 case reduce_max: {
                     double temp = -INFINITY;
-                    for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->in_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->in_buffer.x_size; x++) {
-                                    if(temp < SIMPLE_AT(simple_op->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple_op->in_buffer, a, z, y, x); }
+                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) {
+                                    if(temp < SIMPLE_AT(simple->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                                 }
                             }
                         }
                     }
-                    SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    SIMPLE_AT(simple->out_buffer, 0, 0, 0, 0) = temp;
                     break;
                 }
                 case reduce_avg: {
                     double temp = 0;
-                    for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->in_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->in_buffer.x_size; x++) { temp += SIMPLE_AT(simple_op->in_buffer, a, z, y, x); }
+                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                             }
                         }
                     }
-                    SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) =
-                        temp / (simple_op->in_buffer.x_size * simple_op->in_buffer.y_size * simple_op->in_buffer.z_size * simple_op->in_buffer.a_size);
+                    SIMPLE_AT(simple->out_buffer, 0, 0, 0, 0) =
+                        temp / (simple->in_buffer.x_sze * simple->in_buffer.y_sze * simple->in_buffer.z_sze * simple->in_buffer.a_sze);
                     break;
                 }
                 case reduce_min: {
                     double temp = INFINITY;
-                    for(uint64_t a = 0; a < simple_op->in_buffer.a_size; a++) {
-                        for(uint64_t z = 0; z < simple_op->in_buffer.z_size; z++) {
-                            for(uint64_t y = 0; y < simple_op->in_buffer.y_size; y++) {
-                                for(uint64_t x = 0; x < simple_op->in_buffer.x_size; x++) {
-                                    if(temp > SIMPLE_AT(simple_op->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple_op->in_buffer, a, z, y, x); }
+                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) {
+                                    if(temp > SIMPLE_AT(simple->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                                 }
                             }
                         }
                     }
-                    SIMPLE_AT(simple_op->out_buffer, 0, 0, 0, 0) = temp;
+                    SIMPLE_AT(simple->out_buffer, 0, 0, 0, 0) = temp;
                     break;
                 }
             }
