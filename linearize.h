@@ -8,27 +8,27 @@
 #include "tensor.h"
 
 typedef struct {
-    uint64_t a_size;
-    uint64_t z_size;
-    uint64_t y_size;
-    uint64_t x_size;
-    uint64_t a_stride;
-    uint64_t z_stride;
-    uint64_t y_stride;
-    uint64_t x_stride;
-    uint64_t offset;
-    uint64_t a_offset;
-    uint64_t z_offset;
-    uint64_t y_offset;
-    uint64_t x_offset;
-    double *values;
+    uint64_t a_sze;
+    uint64_t z_sze;
+    uint64_t y_sze;
+    uint64_t x_sze;
+    uint64_t a_str;
+    uint64_t z_str;
+    uint64_t y_str;
+    uint64_t x_str;
+    uint64_t off;
+    uint64_t a_off;
+    uint64_t z_off;
+    uint64_t y_off;
+    uint64_t x_off;
+    double *val;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
 #define SIMPLE_AT(simple, a, z, y, x)                                                                                                                          \
-    (simple).values[a * (simple).a_stride + z * (simple).z_stride + y * (simple).y_stride + x * (simple).x_stride + (simple).offset]
+    (simple).val[a * (simple).a_str + z * (simple).z_str + y * (simple).y_str + x * (simple).x_str + (simple).off]
 #define SIMPLE_AT_(simple, a, z, y, x)                                                                                                                         \
-    (simple)->values[a * (simple)->a_stride + z * (simple)->z_stride + y * (simple)->y_stride + x * (simple)->x_stride + (simple)->offset]
+    (simple)->val[a * (simple)->a_str + z * (simple)->z_str + y * (simple)->y_str + x * (simple)->x_str + (simple)->off]
 
 /* NOTE: Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
@@ -41,12 +41,12 @@ typedef struct {
     simple_buffer_t in_buffer;
 } simple_op_t;
 
-extern void simple_op_convert(simple_op_t *simple_op, op_t *op);
-extern void simple_op_print(simple_op_t *simple_op, int padding, int offset, const char *name);
-extern void simple_op_realize(simple_op_t *simple_op);
+extern void simple_op_convert(simple_op_t *simple, op_t *op);
+extern void simple_op_print(simple_op_t *simple, int padding, int offset, const char *name);
+extern void simple_op_realize(simple_op_t *simple);
 
-#define SIMPLE_OP_PRINT(simple_op) (simple_op_print(&(simple_op), 4, 0, (#simple_op)))
-#define SIMPLE_OP_PRINT_(simple_op) (simple_op_print((simple_op), 4, 0, (#simple_op)))
+#define SIMPLE_OP_PRINT(simple) (simple_op_print(&(simple_op), 4, 0, (#simple)))
+#define SIMPLE_OP_PRINT_(simple) (simple_op_print((simple_op), 4, 0, (#simple)))
 
 typedef struct {
     uint64_t op_count;

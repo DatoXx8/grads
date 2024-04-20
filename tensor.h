@@ -7,46 +7,42 @@
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
-    uint64_t a_inherent;
-    uint64_t z_inherent;
-    uint64_t y_inherent;
-    uint64_t x_inherent;
-    uint64_t a_stride;
-    uint64_t z_stride;
-    uint64_t y_stride;
-    uint64_t x_stride;
-    uint64_t a_size;
-    uint64_t z_size;
-    uint64_t y_size;
-    uint64_t x_size;
-    uint64_t offset;
-    double *values;
-    /* NOTE: Technically there are only finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
-    char cl_name[BUFFER_NAME_SIZE + 1];
-    uint64_t cl_a_stride;
-    uint64_t cl_z_stride;
-    uint64_t cl_y_stride;
-    uint64_t cl_x_stride;
-    uint64_t cl_a_size;
-    uint64_t cl_z_size;
-    uint64_t cl_y_size;
-    uint64_t cl_x_size;
-    uint64_t cl_offset;
-    uint64_t cl_a_offset;
-    uint64_t cl_z_offset;
-    uint64_t cl_y_offset;
-    uint64_t cl_x_offset;
+    uint64_t a_inh;
+    uint64_t z_inh;
+    uint64_t y_inh;
+    uint64_t x_inh;
+    uint64_t a_str;
+    uint64_t z_str;
+    uint64_t y_str;
+    uint64_t x_str;
+    uint64_t a_sze;
+    uint64_t z_sze;
+    uint64_t y_sze;
+    uint64_t x_sze;
+    uint64_t off;
+    double *val;
+    char name[BUFFER_NAME_SIZE + 1];
+    uint64_t sim_a_str;
+    uint64_t sim_z_str;
+    uint64_t sim_y_str;
+    uint64_t sim_x_str;
+    uint64_t sim_a_sze;
+    uint64_t sim_z_sze;
+    uint64_t sim_y_sze;
+    uint64_t sim_x_sze;
+    uint64_t sim_off;
+    uint64_t sim_a_off;
+    uint64_t sim_z_off;
+    uint64_t sim_y_off;
+    uint64_t sim_x_off;
 } buffer_t;
 
 extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 extern void buffer_free(buffer_t *buffer);
 
-#define BUFFER_AT(buffer, a, z, y, x)                                                                                                                          \
-    ((buffer).values[(buffer).a_stride * (a) + (buffer).z_stride * (z) + (buffer).y_stride * (y) + (buffer).x_stride * (x) + (buffer).offset])
+#define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).a_str * (a) + (buffer).z_str * (z) + (buffer).y_str * (y) + (buffer).x_str * (x) + (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
-    ((buffer)->values[(buffer)->a_stride * (a) + (buffer)->z_stride * (z) + (buffer)->y_stride * (y) + (buffer)->x_stride * (x) + (buffer)->offset])
-
-/* TODO: Op that specifies parallelization? like spec_parallel that has a parallelization id, where ops with the same id can get compiled to be in parallel? and then spec_break for making a new parallelization group? */
+    ((buffer)->val[(buffer)->a_str * (a) + (buffer)->z_str * (z) + (buffer)->y_str * (y) + (buffer)->x_str * (x) + (buffer)->off])
 
 enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
@@ -58,7 +54,6 @@ enum unary_e {
     unary_log,
     unary_square,
     unary_sqrt,
-    unary_negate,
     unary_reciprocal,
     unary_max,
     unary_min,
@@ -77,7 +72,8 @@ enum binary_e {
     binary_max,
     binary_min,
     binary_copy,
-    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of `{1, 1, 1, 1}`*/
+    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of
+       `{1, 1, 1, 1}`*/
     binary_add_like,
     binary_subtract_like,
     binary_multiply_like,
@@ -87,7 +83,7 @@ enum binary_e {
     binary_copy_like
 };
 enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
-/* NOTE: Move ops have 0 cost, aside from the upfront cost when linearizing and compiling. */
+/* NOTE: Move ops have 0 cost at runtime. */
 enum move_e { move_reshape, move_resize, move_offset };
 
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
@@ -121,7 +117,6 @@ extern void op_single_print(op_t *op, int padding, int offset, const char *name)
 extern void op_print(op_t *op, int padding, int offset, const char *name);
 extern void op_single_op_cpu_realize(op_t *op);
 extern void op_cpu_realize(op_t *op);
-// extern void op_cl_realize(op_t *op); Need to have seperate linearize.h file for this and then a calc.cl that takes in the linearized operations instead of as a tree
 extern void op_tree(op_t *op);
 
 #define OP_PRINT(op) op_print(&op, 4, 0, (#op))
@@ -144,7 +139,6 @@ extern void tensor_exp_unary(tensor_t *tensor);
 extern void tensor_log_unary(tensor_t *tensor);
 extern void tensor_square_unary(tensor_t *tensor);
 extern void tensor_sqrt_unary(tensor_t *tensor);
-extern void tensor_negate_unary(tensor_t *tensor);
 extern void tensor_reciprocal_unary(tensor_t *tensor);
 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 extern void tensor_random_unary(tensor_t *tensor);
@@ -179,7 +173,6 @@ extern void tensor_resize_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_
 extern void tensor_offset_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, uint64_t x);
 
 extern void tensor_cpu_realize(tensor_t *tensor);
-// extern void tensor_cl_realize(tensor_t *tensor);
 
 extern void tensor_print(tensor_t *tensor, int padding, int offset, const char *name);
 extern void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name);

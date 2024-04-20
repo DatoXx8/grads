@@ -58,6 +58,7 @@ typedef struct {
     dim_info_t *dim_info;
 } simple_loop_t;
 /* TODO: Maybe do this in an enum. */
+#define OPTIMIZE_NONE (0UL)
 #define OPTIMIZE_INLINE (1UL)
 #define OPTIMIZE_FUSE (1UL << 1)
 #define OPTIMIZE_ALL (OPTIMIZE_INLINE | OPTIMIZE_FUSE)
@@ -66,7 +67,6 @@ typedef struct {
     uint64_t loop_num;
     uint64_t loop_len;
     simple_op_t **op;
-    /* TODO: These need to be refactor having to do `2 * i + off` everywhere is horrible. Solve this by extracting all of these to a `dimension_info_t` struct. */
     dim_info_t **dim_info;
     uint64_t *op_num;
     uint64_t *op_cap;
@@ -87,7 +87,7 @@ typedef struct {
 } cl_program_t;
 
 /* Could also be called `cl_program_alloc()`. */
-extern cl_program_t compile_linearized_to_cl(const char *filename, linearized_t *linearized);
+extern int compile_linearized_to_cl(cl_program_t *program, const char *filename, linearized_t *linearized);
 extern void cl_program_free(cl_program_t *program);
 
 #endif /* COMPILE_H_ */

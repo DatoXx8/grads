@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,8 +9,7 @@
 #include "utils.h"
 
 /*
- *  TODO: Make global_id independant of tensor size. This way we don't spawn unnecessary work groups and items.
- *  TODO: Make the code less verbose.
+ *  TODO: Make the code less verbose!
  *  TODO: Neural net saving and loading to disk.
  *  TODO: Update README with installation and usage guides.
  *  TODO: Write SPEC with technical details of this stuff.
@@ -17,6 +17,7 @@
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
  *  TODO: Replace all realloc and the others with the safe n-byte max versions.
+ *  TODO: Make fusing a thing (No copy if possible, fusing unary ops etc).
  *  TODO: FLOP/S estimator
  */
 
@@ -30,44 +31,49 @@ int main(void) {
 
     const uint64_t layers = 2;
     const uint64_t input_channels = 2;
-    const uint64_t input_y = 3;
+    const uint64_t input_y = 4;
     const uint64_t input_x = input_y;
     layerconfig_t **layerconfig = calloc(layers, sizeof(layerconfig_t *));
+    assert(layerconfig);
     layerconfig_t l0 = {
         .layer_type = layer_input,
         .input_channels = input_channels,
         .input_y = input_y,
         .input_x = input_x,
     };
-    layerconfig_t l1 = {
-        .layer_type = layer_convolution,
-        .norm_type = norm_none,
-        .convolution_filters = 4,
-        .convolution_kernel_size = 3,
-        .convolution_kernel_stride = 1,
-        .convolution_kernel_padding = 1,
-        .activation_function = activation_identity,
-    };
-    layerconfig_t l2 = {
-        .layer_type = layer_split,
-        .norm_type = norm_none,
-        .split_filters = 4,
-        .activation_function = activation_identity,
-    };
-    layerconfig_t l3 = {
-        .layer_type = layer_reduce,
-        .reduce_type = layer_reduce_max,
-        .reduce_kernel_size = 2,
-        .reduce_kernel_stride = 1,
-    };
+    // layerconfig_t l1 = {
+    //     .layer_type = layer_convolution,
+    //     .norm_type = norm_none,
+    //     .convolution_filters = 2,
+    //     .convolution_kernel_size = 3,
+    //     .convolution_kernel_stride = 1,
+    //     .convolution_kernel_padding = 1,
+    //     .activation_function = activation_identity,
+    // };
+    // layerconfig_t l2 = {
+    //     .layer_type = layer_split,
+    //     .norm_type = norm_none,
+    //     .split_filters = 2,
+    //     .activation_function = activation_identity,
+    // };
+    // layerconfig_t l3 = {
+    //     .layer_type = layer_reduce,
+    //     .reduce_type = layer_reduce_max,
+    //     .reduce_kernel_size = 2,
+    //     .reduce_kernel_stride = 1,
+    // };
     layerconfig_t l4 = {
         .layer_type = layer_dense,
         .norm_type = norm_none,
-        .dense_output_size = 9,
+        .dense_output_size = 3,
         .activation_function = activation_identity,
     };
     layerconfig[0] = &l0;
     layerconfig[1] = &l4;
+    // layerconfig[1] = &l1;
+    // layerconfig[2] = &l2;
+    // layerconfig[3] = &l3;
+    // layerconfig[4] = &l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(layers, layerconfig);
 
@@ -81,10 +87,17 @@ int main(void) {
     tensor_random_unary(&input);
     neuralnet_random(&neuralnet);
     neuralnet_linearize(&neuralnet, 1e-2);
-    LINEARIZED_PRINT_(neuralnet.forward);
-    compile_linearized_to_cl("source.cl", neuralnet.forward);
+    // LINEARIZED_PRINT_(neuralnet.forward);
+    cl_program_t program = compile_linearized_to_cl("source.cl", neuralnet.forward);
+
+    cl_program_free(&program);
+    neuralnet_free(&neuralnet);
+    tensor_free(&input);
+    tensor_free(&output);
+    free(layerconfig);
 
     STOP_TIME();
     PRINT_TIME();
+
     return 0;
 }
