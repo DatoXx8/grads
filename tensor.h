@@ -21,7 +21,6 @@ typedef struct {
     uint64_t x_sze;
     uint64_t off;
     double *val;
-    /* NOTE: Technically there are only finitely many names possible like this, but there is no way that anyone needs 26^16 tensor names. */
     char name[BUFFER_NAME_SIZE + 1];
     uint64_t sim_a_str;
     uint64_t sim_z_str;
