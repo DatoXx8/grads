@@ -373,10 +373,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
         case operation_unary: {
             switch(simple->unary_type) {
                 case unary_add: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) += simple->var_unary;
                                 }
                             }
@@ -385,10 +385,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_subtract: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) -= simple->var_unary;
                                 }
                             }
@@ -397,10 +397,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_multiply: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) *= simple->var_unary;
                                 }
                             }
@@ -409,10 +409,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_divide: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) /= simple->var_unary;
                                 }
                             }
@@ -421,10 +421,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_exp: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = exp(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
@@ -433,10 +433,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_log: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = log(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
@@ -445,10 +445,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_square: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->out_buffer, a, z, y, x);
                                 }
                             }
@@ -457,10 +457,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_sqrt: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = sqrt(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
@@ -469,10 +469,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_reciprocal: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = 1 / SIMPLE_AT(simple->out_buffer, a, z, y, x);
                                 }
                             }
@@ -481,10 +481,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_max: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < simple->var_unary) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                     }
@@ -495,10 +495,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_min: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > simple->var_unary) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                     }
@@ -509,10 +509,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_set: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = simple->var_unary;
                                 }
                             }
@@ -521,10 +521,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_random: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
                                 }
                             }
@@ -533,10 +533,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_tanh: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = tanh(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
@@ -545,10 +545,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_absolute: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = fabs(SIMPLE_AT(simple->out_buffer, a, z, y, x));
                                 }
                             }
@@ -557,10 +557,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case unary_sign: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < 0) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = -1;
                                         /* Better perf but kinda ugly */
@@ -582,10 +582,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
         case operation_binary: {
             switch(simple->binary_type) {
                 case binary_add: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) += SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
@@ -594,10 +594,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_subtract: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) -= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
@@ -606,10 +606,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_multiply: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
@@ -618,10 +618,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_divide: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) /= SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
@@ -630,10 +630,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_max: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < SIMPLE_AT(simple->in_buffer, a, z, y, x)) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                     }
@@ -644,10 +644,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_min: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > SIMPLE_AT(simple->in_buffer, a, z, y, x)) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                     }
@@ -658,10 +658,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_copy: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, a, z, y, x);
                                 }
                             }
@@ -670,10 +670,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_add_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) += SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
@@ -682,10 +682,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_subtract_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) -= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
@@ -694,10 +694,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_multiply_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) *= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
@@ -706,10 +706,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_divide_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) /= SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
@@ -718,10 +718,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_max_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) < SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0)) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                     }
@@ -732,10 +732,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_min_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     if(SIMPLE_AT(simple->out_buffer, a, z, y, x) > SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0)) {
                                         SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                     }
@@ -746,10 +746,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_copy_like: {
-                    for(uint64_t a = 0; a < simple->out_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->out_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->out_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->out_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->out_buffer.x_sze; x++) {
                                     SIMPLE_AT(simple->out_buffer, a, z, y, x) = SIMPLE_AT(simple->in_buffer, 0, 0, 0, 0);
                                 }
                             }
@@ -764,10 +764,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
             switch(simple->reduce_type) {
                 case reduce_sum: {
                     double temp = 0;
-                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
+                    for(int64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                             }
                         }
                     }
@@ -776,10 +776,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                 }
                 case reduce_max: {
                     double temp = -INFINITY;
-                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->in_buffer.x_sze; x++) {
                                     if(temp < SIMPLE_AT(simple->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                                 }
                             }
@@ -790,10 +790,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                 }
                 case reduce_avg: {
                     double temp = 0;
-                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
+                    for(int64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->in_buffer.x_sze; x++) { temp += SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                             }
                         }
                     }
@@ -803,10 +803,10 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
                 }
                 case reduce_min: {
                     double temp = INFINITY;
-                    for(uint64_t a = 0; a < simple->in_buffer.a_sze; a++) {
-                        for(uint64_t z = 0; z < simple->in_buffer.z_sze; z++) {
-                            for(uint64_t y = 0; y < simple->in_buffer.y_sze; y++) {
-                                for(uint64_t x = 0; x < simple->in_buffer.x_sze; x++) {
+                    for(int64_t a = 0; a < simple->in_buffer.a_sze; a++) {
+                        for(int64_t z = 0; z < simple->in_buffer.z_sze; z++) {
+                            for(int64_t y = 0; y < simple->in_buffer.y_sze; y++) {
+                                for(int64_t x = 0; x < simple->in_buffer.x_sze; x++) {
                                     if(temp > SIMPLE_AT(simple->in_buffer, a, z, y, x)) { temp = SIMPLE_AT(simple->in_buffer, a, z, y, x); }
                                 }
                             }
@@ -825,12 +825,12 @@ ALWAYS_INLINE void simple_op_realize(simple_op_t *simple) {
 }
 
 /* NOTE: Completely made up value. No reasoning behind it at all. */
-const uint64_t initial_simple_op_capactity = 25;
+const int64_t INITIAL_SIMPLE_OP_CAPACTITY = 25;
 linearized_t linearized_alloc(void) {
     linearized_t linearized = {
         .op_count = 0,
-        .op_capacity = initial_simple_op_capactity,
-        .simple = calloc(initial_simple_op_capactity, sizeof(simple_op_t)),
+        .op_capacity = INITIAL_SIMPLE_OP_CAPACTITY,
+        .simple = calloc(INITIAL_SIMPLE_OP_CAPACTITY, sizeof(simple_op_t)),
     };
     assert(linearized.simple);
 
@@ -861,7 +861,7 @@ void linearized_clear(linearized_t *linearized) {
     linearized->op_count = 0;
 }
 void linearized_run(linearized_t *linearized) {
-    for(uint64_t i = 0; i < linearized->op_count; i++) { simple_op_realize(&linearized->simple[i]); }
+    for(int64_t i = 0; i < linearized->op_count; i++) { simple_op_realize(&linearized->simple[i]); }
 }
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
     if(!linearized) { return; }
@@ -871,13 +871,13 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
     }
     /* NOTE: Kind of a nice allignment for printing */
-    // uint64_t max = log10(linearized->op_count);
-    // for(uint64_t i = 0; i < linearized->op_count; i++) {
-    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (uint64_t) log10(i)), "", i);
+    // int64_t max = log10(linearized->op_count);
+    // for(int64_t i = 0; i < linearized->op_count; i++) {
+    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (int64_t) log10(i)), "", i);
     //     simple_op_print(linearized->simple + i, 0, 0, "");
     // }
     /* This one is not alligned. */
-    for(uint64_t i = 0; i < linearized->op_count; i++) {
+    for(int64_t i = 0; i < linearized->op_count; i++) {
         printf("%*s[%lu] ", padding + offset, "", i);
         simple_op_print(linearized->simple + i, 0, 0, "");
     }

@@ -8,19 +8,19 @@
 #include "tensor.h"
 
 typedef struct {
-    uint64_t a_sze;
-    uint64_t z_sze;
-    uint64_t y_sze;
-    uint64_t x_sze;
-    uint64_t a_str;
-    uint64_t z_str;
-    uint64_t y_str;
-    uint64_t x_str;
-    uint64_t off;
-    uint64_t a_off;
-    uint64_t z_off;
-    uint64_t y_off;
-    uint64_t x_off;
+    int64_t a_sze;
+    int64_t z_sze;
+    int64_t y_sze;
+    int64_t x_sze;
+    int64_t a_str;
+    int64_t z_str;
+    int64_t y_str;
+    int64_t x_str;
+    int64_t off;
+    int64_t a_off;
+    int64_t z_off;
+    int64_t y_off;
+    int64_t x_off;
     double *val;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
@@ -49,8 +49,8 @@ extern void simple_op_realize(simple_op_t *simple);
 #define SIMPLE_OP_PRINT_(simple) (simple_op_print((simple_op), 4, 0, (#simple)))
 
 typedef struct {
-    uint64_t op_count;
-    uint64_t op_capacity;
+    int64_t op_count;
+    int64_t op_capacity;
     simple_op_t *simple;
 } linearized_t;
 
