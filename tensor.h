@@ -7,37 +7,37 @@
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
-    uint64_t a_inh;
-    uint64_t z_inh;
-    uint64_t y_inh;
-    uint64_t x_inh;
-    uint64_t a_str;
-    uint64_t z_str;
-    uint64_t y_str;
-    uint64_t x_str;
-    uint64_t a_sze;
-    uint64_t z_sze;
-    uint64_t y_sze;
-    uint64_t x_sze;
-    uint64_t off;
+    int64_t a_inh;
+    int64_t z_inh;
+    int64_t y_inh;
+    int64_t x_inh;
+    int64_t a_str;
+    int64_t z_str;
+    int64_t y_str;
+    int64_t x_str;
+    int64_t a_sze;
+    int64_t z_sze;
+    int64_t y_sze;
+    int64_t x_sze;
+    int64_t off;
     double *val;
     char name[BUFFER_NAME_SIZE + 1];
-    uint64_t sim_a_str;
-    uint64_t sim_z_str;
-    uint64_t sim_y_str;
-    uint64_t sim_x_str;
-    uint64_t sim_a_sze;
-    uint64_t sim_z_sze;
-    uint64_t sim_y_sze;
-    uint64_t sim_x_sze;
-    uint64_t sim_off;
-    uint64_t sim_a_off;
-    uint64_t sim_z_off;
-    uint64_t sim_y_off;
-    uint64_t sim_x_off;
+    int64_t sim_a_str;
+    int64_t sim_z_str;
+    int64_t sim_y_str;
+    int64_t sim_x_str;
+    int64_t sim_a_sze;
+    int64_t sim_z_sze;
+    int64_t sim_y_sze;
+    int64_t sim_x_sze;
+    int64_t sim_off;
+    int64_t sim_a_off;
+    int64_t sim_z_off;
+    int64_t sim_y_off;
+    int64_t sim_x_off;
 } buffer_t;
 
-extern buffer_t buffer_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
+extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
 extern void buffer_free(buffer_t *buffer);
 
 #define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).a_str * (a) + (buffer).z_str * (z) + (buffer).y_str * (y) + (buffer).x_str * (x) + (buffer).off])
@@ -89,11 +89,11 @@ enum move_e { move_reshape, move_resize, move_offset };
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
 typedef struct op {
     void *tensor_base;
-    uint64_t parent_count;
-    uint64_t parent_capacity;
+    int64_t parent_count;
+    int64_t parent_capacity;
     struct op **parent;
-    uint64_t child_count;
-    uint64_t child_capacity;
+    int64_t child_count;
+    int64_t child_capacity;
     struct op **child;
     enum operation_e type;
     enum unary_e unary_type;
@@ -101,10 +101,10 @@ typedef struct op {
     enum reduce_e reduce_type;
     enum move_e move_type;
     double var_unary;
-    uint64_t var_a;
-    uint64_t var_z;
-    uint64_t var_y;
-    uint64_t var_x;
+    int64_t var_a;
+    int64_t var_z;
+    int64_t var_y;
+    int64_t var_x;
     buffer_t *out_buffer;
     buffer_t *in_buffer;
 } op_t;
@@ -127,7 +127,7 @@ typedef struct {
     op_t *op;
 } tensor_t;
 
-extern tensor_t tensor_alloc(uint64_t a, uint64_t z, uint64_t y, uint64_t x);
+extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_set_unary(tensor_t *tensor, double value);
@@ -168,9 +168,9 @@ extern void tensor_max_reduce(tensor_t *out, tensor_t *in);
 extern void tensor_avg_reduce(tensor_t *out, tensor_t *in);
 extern void tensor_min_reduce(tensor_t *out, tensor_t *in);
 
-extern void tensor_reshape_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, uint64_t x);
-extern void tensor_resize_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, uint64_t x);
-extern void tensor_offset_move(tensor_t *tensor, uint64_t a, uint64_t z, uint64_t y, uint64_t x);
+extern void tensor_reshape_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_resize_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_offset_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
 
 extern void tensor_cpu_realize(tensor_t *tensor);
 
