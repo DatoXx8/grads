@@ -598,6 +598,8 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     int64_t max_z = op[0].type == operation_reduce ? op[0].in_buffer.z_sze : op[0].out_buffer.z_sze;
     int64_t max_y = op[0].type == operation_reduce ? op[0].in_buffer.y_sze : op[0].out_buffer.y_sze;
     int64_t max_x = op[0].type == operation_reduce ? op[0].in_buffer.x_sze : op[0].out_buffer.x_sze;
+    /* TODO: This needs a really big refactor. */
+    /* WARN: This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where it breaks, but be cautious! */
     for(int64_t a = 0; a < max_a; a++) {
         for(int64_t z = 0; z < max_z; z++) {
             for(int64_t y = 0; y < max_y; y++) {
@@ -607,37 +609,49 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                             switch(op[0].unary_type) {
                                 case unary_add: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]+=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]+=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_subtract: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]-=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]-=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_multiply: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]*=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]*=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_divide: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]/=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]/=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_exp: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_log: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -647,13 +661,17 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                 }
                                 case unary_sqrt: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_reciprocal: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -667,7 +685,9 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                 }
                                 case unary_set: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -677,13 +697,17 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                 }
                                 case unary_tanh: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case unary_absolute: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -698,25 +722,33 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                             switch(op[0].binary_type) {
                                 case binary_add: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]+=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]+=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case binary_subtract: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]-=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]-=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case binary_multiply: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]*=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]*=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
                                 case binary_divide: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]/=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]/=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -730,7 +762,9 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                 }
                                 case binary_copy: {
                                     temp_c +=
-                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                              (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
                                     EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                     break;
                                 }
@@ -795,8 +829,234 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                         }
                     }
                     if(op_num == 1) {
-                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                        switch(op[0].type) {
+                            case operation_unary: {
+                                switch(op[0].unary_type) {
+                                    case unary_add: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_subtract: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_multiply: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_divide: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_exp: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "exp(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_log: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "log(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_square: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case unary_sqrt: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "sqrt(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_reciprocal: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "1/(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_max: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case unary_min: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case unary_set: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_random: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case unary_tanh: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "tanh(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_absolute: {
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "exp(%s[%s%luoff%lu+%lu])", op[0].out_buffer.name, op[0].out_buffer.name,
+                                                           loop_idx, op_idx,
+                                                           SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
+                                                                        (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case unary_sign: {
+                                        TODO();
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                            case operation_binary: {
+                                switch(op[0].binary_type) {
+                                    case binary_add: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case binary_subtract: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case binary_multiply: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case binary_divide: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case binary_max: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case binary_min: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case binary_copy: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case binary_add_like: {
+                                        ERROR("THIS IS SUS!");
+                                        break;
+                                    }
+                                    case binary_subtract_like: {
+                                        ERROR("THIS IS SUS!");
+                                        break;
+                                    }
+                                    case binary_multiply_like: {
+                                        ERROR("THIS IS SUS!");
+                                        break;
+                                    }
+                                    case binary_divide_like: {
+                                        ERROR("THIS IS SUS!");
+                                        break;
+                                    }
+                                    case binary_max_like: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case binary_min_like: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case binary_copy_like: {
+                                        ERROR("THIS IS SUS!");
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                            case operation_reduce: {
+                                switch(op[0].reduce_type) {
+                                    case reduce_sum: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case reduce_avg: {
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
+                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                                        break;
+                                    }
+                                    case reduce_max: {
+                                        TODO();
+                                        break;
+                                    }
+                                    case reduce_min: {
+                                        TODO();
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                            case operation_move: {
+                                ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", op_idx);
+                            }
+                        }
                     } else {
                         for(int64_t i = 1; i < op_num; i++) {
                             if(IS_PREFIX(op + i)) {
@@ -900,34 +1160,34 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     case operation_binary: {
                                         switch(op[i].binary_type) {
                                             case binary_add: {
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "+%s[%s%luoff%lu + %lu])", op[i].in_buffer.name, op[i].in_buffer.name,
+                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "+%s[%s%luoff%lu+%lu])", op[i].in_buffer.name, op[i].in_buffer.name,
                                                                    loop_idx, op_idx,
                                                                    SIMPLE_INDEX(op[i].in_buffer, (a - dim_info[i].off_a_in), (z - dim_info[i].off_z_in),
-                                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                                                                (y - dim_info[i].off_y_in), (x - dim_info[i].off_x_in)));
                                                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                                 break;
                                             }
                                             case binary_subtract: {
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "-%s[%s%luoff%lu + %lu])", op[i].in_buffer.name, op[i].in_buffer.name,
+                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "-%s[%s%luoff%lu+%lu])", op[i].in_buffer.name, op[i].in_buffer.name,
                                                                    loop_idx, op_idx,
                                                                    SIMPLE_INDEX(op[i].in_buffer, (a - dim_info[i].off_a_in), (z - dim_info[i].off_z_in),
-                                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                                                                (y - dim_info[i].off_y_in), (x - dim_info[i].off_x_in)));
                                                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                                 break;
                                             }
                                             case binary_multiply: {
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "*%s[%s%luoff%lu + %lu])", op[i].in_buffer.name, op[i].in_buffer.name,
+                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "*%s[%s%luoff%lu+%lu])", op[i].in_buffer.name, op[i].in_buffer.name,
                                                                    loop_idx, op_idx,
                                                                    SIMPLE_INDEX(op[i].in_buffer, (a - dim_info[i].off_a_in), (z - dim_info[i].off_z_in),
-                                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                                                                (y - dim_info[i].off_y_in), (x - dim_info[i].off_x_in)));
                                                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                                 break;
                                             }
                                             case binary_divide: {
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "/%s[%s%luoff%lu + %lu])", op[i].in_buffer.name, op[i].in_buffer.name,
+                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "/%s[%s%luoff%lu+%lu])", op[i].in_buffer.name, op[i].in_buffer.name,
                                                                    loop_idx, op_idx,
                                                                    SIMPLE_INDEX(op[i].in_buffer, (a - dim_info[i].off_a_in), (z - dim_info[i].off_z_in),
-                                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                                                                (y - dim_info[i].off_y_in), (x - dim_info[i].off_x_in)));
                                                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                                 break;
                                             }
@@ -940,10 +1200,10 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             case binary_copy: {
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu + %lu])", op[i].in_buffer.name, op[i].in_buffer.name,
+                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu])", op[i].in_buffer.name, op[i].in_buffer.name,
                                                                    loop_idx, op_idx,
                                                                    SIMPLE_INDEX(op[i].in_buffer, (a - dim_info[i].off_a_in), (z - dim_info[i].off_z_in),
-                                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                                                                (y - dim_info[i].off_y_in), (x - dim_info[i].off_x_in)));
                                                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                                 break;
                                             }
@@ -1263,733 +1523,3 @@ void cl_program_free(cl_program_t *program) {
     for(int64_t i = 0; i < program->kernel_num; i++) { cl_kernel_free(&program->kernel[i]); }
     free(program->kernel);
 }
-/* Had to change it to this new one cuz inlining seems so much easier that way. I know that having the loop on the outside makes it significantly slower,
- * but I don't see another way for now. */
-// switch(op[0].type) {
-//     case operation_unary: {
-//         switch(op[0].unary_type) {
-//             case unary_add: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n", op[0].out_buffer.name,
-//                                 op[0].out_buffer.name,
-//                                                   loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_subtract: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n", op[0].out_buffer.name,
-//                                 op[0].out_buffer.name,
-//                                                   loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_multiply: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n", op[0].out_buffer.name,
-//                                 op[0].out_buffer.name,
-//                                                   loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_divide: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %.16lf;\n", op[0].out_buffer.name,
-//                                 op[0].out_buffer.name,
-//                                                   loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_exp: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = exp(%s[%s%luoff%lu + %lu]);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_log: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = log(%s[%s%luoff%lu + %lu]);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_square: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_sqrt: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = sqrt(%s[%s%luoff%lu + %lu]);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_reciprocal: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = 1 / %s[%s%luoff%lu + %lu);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_max: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "if(%s[%s%luoff%lu + %lu] < %lf) { %s[%s%luoff%lu + %lu] = %lf;
-//                                 }\n",
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary, op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_min: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "if(%s[%s%luoff%lu + %lu] > %lf) { %s[%s%luoff%lu + %lu] = %lf;
-//                                 }\n",
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary, op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_set: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = %.16lf;\n", op[0].out_buffer.name,
-//                                 op[0].out_buffer.name,
-//                                                   loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].var_unary);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
-//             case unary_random: {
-//                 /*
-//                         Actually I might not support this for OpenCL
-//
-//                         this isn't really random at all but it should be sufficient for initializing
-//                         seed here is like the grid id or something
-//                         have to make sure that 1/epsilon isn't nan or inf
-//                         double random(int seed) {
-//                             double epsilon = 1e-4;
-//                             double modified = (sin(seed) / 100) + epsilon;
-//                             return(sin(1/modified));
-//                         }
-//                      */
-//                 TODO();
-//                 break;
-//             }
-//             case unary_tanh: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = tanh(%s[%s%luoff%lu + %lu]);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_absolute: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = fabs(%s[%s%luoff%lu + %lu]);\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case unary_sign: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(
-//                                     *curr, max_op_size,
-//                                     "if(%s[%s%luoff%lu + %lu] < 0) { %s[%s%luoff%lu + %lu] = -1; } else if(%s[%s%luoff%lu + %lu] > 0)
-//                                     {%s[%s%lu off %lu + %lu] = 1; } else { %s[%s %lu off %lu + %lu] = 0; }\n", op[0].out_buffer.name,
-//                                     op[0].out_buffer.name, loop_idx, op_idx, SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out),
-//                                     (z - dim_info[0].off_z_out), (y - dim_info[0].off_y_out),
-//                                                  (x - dim_info[0].off_x_out)),
-//                                     op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out), (y -
-//                                     dim_info[0].off_y_out),
-//                                                  (x - dim_info[0].off_x_out)),
-//                                     op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out), (y -
-//                                     dim_info[0].off_y_out),
-//                                                  (x - dim_info[0].off_x_out)),
-//                                     op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out), (y -
-//                                     dim_info[0].off_y_out),
-//                                                  (x - dim_info[0].off_x_out)),
-//                                     op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out), (y -
-//                                     dim_info[0].off_y_out),
-//                                                  (x - dim_info[0].off_x_out)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//         }
-//         break;
-//     }
-//     case operation_binary: {
-//         switch(op[0].binary_type) {
-//             case binary_add: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_subtract: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_multiply: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_divide: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_max: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size,
-//                                                   "if(%s[%s%luoff%lu + %lu] < %s[%s%luoff%lu + %lu]) { %s[%s%luoff%lu + %lu] =
-//                                                   %s[%s%luoff%lu + %lu]; }\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
-//                                                   op_idx, SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_min: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size,
-//                                                   "if(%s[%s%luoff%lu + %lu] > %s[%s%luoff%lu + %lu]) { %s[%s%luoff%lu + %lu] =
-//                                                   %s[%s%luoff%lu + %lu]; }\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
-//                                                   op_idx, SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)),
-//                                                   op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_copy: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_add_like: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] += %s[%s%luoff%lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_subtract_like: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] -= %s[%s%luoff%lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_multiply_like: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] *= %s[%s%luoff%lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_divide_like: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] /= %s[%s%luoff%lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case binary_max_like: {
-//                 TODO()
-//                 break;
-//             }
-//             case binary_min_like: {
-//                 TODO();
-//                 break;
-//             }
-//             case binary_copy_like: {
-//                 for(int64_t a = 0; a < op[0].out_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].out_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].out_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].out_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu + %lu] = %s[%s%luoff%lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z -
-//                                                   dim_info[0].off_z_out),
-//                                                                (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)),
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//         }
-//         break;
-//     }
-//     case operation_reduce: {
-//         switch(op[0].reduce_type) {
-//             case reduce_sum: {
-//                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] = %lf;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
-//                 op_idx, 0.0); EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size); for(int64_t a = 0; a < op[0].in_buffer.a_sze; a++)
-//                 {
-//                     for(int64_t z = 0; z < op[0].in_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].in_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].in_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx, op[0].in_buffer.name, op[0].in_buffer.name,
-//                                                   loop_idx, op_idx, SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z -
-//                                                   dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 break;
-//             }
-//             case reduce_avg: {
-//                 for(int64_t a = 0; a < op[0].in_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].in_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].in_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].in_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] += %s[%s%luoff%lu + %lu];\n",
-//                                 op[0].out_buffer.name,
-//                                                   op[0].out_buffer.name, loop_idx, op_idx, op[0].in_buffer.name, op[0].in_buffer.name,
-//                                                   loop_idx, op_idx, SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z -
-//                                                   dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] /= %lf;\n", op[0].out_buffer.name, op[0].out_buffer.name,
-//                 loop_idx, op_idx,
-//                                   (double) op[0].in_buffer.a_sze * op[0].in_buffer.z_sze * op[0].in_buffer.y_sze *
-//                                   op[0].in_buffer.x_sze);
-//                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                 break;
-//             }
-//             case reduce_max: {
-//                 *curr += snprintf(*curr, max_op_size, "double _%lumax%lu = -INFINITY;\n", loop_idx, op_idx);
-//                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                 for(int64_t a = 0; a < op[0].in_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].in_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].in_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].in_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "if(%s[%s%luoff%lu + %lu] < _%lumax%lu) { _%lumax%lu =
-//                                 %s[%s%luoff%lu + %lu]; }\n",
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)),
-//                                                   loop_idx, op_idx, loop_idx, op_idx, op[0].in_buffer.name, op[0].in_buffer.name,
-//                                                   loop_idx, op_idx, SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z -
-//                                                   dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] = _%lumax%lu;\n", op[0].out_buffer.name, op[0].out_buffer.name,
-//                 loop_idx, op_idx,
-//                                   loop_idx, op_idx);
-//                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                 break;
-//             }
-//             case reduce_min: {
-//                 *curr += snprintf(*curr, max_op_size, "double _%lumin%lu = INFINITY;\n", loop_idx, op_idx);
-//                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                 for(int64_t a = 0; a < op[0].in_buffer.a_sze; a++) {
-//                     for(int64_t z = 0; z < op[0].in_buffer.z_sze; z++) {
-//                         for(int64_t y = 0; y < op[0].in_buffer.y_sze; y++) {
-//                             for(int64_t x = 0; x < op[0].in_buffer.x_sze; x++) {
-//                                 *curr += snprintf(*curr, max_op_size, "if(%s[%s%luoff%lu + %lu] > _%lumin%lu) { _%lumin%lu =
-//                                 %s[%s%luoff%lu + %lu]; }\n",
-//                                                   op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-//                                                   SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)),
-//                                                   loop_idx, op_idx, loop_idx, op_idx, op[0].in_buffer.name, op[0].in_buffer.name,
-//                                                   loop_idx, op_idx, SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z -
-//                                                   dim_info[0].off_z_in),
-//                                                                (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
-//                                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 *curr += snprintf(*curr, max_op_size, "%s[%s%luoff%lu] = _%lumin%lu;\n", op[0].out_buffer.name, op[0].out_buffer.name,
-//                 loop_idx, op_idx,
-//                                   loop_idx, op_idx);
-//                 EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_size);
-//                 break;
-//             }
-//         }
-//         break;
-//     }
-//     case operation_move: {
-//         ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", op_idx);
-//     }
-// }
