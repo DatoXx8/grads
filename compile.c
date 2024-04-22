@@ -600,6 +600,32 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     int64_t max_x = op[0].type == operation_reduce ? op[0].in_buffer.x_sze : op[0].out_buffer.x_sze;
     /* TODO: This needs a really big refactor. */
     /* WARN: This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where it breaks, but be cautious! */
+    if(op[0].type == operation_reduce) {
+        switch(op[0].reduce_type) {
+            case reduce_sum: {
+                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=0;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                break;
+            }
+            case reduce_avg: {
+                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=0;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                break;
+            }
+            case reduce_max: {
+                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=-INFINITY;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                TODO();
+                break;
+            }
+            case reduce_min: {
+                temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=INFINITY;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
+                EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
+                TODO();
+                break;
+            }
+        }
+    }
     for(int64_t a = 0; a < max_a; a++) {
         for(int64_t z = 0; z < max_z; z++) {
             for(int64_t y = 0; y < max_y; y++) {
@@ -1276,21 +1302,6 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
             }
         }
     }
-    switch(op[0].type) {
-        case operation_unary: {
-            break;
-        }
-        case operation_binary: {
-            break;
-        }
-        case operation_reduce: {
-            // TODO();
-            break;
-        }
-        case operation_move: {
-            ERROR("ERROR: Tried to compile move operation!\n");
-        }
-    }
 
     free(temp);
 }
@@ -1379,20 +1390,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                     case operation_binary: {
                     }
                     case operation_reduce: {
-                        found_i = 0;
-                        for(int64_t h = 0; h < gid_len; h++) {
-                            if(!strncmp(gid[h], compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE)) {
-                                found_i = 1;
-                                break;
-                            }
-                        }
-                        if(!found_i) {
-                            gid_len++;
-                            if(gid_len == gid_cap) {
-                                gid_cap *= 2;
-                                gid = realloc(gid, gid_cap * sizeof(char *));
-                            }
-                            gid[gid_len - 1] = strndup(compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE + 1);
+                        if(compile->op_num[j] == 1) {
                             curr += snprintf(
                                 curr, MAX_OP_SIZE,
                                 "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
@@ -1403,23 +1401,36 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                 compile->dim_info[j][k].off_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
                                 compile->dim_info[j][k].off_x_in, compile->dim_info[j][k].str_x_in);
                             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                        } else {
+                            found_i = 0;
+                            for(int64_t h = 0; h < gid_len; h++) {
+                                if(!strncmp(gid[h], compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE)) {
+                                    found_i = 1;
+                                    break;
+                                }
+                            }
+                            if(!found_i) {
+                                gid_len++;
+                                if(gid_len == gid_cap) {
+                                    gid_cap *= 2;
+                                    gid = realloc(gid, gid_cap * sizeof(char *));
+                                }
+                                gid[gid_len - 1] = strndup(compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE + 1);
+                                curr += snprintf(
+                                    curr, MAX_OP_SIZE,
+                                    "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                                    compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
+                                    compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].off_a_in, compile->dim_info[j][k].res_z_in,
+                                    compile->dim_info[j][k].wai_z_in, compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].off_z_in,
+                                    compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in, compile->dim_info[j][k].str_y_in,
+                                    compile->dim_info[j][k].off_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
+                                    compile->dim_info[j][k].off_x_in, compile->dim_info[j][k].str_x_in);
+                                EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                            }
                         }
                     }
                     case operation_unary: {
-                        found_o = 0;
-                        for(int64_t h = 0; h < gid_len; h++) {
-                            if(!strncmp(gid[h], compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE)) {
-                                found_o = 1;
-                                break;
-                            }
-                        }
-                        if(!found_o) {
-                            gid_len++;
-                            if(gid_len == gid_cap) {
-                                gid_cap *= 2;
-                                gid = realloc(gid, gid_cap * sizeof(char *));
-                            }
-                            gid[gid_len - 1] = strndup(compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE + 1);
+                        if(compile->op_num[j] == 1) {
                             curr += snprintf(
                                 curr, MAX_OP_SIZE,
                                 "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
@@ -1430,6 +1441,32 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                 compile->dim_info[j][k].off_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
                                 compile->dim_info[j][k].off_x_out, compile->dim_info[j][k].str_x_out);
                             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                        } else {
+                            found_o = 0;
+                            for(int64_t h = 0; h < gid_len; h++) {
+                                if(!strncmp(gid[h], compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE)) {
+                                    found_o = 1;
+                                    break;
+                                }
+                            }
+                            if(!found_o) {
+                                gid_len++;
+                                if(gid_len == gid_cap) {
+                                    gid_cap *= 2;
+                                    gid = realloc(gid, gid_cap * sizeof(char *));
+                                }
+                                gid[gid_len - 1] = strndup(compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE + 1);
+                                curr += snprintf(
+                                    curr, MAX_OP_SIZE,
+                                    "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                                    compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
+                                    compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].off_a_out, compile->dim_info[j][k].res_z_out,
+                                    compile->dim_info[j][k].wai_z_out, compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].off_z_out,
+                                    compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
+                                    compile->dim_info[j][k].off_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
+                                    compile->dim_info[j][k].off_x_out, compile->dim_info[j][k].str_x_out);
+                                EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                            }
                         }
                         break;
                     }
