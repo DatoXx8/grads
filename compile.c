@@ -396,8 +396,8 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
                             inline_num++;
                             if(inline_num == inline_cap) {
                                 inline_cap *= 2;
-                                inlined = realloc(inlined, inline_cap * sizeof(simple_op_t));
-                                inlined_dim_info = realloc(inlined_dim_info, inline_cap * sizeof(dim_info_t));
+                                inlined = reallocarray(inlined, inline_cap, sizeof(simple_op_t));
+                                inlined_dim_info = reallocarray(inlined_dim_info, inline_cap, sizeof(dim_info_t));
                             }
                             inlined[inline_num - 1] = compile->op[i + j][0];
                             inlined_dim_info[inline_num - 1] = compile->dim_info[i + j][0];
@@ -407,8 +407,8 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
                         compile->op_num[i + j] += inline_num;
                         if(compile->op_num[i + j] >= compile->op_cap[i + j]) {
                             compile->op_cap[i + j] *= 2;
-                            compile->op[i + j] = realloc(compile->op[i + j], compile->op_cap[i + j] * sizeof(simple_op_t));
-                            compile->dim_info[i + j] = realloc(compile->dim_info[i + j], compile->op_cap[i + j] * sizeof(dim_info_t));
+                            compile->op[i + j] = reallocarray(compile->op[i + j], compile->op_cap[i + j], sizeof(simple_op_t));
+                            compile->dim_info[i + j] = reallocarray(compile->dim_info[i + j], compile->op_cap[i + j], sizeof(dim_info_t));
                         }
                         for(int64_t k = 0; k < inline_num; k++) {
                             compile->op[i + j][k + 1] = inlined[k];
@@ -579,7 +579,7 @@ const int64_t MAX_OP_SIZE = 512;
     if(source_size - (curr - source) <= MAX_OP_SIZE) {                                                                                                         \
         source_size *= 2;                                                                                                                                      \
         offset = curr - source;                                                                                                                                \
-        source = realloc(source, source_size);                                                                                                                 \
+        source = reallocarray(source, source_size, sizeof(char));                                                                                                                 \
         assert(source);                                                                                                                                        \
         curr = source + offset;                                                                                                                                \
     }
@@ -1290,7 +1290,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                     while(*source_cap - (*curr - *source) - (temp_c - temp) <= MAX_OP_SIZE) {
                         *source_cap *= 2;
                         offset = *curr - *source;
-                        *source = realloc(*source, *source_cap);
+                        *source = reallocarray(*source, *source_cap, sizeof(char));
                         assert(*source);
                         *curr = *source + offset;
                     }
@@ -1342,7 +1342,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
             }
             if(!found) {
                 arg_num++;
-                args = realloc(args, arg_num * sizeof(char *));
+                args = reallocarray(args, arg_num, sizeof(char *));
                 assert(args);
                 args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                 assert(args[arg_num - 1]);
@@ -1358,7 +1358,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                 }
                 if(!found) {
                     arg_num++;
-                    args = realloc(args, arg_num * sizeof(char *));
+                    args = reallocarray(args, arg_num, sizeof(char *));
                     assert(args);
                     args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                     assert(args[arg_num - 1]);
@@ -1413,7 +1413,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                 gid_len++;
                                 if(gid_len == gid_cap) {
                                     gid_cap *= 2;
-                                    gid = realloc(gid, gid_cap * sizeof(char *));
+                                    gid = reallocarray(gid, gid_cap, sizeof(char *));
                                 }
                                 gid[gid_len - 1] = strndup(compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE + 1);
                                 curr += snprintf(
@@ -1453,7 +1453,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                                 gid_len++;
                                 if(gid_len == gid_cap) {
                                     gid_cap *= 2;
-                                    gid = realloc(gid, gid_cap * sizeof(char *));
+                                    gid = reallocarray(gid, gid_cap, sizeof(char *));
                                 }
                                 gid[gid_len - 1] = strndup(compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE + 1);
                                 curr += snprintf(
@@ -1491,12 +1491,12 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     char *kernel_source = calloc(kernel_size, sizeof(char));
     assert(kernel_source);
     char *kernel_i = kernel_source;
-    kernel_i += sprintf(kernel_i, "__kernel void %s(", func_name);
+    kernel_i += snprintf(kernel_i, 1 + log10(kernel_counter + 1) + 3 + strnlen("__kernel void(", 20), "__kernel void %s(", func_name);
     for(int64_t i = 0; i < arg_num; i++) {
         if(i != arg_num - 1) {
-            kernel_i += sprintf(kernel_i, "__global double *%s, ", args[i]);
+            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 30), "__global double *%s, ", args[i]);
         } else {
-            kernel_i += sprintf(kernel_i, "__global double *%s) {\n", args[i]);
+            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 30), "__global double *%s) {\n", args[i]);
         }
     }
     /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
@@ -1527,9 +1527,8 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     free(gid);
     return kernel;
 }
-/* NOTE: Returns 1 if compilation failed. This could only really happen if the file writing failed. */
 int compile_linearized_to_cl(cl_program_t *program, const char *filename, linearized_t *linearized) {
-
+    if(!linearized->op_count) { return 1; }
     simple_loop_t simple = {0};
     int64_t global_size = 4;
     int64_t local_size = 1;
@@ -1547,7 +1546,7 @@ int compile_linearized_to_cl(cl_program_t *program, const char *filename, linear
         compile_loop_print(&compile, 4, 0, "");
         kernel = compile_loop_to_cl(filename, &compile, global_size, local_size);
         program->kernel_num++;
-        program->kernel = realloc(program->kernel, program->kernel_num * sizeof(cl_kernel_t));
+        program->kernel = reallocarray(program->kernel, program->kernel_num, sizeof(cl_kernel_t));
         assert(program->kernel);
         program->kernel[program->kernel_num - 1] = kernel;
         compile_loop_free(&compile);

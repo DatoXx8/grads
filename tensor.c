@@ -70,7 +70,7 @@ void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
     if(output_parent) {
         if(output_parent->child_capacity == output_parent->child_count) {
             output_parent->child_capacity *= 2;
-            output_parent->child = realloc(output_parent->child, output_parent->child_capacity * sizeof(op_t *));
+            output_parent->child = reallocarray(output_parent->child, output_parent->child_capacity, sizeof(op_t *));
             assert(output_parent->child);
         }
         output_parent->child[output_parent->child_count++] = op;
@@ -80,7 +80,7 @@ void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
     if(input_parent) {
         if(input_parent->child_capacity == input_parent->child_count) {
             input_parent->child_capacity *= 2;
-            input_parent->child = realloc(input_parent->child, input_parent->child_capacity * sizeof(op_t *));
+            input_parent->child = reallocarray(input_parent->child, input_parent->child_capacity, sizeof(op_t *));
             assert(input_parent->child);
         }
         input_parent->child[input_parent->child_count++] = op;
