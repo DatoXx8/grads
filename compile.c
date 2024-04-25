@@ -216,61 +216,61 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
         }
     }
 }
-static void simple_loop_print(simple_loop_t *simple, int padding, int offset, const char *name) {
-    if(!strncmp(name, "", 1)) {
-        printf("%*ssimple loop %lu repetitions\n", offset, "", simple->loop_num);
-    } else {
-        printf("%*s%s %lu repetitions\n", offset, "", name, simple->loop_num);
-    }
-    for(int64_t i = 0; i < simple->loop_len; i++) {
-        printf("%*s[%lu] ", offset + padding, "", i);
-        simple_op_print(&simple->op[i], 0, 0, "");
-    }
-    printf("off\n");
-    for(int64_t i = 0; i < simple->loop_len; i++) {
-        if(simple->op[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].off_a_out, simple->dim_info[i].off_z_out, simple->dim_info[i].off_y_out,
-                   simple->dim_info[i].off_x_out);
-        } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].off_a_out, simple->dim_info[i].off_z_out, simple->dim_info[i].off_y_out,
-                   simple->dim_info[i].off_x_out, simple->dim_info[i].off_a_in, simple->dim_info[i].off_z_in, simple->dim_info[i].off_y_in,
-                   simple->dim_info[i].off_x_in);
-        }
-    }
-    printf("str\n");
-    for(int64_t i = 0; i < simple->loop_len; i++) {
-        if(simple->op[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].str_a_out, simple->dim_info[i].str_z_out, simple->dim_info[i].str_y_out,
-                   simple->dim_info[i].str_x_out);
-        } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].str_a_out, simple->dim_info[i].str_z_out, simple->dim_info[i].str_y_out,
-                   simple->dim_info[i].str_x_out, simple->dim_info[i].str_a_in, simple->dim_info[i].str_z_in, simple->dim_info[i].str_y_in,
-                   simple->dim_info[i].str_x_in);
-        }
-    }
-    printf("res\n");
-    for(int64_t i = 0; i < simple->loop_len; i++) {
-        if(simple->op[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].res_a_out, simple->dim_info[i].res_z_out, simple->dim_info[i].res_y_out,
-                   simple->dim_info[i].res_x_out);
-        } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].res_a_out, simple->dim_info[i].res_z_out, simple->dim_info[i].res_y_out,
-                   simple->dim_info[i].res_x_out, simple->dim_info[i].res_a_in, simple->dim_info[i].res_z_in, simple->dim_info[i].res_y_in,
-                   simple->dim_info[i].res_x_in);
-        }
-    }
-    printf("wai\n");
-    for(int64_t i = 0; i < simple->loop_len; i++) {
-        if(simple->op[i].type == operation_unary) {
-            printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].wai_a_out, simple->dim_info[i].wai_z_out, simple->dim_info[i].wai_y_out,
-                   simple->dim_info[i].wai_x_out);
-        } else {
-            printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].wai_a_out, simple->dim_info[i].wai_z_out, simple->dim_info[i].wai_y_out,
-                   simple->dim_info[i].wai_x_out, simple->dim_info[i].wai_a_in, simple->dim_info[i].wai_z_in, simple->dim_info[i].wai_y_in,
-                   simple->dim_info[i].wai_x_in);
-        }
-    }
-}
+// static void simple_loop_print(simple_loop_t *simple, int padding, int offset, const char *name) {
+//     if(!strncmp(name, "", 1)) {
+//         printf("%*ssimple loop %lu repetitions\n", offset, "", simple->loop_num);
+//     } else {
+//         printf("%*s%s %lu repetitions\n", offset, "", name, simple->loop_num);
+//     }
+//     for(int64_t i = 0; i < simple->loop_len; i++) {
+//         printf("%*s[%lu] ", offset + padding, "", i);
+//         simple_op_print(&simple->op[i], 0, 0, "");
+//     }
+//     printf("off\n");
+//     for(int64_t i = 0; i < simple->loop_len; i++) {
+//         if(simple->op[i].type == operation_unary) {
+//             printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].off_a_out, simple->dim_info[i].off_z_out, simple->dim_info[i].off_y_out,
+//                    simple->dim_info[i].off_x_out);
+//         } else {
+//             printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].off_a_out, simple->dim_info[i].off_z_out, simple->dim_info[i].off_y_out,
+//                    simple->dim_info[i].off_x_out, simple->dim_info[i].off_a_in, simple->dim_info[i].off_z_in, simple->dim_info[i].off_y_in,
+//                    simple->dim_info[i].off_x_in);
+//         }
+//     }
+//     printf("str\n");
+//     for(int64_t i = 0; i < simple->loop_len; i++) {
+//         if(simple->op[i].type == operation_unary) {
+//             printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].str_a_out, simple->dim_info[i].str_z_out, simple->dim_info[i].str_y_out,
+//                    simple->dim_info[i].str_x_out);
+//         } else {
+//             printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].str_a_out, simple->dim_info[i].str_z_out, simple->dim_info[i].str_y_out,
+//                    simple->dim_info[i].str_x_out, simple->dim_info[i].str_a_in, simple->dim_info[i].str_z_in, simple->dim_info[i].str_y_in,
+//                    simple->dim_info[i].str_x_in);
+//         }
+//     }
+//     printf("res\n");
+//     for(int64_t i = 0; i < simple->loop_len; i++) {
+//         if(simple->op[i].type == operation_unary) {
+//             printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].res_a_out, simple->dim_info[i].res_z_out, simple->dim_info[i].res_y_out,
+//                    simple->dim_info[i].res_x_out);
+//         } else {
+//             printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].res_a_out, simple->dim_info[i].res_z_out, simple->dim_info[i].res_y_out,
+//                    simple->dim_info[i].res_x_out, simple->dim_info[i].res_a_in, simple->dim_info[i].res_z_in, simple->dim_info[i].res_y_in,
+//                    simple->dim_info[i].res_x_in);
+//         }
+//     }
+//     printf("wai\n");
+//     for(int64_t i = 0; i < simple->loop_len; i++) {
+//         if(simple->op[i].type == operation_unary) {
+//             printf("{%lu, %lu, %lu, %lu}\n", simple->dim_info[i].wai_a_out, simple->dim_info[i].wai_z_out, simple->dim_info[i].wai_y_out,
+//                    simple->dim_info[i].wai_x_out);
+//         } else {
+//             printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", simple->dim_info[i].wai_a_out, simple->dim_info[i].wai_z_out, simple->dim_info[i].wai_y_out,
+//                    simple->dim_info[i].wai_x_out, simple->dim_info[i].wai_a_in, simple->dim_info[i].wai_z_in, simple->dim_info[i].wai_y_in,
+//                    simple->dim_info[i].wai_x_in);
+//         }
+//     }
+// }
 static void cl_kernel_free(cl_kernel_t *kernel) {
     for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
     free(kernel->args);
@@ -579,7 +579,7 @@ const int64_t MAX_OP_SIZE = 512;
     if(source_size - (curr - source) <= MAX_OP_SIZE) {                                                                                                         \
         source_size *= 2;                                                                                                                                      \
         offset = curr - source;                                                                                                                                \
-        source = reallocarray(source, source_size, sizeof(char));                                                                                                                 \
+        source = reallocarray(source, source_size, sizeof(char));                                                                                              \
         assert(source);                                                                                                                                        \
         curr = source + offset;                                                                                                                                \
     }
@@ -1307,12 +1307,16 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
 }
 int64_t kernel_counter = 0;
 static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile, int64_t global_size, int64_t local_size) {
+    assert(filename);
+    assert(compile);
+    assert(global_size);
     /* TODO: Support `local_size > 1`. */
+    assert(local_size == 1);
+
     char *func_name = calloc(1 + log10(kernel_counter + 1) + 3, sizeof(char));
     assert(func_name);
     snprintf(func_name, 1 + log10(kernel_counter + 1) + 3, "k%lu", kernel_counter);
     kernel_counter++;
-    assert(local_size == 1);
     int64_t leftover_loops = compile->loop_num % global_size;
     int64_t assigned_loops = (compile->loop_num - leftover_loops) / global_size;
     int64_t needed_loops;
@@ -1332,10 +1336,10 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     char **args = NULL;
     int64_t found;
     for(int64_t i = 0; i < compile->loop_len; i++) {
-        for(int64_t j = 0; j < compile->op_num[i]; j++) {
+        if(compile->op_num[i] == 1) {
             found = 0;
             for(int64_t j = 0; j < arg_num; j++) {
-                if(!strncmp(compile->op[i][j].out_buffer.name, args[j], BUFFER_NAME_SIZE)) {
+                if(!strncmp(compile->op[i][0].out_buffer.name, args[j], BUFFER_NAME_SIZE)) {
                     found = 1;
                     break;
                 }
@@ -1346,12 +1350,12 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                 assert(args);
                 args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                 assert(args[arg_num - 1]);
-                strncpy(args[arg_num - 1], compile->op[i][j].out_buffer.name, BUFFER_NAME_SIZE);
+                strncpy(args[arg_num - 1], compile->op[i][0].out_buffer.name, BUFFER_NAME_SIZE);
             }
-            if(compile->op[i][j].type != operation_unary) {
+            if(compile->op[i][0].type != operation_unary) {
                 found = 0;
                 for(int64_t j = 0; j < arg_num; j++) {
-                    if(!strncmp(compile->op[i][j].in_buffer.name, args[j], BUFFER_NAME_SIZE)) {
+                    if(!strncmp(compile->op[i][0].in_buffer.name, args[j], BUFFER_NAME_SIZE)) {
                         found = 1;
                         break;
                     }
@@ -1362,12 +1366,47 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
                     assert(args);
                     args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                     assert(args[arg_num - 1]);
-                    strncpy(args[arg_num - 1], compile->op[i][j].in_buffer.name, BUFFER_NAME_SIZE);
+                    strncpy(args[arg_num - 1], compile->op[i][0].in_buffer.name, BUFFER_NAME_SIZE);
+                }
+            }
+        } else {
+            for(int64_t j = 0; j < compile->op_num[i]; j++) {
+                if(j) {
+                    found = 0;
+                    for(int64_t k = 0; k < arg_num; k++) {
+                        if(!strncmp(compile->op[i][j].in_buffer.name, args[k], BUFFER_NAME_SIZE)) {
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        arg_num++;
+                        args = reallocarray(args, arg_num, sizeof(char *));
+                        assert(args);
+                        args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                        assert(args[arg_num - 1]);
+                        strncpy(args[arg_num - 1], compile->op[i][j].in_buffer.name, BUFFER_NAME_SIZE);
+                    }
+                } else {
+                    found = 0;
+                    for(int64_t k = 0; k < arg_num; k++) {
+                        if(!strncmp(compile->op[i][j].out_buffer.name, args[k], BUFFER_NAME_SIZE)) {
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        arg_num++;
+                        args = reallocarray(args, arg_num, sizeof(char *));
+                        assert(args);
+                        args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                        assert(args[arg_num - 1]);
+                        strncpy(args[arg_num - 1], compile->op[i][j].out_buffer.name, BUFFER_NAME_SIZE);
+                    }
                 }
             }
         }
     }
-    int64_t found_o, found_i;
     int64_t gid_cap = INITIAL_CAP;
     int64_t gid_len;
     char **gid = calloc(gid_cap, sizeof(char *));
@@ -1384,94 +1423,63 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
         }
         for(int64_t j = 0; j < compile->loop_len; j++) {
-            for(int64_t k = 0; k < compile->op_num[j]; k++) {
-                switch(compile->op[j][k].type) {
-                    /* NOTE: Consciously making use of fall-through to reduce code size. */
-                    case operation_binary: {
-                    }
-                    case operation_reduce: {
-                        if(compile->op_num[j] == 1) {
-                            curr += snprintf(
-                                curr, MAX_OP_SIZE,
-                                "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
-                                compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
-                                compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].off_a_in, compile->dim_info[j][k].res_z_in,
-                                compile->dim_info[j][k].wai_z_in, compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].off_z_in,
-                                compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in, compile->dim_info[j][k].str_y_in,
-                                compile->dim_info[j][k].off_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
-                                compile->dim_info[j][k].off_x_in, compile->dim_info[j][k].str_x_in);
-                            EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
-                        } else {
-                            found_i = 0;
-                            for(int64_t h = 0; h < gid_len; h++) {
-                                if(!strncmp(gid[h], compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE)) {
-                                    found_i = 1;
-                                    break;
-                                }
-                            }
-                            if(!found_i) {
-                                gid_len++;
-                                if(gid_len == gid_cap) {
-                                    gid_cap *= 2;
-                                    gid = reallocarray(gid, gid_cap, sizeof(char *));
-                                }
-                                gid[gid_len - 1] = strndup(compile->op[j][k].in_buffer.name, BUFFER_NAME_SIZE + 1);
-                                curr += snprintf(
-                                    curr, MAX_OP_SIZE,
-                                    "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
-                                    compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
-                                    compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].off_a_in, compile->dim_info[j][k].res_z_in,
-                                    compile->dim_info[j][k].wai_z_in, compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].off_z_in,
-                                    compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in, compile->dim_info[j][k].str_y_in,
-                                    compile->dim_info[j][k].off_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
-                                    compile->dim_info[j][k].off_x_in, compile->dim_info[j][k].str_x_in);
-                                EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
-                            }
-                        }
-                    }
-                    case operation_unary: {
-                        if(compile->op_num[j] == 1) {
-                            curr += snprintf(
-                                curr, MAX_OP_SIZE,
-                                "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
-                                compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
-                                compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].off_a_out, compile->dim_info[j][k].res_z_out,
-                                compile->dim_info[j][k].wai_z_out, compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].off_z_out,
-                                compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
-                                compile->dim_info[j][k].off_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
-                                compile->dim_info[j][k].off_x_out, compile->dim_info[j][k].str_x_out);
-                            EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
-                        } else {
-                            found_o = 0;
-                            for(int64_t h = 0; h < gid_len; h++) {
-                                if(!strncmp(gid[h], compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE)) {
-                                    found_o = 1;
-                                    break;
-                                }
-                            }
-                            if(!found_o) {
-                                gid_len++;
-                                if(gid_len == gid_cap) {
-                                    gid_cap *= 2;
-                                    gid = reallocarray(gid, gid_cap, sizeof(char *));
-                                }
-                                gid[gid_len - 1] = strndup(compile->op[j][k].out_buffer.name, BUFFER_NAME_SIZE + 1);
-                                curr += snprintf(
-                                    curr, MAX_OP_SIZE,
-                                    "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
-                                    compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
-                                    compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].off_a_out, compile->dim_info[j][k].res_z_out,
-                                    compile->dim_info[j][k].wai_z_out, compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].off_z_out,
-                                    compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
-                                    compile->dim_info[j][k].off_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
-                                    compile->dim_info[j][k].off_x_out, compile->dim_info[j][k].str_x_out);
-                                EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
-                            }
-                        }
-                        break;
-                    }
-                    case operation_move: {
-                        ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", j);
+            if(compile->op_num[j] == 1) {
+                if(compile->op[j]->type == operation_unary) {
+                    curr +=
+                        snprintf(curr, MAX_OP_SIZE,
+                                 "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                                 compile->op[j][0].out_buffer.name, i, j, compile->dim_info[j][0].res_a_out, compile->dim_info[j][0].wai_a_out,
+                                 compile->dim_info[j][0].str_a_out, compile->dim_info[j][0].off_a_out, compile->dim_info[j][0].res_z_out,
+                                 compile->dim_info[j][0].wai_z_out, compile->dim_info[j][0].str_z_out, compile->dim_info[j][0].off_z_out,
+                                 compile->dim_info[j][0].res_y_out, compile->dim_info[j][0].wai_y_out, compile->dim_info[j][0].str_y_out,
+                                 compile->dim_info[j][0].off_y_out, compile->dim_info[j][0].res_x_out, compile->dim_info[j][0].wai_x_out,
+                                 compile->dim_info[j][0].off_x_out, compile->dim_info[j][0].str_x_out);
+                    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                } else {
+                    curr +=
+                        snprintf(curr, MAX_OP_SIZE,
+                                 "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                                 compile->op[j][0].out_buffer.name, i, j, compile->dim_info[j][0].res_a_out, compile->dim_info[j][0].wai_a_out,
+                                 compile->dim_info[j][0].str_a_out, compile->dim_info[j][0].off_a_out, compile->dim_info[j][0].res_z_out,
+                                 compile->dim_info[j][0].wai_z_out, compile->dim_info[j][0].str_z_out, compile->dim_info[j][0].off_z_out,
+                                 compile->dim_info[j][0].res_y_out, compile->dim_info[j][0].wai_y_out, compile->dim_info[j][0].str_y_out,
+                                 compile->dim_info[j][0].off_y_out, compile->dim_info[j][0].res_x_out, compile->dim_info[j][0].wai_x_out,
+                                 compile->dim_info[j][0].off_x_out, compile->dim_info[j][0].str_x_out);
+                    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                    curr += snprintf(
+                        curr, MAX_OP_SIZE,
+                        "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                        compile->op[j][0].in_buffer.name, i, j, compile->dim_info[j][0].res_a_in, compile->dim_info[j][0].wai_a_in,
+                        compile->dim_info[j][0].str_a_in, compile->dim_info[j][0].off_a_in, compile->dim_info[j][0].res_z_in, compile->dim_info[j][0].wai_z_in,
+                        compile->dim_info[j][0].str_z_in, compile->dim_info[j][0].off_z_in, compile->dim_info[j][0].res_y_in, compile->dim_info[j][0].wai_y_in,
+                        compile->dim_info[j][0].str_y_in, compile->dim_info[j][0].off_y_in, compile->dim_info[j][0].res_x_in, compile->dim_info[j][0].wai_x_in,
+                        compile->dim_info[j][0].off_x_in, compile->dim_info[j][0].str_x_in);
+                    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                }
+            } else {
+                for(int64_t k = 0; k < compile->op_num[j]; k++) {
+                    if(k) {
+                        curr += snprintf(
+                            curr, MAX_OP_SIZE,
+                            "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                            compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
+                            compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].off_a_in, compile->dim_info[j][k].res_z_in,
+                            compile->dim_info[j][k].wai_z_in, compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].off_z_in,
+                            compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in, compile->dim_info[j][k].str_y_in,
+                            compile->dim_info[j][k].off_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
+                            compile->dim_info[j][k].off_x_in, compile->dim_info[j][k].str_x_in);
+                        EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
+                    } else {
+                        curr += snprintf(
+                            curr, MAX_OP_SIZE,
+                            "int %s%luoff%lu=(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu)+(((id%%%lu)/%lu+%lu)*%lu);\n",
+                            compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
+                            compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].off_a_out, compile->dim_info[j][k].res_z_out,
+                            compile->dim_info[j][k].wai_z_out, compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].off_z_out,
+                            compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
+                            compile->dim_info[j][k].off_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
+                            compile->dim_info[j][k].off_x_out, compile->dim_info[j][k].str_x_out);
+                        EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap);
                     }
                 }
             }
@@ -1485,7 +1493,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     }
 
     assert(arg_num != 0);
-    /* HACK: That `+ 3` is pure magic. I have no clue where it comes from. */
+    /* NOTE: That `+ 3` is pure magic. I have no clue where it comes from. */
     int64_t kernel_size = strlen("__kernel void ") + strlen(func_name) + (strlen("__global double *") + BUFFER_NAME_SIZE) * arg_num +
                           strlen(", ") * (arg_num - 1) + strlen(") {\n") + (curr - source) + strlen("}\n") + 3;
     char *kernel_source = calloc(kernel_size, sizeof(char));
