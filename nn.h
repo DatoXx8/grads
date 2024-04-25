@@ -7,9 +7,8 @@
 #include "linearize.h"
 #include "tensor.h"
 
-/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum activation_e {
-    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     activation_identity,
     activation_relu,
     activation_sigmoid,
@@ -24,9 +23,8 @@ typedef struct {
     tensor_t *intermediary;
 } activation_t;
 
-/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum norm_e {
-    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
     norm_none,
     norm_layer,
     norm_batch,
