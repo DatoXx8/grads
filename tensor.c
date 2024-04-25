@@ -6,11 +6,11 @@
 #include <string.h>
 
 #include "tensor.h"
-#include "utils.h"
 
 char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
-ALWAYS_INLINE void name_update(char *name) {
+void name_update(char *name) {
     for(int64_t i = 0; i < BUFFER_NAME_SIZE - 1; i++) {
+        assert(name[i] >= 'a' && name[i] <= 'z');
         if(name[i] != 'z') {
             name[i]++;
             return;
@@ -19,7 +19,11 @@ ALWAYS_INLINE void name_update(char *name) {
         }
     }
 }
-ALWAYS_INLINE buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
+buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
     buffer_t buffer = {
         .a_inh = a,
         .z_inh = z,
@@ -57,16 +61,18 @@ const int64_t INITIAL_CHILD_NUMBER = 8;
 /* However there is a max of two parents per lazyop. */
 const int64_t MAX_PARENT_NUMBER = 2;
 op_t op_alloc(void) {
-    op_t op = {0};
-    op.parent = calloc(MAX_PARENT_NUMBER, sizeof(op_t *));
+    op_t op = {
+        .parent_capacity = MAX_PARENT_NUMBER,
+        .parent = calloc(MAX_PARENT_NUMBER, sizeof(op_t *)),
+        .child_capacity = INITIAL_CHILD_NUMBER,
+        .child = calloc(INITIAL_CHILD_NUMBER, sizeof(op_t *)),
+    };
     assert(op.parent);
-    op.parent_capacity = MAX_PARENT_NUMBER;
-    op.child_capacity = INITIAL_CHILD_NUMBER;
-    op.child = calloc(INITIAL_CHILD_NUMBER, sizeof(op_t *));
     assert(op.child);
     return op;
 }
 void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
+    assert(op);
     if(output_parent) {
         if(output_parent->child_capacity == output_parent->child_count) {
             output_parent->child_capacity *= 2;
@@ -89,10 +95,14 @@ void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
     }
 }
 void op_free(op_t *op) {
+    assert(op);
+    assert(op->parent);
     free(op->parent);
+    assert(op->child);
     free(op->child);
 }
 void op_cleanup(op_t *op) {
+    assert(op);
     if(op->tensor_base) {
         tensor_t *tensor = (tensor_t *) op->tensor_base;
         tensor->op = NULL;
@@ -361,7 +371,7 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
         for(int64_t i = 0; i < op->parent_count; i++) { op_print(op->parent[i], padding, offset + padding, ""); }
     }
 }
-ALWAYS_INLINE void op_single_op_cpu_realize(op_t *op) {
+void op_single_op_cpu_realize(op_t *op) {
     switch(op->type) {
         case operation_unary: {
             switch(op->unary_type) {
@@ -826,6 +836,7 @@ ALWAYS_INLINE void op_single_op_cpu_realize(op_t *op) {
     }
 }
 void op_cpu_realize(op_t *op) {
+    assert(op);
     while(op->parent_count > 0) { op_cpu_realize(op->parent[0]); }
     op_single_op_cpu_realize(op);
     op_cleanup(op);
@@ -834,6 +845,10 @@ void op_cpu_realize(op_t *op) {
 }
 
 tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
     tensor_t tensor = {
         .op = NULL,
         .buffer = malloc(sizeof(buffer_t)),
@@ -851,9 +866,8 @@ void tensor_free(tensor_t *tensor) {
     free(tensor->buffer);
 }
 
-/* NOTE: You can remove all these asserts if you want optimal performance. I don't recommend you do, because it makes the program less safe. */
-
 void tensor_add_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -867,6 +881,7 @@ void tensor_add_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_subtract_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -880,6 +895,7 @@ void tensor_subtract_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_multiply_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -893,6 +909,7 @@ void tensor_multiply_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_divide_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -906,6 +923,7 @@ void tensor_divide_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_exp_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -918,6 +936,7 @@ void tensor_exp_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_log_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -930,6 +949,7 @@ void tensor_log_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_square_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -942,6 +962,7 @@ void tensor_square_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_sqrt_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -954,6 +975,7 @@ void tensor_sqrt_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_reciprocal_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -966,6 +988,7 @@ void tensor_reciprocal_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_max_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -979,6 +1002,7 @@ void tensor_max_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_min_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -992,6 +1016,7 @@ void tensor_min_unary(tensor_t *tensor, double value) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_set_unary(tensor_t *tensor, double value) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1006,6 +1031,7 @@ void tensor_set_unary(tensor_t *tensor, double value) {
 }
 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 void tensor_random_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1018,6 +1044,7 @@ void tensor_random_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_tanh_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1030,6 +1057,7 @@ void tensor_tanh_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_absolute_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1042,6 +1070,7 @@ void tensor_absolute_unary(tensor_t *tensor) {
     tensor->op->out_buffer = tensor->buffer;
 }
 void tensor_sign_unary(tensor_t *tensor) {
+    assert(tensor);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1055,6 +1084,8 @@ void tensor_sign_unary(tensor_t *tensor) {
 }
 
 void tensor_add_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1068,6 +1099,8 @@ void tensor_add_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_subtract_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1081,6 +1114,8 @@ void tensor_subtract_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_multiply_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1094,6 +1129,8 @@ void tensor_multiply_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_divide_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1107,6 +1144,8 @@ void tensor_divide_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_max_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1120,6 +1159,8 @@ void tensor_max_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_min_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1133,6 +1174,8 @@ void tensor_min_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_copy_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1146,6 +1189,8 @@ void tensor_copy_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_add_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1159,6 +1204,8 @@ void tensor_add_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_subtract_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1172,6 +1219,8 @@ void tensor_subtract_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_multiply_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1185,6 +1234,8 @@ void tensor_multiply_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_divide_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1198,6 +1249,8 @@ void tensor_divide_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_max_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1211,6 +1264,8 @@ void tensor_max_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_min_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1224,6 +1279,8 @@ void tensor_min_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 void tensor_copy_like_binary(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1237,9 +1294,9 @@ void tensor_copy_like_binary(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 
-/* Since reduce always overwrites `out` an optimizer should remove all the parent ops of out. This is a little complex to make sure that needed reduces are
- * stored in the `in` op structure. */
 void tensor_sum_reduce(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1252,9 +1309,9 @@ void tensor_sum_reduce(tensor_t *out, tensor_t *in) {
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }
-/* Since reduce always overwrites `out` an optimizer should remove all the parent ops of out. This is a little complex to make sure that needed reduces are
- * stored in the `in` op structure. */
 void tensor_max_reduce(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1267,9 +1324,9 @@ void tensor_max_reduce(tensor_t *out, tensor_t *in) {
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }
-/* Since reduce always overwrites `out` an optimizer should remove all the parent ops of out. This is a little complex to make sure that needed reduces are
- * stored in the `in` op structure. */
 void tensor_avg_reduce(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1282,9 +1339,9 @@ void tensor_avg_reduce(tensor_t *out, tensor_t *in) {
     out->op->out_buffer = out->buffer;
     out->op->in_buffer = in->buffer;
 }
-/* Since reduce always overwrites `out` an optimizer should remove all the parent ops of out. This is a little complex to make sure that needed reduces are
- * stored in the `in` op structure. */
 void tensor_min_reduce(tensor_t *out, tensor_t *in) {
+    assert(out);
+    assert(in);
     op_t *out_parent = out->op;
     out->op = malloc(sizeof(op_t));
     assert(out->op);
@@ -1298,7 +1355,13 @@ void tensor_min_reduce(tensor_t *out, tensor_t *in) {
     out->op->in_buffer = in->buffer;
 }
 
+/* A per-dim size should never be `0`. */
 void tensor_reshape_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+    assert(tensor);
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1314,7 +1377,13 @@ void tensor_reshape_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int6
     tensor->op->var_y = y;
     tensor->op->var_x = x;
 }
+/* A per-dim size should never be `0`. */
 void tensor_resize_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+    assert(tensor);
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     *tensor->op = op_alloc();
@@ -1330,7 +1399,13 @@ void tensor_resize_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->op->var_y = y;
     tensor->op->var_x = x;
 }
+/* A per-dim offset should never be `0`. */
 void tensor_offset_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+    assert(tensor);
+    assert(a >= 0);
+    assert(z >= 0);
+    assert(y >= 0);
+    assert(x >= 0);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);
@@ -1348,15 +1423,16 @@ void tensor_offset_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
 }
 
 void tensor_cpu_realize(tensor_t *tensor) {
+    assert(tensor);
     if(tensor->op) { op_cpu_realize(tensor->op); }
 }
 
-/* If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
+    assert(tensor);
     if(strncmp(name, "", 1)) {
-        printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
+        printf("%*s%s NAME: %s\n", offset, "", name, tensor->buffer->name);
     } else {
-        printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);
+        printf("%*sNAME: %s\n", offset, "", tensor->buffer->name);
     }
     for(int64_t a = 0; a < tensor->buffer->a_sze; a++) {
         if(a) {
@@ -1379,6 +1455,7 @@ const int64_t Y_MAX = 4;
 const int64_t X_MAX = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where the name would have been. */
 void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
+    assert(tensor);
     if(strncmp(name, "", 1)) {
         printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
     } else {
