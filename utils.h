@@ -27,7 +27,7 @@
     fprintf(stderr, "ERROR: Tried to execute not implemented feature at line %d in file %s\n", __LINE__, __FILE__);                                            \
     exit(1);
 #define ERROR(...)                                                                                                                                             \
-    fprintf(stderr, __VA_ARGS__);                                                                                                                              \
+    fprintf(stderr, "ERROR:" __VA_ARGS__);                                                                                                                              \
     exit(1);
 
 #endif
