@@ -872,34 +872,22 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                             case operation_unary: {
                                 switch(op[0].unary_type) {
                                     case unary_add: {
-                                        temp_c +=
-                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx,
-                                                     SIMPLE_INDEX(op[0].in_buffer, (a - dim_info[0].off_a_in), (z - dim_info[0].off_z_in),
-                                                                  (y - dim_info[0].off_y_in), (x - dim_info[0].off_x_in)));
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%lf", op[0].var_unary);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                         break;
                                     }
                                     case unary_subtract: {
-                                        temp_c +=
-                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
-                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%lf", op[0].var_unary);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                         break;
                                     }
                                     case unary_multiply: {
-                                        temp_c +=
-                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
-                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%lf", op[0].var_unary);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                         break;
                                     }
                                     case unary_divide: {
-                                        temp_c +=
-                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
-                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%lf", op[0].var_unary);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                         break;
                                     }
@@ -948,10 +936,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case unary_set: {
-                                        temp_c +=
-                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx,
-                                                     SIMPLE_INDEX(op[0].out_buffer, (a - dim_info[0].off_a_out), (z - dim_info[0].off_z_out),
-                                                                  (y - dim_info[0].off_y_out), (x - dim_info[0].off_x_out)));
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%lf", op[0].var_unary);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap);
                                         break;
                                     }
