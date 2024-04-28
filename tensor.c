@@ -1439,11 +1439,11 @@ void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
             printf("\n");
             printf("\n");
         }
-        for(int64_t z = 0; z < tensor->buffer->a_sze; z++) {
+        for(int64_t z = 0; z < tensor->buffer->z_sze; z++) {
             if(z) { printf("\n"); }
-            for(int64_t y = 0; y < tensor->buffer->a_sze; y++) {
+            for(int64_t y = 0; y < tensor->buffer->y_sze; y++) {
                 printf("%*s[ ", offset + padding, "");
-                for(int64_t x = 0; x < tensor->buffer->a_sze; x++) { printf("% lf ", BUFFER_AT_(tensor->buffer, a, z, y, x)); }
+                for(int64_t x = 0; x < tensor->buffer->x_sze; x++) { printf("% lf ", BUFFER_AT_(tensor->buffer, a, z, y, x)); }
                 printf("]\n");
             }
         }
@@ -1467,19 +1467,19 @@ void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name)
             break;
         }
         if(a) { printf("\n\n"); }
-        for(int64_t z = 0; z < tensor->buffer->a_sze; z++) {
+        for(int64_t z = 0; z < tensor->buffer->z_sze; z++) {
             if(z >= Z_MAX) {
                 printf("%*s...\n", offset, "");
                 break;
             }
             if(z) { printf("\n"); }
-            for(int64_t y = 0; y < tensor->buffer->a_sze; y++) {
+            for(int64_t y = 0; y < tensor->buffer->y_sze; y++) {
                 if(y >= Y_MAX) {
                     printf("%*s...\n", offset + padding, "");
                     break;
                 }
                 printf("%*s[ ", offset + padding, "");
-                for(int64_t x = 0; x < tensor->buffer->a_sze; x++) {
+                for(int64_t x = 0; x < tensor->buffer->x_sze; x++) {
                     if(x >= X_MAX) {
                         printf("...");
                         break;
