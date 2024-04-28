@@ -796,19 +796,35 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case binary_add_like: {
-                                    ERROR("THIS IS SUS!");
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]+=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
+                                                       op_idx, SIMPLE_INDEX(op[0].out_buffer, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_subtract_like: {
-                                    ERROR("THIS IS SUS!");
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]-=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
+                                                       op_idx, SIMPLE_INDEX(op[0].out_buffer, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_multiply_like: {
-                                    ERROR("THIS IS SUS!");
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]*=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
+                                                       op_idx, SIMPLE_INDEX(op[0].out_buffer, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_divide_like: {
-                                    ERROR("THIS IS SUS!");
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]/=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
+                                                       op_idx, SIMPLE_INDEX(op[0].out_buffer, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_max_like: {
@@ -820,7 +836,11 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case binary_copy_like: {
-                                    ERROR("THIS IS SUS!");
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx,
+                                                       op_idx, SIMPLE_INDEX(op[0].out_buffer, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                             }
@@ -992,19 +1012,27 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case binary_add_like: {
-                                        ERROR("THIS IS SUS!");
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_subtract_like: {
-                                        ERROR("THIS IS SUS!");
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_multiply_like: {
-                                        ERROR("THIS IS SUS!");
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_divide_like: {
-                                        ERROR("THIS IS SUS!");
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_max_like: {
@@ -1016,7 +1044,9 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case binary_copy_like: {
-                                        ERROR("THIS IS SUS!");
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]", op[0].in_buffer.name, op[0].in_buffer.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                 }
@@ -1380,12 +1410,12 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
     for(int64_t i = 0; i < needed_loops; i++) {
         gid_len = 0;
-        if(i) {
-            curr += snprintf(curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
-            EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
-        }
         if(i == assigned_loops) {
             curr += snprintf(curr, MAX_OP_SIZE, "if(gid0 < %lu) {\n", leftover_loops);
+            EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
+        }
+        if(i) {
+            curr += snprintf(curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
         }
         for(int64_t j = 0; j < compile->loop_len; j++) {
