@@ -601,13 +601,11 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
             case reduce_max: {
                 temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=-INFINITY;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
-                TODO();
                 break;
             }
             case reduce_min: {
                 temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=INFINITY;\n", op[0].out_buffer.name, op[0].out_buffer.name, loop_idx, op_idx);
                 EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
-                TODO();
                 break;
             }
         }
@@ -1375,7 +1373,6 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
             }
         }
     }
-    printf("%lu\n", arg_num);
     int64_t gid_cap = INITIAL_CAP;
     int64_t gid_len;
     char **gid = calloc(gid_cap, sizeof(char *));
@@ -1393,63 +1390,43 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
         }
         for(int64_t j = 0; j < compile->loop_len; j++) {
             if(compile->op_num[j] == 1) {
-                if(compile->op[j]->type == operation_unary) {
-                    curr +=
-                        snprintf(curr, MAX_OP_SIZE,
-                                 "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                                 compile->op[j][0].out_buffer.name, i, j, compile->dim_info[j][0].res_a_out, compile->dim_info[j][0].wai_a_out,
-                                  compile->dim_info[j][0].str_a_out, compile->dim_info[j][0].res_z_out,
-                                 compile->dim_info[j][0].wai_z_out, compile->dim_info[j][0].str_z_out,
-                                 compile->dim_info[j][0].res_y_out, compile->dim_info[j][0].wai_y_out,
-                                 compile->dim_info[j][0].str_y_out, compile->dim_info[j][0].res_x_out, compile->dim_info[j][0].wai_x_out,
-                                 compile->dim_info[j][0].str_x_out);
-                    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
-                } else {
-                    curr +=
-                        snprintf(curr, MAX_OP_SIZE,
-                                 "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                                 compile->op[j][0].out_buffer.name, i, j, compile->dim_info[j][0].res_a_out, compile->dim_info[j][0].wai_a_out,
-                                  compile->dim_info[j][0].str_a_out, compile->dim_info[j][0].res_z_out,
-                                 compile->dim_info[j][0].wai_z_out, compile->dim_info[j][0].str_z_out,
-                                 compile->dim_info[j][0].res_y_out, compile->dim_info[j][0].wai_y_out, 
-                                 compile->dim_info[j][0].str_y_out, compile->dim_info[j][0].res_x_out, compile->dim_info[j][0].wai_x_out,
-                                  compile->dim_info[j][0].str_x_out);
-                    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
+                curr += snprintf(
+                    curr, MAX_OP_SIZE, "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
+                    compile->op[j][0].out_buffer.name, i, j, compile->dim_info[j][0].res_a_out, compile->dim_info[j][0].wai_a_out,
+                    compile->dim_info[j][0].str_a_out, compile->dim_info[j][0].res_z_out, compile->dim_info[j][0].wai_z_out, compile->dim_info[j][0].str_z_out,
+                    compile->dim_info[j][0].res_y_out, compile->dim_info[j][0].wai_y_out, compile->dim_info[j][0].str_y_out, compile->dim_info[j][0].res_x_out,
+                    compile->dim_info[j][0].wai_x_out, compile->dim_info[j][0].str_x_out);
+                EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
+                if(compile->op[j]->type != operation_unary) {
                     curr += snprintf(
-                        curr, MAX_OP_SIZE,
-                        "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
+                        curr, MAX_OP_SIZE, "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
                         compile->op[j][0].in_buffer.name, i, j, compile->dim_info[j][0].res_a_in, compile->dim_info[j][0].wai_a_in,
-                        compile->dim_info[j][0].str_a_in, compile->dim_info[j][0].res_z_in, compile->dim_info[j][0].wai_z_in,
-                        compile->dim_info[j][0].str_z_in, compile->dim_info[j][0].res_y_in, compile->dim_info[j][0].wai_y_in,
-                        compile->dim_info[j][0].str_y_in, compile->dim_info[j][0].res_x_in, compile->dim_info[j][0].wai_x_in,
-                        compile->dim_info[j][0].str_x_in);
+                        compile->dim_info[j][0].str_a_in, compile->dim_info[j][0].res_z_in, compile->dim_info[j][0].wai_z_in, compile->dim_info[j][0].str_z_in,
+                        compile->dim_info[j][0].res_y_in, compile->dim_info[j][0].wai_y_in, compile->dim_info[j][0].str_y_in, compile->dim_info[j][0].res_x_in,
+                        compile->dim_info[j][0].wai_x_in, compile->dim_info[j][0].str_x_in);
                     EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                 }
             } else {
                 for(int64_t k = 0; k < compile->op_num[j]; k++) {
                     if(k) {
                         if(compile->op[j][k].type != operation_unary) {
-                            curr += snprintf(
-                                curr, MAX_OP_SIZE,
-                                "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                                compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
-                                 compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].res_z_in,
-                                compile->dim_info[j][k].wai_z_in,  compile->dim_info[j][k].str_z_in,
-                                compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in, 
-                                compile->dim_info[j][k].str_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
-                                 compile->dim_info[j][k].str_x_in);
+                            curr += snprintf(curr, MAX_OP_SIZE,
+                                             "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
+                                             compile->op[j][k].in_buffer.name, i, j, compile->dim_info[j][k].res_a_in, compile->dim_info[j][k].wai_a_in,
+                                             compile->dim_info[j][k].str_a_in, compile->dim_info[j][k].res_z_in, compile->dim_info[j][k].wai_z_in,
+                                             compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].res_y_in, compile->dim_info[j][k].wai_y_in,
+                                             compile->dim_info[j][k].str_y_in, compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
+                                             compile->dim_info[j][k].str_x_in);
                             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                         }
                     } else {
-                        curr += snprintf(
-                            curr, MAX_OP_SIZE,
-                            "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                            compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
-                            compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].res_z_out,
-                            compile->dim_info[j][k].wai_z_out, compile->dim_info[j][k].str_z_out,
-                            compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
-                             compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
-                             compile->dim_info[j][k].str_x_out);
+                        curr += snprintf(curr, MAX_OP_SIZE,
+                                         "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
+                                         compile->op[j][k].out_buffer.name, i, j, compile->dim_info[j][k].res_a_out, compile->dim_info[j][k].wai_a_out,
+                                         compile->dim_info[j][k].str_a_out, compile->dim_info[j][k].res_z_out, compile->dim_info[j][k].wai_z_out,
+                                         compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].res_y_out, compile->dim_info[j][k].wai_y_out,
+                                         compile->dim_info[j][k].str_y_out, compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
+                                         compile->dim_info[j][k].str_x_out);
                         EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                     }
                 }
