@@ -1130,7 +1130,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
                                                 assert(dup);
                                                 for(int64_t lol = 0; lol < temp_c - super_temp; lol++) { dup[lol] = super_temp[lol]; }
-                                                temp_c += snprintf(temp_c, MAX_OP_SIZE, "*%s)", dup);
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp), "*%s)", dup);
                                                 free(dup);
                                                 break;
                                             }
