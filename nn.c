@@ -1017,8 +1017,8 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             layer.activation_g = calloc(1, sizeof(tensor_t));
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
             layer.activation_function = calloc(1, sizeof(activation_t));
-            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_,
-                                                           layerconfig->dense_input_x_);
+            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->convolution_input_channels_,
+                                                           layerconfig->convolution_input_y_, layerconfig->convolution_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
             *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_convolution;
@@ -1059,8 +1059,8 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.activation_g =
                 tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_, layerconfig->split_input_y_, layerconfig->split_input_x_);
             layer.activation_function = calloc(1, sizeof(activation_t));
-            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->dense_input_channels_, layerconfig->dense_input_y_,
-                                                           layerconfig->dense_input_x_);
+            *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, layerconfig->split_input_channels_, layerconfig->split_input_y_,
+                                                           layerconfig->split_input_x_);
             layer.norm = calloc(1, sizeof(norm_t));
             *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
             layer.layer_type = layer_split;

@@ -17,10 +17,6 @@
 enum compile_e { compile_none, compile_cl };
 
 typedef struct {
-    int64_t off_a_in;
-    int64_t off_z_in;
-    int64_t off_y_in;
-    int64_t off_x_in;
     int64_t str_a_in;
     int64_t str_z_in;
     int64_t str_y_in;
@@ -33,10 +29,6 @@ typedef struct {
     int64_t wai_z_in;
     int64_t wai_y_in;
     int64_t wai_x_in;
-    int64_t off_a_out;
-    int64_t off_z_out;
-    int64_t off_y_out;
-    int64_t off_x_out;
     int64_t str_a_out;
     int64_t str_z_out;
     int64_t str_y_out;
@@ -87,7 +79,7 @@ typedef struct {
 } cl_program_t;
 
 /* Could also be called `cl_program_alloc()`. */
-extern int compile_linearized_to_cl(cl_program_t *program, const char *filename, linearized_t *linearized);
+extern int cl_program_compile(cl_program_t *program, const char *filename, linearized_t *linearized);
 extern void cl_program_free(cl_program_t *program);
 
 #endif /* COMPILE_H_ */
