@@ -12,8 +12,12 @@
 
 /* TODO: THIS NEEDS TO BE REFACTORS *SO* BAD!!!! THIS IS THE WORST CODE I HAVE EVER WRITTEN!!! */
 
-#define SIMPLE_INDEX(simple, a, z, y, x) ((simple).a_str * (a) + (simple).z_str * (z) + (simple).y_str * (y) + (simple).x_str * (x) + (simple).off)
-#define SIMPLE_INDEX_(simple, a, z, y, x) ((simple)->a_str * (a) + (simple)->z_str * (z) + (simple)->y_str * (y) + (simple)->x_str * (x) + (simple)->off)
+#define SIMPLE_INDEX(simple, a, z, y, x)                                                                                                                       \
+    ((simple).a_str * (a + (simple).a_off) + (simple).z_str * (z + (simple).z_off) + (simple).y_str * (y + (simple).y_off) +                                   \
+     (simple).x_str * (x + (simple).x_off))
+#define SIMPLE_INDEX_(simple, a, z, y, x)                                                                                                                      \
+    ((simple)->a_str * (a + (simple)->a_off) + (simple)->z_str * (z + (simple)->z_off) + (simple)->y_str * (y + (simple)->y_off) +                             \
+     (simple)->x_str * (x + (simple)->x_off))
 static void simple_loop_free(simple_loop_t *simple) {
     assert(simple);
     assert(simple->op);
@@ -43,7 +47,6 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
     int64_t found_z_o, found_z_i;
     int64_t found_y_o, found_y_i;
     int64_t found_x_o, found_x_i;
-    /* FIX: These are all hacks and most likely don't work. */
     for(int64_t i = 0; i < loop_len; i++) {
         found_a_o = 0;
         found_z_o = 0;
@@ -237,20 +240,12 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
         }
     }
 }
-static void cl_kernel_free(cl_kernel_t *kernel) {
+static void cl_kernel_free(kernel_t *kernel) {
     assert(kernel);
     for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
     free(kernel->args);
     free((void *) kernel->name);
 }
-// static void cl_kernel_print(cl_kernel_t *kernel, int padding, int offset, const char *name) {
-//     if(strncmp(name, "", 1)) {
-//         printf("%*s%s %s\n", offset, "", name, kernel->name);
-//     } else {
-//         printf("%*scl kernel %s\n", offset, "", kernel->name);
-//     }
-//     for(int64_t i = 0; i < kernel->arg_num; i++) { printf("%*s[%lu] %s\n", padding + offset, "", i, kernel->args[i]); }
-// }
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
 static bool simple_loop_simple_op_equal(simple_op_t *starting, simple_op_t *compared) {
     assert(starting);
@@ -348,7 +343,7 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
     /* This will catch when adding optimizing and not updating all the things. */
     assert(optim <= OPTIMIZE_ALL);
     if(optim & OPTIMIZE_INLINE) {
-        printf("Optimizing: Inline\n");
+        // printf("Optimizing: Inline\n");
         int64_t inline_cap = INITIAL_CAP;
         int64_t inline_num = 0;
         simple_op_t *inlined = calloc(INITIAL_CAP, sizeof(simple_op_t));
@@ -356,14 +351,12 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
         assert(inlined);
         assert(inlined_dim_info);
 
-        /* FIX: If the op at [i][0] already has stuff inlined then that will get lost. This should not be the case. */
         for(int64_t i = 0; i < compile->loop_len; i++) {
             if(compile->op[i][0].type == operation_binary && compile->op[i][0].binary_type == binary_copy) {
-                // if(OVERRIDES_OUTPUT(compile->op[i][0])) {
                 inline_num = 1;
                 inlined[0] = compile->op[i][0];
                 inlined_dim_info[0] = compile->dim_info[i][0];
-                simple_op_print(&inlined[0], 4, 0, "");
+                // simple_op_print(&inlined[0], 4, 0, "");
                 for(int64_t j = 1; j < compile->loop_len - i; j++) {
                     assert(compile->op_num[i + j] == 1);
                     if(!strncmp(compile->op[i][0].out_buffer.name, compile->op[i + j][0].out_buffer.name, BUFFER_NAME_SIZE)) {
@@ -404,7 +397,6 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
         free(inlined_dim_info);
         int64_t c = 0;
         int64_t new_len = compile->loop_len;
-        /* Kinda stupid to do it here. */
         for(int64_t i = 0; i < compile->loop_len; i++) {
             if(compile->op_num[i] == compile->op_cap[i]) {
                 free(compile->op[i]);
@@ -422,78 +414,78 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
     }
     if(optim & OPTIMIZE_FUSE) { printf("Optimizing: Fuse\n"); }
 }
-static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
-    assert(compile);
-    if(!strncmp(name, "", 1)) {
-        printf("%*scompile loop repetitions %lu\n", offset, "", compile->loop_num);
-    } else {
-        printf("%*s%s %lu repetitions\n", offset, "", name, compile->loop_num);
-    }
-    for(int64_t i = 0; i < compile->loop_len; i++) {
-        for(int64_t j = 0; j < compile->op_num[i]; j++) {
-            if(j) {
-                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
-            } else {
-                printf("%*s[%lu, 0] ", padding + offset, "", i);
-            }
-            simple_op_print(&compile->op[i][j], 0, 0, "");
-        }
-    }
-    printf("str\n");
-    for(int64_t i = 0; i < compile->loop_len; i++) {
-        for(int64_t j = 0; j < compile->op_num[i]; j++) {
-            if(j) {
-                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
-            } else {
-                printf("%*s[%lu, 0] ", padding + offset, "", i);
-            }
-            if(compile->op[i][j].type == operation_unary) {
-                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out, compile->dim_info[i][j].str_y_out,
-                       compile->dim_info[i][j].str_x_out);
-            } else {
-                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out,
-                       compile->dim_info[i][j].str_y_out, compile->dim_info[i][j].str_x_out, compile->dim_info[i][j].str_a_in, compile->dim_info[i][j].str_z_in,
-                       compile->dim_info[i][j].str_y_in, compile->dim_info[i][j].str_x_in);
-            }
-        }
-    }
-    printf("reset\n");
-    for(int64_t i = 0; i < compile->loop_len; i++) {
-        for(int64_t j = 0; j < compile->op_num[i]; j++) {
-            if(j) {
-                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
-            } else {
-                printf("%*s[%lu, 0] ", padding + offset, "", i);
-            }
-            if(compile->op[i][j].type == operation_unary) {
-                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out, compile->dim_info[i][j].res_z_out, compile->dim_info[i][j].res_y_out,
-                       compile->dim_info[i][j].res_x_out);
-            } else {
-                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out, compile->dim_info[i][j].res_z_out,
-                       compile->dim_info[i][j].res_y_out, compile->dim_info[i][j].res_x_out, compile->dim_info[i][j].res_a_in, compile->dim_info[i][j].res_z_in,
-                       compile->dim_info[i][j].res_y_in, compile->dim_info[i][j].res_x_in);
-            }
-        }
-    }
-    printf("wait\n");
-    for(int64_t i = 0; i < compile->loop_len; i++) {
-        for(int64_t j = 0; j < compile->op_num[i]; j++) {
-            if(j) {
-                printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
-            } else {
-                printf("%*s[%lu, 0] ", padding + offset, "", i);
-            }
-            if(compile->op[i][j].type == operation_unary) {
-                printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out, compile->dim_info[i][j].wai_z_out, compile->dim_info[i][j].wai_y_out,
-                       compile->dim_info[i][j].wai_x_out);
-            } else {
-                printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out, compile->dim_info[i][j].wai_z_out,
-                       compile->dim_info[i][j].wai_y_out, compile->dim_info[i][j].wai_x_out, compile->dim_info[i][j].wai_a_in, compile->dim_info[i][j].wai_z_in,
-                       compile->dim_info[i][j].wai_y_in, compile->dim_info[i][j].wai_x_in);
-            }
-        }
-    }
-}
+// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
+//     assert(compile);
+//     if(!strncmp(name, "", 1)) {
+//         printf("%*scompile loop repetitions %lu\n", offset, "", compile->loop_num);
+//     } else {
+//         printf("%*s%s %lu repetitions\n", offset, "", name, compile->loop_num);
+//     }
+//     for(int64_t i = 0; i < compile->loop_len; i++) {
+//         for(int64_t j = 0; j < compile->op_num[i]; j++) {
+//             if(j) {
+//                 printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+//             } else {
+//                 printf("%*s[%lu, 0] ", padding + offset, "", i);
+//             }
+//             simple_op_print(&compile->op[i][j], 0, 0, "");
+//         }
+//     }
+//     printf("str\n");
+//     for(int64_t i = 0; i < compile->loop_len; i++) {
+//         for(int64_t j = 0; j < compile->op_num[i]; j++) {
+//             if(j) {
+//                 printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+//             } else {
+//                 printf("%*s[%lu, 0] ", padding + offset, "", i);
+//             }
+//             if(compile->op[i][j].type == operation_unary) {
+//                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out, compile->dim_info[i][j].str_y_out,
+//                        compile->dim_info[i][j].str_x_out);
+//             } else {
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out,
+//                        compile->dim_info[i][j].str_y_out, compile->dim_info[i][j].str_x_out, compile->dim_info[i][j].str_a_in,
+//                        compile->dim_info[i][j].str_z_in, compile->dim_info[i][j].str_y_in, compile->dim_info[i][j].str_x_in);
+//             }
+//         }
+//     }
+//     printf("reset\n");
+//     for(int64_t i = 0; i < compile->loop_len; i++) {
+//         for(int64_t j = 0; j < compile->op_num[i]; j++) {
+//             if(j) {
+//                 printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+//             } else {
+//                 printf("%*s[%lu, 0] ", padding + offset, "", i);
+//             }
+//             if(compile->op[i][j].type == operation_unary) {
+//                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out, compile->dim_info[i][j].res_z_out, compile->dim_info[i][j].res_y_out,
+//                        compile->dim_info[i][j].res_x_out);
+//             } else {
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out, compile->dim_info[i][j].res_z_out,
+//                        compile->dim_info[i][j].res_y_out, compile->dim_info[i][j].res_x_out, compile->dim_info[i][j].res_a_in,
+//                        compile->dim_info[i][j].res_z_in, compile->dim_info[i][j].res_y_in, compile->dim_info[i][j].res_x_in);
+//             }
+//         }
+//     }
+//     printf("wait\n");
+//     for(int64_t i = 0; i < compile->loop_len; i++) {
+//         for(int64_t j = 0; j < compile->op_num[i]; j++) {
+//             if(j) {
+//                 printf("%*s[%lu, %lu] ", 2 * padding + offset, "", i, j);
+//             } else {
+//                 printf("%*s[%lu, 0] ", padding + offset, "", i);
+//             }
+//             if(compile->op[i][j].type == operation_unary) {
+//                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out, compile->dim_info[i][j].wai_z_out, compile->dim_info[i][j].wai_y_out,
+//                        compile->dim_info[i][j].wai_x_out);
+//             } else {
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out, compile->dim_info[i][j].wai_z_out,
+//                        compile->dim_info[i][j].wai_y_out, compile->dim_info[i][j].wai_x_out, compile->dim_info[i][j].wai_a_in,
+//                        compile->dim_info[i][j].wai_z_in, compile->dim_info[i][j].wai_y_in, compile->dim_info[i][j].wai_x_in);
+//             }
+//         }
+//     }
+// }
 static void compile_loop_free(compile_loop_t *compile) {
     assert(compile);
     assert(compile->op);
@@ -1084,7 +1076,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                     } else {
                         for(int64_t i = 1; i < op_num; i++) {
                             if(IS_PREFIX(op + i)) {
-                                simple_op_print(op + i, 4, 0, "");
+                                // simple_op_print(op + i, 4, 0, "");
                                 switch(op[i].unary_type) {
                                     case unary_exp: {
                                         temp_c += snprintf(temp_c, MAX_OP_SIZE, "exp(");
@@ -1300,7 +1292,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     free(temp);
 }
 int64_t kernel_counter = 0;
-static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile, int64_t global_size, int64_t local_size) {
+static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile, int64_t global_size, int64_t local_size) {
     assert(filename);
     assert(compile);
     assert(global_size);
@@ -1494,7 +1486,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     fwrite(kernel_source, sizeof(char), kernel_i - kernel_source, f);
     fclose(f);
 
-    cl_kernel_t kernel = {
+    kernel_t kernel = {
         .arg_num = arg_num,
         .args = calloc(arg_num, sizeof(char *)),
         .name = strndup(func_name, strlen(func_name)),
@@ -1513,7 +1505,7 @@ static cl_kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *comp
     free(gid);
     return kernel;
 }
-int cl_program_compile(cl_program_t *program, const char *filename, linearized_t *linearized) {
+int program_compile(program_t *program, const char *filename, linearized_t *linearized) {
     if(!linearized->op_count) { return 1; }
     simple_loop_t simple = {0};
     int64_t global_size = 9;
@@ -1524,15 +1516,14 @@ int cl_program_compile(cl_program_t *program, const char *filename, linearized_t
     if(!f) { return 1; }
     fclose(f);
     int64_t i = 0;
-    cl_kernel_t kernel;
+    kernel_t kernel;
     while(i < linearized->op_count) {
         i += simple_loop_from_linearized_index(&simple, linearized, i);
         compile = compile_loop_alloc(&simple, OPTIMIZE_INLINE);
         // compile = compile_loop_alloc(&simple, OPTIMIZE_NONE);
-        compile_loop_print(&compile, 4, 0, "");
         kernel = compile_loop_to_cl(filename, &compile, global_size, local_size);
         program->kernel_num++;
-        program->kernel = reallocarray(program->kernel, program->kernel_num, sizeof(cl_kernel_t));
+        program->kernel = reallocarray(program->kernel, program->kernel_num, sizeof(kernel_t));
         assert(program->kernel);
         program->kernel[program->kernel_num - 1] = kernel;
         compile_loop_free(&compile);
@@ -1541,7 +1532,7 @@ int cl_program_compile(cl_program_t *program, const char *filename, linearized_t
     simple_loop_free(&simple);
     return 0;
 }
-void cl_program_free(cl_program_t *program) {
+void program_free(program_t *program) {
     for(int64_t i = 0; i < program->kernel_num; i++) { cl_kernel_free(&program->kernel[i]); }
     free(program->kernel);
 }
