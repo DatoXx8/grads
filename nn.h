@@ -8,15 +8,7 @@
 #include "tensor.h"
 
 /* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
-enum activation_e {
-    activation_identity,
-    activation_relu,
-    activation_sigmoid,
-    activation_tanh,
-    activation_silu,
-    activation_gelu,
-    activation_leaky
-};
+enum activation_e { activation_identity, activation_relu, activation_sigmoid, activation_tanh, activation_silu, activation_gelu, activation_leaky };
 
 typedef struct {
     enum activation_e type;
@@ -24,29 +16,25 @@ typedef struct {
 } activation_t;
 
 /* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
-enum norm_e {
-    norm_none,
-    norm_layer,
-    norm_batch,
-    norm_simple
-};
+enum norm_e { norm_none, norm_layer, norm_batch, norm_simple };
 
 /* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
 typedef struct {
     enum norm_e type;
     tensor_t *batch_expected;
     tensor_t *batch_variance;
-    // tensor_t *batch_gamma;
-    // tensor_t *batch_beta;
     tensor_t *layer_expected;
     tensor_t *layer_variance;
     tensor_t *layer_intermediary;
-    // tensor_t *layer_gamma;
-    // tensor_t *layer_beta;
     tensor_t *simple_max;
     tensor_t *simple_intermediary;
-    // tensor_t *simple_gamma;
-    // tensor_t *simple_beta;
+    // cl_mem cl_simple_max;
+    // cl_mem cl_simple_intermediary;
+    // cl_mem cl_batch_expected;
+    // cl_mem cl_batch_variance;
+    // cl_mem cl_layer_expected;
+    // cl_mem cl_layer_variance;
+    // cl_mem cl_layer_intermediary;
 } norm_t;
 
 typedef struct {
@@ -57,10 +45,17 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
+    // cl_mem cl_weights;
+    // cl_mem cl_weights_g;
+    // cl_mem cl_biases;
+    // cl_mem cl_biases_g;
 
     tensor_t *input_multiply_temp_;
     tensor_t *output_multiply_temp_;
     tensor_t *full_temp_;
+    // cl_mem cl_input_multiply_temp_;
+    // cl_mem cl_output_multiply_temp_;
+    // cl_mem cl_full_temp_;
 } dense_t;
 
 extern dense_t dense_alloc(int64_t input_size, int64_t output_size);
@@ -83,18 +78,26 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
+    // cl_mem cl_weights;
+    // cl_mem cl_weights_g;
+    // cl_mem cl_biases;
+    // cl_mem cl_biases_g;
 
     tensor_t *padded_input_;
     tensor_t *padded_grad_;
     tensor_t *kernel_temp_;
     tensor_t *single_temp_;
+    // cl_mem cl_padded_input_;
+    // cl_mem cl_padded_grad_;
+    // cl_mem cl_kernel_temp_;
+    // cl_mem cl_single_temp_;
 } convolution_t;
 
 /* Calculates output size per dimension. */
 #define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                                                        \
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
-extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters, int64_t kernel_size,
-                                       int64_t kernel_stride, int64_t kernel_padding);
+extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters, int64_t kernel_size, int64_t kernel_stride,
+                                       int64_t kernel_padding);
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
 extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution, tensor_t *output, tensor_t *output_gradient);
@@ -116,8 +119,7 @@ typedef struct {
 
 /* Calculates output size per dimension. */
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride) ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
-extern reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_channels, int64_t input_y, int64_t input_x, int64_t kernel_size,
-                             int64_t kernel_stride);
+extern reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_channels, int64_t input_y, int64_t input_x, int64_t kernel_size, int64_t kernel_stride);
 extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
@@ -144,8 +146,13 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
+    // cl_mem cl_weights;
+    // cl_mem cl_weights_g;
+    // cl_mem cl_biases;
+    // cl_mem cl_biases_g;
 
     tensor_t *input_temp_;
+    // cl_mem cl_input_temp_;
 } split_t;
 
 extern split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, int64_t input_x);
@@ -220,12 +227,15 @@ typedef struct {
 
     tensor_t *activation;
     tensor_t *activation_g;
+    // cl_mem cl_activation;
+    // cl_mem cl_activation_g;
 } layer_t;
 
 extern layer_t layer_alloc(layerconfig_t *layerconfig);
 extern void layer_free(layer_t *layer);
 
-/* TODO: Specify compiled vs linearized jit. */
+enum compilation_e { compilation_none, compilation_cl };
+
 typedef struct {
     int64_t layers;
     layer_t *layer;
@@ -233,6 +243,10 @@ typedef struct {
     linearized_t *forward;
     linearized_t *learn;
     linearized_t *backward;
+    // cl_context context;
+    // program_t *forward;
+    // program_t *learn;
+    // program_t *backward;
 } neuralnet_t;
 
 #define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0])

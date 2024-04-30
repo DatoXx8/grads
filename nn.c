@@ -1197,7 +1197,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Tried to allocate input layer at a layer with index %lu\n", layer);
+                ERROR("Tried to allocate input layer at a layer with index %lu\n", layer);
             }
         }
     }
@@ -1227,7 +1227,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
@@ -1308,7 +1308,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
         for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
@@ -1357,7 +1357,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                     break;
                 }
                 case layer_input: {
-                    ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                    ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
                 }
             }
         }
@@ -1422,7 +1422,7 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
@@ -1471,7 +1471,7 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
@@ -1509,7 +1509,7 @@ void neuralnet_random(neuralnet_t *neuralnet) {
                 break;
             }
             case layer_input: {
-                ERROR("ERROR: Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
         }
     }
