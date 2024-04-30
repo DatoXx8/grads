@@ -93,6 +93,7 @@ void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent) {
 
         op->parent[op->parent_count++] = input_parent;
     }
+    assert(op->parent_count <= 2);
 }
 void op_free(op_t *op) {
     assert(op);
