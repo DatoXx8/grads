@@ -295,6 +295,8 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
                     loop_length = i - start_idx;
                     break;
                 }
+            } else {
+                break;
             }
         }
     }
@@ -868,7 +870,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                             break;
                         }
                         case operation_move: {
-                            ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", op_idx);
+                            ERROR("Tried to compile move operation to OpenCL at index %lu\n", op_idx);
                         }
                     }
                     if(op_num == 1) {
@@ -1070,7 +1072,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                 break;
                             }
                             case operation_move: {
-                                ERROR("ERROR: Tried to compile move operation to OpenCL at index %lu\n", op_idx);
+                                ERROR("Tried to compile move operation to OpenCL at index %lu\n", op_idx);
                             }
                         }
                     } else {
@@ -1261,11 +1263,11 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case operation_reduce: {
-                                        ERROR("ERROR: Tried to inline reduce operation!\n");
+                                        ERROR("Tried to inline reduce operation!\n");
                                         break;
                                     }
                                     case operation_move: {
-                                        ERROR("ERROR: Tried to inline move operation!\n");
+                                        ERROR("Tried to inline move operation!\n");
                                     }
                                 }
                             }

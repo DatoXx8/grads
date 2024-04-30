@@ -262,7 +262,7 @@ void simple_op_print(simple_op_t *simple, int padding, int offset, const char *n
                     break;
                 }
                 case binary_multiply_like: {
-                    printf("L mul{%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
+                    printf("L mul {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] < {%lu, %lu, %lu, %lu} %lu [%lu, %lu, %lu, %lu] %s %s\n",
                            simple->out_buffer.a_sze, simple->out_buffer.z_sze, simple->out_buffer.y_sze, simple->out_buffer.x_sze, simple->out_buffer.off,
                            simple->out_buffer.a_off, simple->out_buffer.z_off, simple->out_buffer.y_off, simple->out_buffer.x_off, simple->in_buffer.a_sze,
                            simple->in_buffer.z_sze, simple->in_buffer.y_sze, simple->in_buffer.x_sze, simple->in_buffer.off, simple->in_buffer.a_off,
@@ -342,7 +342,7 @@ void simple_op_print(simple_op_t *simple, int padding, int offset, const char *n
             break;
         }
         case operation_move: {
-            ERROR("ERROR: simple_op should not be a move operation!\n");
+            ERROR("simple_op should not be a move operation!\n");
         }
     }
 }
@@ -551,6 +551,10 @@ void simple_op_realize(simple_op_t *simple) {
         case operation_binary: {
             switch(simple->binary_type) {
                 case binary_add: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -563,6 +567,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_subtract: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -575,6 +583,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_multiply: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -587,6 +599,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_divide: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -599,6 +615,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_max: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -613,6 +633,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_min: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -627,6 +651,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_copy: {
+                    assert(simple->out_buffer.a_sze == simple->in_buffer.a_sze);
+                    assert(simple->out_buffer.z_sze == simple->in_buffer.z_sze);
+                    assert(simple->out_buffer.y_sze == simple->in_buffer.y_sze);
+                    assert(simple->out_buffer.x_sze == simple->in_buffer.x_sze);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -639,6 +667,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_add_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -651,6 +683,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_subtract_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -663,6 +699,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_multiply_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -675,6 +715,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_divide_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -687,6 +731,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_max_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -701,6 +749,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_min_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -715,6 +767,10 @@ void simple_op_realize(simple_op_t *simple) {
                     break;
                 }
                 case binary_copy_like: {
+                    assert(simple->in_buffer.a_sze == 1);
+                    assert(simple->in_buffer.z_sze == 1);
+                    assert(simple->in_buffer.y_sze == 1);
+                    assert(simple->in_buffer.x_sze == 1);
                     for(int64_t a = 0; a < simple->out_buffer.a_sze; a++) {
                         for(int64_t z = 0; z < simple->out_buffer.z_sze; z++) {
                             for(int64_t y = 0; y < simple->out_buffer.y_sze; y++) {
@@ -730,6 +786,10 @@ void simple_op_realize(simple_op_t *simple) {
             break;
         }
         case operation_reduce: {
+            assert(simple->out_buffer.a_sze == 1);
+            assert(simple->out_buffer.z_sze == 1);
+            assert(simple->out_buffer.y_sze == 1);
+            assert(simple->out_buffer.x_sze == 1);
             switch(simple->reduce_type) {
                 case reduce_sum: {
                     double temp = 0;
@@ -788,7 +848,7 @@ void simple_op_realize(simple_op_t *simple) {
             break;
         }
         case operation_move: {
-            ERROR("ERROR: simple_op should not be a move operation!\n");
+            ERROR("simple_op should not be a move operation!\n");
         }
     }
 }
