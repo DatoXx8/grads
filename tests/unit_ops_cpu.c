@@ -8,7 +8,7 @@
 #include "../tensor.h"
 
 const int64_t DIM_SIZE = 10;
-const double MARGIN_OF_ERROR = 1e-2;
+const double MARGIN_OF_ERROR = 1e-5;
 int main(void) {
     const uint32_t seed = time(NULL);
     printf("RNG Seed %u\n", seed);
@@ -96,8 +96,7 @@ int main(void) {
     tensor_random_unary(&in);
     tensor_cpu_realize(&in);
     double temp = 0;
-    for(int64_t element_idx = 0; element_idx < DIM_SIZE * DIM_SIZE * DIM_SIZE * DIM_SIZE; element_idx++) { temp += in.buffer->val[element_idx]; }
-    temp /= DIM_SIZE * DIM_SIZE * DIM_SIZE * DIM_SIZE;
+    for(int64_t element_idx = 0; element_idx < DIM_SIZE * DIM_SIZE * DIM_SIZE * DIM_SIZE; element_idx++) { temp *= in.buffer->val[element_idx]; }
     assert(fabs(temp) <= MARGIN_OF_ERROR);
 
     memcpy(in.buffer->val, data_in, DIM_SIZE * DIM_SIZE * DIM_SIZE * DIM_SIZE * sizeof(double));
