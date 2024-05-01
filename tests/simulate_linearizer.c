@@ -24,66 +24,66 @@ void linearized_op_tree_equal(linearized_t *linearized, op_t *op) {
         assert(temp);
         assert(temp->parent_count == 0);
         if(temp->type == operation_move) {
-            switch(temp->move_type) {
+            switch(temp->type_move) {
                 case move_reshape: {
-                    temp->out_buffer->sim_a_sze = temp->var_a;
-                    temp->out_buffer->sim_z_sze = temp->var_z;
-                    temp->out_buffer->sim_y_sze = temp->var_y;
-                    temp->out_buffer->sim_x_sze = temp->var_x;
-                    temp->out_buffer->sim_a_str = temp->var_z * temp->var_y * temp->var_x;
-                    temp->out_buffer->sim_z_str = temp->var_y * temp->var_x;
-                    temp->out_buffer->sim_y_str = temp->var_x;
-                    temp->out_buffer->sim_x_str = 1;
+                    temp->buffer_out->sze_a_sim = temp->var_a;
+                    temp->buffer_out->sze_z_sim = temp->var_z;
+                    temp->buffer_out->sze_y_sim = temp->var_y;
+                    temp->buffer_out->sze_x_sim = temp->var_x;
+                    temp->buffer_out->str_a_sim = temp->var_z * temp->var_y * temp->var_x;
+                    temp->buffer_out->str_z_sim = temp->var_y * temp->var_x;
+                    temp->buffer_out->str_y_sim = temp->var_x;
+                    temp->buffer_out->str_x_sim = 1;
                     break;
                 }
                 case move_resize: {
-                    temp->out_buffer->sim_a_sze = temp->var_a;
-                    temp->out_buffer->sim_z_sze = temp->var_z;
-                    temp->out_buffer->sim_y_sze = temp->var_y;
-                    temp->out_buffer->sim_x_sze = temp->var_x;
+                    temp->buffer_out->sze_a_sim = temp->var_a;
+                    temp->buffer_out->sze_z_sim = temp->var_z;
+                    temp->buffer_out->sze_y_sim = temp->var_y;
+                    temp->buffer_out->sze_x_sim = temp->var_x;
                     break;
                 }
                 case move_offset: {
-                    temp->out_buffer->sim_off = temp->out_buffer->sim_a_str * temp->var_a + temp->out_buffer->sim_z_str * temp->var_z +
-                                              temp->out_buffer->sim_y_str * temp->var_y + temp->out_buffer->sim_x_str * temp->var_x;
-                    temp->out_buffer->sim_a_off = temp->var_a;
-                    temp->out_buffer->sim_z_off = temp->var_z;
-                    temp->out_buffer->sim_y_off = temp->var_y;
-                    temp->out_buffer->sim_x_off = temp->var_x;
+                    temp->buffer_out->off_sim = temp->buffer_out->str_a_sim * temp->var_a + temp->buffer_out->str_z_sim * temp->var_z +
+                                              temp->buffer_out->str_y_sim * temp->var_y + temp->buffer_out->str_x_sim * temp->var_x;
+                    temp->buffer_out->off_a_sim = temp->var_a;
+                    temp->buffer_out->off_z_sim = temp->var_z;
+                    temp->buffer_out->off_y_sim = temp->var_y;
+                    temp->buffer_out->off_x_sim = temp->var_x;
                     break;
                 }
             }
         } else {
             assert(linearized->simple[index].type == temp->type);
-            assert(linearized->simple[index].unary_type == temp->unary_type);
-            assert(linearized->simple[index].binary_type == temp->binary_type);
-            assert(linearized->simple[index].reduce_type == temp->reduce_type);
+            assert(linearized->simple[index].type_unary == temp->type_unary);
+            assert(linearized->simple[index].type_binary == temp->type_binary);
+            assert(linearized->simple[index].type_reduce == temp->type_reduce);
             assert(linearized->simple[index].var_unary == temp->var_unary);
-            assert(linearized->simple[index].out_buffer.a_sze == temp->out_buffer->sim_a_sze);
-            assert(linearized->simple[index].out_buffer.z_sze == temp->out_buffer->sim_z_sze);
-            assert(linearized->simple[index].out_buffer.y_sze == temp->out_buffer->sim_y_sze);
-            assert(linearized->simple[index].out_buffer.x_sze == temp->out_buffer->sim_x_sze);
-            assert(linearized->simple[index].out_buffer.a_str == temp->out_buffer->sim_a_str);
-            assert(linearized->simple[index].out_buffer.z_str == temp->out_buffer->sim_z_str);
-            assert(linearized->simple[index].out_buffer.y_str == temp->out_buffer->sim_y_str);
-            assert(linearized->simple[index].out_buffer.x_str == temp->out_buffer->sim_x_str);
-            assert(linearized->simple[index].out_buffer.a_off == temp->out_buffer->sim_a_off);
-            assert(linearized->simple[index].out_buffer.z_off == temp->out_buffer->sim_z_off);
-            assert(linearized->simple[index].out_buffer.y_off == temp->out_buffer->sim_y_off);
-            assert(linearized->simple[index].out_buffer.x_off == temp->out_buffer->sim_x_off);
+            assert(linearized->simple[index].buffer_out.sze_a == temp->buffer_out->sze_a_sim);
+            assert(linearized->simple[index].buffer_out.sze_z == temp->buffer_out->sze_z_sim);
+            assert(linearized->simple[index].buffer_out.sze_y == temp->buffer_out->sze_y_sim);
+            assert(linearized->simple[index].buffer_out.sze_x == temp->buffer_out->sze_x_sim);
+            assert(linearized->simple[index].buffer_out.str_a == temp->buffer_out->str_a_sim);
+            assert(linearized->simple[index].buffer_out.str_z == temp->buffer_out->str_z_sim);
+            assert(linearized->simple[index].buffer_out.str_y == temp->buffer_out->str_y_sim);
+            assert(linearized->simple[index].buffer_out.str_x == temp->buffer_out->str_x_sim);
+            assert(linearized->simple[index].buffer_out.off_a == temp->buffer_out->off_a_sim);
+            assert(linearized->simple[index].buffer_out.off_z == temp->buffer_out->off_z_sim);
+            assert(linearized->simple[index].buffer_out.off_y == temp->buffer_out->off_y_sim);
+            assert(linearized->simple[index].buffer_out.off_x == temp->buffer_out->off_x_sim);
             if(linearized->simple[index].type != operation_unary) {
-                assert(linearized->simple[index].in_buffer.a_sze == temp->in_buffer->sim_a_sze);
-                assert(linearized->simple[index].in_buffer.z_sze == temp->in_buffer->sim_z_sze);
-                assert(linearized->simple[index].in_buffer.y_sze == temp->in_buffer->sim_y_sze);
-                assert(linearized->simple[index].in_buffer.x_sze == temp->in_buffer->sim_x_sze);
-                assert(linearized->simple[index].in_buffer.a_str == temp->in_buffer->sim_a_str);
-                assert(linearized->simple[index].in_buffer.z_str == temp->in_buffer->sim_z_str);
-                assert(linearized->simple[index].in_buffer.y_str == temp->in_buffer->sim_y_str);
-                assert(linearized->simple[index].in_buffer.x_str == temp->in_buffer->sim_x_str);
-                assert(linearized->simple[index].in_buffer.a_off == temp->in_buffer->sim_a_off);
-                assert(linearized->simple[index].in_buffer.z_off == temp->in_buffer->sim_z_off);
-                assert(linearized->simple[index].in_buffer.y_off == temp->in_buffer->sim_y_off);
-                assert(linearized->simple[index].in_buffer.x_off == temp->in_buffer->sim_x_off);
+                assert(linearized->simple[index].buffer_in.sze_a == temp->buffer_in->sze_a_sim);
+                assert(linearized->simple[index].buffer_in.sze_z == temp->buffer_in->sze_z_sim);
+                assert(linearized->simple[index].buffer_in.sze_y == temp->buffer_in->sze_y_sim);
+                assert(linearized->simple[index].buffer_in.sze_x == temp->buffer_in->sze_x_sim);
+                assert(linearized->simple[index].buffer_in.str_a == temp->buffer_in->str_a_sim);
+                assert(linearized->simple[index].buffer_in.str_z == temp->buffer_in->str_z_sim);
+                assert(linearized->simple[index].buffer_in.str_y == temp->buffer_in->str_y_sim);
+                assert(linearized->simple[index].buffer_in.str_x == temp->buffer_in->str_x_sim);
+                assert(linearized->simple[index].buffer_in.off_a == temp->buffer_in->off_a_sim);
+                assert(linearized->simple[index].buffer_in.off_z == temp->buffer_in->off_z_sim);
+                assert(linearized->simple[index].buffer_in.off_y == temp->buffer_in->off_y_sim);
+                assert(linearized->simple[index].buffer_in.off_x == temp->buffer_in->off_x_sim);
             }
             index++;
         }
@@ -93,66 +93,66 @@ void linearized_op_tree_equal(linearized_t *linearized, op_t *op) {
         free(temp);
     }
     if(op->type == operation_move) {
-        switch(op->move_type) {
+        switch(op->type_move) {
             case move_reshape: {
-                op->out_buffer->sim_a_sze = op->var_a;
-                op->out_buffer->sim_z_sze = op->var_z;
-                op->out_buffer->sim_y_sze = op->var_y;
-                op->out_buffer->sim_x_sze = op->var_x;
-                op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
-                op->out_buffer->sim_z_str = op->var_y * op->var_x;
-                op->out_buffer->sim_y_str = op->var_x;
-                op->out_buffer->sim_x_str = 1;
+                op->buffer_out->sze_a_sim = op->var_a;
+                op->buffer_out->sze_z_sim = op->var_z;
+                op->buffer_out->sze_y_sim = op->var_y;
+                op->buffer_out->sze_x_sim = op->var_x;
+                op->buffer_out->str_a_sim = op->var_z * op->var_y * op->var_x;
+                op->buffer_out->str_z_sim = op->var_y * op->var_x;
+                op->buffer_out->str_y_sim = op->var_x;
+                op->buffer_out->str_x_sim = 1;
                 break;
             }
             case move_resize: {
-                op->out_buffer->sim_a_sze = op->var_a;
-                op->out_buffer->sim_z_sze = op->var_z;
-                op->out_buffer->sim_y_sze = op->var_y;
-                op->out_buffer->sim_x_sze = op->var_x;
+                op->buffer_out->sze_a_sim = op->var_a;
+                op->buffer_out->sze_z_sim = op->var_z;
+                op->buffer_out->sze_y_sim = op->var_y;
+                op->buffer_out->sze_x_sim = op->var_x;
                 break;
             }
             case move_offset: {
-                op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
-                                          op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
-                op->out_buffer->sim_a_off = op->var_a;
-                op->out_buffer->sim_z_off = op->var_z;
-                op->out_buffer->sim_y_off = op->var_y;
-                op->out_buffer->sim_x_off = op->var_x;
+                op->buffer_out->off_sim = op->buffer_out->str_a_sim * op->var_a + op->buffer_out->str_z_sim * op->var_z +
+                                          op->buffer_out->str_y_sim * op->var_y + op->buffer_out->str_x_sim * op->var_x;
+                op->buffer_out->off_a_sim = op->var_a;
+                op->buffer_out->off_z_sim = op->var_z;
+                op->buffer_out->off_y_sim = op->var_y;
+                op->buffer_out->off_x_sim = op->var_x;
                 break;
             }
         }
     } else {
         assert(linearized->simple[index].type == op->type);
-        assert(linearized->simple[index].unary_type == op->unary_type);
-        assert(linearized->simple[index].binary_type == op->binary_type);
-        assert(linearized->simple[index].reduce_type == op->reduce_type);
+        assert(linearized->simple[index].type_unary == op->type_unary);
+        assert(linearized->simple[index].type_binary == op->type_binary);
+        assert(linearized->simple[index].type_reduce == op->type_reduce);
         assert(linearized->simple[index].var_unary == op->var_unary);
-        assert(linearized->simple[index].out_buffer.a_sze == op->out_buffer->sim_a_sze);
-        assert(linearized->simple[index].out_buffer.z_sze == op->out_buffer->sim_z_sze);
-        assert(linearized->simple[index].out_buffer.y_sze == op->out_buffer->sim_y_sze);
-        assert(linearized->simple[index].out_buffer.x_sze == op->out_buffer->sim_x_sze);
-        assert(linearized->simple[index].out_buffer.a_str == op->out_buffer->sim_a_str);
-        assert(linearized->simple[index].out_buffer.z_str == op->out_buffer->sim_z_str);
-        assert(linearized->simple[index].out_buffer.y_str == op->out_buffer->sim_y_str);
-        assert(linearized->simple[index].out_buffer.x_str == op->out_buffer->sim_x_str);
-        assert(linearized->simple[index].out_buffer.a_off == op->out_buffer->sim_a_off);
-        assert(linearized->simple[index].out_buffer.z_off == op->out_buffer->sim_z_off);
-        assert(linearized->simple[index].out_buffer.y_off == op->out_buffer->sim_y_off);
-        assert(linearized->simple[index].out_buffer.x_off == op->out_buffer->sim_x_off);
+        assert(linearized->simple[index].buffer_out.sze_a == op->buffer_out->sze_a_sim);
+        assert(linearized->simple[index].buffer_out.sze_z == op->buffer_out->sze_z_sim);
+        assert(linearized->simple[index].buffer_out.sze_y == op->buffer_out->sze_y_sim);
+        assert(linearized->simple[index].buffer_out.sze_x == op->buffer_out->sze_x_sim);
+        assert(linearized->simple[index].buffer_out.str_a == op->buffer_out->str_a_sim);
+        assert(linearized->simple[index].buffer_out.str_z == op->buffer_out->str_z_sim);
+        assert(linearized->simple[index].buffer_out.str_y == op->buffer_out->str_y_sim);
+        assert(linearized->simple[index].buffer_out.str_x == op->buffer_out->str_x_sim);
+        assert(linearized->simple[index].buffer_out.off_a == op->buffer_out->off_a_sim);
+        assert(linearized->simple[index].buffer_out.off_z == op->buffer_out->off_z_sim);
+        assert(linearized->simple[index].buffer_out.off_y == op->buffer_out->off_y_sim);
+        assert(linearized->simple[index].buffer_out.off_x == op->buffer_out->off_x_sim);
         if(linearized->simple[index].type != operation_unary) {
-            assert(linearized->simple[index].in_buffer.a_sze == op->in_buffer->sim_a_sze);
-            assert(linearized->simple[index].in_buffer.z_sze == op->in_buffer->sim_z_sze);
-            assert(linearized->simple[index].in_buffer.y_sze == op->in_buffer->sim_y_sze);
-            assert(linearized->simple[index].in_buffer.x_sze == op->in_buffer->sim_x_sze);
-            assert(linearized->simple[index].in_buffer.a_str == op->in_buffer->sim_a_str);
-            assert(linearized->simple[index].in_buffer.z_str == op->in_buffer->sim_z_str);
-            assert(linearized->simple[index].in_buffer.y_str == op->in_buffer->sim_y_str);
-            assert(linearized->simple[index].in_buffer.x_str == op->in_buffer->sim_x_str);
-            assert(linearized->simple[index].in_buffer.a_off == op->in_buffer->sim_a_off);
-            assert(linearized->simple[index].in_buffer.z_off == op->in_buffer->sim_z_off);
-            assert(linearized->simple[index].in_buffer.y_off == op->in_buffer->sim_y_off);
-            assert(linearized->simple[index].in_buffer.x_off == op->in_buffer->sim_x_off);
+            assert(linearized->simple[index].buffer_in.sze_a == op->buffer_in->sze_a_sim);
+            assert(linearized->simple[index].buffer_in.sze_z == op->buffer_in->sze_z_sim);
+            assert(linearized->simple[index].buffer_in.sze_y == op->buffer_in->sze_y_sim);
+            assert(linearized->simple[index].buffer_in.sze_x == op->buffer_in->sze_x_sim);
+            assert(linearized->simple[index].buffer_in.str_a == op->buffer_in->str_a_sim);
+            assert(linearized->simple[index].buffer_in.str_z == op->buffer_in->str_z_sim);
+            assert(linearized->simple[index].buffer_in.str_y == op->buffer_in->str_y_sim);
+            assert(linearized->simple[index].buffer_in.str_x == op->buffer_in->str_x_sim);
+            assert(linearized->simple[index].buffer_in.off_a == op->buffer_in->off_a_sim);
+            assert(linearized->simple[index].buffer_in.off_z == op->buffer_in->off_z_sim);
+            assert(linearized->simple[index].buffer_in.off_y == op->buffer_in->off_y_sim);
+            assert(linearized->simple[index].buffer_in.off_x == op->buffer_in->off_x_sim);
         }
         index++;
     }
@@ -160,190 +160,38 @@ void linearized_op_tree_equal(linearized_t *linearized, op_t *op) {
     op_free(op);
     free(op);
     assert(linearized->op_count == index);
-    
-    // int64_t index = 0;
-    // assert(linearized);
-    // assert(op);
-    // while(op->parent_count) {
-    //     op_t *temp = op;
-    //     for(int64_t i = 0; i < MAX_DEPTH; i++) {
-    //         if(temp->parent_count) {
-    //             temp = temp->parent[0];
-    //         } else {
-    //             break;
-    //         }
-    //     }
-    //     assert(temp);
-    //     assert(temp->parent_count == 0);
-    //     if(temp->type == operation_move) {
-    //         switch(temp->move_type) {
-    //             case move_reshape: {
-    //                 temp->out_buffer->sim_a_sze = temp->var_a;
-    //                 temp->out_buffer->sim_z_sze = temp->var_z;
-    //                 temp->out_buffer->sim_y_sze = temp->var_y;
-    //                 temp->out_buffer->sim_x_sze = temp->var_x;
-    //                 temp->out_buffer->sim_a_str = temp->var_z * temp->var_y * temp->var_x;
-    //                 temp->out_buffer->sim_z_str = temp->var_y * temp->var_x;
-    //                 temp->out_buffer->sim_y_str = temp->var_x;
-    //                 temp->out_buffer->sim_x_str = 1;
-    //                 break;
-    //             }
-    //             case move_resize: {
-    //                 temp->out_buffer->sim_a_sze = temp->var_a;
-    //                 temp->out_buffer->sim_z_sze = temp->var_z;
-    //                 temp->out_buffer->sim_y_sze = temp->var_y;
-    //                 temp->out_buffer->sim_x_sze = temp->var_x;
-    //                 break;
-    //             }
-    //             case move_offset: {
-    //                 temp->out_buffer->sim_off = temp->out_buffer->sim_a_str * temp->var_a + temp->out_buffer->sim_z_str * temp->var_z +
-    //                                           temp->out_buffer->sim_y_str * temp->var_y + temp->out_buffer->sim_x_str * temp->var_x;
-    //                 temp->out_buffer->sim_a_off = temp->var_a;
-    //                 temp->out_buffer->sim_z_off = temp->var_z;
-    //                 temp->out_buffer->sim_y_off = temp->var_y;
-    //                 temp->out_buffer->sim_x_off = temp->var_x;
-    //                 break;
-    //             }
-    //         }
-    //     } else {
-    //         assert(linearized->simple[index].type == temp->type);
-    //         assert(linearized->simple[index].unary_type == temp->unary_type);
-    //         assert(linearized->simple[index].binary_type == temp->binary_type);
-    //         assert(linearized->simple[index].reduce_type == temp->reduce_type);
-    //         assert(linearized->simple[index].var_unary == temp->var_unary);
-    //         assert(linearized->simple[index].out_buffer.a_sze == temp->out_buffer->sim_a_sze);
-    //         assert(linearized->simple[index].out_buffer.z_sze == temp->out_buffer->sim_z_sze);
-    //         assert(linearized->simple[index].out_buffer.y_sze == temp->out_buffer->sim_y_sze);
-    //         assert(linearized->simple[index].out_buffer.x_sze == temp->out_buffer->sim_x_sze);
-    //         assert(linearized->simple[index].out_buffer.a_str == temp->out_buffer->sim_a_str);
-    //         assert(linearized->simple[index].out_buffer.z_str == temp->out_buffer->sim_z_str);
-    //         assert(linearized->simple[index].out_buffer.y_str == temp->out_buffer->sim_y_str);
-    //         assert(linearized->simple[index].out_buffer.x_str == temp->out_buffer->sim_x_str);
-    //         assert(linearized->simple[index].out_buffer.a_off == temp->out_buffer->sim_a_off);
-    //         assert(linearized->simple[index].out_buffer.z_off == temp->out_buffer->sim_z_off);
-    //         assert(linearized->simple[index].out_buffer.y_off == temp->out_buffer->sim_y_off);
-    //         assert(linearized->simple[index].out_buffer.x_off == temp->out_buffer->sim_x_off);
-    //         if(linearized->simple[index].type != operation_unary) {
-    //             assert(linearized->simple[index].in_buffer.a_sze == temp->in_buffer->sim_a_sze);
-    //             assert(linearized->simple[index].in_buffer.z_sze == temp->in_buffer->sim_z_sze);
-    //             assert(linearized->simple[index].in_buffer.y_sze == temp->in_buffer->sim_y_sze);
-    //             assert(linearized->simple[index].in_buffer.x_sze == temp->in_buffer->sim_x_sze);
-    //             assert(linearized->simple[index].in_buffer.a_str == temp->in_buffer->sim_a_str);
-    //             assert(linearized->simple[index].in_buffer.z_str == temp->in_buffer->sim_z_str);
-    //             assert(linearized->simple[index].in_buffer.y_str == temp->in_buffer->sim_y_str);
-    //             assert(linearized->simple[index].in_buffer.x_str == temp->in_buffer->sim_x_str);
-    //             assert(linearized->simple[index].in_buffer.a_off == temp->in_buffer->sim_a_off);
-    //             assert(linearized->simple[index].in_buffer.z_off == temp->in_buffer->sim_z_off);
-    //             assert(linearized->simple[index].in_buffer.y_off == temp->in_buffer->sim_y_off);
-    //             assert(linearized->simple[index].in_buffer.x_off == temp->in_buffer->sim_x_off);
-    //         }
-    //         index++;
-    //     }
-    //     op_cleanup(temp);
-    //     op_free(temp);
-    //     free(temp);
-    // }
-    // if(op->type == operation_move) {
-    //     assert(op);
-    //     switch(op->move_type) {
-    //         case move_reshape: {
-    //             op->out_buffer->sim_a_sze = op->var_a;
-    //             op->out_buffer->sim_z_sze = op->var_z;
-    //             op->out_buffer->sim_y_sze = op->var_y;
-    //             op->out_buffer->sim_x_sze = op->var_x;
-    //             op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
-    //             op->out_buffer->sim_z_str = op->var_y * op->var_x;
-    //             op->out_buffer->sim_y_str = op->var_x;
-    //             op->out_buffer->sim_x_str = 1;
-    //             break;
-    //         }
-    //         case move_resize: {
-    //             op->out_buffer->sim_a_sze = op->var_a;
-    //             op->out_buffer->sim_z_sze = op->var_z;
-    //             op->out_buffer->sim_y_sze = op->var_y;
-    //             op->out_buffer->sim_x_sze = op->var_x;
-    //             break;
-    //         }
-    //         case move_offset: {
-    //             op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
-    //                                         op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
-    //             op->out_buffer->sim_a_off = op->var_a;
-    //             op->out_buffer->sim_z_off = op->var_z;
-    //             op->out_buffer->sim_y_off = op->var_y;
-    //             op->out_buffer->sim_x_off = op->var_x;
-    //             break;
-    //         }
-    //     }
-    // } else {
-    //     assert(linearized->simple[index].type == op->type);
-    //     assert(linearized->simple[index].unary_type == op->unary_type);
-    //     assert(linearized->simple[index].binary_type == op->binary_type);
-    //     assert(linearized->simple[index].reduce_type == op->reduce_type);
-    //     assert(linearized->simple[index].var_unary == op->var_unary);
-    //     assert(linearized->simple[index].out_buffer.a_sze == op->out_buffer->sim_a_sze);
-    //     assert(linearized->simple[index].out_buffer.z_sze == op->out_buffer->sim_z_sze);
-    //     assert(linearized->simple[index].out_buffer.y_sze == op->out_buffer->sim_y_sze);
-    //     assert(linearized->simple[index].out_buffer.x_sze == op->out_buffer->sim_x_sze);
-    //     assert(linearized->simple[index].out_buffer.a_str == op->out_buffer->sim_a_str);
-    //     assert(linearized->simple[index].out_buffer.z_str == op->out_buffer->sim_z_str);
-    //     assert(linearized->simple[index].out_buffer.y_str == op->out_buffer->sim_y_str);
-    //     assert(linearized->simple[index].out_buffer.x_str == op->out_buffer->sim_x_str);
-    //     assert(linearized->simple[index].out_buffer.a_off == op->out_buffer->sim_a_off);
-    //     assert(linearized->simple[index].out_buffer.z_off == op->out_buffer->sim_z_off);
-    //     assert(linearized->simple[index].out_buffer.y_off == op->out_buffer->sim_y_off);
-    //     assert(linearized->simple[index].out_buffer.x_off == op->out_buffer->sim_x_off);
-    //     if(linearized->simple[index].type != operation_unary) {
-    //         assert(linearized->simple[index].in_buffer.a_sze == op->in_buffer->sim_a_sze);
-    //         assert(linearized->simple[index].in_buffer.z_sze == op->in_buffer->sim_z_sze);
-    //         assert(linearized->simple[index].in_buffer.y_sze == op->in_buffer->sim_y_sze);
-    //         assert(linearized->simple[index].in_buffer.x_sze == op->in_buffer->sim_x_sze);
-    //         assert(linearized->simple[index].in_buffer.a_str == op->in_buffer->sim_a_str);
-    //         assert(linearized->simple[index].in_buffer.z_str == op->in_buffer->sim_z_str);
-    //         assert(linearized->simple[index].in_buffer.y_str == op->in_buffer->sim_y_str);
-    //         assert(linearized->simple[index].in_buffer.x_str == op->in_buffer->sim_x_str);
-    //         assert(linearized->simple[index].in_buffer.a_off == op->in_buffer->sim_a_off);
-    //         assert(linearized->simple[index].in_buffer.z_off == op->in_buffer->sim_z_off);
-    //         assert(linearized->simple[index].in_buffer.y_off == op->in_buffer->sim_y_off);
-    //         assert(linearized->simple[index].in_buffer.x_off == op->in_buffer->sim_x_off);
-    //     }
-    //     index++;
-    // }
-    // op_cleanup(op);
-    // op_free(op);
-    // free(op);
-    // assert(linearized->op_count == index);
 }
 
 /* TODO: Validate equivalence between linearized and non-linearized fresh from the tree. */
 const int64_t RANDOM_MAX_TRIES = 100;
-const int64_t DIM_SIZE = 3;
+const int64_t DIM_SZE = 3;
 void simulate_linearize(int64_t op_num, int64_t tensor_num) {
     linearized_t linearized = linearized_alloc();
     tensor_t *tensor = calloc(tensor_num, sizeof(tensor_t));
     tensor_t *tensor_d = calloc(tensor_num, sizeof(tensor_t));
     for(int64_t i = 0; i < tensor_num; i++) {
-        tensor[i] = tensor_alloc(DIM_SIZE, DIM_SIZE, DIM_SIZE, DIM_SIZE);
-        tensor_d[i] = tensor_alloc(DIM_SIZE, DIM_SIZE, DIM_SIZE, DIM_SIZE);
+        tensor[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
+        tensor_d[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     }
 
     /* TODO: I don't think there is a easy way to make sure that all these modulos are accurate, when adding new ops. However I *really* should figure out a way
      * to do that. */
     enum operation_e op_type;
-    enum unary_e unary_type;
-    enum binary_e binary_type;
-    enum reduce_e reduce_type;
-    // enum move_e move_type;
+    enum unary_e type_unary;
+    enum binary_e type_binary;
+    enum reduce_e type_reduce;
+    // enum move_e type_move;
     int64_t tensor_out = 0;
     int64_t tensor_in;
     double ran;
-    int64_t a_size = DIM_SIZE;
-    int64_t z_size = DIM_SIZE;
-    int64_t y_size = DIM_SIZE;
-    int64_t x_size = DIM_SIZE;
-    int64_t a_off = 0;
-    int64_t z_off = 0;
-    int64_t y_off = 0;
-    int64_t x_off = 0;
+    int64_t sze_a = DIM_SZE;
+    int64_t sze_z = DIM_SZE;
+    int64_t sze_y = DIM_SZE;
+    int64_t sze_x = DIM_SZE;
+    int64_t off_a = 0;
+    int64_t off_z = 0;
+    int64_t off_y = 0;
+    int64_t off_x = 0;
     int64_t a_temp = 0;
     int64_t z_temp = 0;
     int64_t y_temp = 0;
@@ -353,258 +201,258 @@ void simulate_linearize(int64_t op_num, int64_t tensor_num) {
         op_type = rand() % 3;
         switch(op_type) {
             case operation_unary: {
-                unary_type = rand() % 16;
+                type_unary = rand() % 16;
                 ran = ((double) rand() / RAND_MAX) * 2 - 1;
-                a_size = rand() % DIM_SIZE + 1;
-                z_size = rand() % DIM_SIZE + 1;
-                y_size = rand() % DIM_SIZE + 1;
-                x_size = rand() % DIM_SIZE + 1;
-                a_off = (DIM_SIZE > a_size) ? rand() % (1 + DIM_SIZE - a_size) : 0;
-                z_off = (DIM_SIZE > z_size) ? rand() % (1 + DIM_SIZE - z_size) : 0;
-                y_off = (DIM_SIZE > y_size) ? rand() % (1 + DIM_SIZE - y_size) : 0;
-                x_off = (DIM_SIZE > x_size) ? rand() % (1 + DIM_SIZE - x_size) : 0;
-                tensor_resize_move(tensor + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor + tensor_out, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor_d + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor_d + tensor_out, a_off, z_off, y_off, x_off);
-                switch(unary_type) {
+                sze_a = rand() % DIM_SZE + 1;
+                sze_z = rand() % DIM_SZE + 1;
+                sze_y = rand() % DIM_SZE + 1;
+                sze_x = rand() % DIM_SZE + 1;
+                off_a = (DIM_SZE > sze_a) ? rand() % (1 + DIM_SZE - sze_a) : 0;
+                off_z = (DIM_SZE > sze_z) ? rand() % (1 + DIM_SZE - sze_z) : 0;
+                off_y = (DIM_SZE > sze_y) ? rand() % (1 + DIM_SZE - sze_y) : 0;
+                off_x = (DIM_SZE > sze_x) ? rand() % (1 + DIM_SZE - sze_x) : 0;
+                tensor_move_resize(tensor + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor + tensor_out, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor_d + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor_d + tensor_out, off_a, off_z, off_y, off_x);
+                switch(type_unary) {
                     case unary_add: {
-                        tensor_add_unary(&tensor[tensor_out], ran);
-                        tensor_add_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_add(&tensor[tensor_out], ran);
+                        tensor_unary_add(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_subtract: {
-                        tensor_subtract_unary(&tensor[tensor_out], ran);
-                        tensor_subtract_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_subtract(&tensor[tensor_out], ran);
+                        tensor_unary_subtract(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_multiply: {
-                        tensor_multiply_unary(&tensor[tensor_out], ran);
-                        tensor_multiply_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_multiply(&tensor[tensor_out], ran);
+                        tensor_unary_multiply(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_divide: {
-                        tensor_divide_unary(&tensor[tensor_out], ran);
-                        tensor_divide_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_divide(&tensor[tensor_out], ran);
+                        tensor_unary_divide(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_exp: {
-                        tensor_exp_unary(&tensor[tensor_out]);
-                        tensor_exp_unary(&tensor_d[tensor_out]);
+                        tensor_unary_exp(&tensor[tensor_out]);
+                        tensor_unary_exp(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_log: {
-                        tensor_log_unary(&tensor[tensor_out]);
-                        tensor_log_unary(&tensor_d[tensor_out]);
+                        tensor_unary_log(&tensor[tensor_out]);
+                        tensor_unary_log(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_square: {
-                        tensor_square_unary(&tensor[tensor_out]);
-                        tensor_square_unary(&tensor_d[tensor_out]);
+                        tensor_unary_square(&tensor[tensor_out]);
+                        tensor_unary_square(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_sqrt: {
-                        tensor_sqrt_unary(&tensor[tensor_out]);
-                        tensor_sqrt_unary(&tensor_d[tensor_out]);
+                        tensor_unary_sqrt(&tensor[tensor_out]);
+                        tensor_unary_sqrt(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_reciprocal: {
-                        tensor_reciprocal_unary(&tensor[tensor_out]);
-                        tensor_reciprocal_unary(&tensor_d[tensor_out]);
+                        tensor_unary_reciprocal(&tensor[tensor_out]);
+                        tensor_unary_reciprocal(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_max: {
-                        tensor_max_unary(&tensor[tensor_out], ran);
-                        tensor_max_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_max(&tensor[tensor_out], ran);
+                        tensor_unary_max(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_min: {
-                        tensor_min_unary(&tensor[tensor_out], ran);
-                        tensor_min_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_min(&tensor[tensor_out], ran);
+                        tensor_unary_min(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_set: {
-                        tensor_set_unary(&tensor[tensor_out], ran);
-                        tensor_set_unary(&tensor_d[tensor_out], ran);
+                        tensor_unary_set(&tensor[tensor_out], ran);
+                        tensor_unary_set(&tensor_d[tensor_out], ran);
                         break;
                     }
                     case unary_random: {
-                        tensor_random_unary(&tensor[tensor_out]);
-                        tensor_random_unary(&tensor_d[tensor_out]);
+                        tensor_unary_random(&tensor[tensor_out]);
+                        tensor_unary_random(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_tanh: {
-                        tensor_tanh_unary(&tensor[tensor_out]);
-                        tensor_tanh_unary(&tensor_d[tensor_out]);
+                        tensor_unary_tanh(&tensor[tensor_out]);
+                        tensor_unary_tanh(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_absolute: {
-                        tensor_absolute_unary(&tensor[tensor_out]);
-                        tensor_absolute_unary(&tensor_d[tensor_out]);
+                        tensor_unary_absolute(&tensor[tensor_out]);
+                        tensor_unary_absolute(&tensor_d[tensor_out]);
                         break;
                     }
                     case unary_sign: {
-                        tensor_sign_unary(&tensor[tensor_out]);
-                        tensor_sign_unary(&tensor_d[tensor_out]);
+                        tensor_unary_sign(&tensor[tensor_out]);
+                        tensor_unary_sign(&tensor_d[tensor_out]);
                         break;
                     }
                 }
                 break;
             }
             case operation_binary: {
-                binary_type = rand() % 14;
+                type_binary = rand() % 14;
                 for(int64_t rand_idx = 0; rand_idx < RANDOM_MAX_TRIES; rand_idx++) {
                     tensor_in = rand() % tensor_num;
                     if(tensor_in != tensor_out) { break; }
                 }
                 if(tensor_in == tensor_out) { ERROR("Got really unlucky here or there's a bug with `rand()`\n"); }
-                a_size = rand() % DIM_SIZE + 1;
-                z_size = rand() % DIM_SIZE + 1;
-                y_size = rand() % DIM_SIZE + 1;
-                x_size = rand() % DIM_SIZE + 1;
-                a_off = (DIM_SIZE > a_size) ? rand() % (1 + DIM_SIZE - a_size) : 0;
-                z_off = (DIM_SIZE > z_size) ? rand() % (1 + DIM_SIZE - z_size) : 0;
-                y_off = (DIM_SIZE > y_size) ? rand() % (1 + DIM_SIZE - y_size) : 0;
-                x_off = (DIM_SIZE > x_size) ? rand() % (1 + DIM_SIZE - x_size) : 0;
-                tensor_resize_move(tensor + tensor_in, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor + tensor_in, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor_d + tensor_in, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor_d + tensor_in, a_off, z_off, y_off, x_off);
-                a_off = (DIM_SIZE > a_size) ? rand() % (1 + DIM_SIZE - a_size) : 0;
-                z_off = (DIM_SIZE > z_size) ? rand() % (1 + DIM_SIZE - z_size) : 0;
-                y_off = (DIM_SIZE > y_size) ? rand() % (1 + DIM_SIZE - y_size) : 0;
-                x_off = (DIM_SIZE > x_size) ? rand() % (1 + DIM_SIZE - x_size) : 0;
-                tensor_resize_move(tensor + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor + tensor_out, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor_d + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor_d + tensor_out, a_off, z_off, y_off, x_off);
-                switch(binary_type) {
+                sze_a = rand() % DIM_SZE + 1;
+                sze_z = rand() % DIM_SZE + 1;
+                sze_y = rand() % DIM_SZE + 1;
+                sze_x = rand() % DIM_SZE + 1;
+                off_a = (DIM_SZE > sze_a) ? rand() % (1 + DIM_SZE - sze_a) : 0;
+                off_z = (DIM_SZE > sze_z) ? rand() % (1 + DIM_SZE - sze_z) : 0;
+                off_y = (DIM_SZE > sze_y) ? rand() % (1 + DIM_SZE - sze_y) : 0;
+                off_x = (DIM_SZE > sze_x) ? rand() % (1 + DIM_SZE - sze_x) : 0;
+                tensor_move_resize(tensor + tensor_in, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor + tensor_in, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor_d + tensor_in, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor_d + tensor_in, off_a, off_z, off_y, off_x);
+                off_a = (DIM_SZE > sze_a) ? rand() % (1 + DIM_SZE - sze_a) : 0;
+                off_z = (DIM_SZE > sze_z) ? rand() % (1 + DIM_SZE - sze_z) : 0;
+                off_y = (DIM_SZE > sze_y) ? rand() % (1 + DIM_SZE - sze_y) : 0;
+                off_x = (DIM_SZE > sze_x) ? rand() % (1 + DIM_SZE - sze_x) : 0;
+                tensor_move_resize(tensor + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor + tensor_out, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor_d + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor_d + tensor_out, off_a, off_z, off_y, off_x);
+                switch(type_binary) {
                     case binary_add: {
-                        tensor_add_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_add_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_add(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_add(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_subtract: {
-                        tensor_subtract_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_subtract_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_subtract(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_subtract(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_multiply: {
-                        tensor_multiply_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_multiply_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_multiply(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_multiply(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_divide: {
-                        tensor_divide_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_divide_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_divide(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_divide(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_max: {
-                        tensor_max_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_max_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_max(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_max(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_min: {
-                        tensor_min_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_min_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_min(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_min(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_copy: {
-                        tensor_copy_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_copy_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_copy(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_copy(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_add_like: {
-                        tensor_add_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_add_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_add(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_add(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_subtract_like: {
-                        tensor_subtract_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_subtract_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_subtract(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_subtract(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_multiply_like: {
-                        tensor_multiply_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_multiply_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_multiply(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_multiply(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_divide_like: {
-                        tensor_divide_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_divide_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_divide(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_divide(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_max_like: {
-                        tensor_max_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_max_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_max(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_max(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_min_like: {
-                        tensor_min_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_min_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_min(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_min(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                     case binary_copy_like: {
-                        tensor_copy_binary(&tensor[tensor_out], &tensor[tensor_in]);
-                        tensor_copy_binary(&tensor_d[tensor_out], &tensor_d[tensor_in]);
+                        tensor_binary_copy(&tensor[tensor_out], &tensor[tensor_in]);
+                        tensor_binary_copy(&tensor_d[tensor_out], &tensor_d[tensor_in]);
                         break;
                     }
                 }
                 break;
             }
             case operation_reduce: {
-                reduce_type = rand() % 4;
+                type_reduce = rand() % 4;
                 for(int64_t rand_idx = 0; rand_idx < RANDOM_MAX_TRIES; rand_idx++) {
                     tensor_in = rand() % tensor_num;
                     if(tensor_in != tensor_out) { break; }
                 }
                 if(tensor_in == tensor_out) { ERROR("Got really unlucky here or there's a bug with `rand()`\n"); }
-                a_off = (DIM_SIZE > a_size) ? rand() % (1 + DIM_SIZE - a_size) : 0;
-                z_off = (DIM_SIZE > z_size) ? rand() % (1 + DIM_SIZE - z_size) : 0;
-                y_off = (DIM_SIZE > y_size) ? rand() % (1 + DIM_SIZE - y_size) : 0;
-                x_off = (DIM_SIZE > x_size) ? rand() % (1 + DIM_SIZE - x_size) : 0;
-                a_temp = rand() % DIM_SIZE;
-                z_temp = rand() % DIM_SIZE;
-                y_temp = rand() % DIM_SIZE;
-                x_temp = rand() % DIM_SIZE;
-                tensor_resize_move(tensor + tensor_in, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor + tensor_in, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor + tensor_out, 1, 1, 1, 1);
-                tensor_offset_move(tensor + tensor_out, a_temp, z_temp, y_temp, x_temp);
-                tensor_resize_move(tensor_d + tensor_in, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor_d + tensor_in, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor_d + tensor_out, 1, 1, 1, 1);
-                tensor_offset_move(tensor_d + tensor_out, a_temp, z_temp, y_temp, x_temp);
-                switch(reduce_type) {
+                off_a = (DIM_SZE > sze_a) ? rand() % (1 + DIM_SZE - sze_a) : 0;
+                off_z = (DIM_SZE > sze_z) ? rand() % (1 + DIM_SZE - sze_z) : 0;
+                off_y = (DIM_SZE > sze_y) ? rand() % (1 + DIM_SZE - sze_y) : 0;
+                off_x = (DIM_SZE > sze_x) ? rand() % (1 + DIM_SZE - sze_x) : 0;
+                a_temp = rand() % DIM_SZE;
+                z_temp = rand() % DIM_SZE;
+                y_temp = rand() % DIM_SZE;
+                x_temp = rand() % DIM_SZE;
+                tensor_move_resize(tensor + tensor_in, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor + tensor_in, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor + tensor_out, 1, 1, 1, 1);
+                tensor_move_offset(tensor + tensor_out, a_temp, z_temp, y_temp, x_temp);
+                tensor_move_resize(tensor_d + tensor_in, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor_d + tensor_in, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor_d + tensor_out, 1, 1, 1, 1);
+                tensor_move_offset(tensor_d + tensor_out, a_temp, z_temp, y_temp, x_temp);
+                switch(type_reduce) {
                     case reduce_sum: {
-                        tensor_sum_reduce(tensor + tensor_out, tensor + tensor_in);
-                        tensor_sum_reduce(tensor_d + tensor_out, tensor_d + tensor_in);
+                        tensor_reduce_sum(tensor + tensor_out, tensor + tensor_in);
+                        tensor_reduce_sum(tensor_d + tensor_out, tensor_d + tensor_in);
                         break;
                     }
                     case reduce_avg: {
-                        tensor_avg_reduce(tensor + tensor_out, tensor + tensor_in);
-                        tensor_avg_reduce(tensor_d + tensor_out, tensor_d + tensor_in);
+                        tensor_reduce_avg(tensor + tensor_out, tensor + tensor_in);
+                        tensor_reduce_avg(tensor_d + tensor_out, tensor_d + tensor_in);
                         break;
                     }
                     case reduce_min: {
-                        tensor_min_reduce(tensor + tensor_out, tensor + tensor_in);
-                        tensor_min_reduce(tensor_d + tensor_out, tensor_d + tensor_in);
+                        tensor_reduce_min(tensor + tensor_out, tensor + tensor_in);
+                        tensor_reduce_min(tensor_d + tensor_out, tensor_d + tensor_in);
                         break;
                     }
                     case reduce_max: {
-                        tensor_max_reduce(tensor + tensor_out, tensor + tensor_in);
-                        tensor_max_reduce(tensor_d + tensor_out, tensor_d + tensor_in);
+                        tensor_reduce_max(tensor + tensor_out, tensor + tensor_in);
+                        tensor_reduce_max(tensor_d + tensor_out, tensor_d + tensor_in);
                         break;
                     }
                 }
-                a_off = (DIM_SIZE > a_size) ? rand() % (1 + DIM_SIZE - a_size) : 0;
-                z_off = (DIM_SIZE > z_size) ? rand() % (1 + DIM_SIZE - z_size) : 0;
-                y_off = (DIM_SIZE > y_size) ? rand() % (1 + DIM_SIZE - y_size) : 0;
-                x_off = (DIM_SIZE > x_size) ? rand() % (1 + DIM_SIZE - x_size) : 0;
-                tensor_resize_move(tensor + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor + tensor_out, a_off, z_off, y_off, x_off);
-                tensor_resize_move(tensor_d + tensor_out, a_size, z_size, y_size, x_size);
-                tensor_offset_move(tensor_d + tensor_out, a_off, z_off, y_off, x_off);
+                off_a = (DIM_SZE > sze_a) ? rand() % (1 + DIM_SZE - sze_a) : 0;
+                off_z = (DIM_SZE > sze_z) ? rand() % (1 + DIM_SZE - sze_z) : 0;
+                off_y = (DIM_SZE > sze_y) ? rand() % (1 + DIM_SZE - sze_y) : 0;
+                off_x = (DIM_SZE > sze_x) ? rand() % (1 + DIM_SZE - sze_x) : 0;
+                tensor_move_resize(tensor + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor + tensor_out, off_a, off_z, off_y, off_x);
+                tensor_move_resize(tensor_d + tensor_out, sze_a, sze_z, sze_y, sze_x);
+                tensor_move_offset(tensor_d + tensor_out, off_a, off_z, off_y, off_x);
                 break;
             }
             case operation_move: {
@@ -612,7 +460,6 @@ void simulate_linearize(int64_t op_num, int64_t tensor_num) {
             }
         }
     }
-    int64_t index = 0;
     linearized_from_op(&linearized, tensor[tensor_out].op);
     linearized_op_tree_equal(&linearized, tensor_d[tensor_out].op);
     linearized_run(&linearized);

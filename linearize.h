@@ -8,37 +8,37 @@
 #include "tensor.h"
 
 typedef struct {
-    int64_t a_sze;
-    int64_t z_sze;
-    int64_t y_sze;
-    int64_t x_sze;
-    int64_t a_str;
-    int64_t z_str;
-    int64_t y_str;
-    int64_t x_str;
+    int64_t sze_a;
+    int64_t sze_z;
+    int64_t sze_y;
+    int64_t sze_x;
+    int64_t str_a;
+    int64_t str_z;
+    int64_t str_y;
+    int64_t str_x;
+    int64_t off_a;
+    int64_t off_z;
+    int64_t off_y;
+    int64_t off_x;
     int64_t off;
-    int64_t a_off;
-    int64_t z_off;
-    int64_t y_off;
-    int64_t x_off;
     double *val;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
 #define SIMPLE_AT(simple, a, z, y, x)                                                                                                                          \
-    (simple).val[a * (simple).a_str + z * (simple).z_str + y * (simple).y_str + x * (simple).x_str + (simple).off]
+    (simple).val[a * (simple).str_a + z * (simple).str_z + y * (simple).str_y + x * (simple).str_x + (simple).off]
 #define SIMPLE_AT_(simple, a, z, y, x)                                                                                                                         \
-    (simple)->val[a * (simple)->a_str + z * (simple)->z_str + y * (simple)->y_str + x * (simple)->x_str + (simple)->off]
+    (simple)->val[a * (simple)->str_a + z * (simple)->str_z + y * (simple)->str_y + x * (simple)->str_x + (simple)->off]
 
 /* NOTE: Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
     enum operation_e type;
-    enum unary_e unary_type;
-    enum binary_e binary_type;
-    enum reduce_e reduce_type;
+    enum unary_e type_unary;
+    enum binary_e type_binary;
+    enum reduce_e type_reduce;
     double var_unary;
-    simple_buffer_t out_buffer;
-    simple_buffer_t in_buffer;
+    simple_buffer_t buffer_out;
+    simple_buffer_t buffer_in;
 } simple_op_t;
 
 extern void simple_op_convert(simple_op_t *simple, op_t *op);

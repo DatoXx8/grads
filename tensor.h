@@ -7,42 +7,42 @@
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
-    int64_t a_inh;
-    int64_t z_inh;
-    int64_t y_inh;
-    int64_t x_inh;
-    int64_t a_str;
-    int64_t z_str;
-    int64_t y_str;
-    int64_t x_str;
-    int64_t a_sze;
-    int64_t z_sze;
-    int64_t y_sze;
-    int64_t x_sze;
+    int64_t inh_a;
+    int64_t inh_z;
+    int64_t inh_y;
+    int64_t inh_x;
+    int64_t str_a;
+    int64_t str_z;
+    int64_t str_y;
+    int64_t str_x;
+    int64_t sze_a;
+    int64_t sze_z;
+    int64_t sze_y;
+    int64_t sze_x;
     int64_t off;
     double *val;
     char name[BUFFER_NAME_SIZE + 1];
-    int64_t sim_a_str;
-    int64_t sim_z_str;
-    int64_t sim_y_str;
-    int64_t sim_x_str;
-    int64_t sim_a_sze;
-    int64_t sim_z_sze;
-    int64_t sim_y_sze;
-    int64_t sim_x_sze;
-    int64_t sim_off;
-    int64_t sim_a_off;
-    int64_t sim_z_off;
-    int64_t sim_y_off;
-    int64_t sim_x_off;
+    int64_t str_a_sim;
+    int64_t str_z_sim;
+    int64_t str_y_sim;
+    int64_t str_x_sim;
+    int64_t sze_a_sim;
+    int64_t sze_z_sim;
+    int64_t sze_y_sim;
+    int64_t sze_x_sim;
+    int64_t off_a_sim;
+    int64_t off_z_sim;
+    int64_t off_y_sim;
+    int64_t off_x_sim;
+    int64_t off_sim;
 } buffer_t;
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
 extern void buffer_free(buffer_t *buffer);
 
-#define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).a_str * (a) + (buffer).z_str * (z) + (buffer).y_str * (y) + (buffer).x_str * (x) + (buffer).off])
+#define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) + (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
-    ((buffer)->val[(buffer)->a_str * (a) + (buffer)->z_str * (z) + (buffer)->y_str * (y) + (buffer)->x_str * (x) + (buffer)->off])
+    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) + (buffer)->off])
 
 enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
@@ -97,17 +97,17 @@ typedef struct op {
     int64_t child_capacity;
     struct op **child;
     enum operation_e type;
-    enum unary_e unary_type;
-    enum binary_e binary_type;
-    enum reduce_e reduce_type;
-    enum move_e move_type;
+    enum unary_e type_unary;
+    enum binary_e type_binary;
+    enum reduce_e type_reduce;
+    enum move_e type_move;
     double var_unary;
     int64_t var_a;
     int64_t var_z;
     int64_t var_y;
     int64_t var_x;
-    buffer_t *out_buffer;
-    buffer_t *in_buffer;
+    buffer_t *buffer_out;
+    buffer_t *buffer_in;
 } op_t;
 
 extern op_t op_alloc(void);
@@ -131,49 +131,49 @@ typedef struct {
 extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
 extern void tensor_free(tensor_t *tensor);
 
-extern void tensor_set_unary(tensor_t *tensor, double value);
-extern void tensor_add_unary(tensor_t *tensor, double value);
-extern void tensor_subtract_unary(tensor_t *tensor, double value);
-extern void tensor_multiply_unary(tensor_t *tensor, double value);
-extern void tensor_divide_unary(tensor_t *tensor, double value);
-extern void tensor_exp_unary(tensor_t *tensor);
-extern void tensor_log_unary(tensor_t *tensor);
-extern void tensor_square_unary(tensor_t *tensor);
-extern void tensor_sqrt_unary(tensor_t *tensor);
-extern void tensor_reciprocal_unary(tensor_t *tensor);
+extern void tensor_unary_set(tensor_t *tensor, double value);
+extern void tensor_unary_add(tensor_t *tensor, double value);
+extern void tensor_unary_subtract(tensor_t *tensor, double value);
+extern void tensor_unary_multiply(tensor_t *tensor, double value);
+extern void tensor_unary_divide(tensor_t *tensor, double value);
+extern void tensor_unary_exp(tensor_t *tensor);
+extern void tensor_unary_log(tensor_t *tensor);
+extern void tensor_unary_square(tensor_t *tensor);
+extern void tensor_unary_sqrt(tensor_t *tensor);
+extern void tensor_unary_reciprocal(tensor_t *tensor);
 /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why you would do that in a ML framework but I digress. */
-extern void tensor_random_unary(tensor_t *tensor);
-extern void tensor_tanh_unary(tensor_t *tensor);
-extern void tensor_max_unary(tensor_t *tensor, double value);
-extern void tensor_min_unary(tensor_t *tensor, double value);
-extern void tensor_absolute_unary(tensor_t *tensor);
-extern void tensor_sign_unary(tensor_t *tensor);
+extern void tensor_unary_random(tensor_t *tensor);
+extern void tensor_unary_tanh(tensor_t *tensor);
+extern void tensor_unary_max(tensor_t *tensor, double value);
+extern void tensor_unary_min(tensor_t *tensor, double value);
+extern void tensor_unary_absolute(tensor_t *tensor);
+extern void tensor_unary_sign(tensor_t *tensor);
 
-extern void tensor_add_binary(tensor_t *out, tensor_t *in);
-extern void tensor_subtract_binary(tensor_t *out, tensor_t *in);
-extern void tensor_multiply_binary(tensor_t *out, tensor_t *in);
-extern void tensor_divide_binary(tensor_t *out, tensor_t *in);
-extern void tensor_max_binary(tensor_t *out, tensor_t *in);
-extern void tensor_min_binary(tensor_t *out, tensor_t *in);
-extern void tensor_copy_binary(tensor_t *out, tensor_t *in);
-extern void tensor_add_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_subtract_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_multiply_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_divide_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_max_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_min_like_binary(tensor_t *out, tensor_t *in);
-extern void tensor_copy_like_binary(tensor_t *out, tensor_t *in);
+extern void tensor_binary_add(tensor_t *out, tensor_t *in);
+extern void tensor_binary_subtract(tensor_t *out, tensor_t *in);
+extern void tensor_binary_multiply(tensor_t *out, tensor_t *in);
+extern void tensor_binary_divide(tensor_t *out, tensor_t *in);
+extern void tensor_binary_max(tensor_t *out, tensor_t *in);
+extern void tensor_binary_min(tensor_t *out, tensor_t *in);
+extern void tensor_binary_copy(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_add(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_subtract(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_multiply(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_divide(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_max(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_min(tensor_t *out, tensor_t *in);
+extern void tensor_lbinary_copy(tensor_t *out, tensor_t *in);
 
-extern void tensor_sum_reduce(tensor_t *out, tensor_t *in);
-extern void tensor_max_reduce(tensor_t *out, tensor_t *in);
-extern void tensor_avg_reduce(tensor_t *out, tensor_t *in);
-extern void tensor_min_reduce(tensor_t *out, tensor_t *in);
+extern void tensor_reduce_sum(tensor_t *out, tensor_t *in);
+extern void tensor_reduce_max(tensor_t *out, tensor_t *in);
+extern void tensor_reduce_avg(tensor_t *out, tensor_t *in);
+extern void tensor_reduce_min(tensor_t *out, tensor_t *in);
 
-extern void tensor_reshape_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
-extern void tensor_resize_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
-extern void tensor_offset_move(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
 
-extern void tensor_cpu_realize(tensor_t *tensor);
+extern void tensor_realize(tensor_t *tensor);
 
 extern void tensor_print(tensor_t *tensor, int padding, int offset, const char *name);
 extern void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name);
