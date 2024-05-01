@@ -245,6 +245,7 @@ static void kernel_free(kernel_t *kernel) {
     for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
     free(kernel->args);
     free((void *) kernel->name);
+    free((void *) kernel->source);
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be irrelevant. */
 static bool simple_loop_simple_op_equal(simple_op_t *starting, simple_op_t *compared) {
@@ -1294,8 +1295,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     free(temp);
 }
 int64_t kernel_counter = 0;
-static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile, int64_t global_size, int64_t local_size) {
-    assert(filename);
+static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size, int64_t local_size) {
     assert(compile);
     assert(global_size);
     /* TODO: Support `local_size > 1`. */
@@ -1481,12 +1481,9 @@ static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile
     }
     /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
     kernel_i += snprintf(kernel_i, curr - source + 1, "%s", source);
+    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
     kernel_i += snprintf(kernel_i, 3, "}\n");
-
-    FILE *f = fopen(filename, "a");
-    assert(f);
-    fwrite(kernel_source, sizeof(char), kernel_i - kernel_source, f);
-    fclose(f);
+    EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
 
     kernel_t kernel = {
         .arg_num = arg_num,
@@ -1494,6 +1491,9 @@ static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile
         .name = strndup(func_name, strlen(func_name)),
         .size_local = local_size,
         .size_global = global_size,
+        .source = kernel_source,
+        .source_cap = source_cap,
+        .source_len = kernel_i - kernel_source,
     };
     assert(kernel.args);
     for(int64_t i = 0; i < arg_num; i++) {
@@ -1502,28 +1502,23 @@ static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile
     }
     free(args);
     free(source);
-    free(kernel_source);
     free(func_name);
     free(gid);
     return kernel;
 }
-int program_compile(program_t *program, const char *filename, linearized_t *linearized) {
-    if(!linearized->op_count) { return 1; }
+void program_compile(program_t *program, linearized_t *linearized) {
+    if(!linearized->op_count) { return; }
     simple_loop_t simple = {0};
     int64_t global_size = 9;
     int64_t local_size = 1;
     compile_loop_t compile;
-    /* Clears file. */
-    FILE *f = fopen(filename, "w");
-    if(!f) { return 1; }
-    fclose(f);
     int64_t i = 0;
     kernel_t kernel;
     while(i < linearized->op_count) {
         i += simple_loop_from_linearized_index(&simple, linearized, i);
         compile = compile_loop_alloc(&simple, OPTIMIZE_INLINE);
         // compile = compile_loop_alloc(&simple, OPTIMIZE_NONE);
-        kernel = compile_loop_to_cl(filename, &compile, global_size, local_size);
+        kernel = compile_loop_to_cl(&compile, global_size, local_size);
         program->kernel_num++;
         program->kernel = reallocarray(program->kernel, program->kernel_num, sizeof(kernel_t));
         assert(program->kernel);
@@ -1532,7 +1527,6 @@ int program_compile(program_t *program, const char *filename, linearized_t *line
     }
 
     simple_loop_free(&simple);
-    return 0;
 }
 void program_free(program_t *program) {
     for(int64_t i = 0; i < program->kernel_num; i++) { kernel_free(&program->kernel[i]); }

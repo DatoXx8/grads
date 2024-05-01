@@ -71,15 +71,17 @@ typedef struct {
     int64_t arg_num;
     int64_t size_global;
     int64_t size_local;
+    char *source;
+    int64_t source_len;
+    int64_t source_cap;
 } kernel_t;
 typedef struct {
     kernel_t *kernel;
     int64_t kernel_num;
-    const char *filename;
 } program_t;
 
 /* Could also be called `program_alloc()`. */
-extern int program_compile(program_t *program, const char *filename, linearized_t *linearized);
+extern void program_compile(program_t *program, linearized_t *linearized);
 extern void program_free(program_t *program);
 
 #endif /* COMPILE_H_ */
