@@ -1151,10 +1151,10 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     };
     assert(neuralnet.layer);
     assert(neuralnet.forward);
-    *neuralnet.forward = linearized_alloc();
     assert(neuralnet.backward);
-    *neuralnet.backward = linearized_alloc();
     assert(neuralnet.learn);
+    *neuralnet.forward = linearized_alloc();
+    *neuralnet.backward = linearized_alloc();
     *neuralnet.learn = linearized_alloc();
 
     int64_t previous_z;
