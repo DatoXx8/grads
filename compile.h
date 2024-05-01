@@ -69,8 +69,8 @@ typedef struct {
     const char *name;
     char **args;
     int64_t arg_num;
-    int64_t global_size;
-    int64_t local_size;
+    int64_t size_global;
+    int64_t size_local;
 } kernel_t;
 typedef struct {
     kernel_t *kernel;

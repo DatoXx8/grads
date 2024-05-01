@@ -1492,8 +1492,8 @@ static kernel_t compile_loop_to_cl(const char *filename, compile_loop_t *compile
         .arg_num = arg_num,
         .args = calloc(arg_num, sizeof(char *)),
         .name = strndup(func_name, strlen(func_name)),
-        .local_size = local_size,
-        .global_size = global_size,
+        .size_local = local_size,
+        .size_global = global_size,
     };
     assert(kernel.args);
     for(int64_t i = 0; i < arg_num; i++) {
