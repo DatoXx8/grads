@@ -7,158 +7,311 @@
 #include "../linearize.h"
 #include "../tensor.h"
 
-void linearized_op_tree_equal(linearized_t *linearized, op_t *base) {
+void linearized_op_tree_equal(linearized_t *linearized, op_t *op) {
+    if(!op) { return; }
     int64_t index = 0;
-    assert(linearized);
-    assert(base);
-    while(base->parent_count) {
-        op_t *op = base;
+    op_t *temp;
+    op_t *next = op;
+    while(op->parent_count > 0) {
+        temp = next;
         for(int64_t i = 0; i < MAX_DEPTH; i++) {
-            if(op->parent_count) {
-                op = op->parent[0];
+            if(temp->parent_count > 0) {
+                temp = temp->parent[0];
             } else {
                 break;
             }
         }
-        assert(op);
-        assert(op->parent_count == 0);
-        if(op->type == operation_move) {
-            switch(op->move_type) {
+        assert(temp);
+        assert(temp->parent_count == 0);
+        if(temp->type == operation_move) {
+            switch(temp->move_type) {
                 case move_reshape: {
-                    op->out_buffer->sim_a_sze = op->var_a;
-                    op->out_buffer->sim_z_sze = op->var_z;
-                    op->out_buffer->sim_y_sze = op->var_y;
-                    op->out_buffer->sim_x_sze = op->var_x;
-                    op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
-                    op->out_buffer->sim_z_str = op->var_y * op->var_x;
-                    op->out_buffer->sim_y_str = op->var_x;
-                    op->out_buffer->sim_x_str = 1;
+                    temp->out_buffer->sim_a_sze = temp->var_a;
+                    temp->out_buffer->sim_z_sze = temp->var_z;
+                    temp->out_buffer->sim_y_sze = temp->var_y;
+                    temp->out_buffer->sim_x_sze = temp->var_x;
+                    temp->out_buffer->sim_a_str = temp->var_z * temp->var_y * temp->var_x;
+                    temp->out_buffer->sim_z_str = temp->var_y * temp->var_x;
+                    temp->out_buffer->sim_y_str = temp->var_x;
+                    temp->out_buffer->sim_x_str = 1;
                     break;
                 }
                 case move_resize: {
-                    op->out_buffer->sim_a_sze = op->var_a;
-                    op->out_buffer->sim_z_sze = op->var_z;
-                    op->out_buffer->sim_y_sze = op->var_y;
-                    op->out_buffer->sim_x_sze = op->var_x;
+                    temp->out_buffer->sim_a_sze = temp->var_a;
+                    temp->out_buffer->sim_z_sze = temp->var_z;
+                    temp->out_buffer->sim_y_sze = temp->var_y;
+                    temp->out_buffer->sim_x_sze = temp->var_x;
                     break;
                 }
                 case move_offset: {
-                    op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
-                                              op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
-                    op->out_buffer->sim_a_off = op->var_a;
-                    op->out_buffer->sim_z_off = op->var_z;
-                    op->out_buffer->sim_y_off = op->var_y;
-                    op->out_buffer->sim_x_off = op->var_x;
+                    temp->out_buffer->sim_off = temp->out_buffer->sim_a_str * temp->var_a + temp->out_buffer->sim_z_str * temp->var_z +
+                                              temp->out_buffer->sim_y_str * temp->var_y + temp->out_buffer->sim_x_str * temp->var_x;
+                    temp->out_buffer->sim_a_off = temp->var_a;
+                    temp->out_buffer->sim_z_off = temp->var_z;
+                    temp->out_buffer->sim_y_off = temp->var_y;
+                    temp->out_buffer->sim_x_off = temp->var_x;
                     break;
                 }
             }
         } else {
-            assert(linearized->simple[index].type == op->type);
-            assert(linearized->simple[index].unary_type == op->unary_type);
-            assert(linearized->simple[index].binary_type == op->binary_type);
-            assert(linearized->simple[index].reduce_type == op->reduce_type);
-            assert(linearized->simple[index].var_unary == op->var_unary);
-            assert(linearized->simple[index].out_buffer.a_sze == op->out_buffer->sim_a_sze);
-            assert(linearized->simple[index].out_buffer.z_sze == op->out_buffer->sim_z_sze);
-            assert(linearized->simple[index].out_buffer.y_sze == op->out_buffer->sim_y_sze);
-            assert(linearized->simple[index].out_buffer.x_sze == op->out_buffer->sim_x_sze);
-            assert(linearized->simple[index].out_buffer.a_str == op->out_buffer->sim_a_str);
-            assert(linearized->simple[index].out_buffer.z_str == op->out_buffer->sim_z_str);
-            assert(linearized->simple[index].out_buffer.y_str == op->out_buffer->sim_y_str);
-            assert(linearized->simple[index].out_buffer.x_str == op->out_buffer->sim_x_str);
-            assert(linearized->simple[index].out_buffer.a_off == op->out_buffer->sim_a_off);
-            assert(linearized->simple[index].out_buffer.z_off == op->out_buffer->sim_z_off);
-            assert(linearized->simple[index].out_buffer.y_off == op->out_buffer->sim_y_off);
-            assert(linearized->simple[index].out_buffer.x_off == op->out_buffer->sim_x_off);
+            assert(linearized->simple[index].type == temp->type);
+            assert(linearized->simple[index].unary_type == temp->unary_type);
+            assert(linearized->simple[index].binary_type == temp->binary_type);
+            assert(linearized->simple[index].reduce_type == temp->reduce_type);
+            assert(linearized->simple[index].var_unary == temp->var_unary);
+            assert(linearized->simple[index].out_buffer.a_sze == temp->out_buffer->sim_a_sze);
+            assert(linearized->simple[index].out_buffer.z_sze == temp->out_buffer->sim_z_sze);
+            assert(linearized->simple[index].out_buffer.y_sze == temp->out_buffer->sim_y_sze);
+            assert(linearized->simple[index].out_buffer.x_sze == temp->out_buffer->sim_x_sze);
+            assert(linearized->simple[index].out_buffer.a_str == temp->out_buffer->sim_a_str);
+            assert(linearized->simple[index].out_buffer.z_str == temp->out_buffer->sim_z_str);
+            assert(linearized->simple[index].out_buffer.y_str == temp->out_buffer->sim_y_str);
+            assert(linearized->simple[index].out_buffer.x_str == temp->out_buffer->sim_x_str);
+            assert(linearized->simple[index].out_buffer.a_off == temp->out_buffer->sim_a_off);
+            assert(linearized->simple[index].out_buffer.z_off == temp->out_buffer->sim_z_off);
+            assert(linearized->simple[index].out_buffer.y_off == temp->out_buffer->sim_y_off);
+            assert(linearized->simple[index].out_buffer.x_off == temp->out_buffer->sim_x_off);
             if(linearized->simple[index].type != operation_unary) {
-                assert(linearized->simple[index].in_buffer.a_sze == op->in_buffer->sim_a_sze);
-                assert(linearized->simple[index].in_buffer.z_sze == op->in_buffer->sim_z_sze);
-                assert(linearized->simple[index].in_buffer.y_sze == op->in_buffer->sim_y_sze);
-                assert(linearized->simple[index].in_buffer.x_sze == op->in_buffer->sim_x_sze);
-                assert(linearized->simple[index].in_buffer.a_str == op->in_buffer->sim_a_str);
-                assert(linearized->simple[index].in_buffer.z_str == op->in_buffer->sim_z_str);
-                assert(linearized->simple[index].in_buffer.y_str == op->in_buffer->sim_y_str);
-                assert(linearized->simple[index].in_buffer.x_str == op->in_buffer->sim_x_str);
-                assert(linearized->simple[index].in_buffer.a_off == op->in_buffer->sim_a_off);
-                assert(linearized->simple[index].in_buffer.z_off == op->in_buffer->sim_z_off);
-                assert(linearized->simple[index].in_buffer.y_off == op->in_buffer->sim_y_off);
-                assert(linearized->simple[index].in_buffer.x_off == op->in_buffer->sim_x_off);
+                assert(linearized->simple[index].in_buffer.a_sze == temp->in_buffer->sim_a_sze);
+                assert(linearized->simple[index].in_buffer.z_sze == temp->in_buffer->sim_z_sze);
+                assert(linearized->simple[index].in_buffer.y_sze == temp->in_buffer->sim_y_sze);
+                assert(linearized->simple[index].in_buffer.x_sze == temp->in_buffer->sim_x_sze);
+                assert(linearized->simple[index].in_buffer.a_str == temp->in_buffer->sim_a_str);
+                assert(linearized->simple[index].in_buffer.z_str == temp->in_buffer->sim_z_str);
+                assert(linearized->simple[index].in_buffer.y_str == temp->in_buffer->sim_y_str);
+                assert(linearized->simple[index].in_buffer.x_str == temp->in_buffer->sim_x_str);
+                assert(linearized->simple[index].in_buffer.a_off == temp->in_buffer->sim_a_off);
+                assert(linearized->simple[index].in_buffer.z_off == temp->in_buffer->sim_z_off);
+                assert(linearized->simple[index].in_buffer.y_off == temp->in_buffer->sim_y_off);
+                assert(linearized->simple[index].in_buffer.x_off == temp->in_buffer->sim_x_off);
             }
             index++;
         }
-        op_cleanup(op);
-        op_free(op);
-        free(op);
+        next = temp->child_count > 0 ? temp->child[0] : op;
+        op_cleanup(temp);
+        op_free(temp);
+        free(temp);
     }
-    if(base->type == operation_move) {
-        assert(base);
-        switch(base->move_type) {
+    if(op->type == operation_move) {
+        switch(op->move_type) {
             case move_reshape: {
-                base->out_buffer->sim_a_sze = base->var_a;
-                base->out_buffer->sim_z_sze = base->var_z;
-                base->out_buffer->sim_y_sze = base->var_y;
-                base->out_buffer->sim_x_sze = base->var_x;
-                base->out_buffer->sim_a_str = base->var_z * base->var_y * base->var_x;
-                base->out_buffer->sim_z_str = base->var_y * base->var_x;
-                base->out_buffer->sim_y_str = base->var_x;
-                base->out_buffer->sim_x_str = 1;
+                op->out_buffer->sim_a_sze = op->var_a;
+                op->out_buffer->sim_z_sze = op->var_z;
+                op->out_buffer->sim_y_sze = op->var_y;
+                op->out_buffer->sim_x_sze = op->var_x;
+                op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
+                op->out_buffer->sim_z_str = op->var_y * op->var_x;
+                op->out_buffer->sim_y_str = op->var_x;
+                op->out_buffer->sim_x_str = 1;
                 break;
             }
             case move_resize: {
-                base->out_buffer->sim_a_sze = base->var_a;
-                base->out_buffer->sim_z_sze = base->var_z;
-                base->out_buffer->sim_y_sze = base->var_y;
-                base->out_buffer->sim_x_sze = base->var_x;
+                op->out_buffer->sim_a_sze = op->var_a;
+                op->out_buffer->sim_z_sze = op->var_z;
+                op->out_buffer->sim_y_sze = op->var_y;
+                op->out_buffer->sim_x_sze = op->var_x;
                 break;
             }
             case move_offset: {
-                base->out_buffer->sim_off = base->out_buffer->sim_a_str * base->var_a + base->out_buffer->sim_z_str * base->var_z +
-                                            base->out_buffer->sim_y_str * base->var_y + base->out_buffer->sim_x_str * base->var_x;
-                base->out_buffer->sim_a_off = base->var_a;
-                base->out_buffer->sim_z_off = base->var_z;
-                base->out_buffer->sim_y_off = base->var_y;
-                base->out_buffer->sim_x_off = base->var_x;
+                op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
+                                          op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
+                op->out_buffer->sim_a_off = op->var_a;
+                op->out_buffer->sim_z_off = op->var_z;
+                op->out_buffer->sim_y_off = op->var_y;
+                op->out_buffer->sim_x_off = op->var_x;
                 break;
             }
         }
     } else {
-        assert(linearized->simple[index].type == base->type);
-        assert(linearized->simple[index].unary_type == base->unary_type);
-        assert(linearized->simple[index].binary_type == base->binary_type);
-        assert(linearized->simple[index].reduce_type == base->reduce_type);
-        assert(linearized->simple[index].var_unary == base->var_unary);
-        assert(linearized->simple[index].out_buffer.a_sze == base->out_buffer->sim_a_sze);
-        assert(linearized->simple[index].out_buffer.z_sze == base->out_buffer->sim_z_sze);
-        assert(linearized->simple[index].out_buffer.y_sze == base->out_buffer->sim_y_sze);
-        assert(linearized->simple[index].out_buffer.x_sze == base->out_buffer->sim_x_sze);
-        assert(linearized->simple[index].out_buffer.a_str == base->out_buffer->sim_a_str);
-        assert(linearized->simple[index].out_buffer.z_str == base->out_buffer->sim_z_str);
-        assert(linearized->simple[index].out_buffer.y_str == base->out_buffer->sim_y_str);
-        assert(linearized->simple[index].out_buffer.x_str == base->out_buffer->sim_x_str);
-        assert(linearized->simple[index].out_buffer.a_off == base->out_buffer->sim_a_off);
-        assert(linearized->simple[index].out_buffer.z_off == base->out_buffer->sim_z_off);
-        assert(linearized->simple[index].out_buffer.y_off == base->out_buffer->sim_y_off);
-        assert(linearized->simple[index].out_buffer.x_off == base->out_buffer->sim_x_off);
+        assert(linearized->simple[index].type == op->type);
+        assert(linearized->simple[index].unary_type == op->unary_type);
+        assert(linearized->simple[index].binary_type == op->binary_type);
+        assert(linearized->simple[index].reduce_type == op->reduce_type);
+        assert(linearized->simple[index].var_unary == op->var_unary);
+        assert(linearized->simple[index].out_buffer.a_sze == op->out_buffer->sim_a_sze);
+        assert(linearized->simple[index].out_buffer.z_sze == op->out_buffer->sim_z_sze);
+        assert(linearized->simple[index].out_buffer.y_sze == op->out_buffer->sim_y_sze);
+        assert(linearized->simple[index].out_buffer.x_sze == op->out_buffer->sim_x_sze);
+        assert(linearized->simple[index].out_buffer.a_str == op->out_buffer->sim_a_str);
+        assert(linearized->simple[index].out_buffer.z_str == op->out_buffer->sim_z_str);
+        assert(linearized->simple[index].out_buffer.y_str == op->out_buffer->sim_y_str);
+        assert(linearized->simple[index].out_buffer.x_str == op->out_buffer->sim_x_str);
+        assert(linearized->simple[index].out_buffer.a_off == op->out_buffer->sim_a_off);
+        assert(linearized->simple[index].out_buffer.z_off == op->out_buffer->sim_z_off);
+        assert(linearized->simple[index].out_buffer.y_off == op->out_buffer->sim_y_off);
+        assert(linearized->simple[index].out_buffer.x_off == op->out_buffer->sim_x_off);
         if(linearized->simple[index].type != operation_unary) {
-            assert(linearized->simple[index].in_buffer.a_sze == base->in_buffer->sim_a_sze);
-            assert(linearized->simple[index].in_buffer.z_sze == base->in_buffer->sim_z_sze);
-            assert(linearized->simple[index].in_buffer.y_sze == base->in_buffer->sim_y_sze);
-            assert(linearized->simple[index].in_buffer.x_sze == base->in_buffer->sim_x_sze);
-            assert(linearized->simple[index].in_buffer.a_str == base->in_buffer->sim_a_str);
-            assert(linearized->simple[index].in_buffer.z_str == base->in_buffer->sim_z_str);
-            assert(linearized->simple[index].in_buffer.y_str == base->in_buffer->sim_y_str);
-            assert(linearized->simple[index].in_buffer.x_str == base->in_buffer->sim_x_str);
-            assert(linearized->simple[index].in_buffer.a_off == base->in_buffer->sim_a_off);
-            assert(linearized->simple[index].in_buffer.z_off == base->in_buffer->sim_z_off);
-            assert(linearized->simple[index].in_buffer.y_off == base->in_buffer->sim_y_off);
-            assert(linearized->simple[index].in_buffer.x_off == base->in_buffer->sim_x_off);
+            assert(linearized->simple[index].in_buffer.a_sze == op->in_buffer->sim_a_sze);
+            assert(linearized->simple[index].in_buffer.z_sze == op->in_buffer->sim_z_sze);
+            assert(linearized->simple[index].in_buffer.y_sze == op->in_buffer->sim_y_sze);
+            assert(linearized->simple[index].in_buffer.x_sze == op->in_buffer->sim_x_sze);
+            assert(linearized->simple[index].in_buffer.a_str == op->in_buffer->sim_a_str);
+            assert(linearized->simple[index].in_buffer.z_str == op->in_buffer->sim_z_str);
+            assert(linearized->simple[index].in_buffer.y_str == op->in_buffer->sim_y_str);
+            assert(linearized->simple[index].in_buffer.x_str == op->in_buffer->sim_x_str);
+            assert(linearized->simple[index].in_buffer.a_off == op->in_buffer->sim_a_off);
+            assert(linearized->simple[index].in_buffer.z_off == op->in_buffer->sim_z_off);
+            assert(linearized->simple[index].in_buffer.y_off == op->in_buffer->sim_y_off);
+            assert(linearized->simple[index].in_buffer.x_off == op->in_buffer->sim_x_off);
         }
         index++;
     }
-    op_cleanup(base);
-    op_free(base);
-    free(base);
+    op_cleanup(op);
+    op_free(op);
+    free(op);
     assert(linearized->op_count == index);
+    
+    // int64_t index = 0;
+    // assert(linearized);
+    // assert(op);
+    // while(op->parent_count) {
+    //     op_t *temp = op;
+    //     for(int64_t i = 0; i < MAX_DEPTH; i++) {
+    //         if(temp->parent_count) {
+    //             temp = temp->parent[0];
+    //         } else {
+    //             break;
+    //         }
+    //     }
+    //     assert(temp);
+    //     assert(temp->parent_count == 0);
+    //     if(temp->type == operation_move) {
+    //         switch(temp->move_type) {
+    //             case move_reshape: {
+    //                 temp->out_buffer->sim_a_sze = temp->var_a;
+    //                 temp->out_buffer->sim_z_sze = temp->var_z;
+    //                 temp->out_buffer->sim_y_sze = temp->var_y;
+    //                 temp->out_buffer->sim_x_sze = temp->var_x;
+    //                 temp->out_buffer->sim_a_str = temp->var_z * temp->var_y * temp->var_x;
+    //                 temp->out_buffer->sim_z_str = temp->var_y * temp->var_x;
+    //                 temp->out_buffer->sim_y_str = temp->var_x;
+    //                 temp->out_buffer->sim_x_str = 1;
+    //                 break;
+    //             }
+    //             case move_resize: {
+    //                 temp->out_buffer->sim_a_sze = temp->var_a;
+    //                 temp->out_buffer->sim_z_sze = temp->var_z;
+    //                 temp->out_buffer->sim_y_sze = temp->var_y;
+    //                 temp->out_buffer->sim_x_sze = temp->var_x;
+    //                 break;
+    //             }
+    //             case move_offset: {
+    //                 temp->out_buffer->sim_off = temp->out_buffer->sim_a_str * temp->var_a + temp->out_buffer->sim_z_str * temp->var_z +
+    //                                           temp->out_buffer->sim_y_str * temp->var_y + temp->out_buffer->sim_x_str * temp->var_x;
+    //                 temp->out_buffer->sim_a_off = temp->var_a;
+    //                 temp->out_buffer->sim_z_off = temp->var_z;
+    //                 temp->out_buffer->sim_y_off = temp->var_y;
+    //                 temp->out_buffer->sim_x_off = temp->var_x;
+    //                 break;
+    //             }
+    //         }
+    //     } else {
+    //         assert(linearized->simple[index].type == temp->type);
+    //         assert(linearized->simple[index].unary_type == temp->unary_type);
+    //         assert(linearized->simple[index].binary_type == temp->binary_type);
+    //         assert(linearized->simple[index].reduce_type == temp->reduce_type);
+    //         assert(linearized->simple[index].var_unary == temp->var_unary);
+    //         assert(linearized->simple[index].out_buffer.a_sze == temp->out_buffer->sim_a_sze);
+    //         assert(linearized->simple[index].out_buffer.z_sze == temp->out_buffer->sim_z_sze);
+    //         assert(linearized->simple[index].out_buffer.y_sze == temp->out_buffer->sim_y_sze);
+    //         assert(linearized->simple[index].out_buffer.x_sze == temp->out_buffer->sim_x_sze);
+    //         assert(linearized->simple[index].out_buffer.a_str == temp->out_buffer->sim_a_str);
+    //         assert(linearized->simple[index].out_buffer.z_str == temp->out_buffer->sim_z_str);
+    //         assert(linearized->simple[index].out_buffer.y_str == temp->out_buffer->sim_y_str);
+    //         assert(linearized->simple[index].out_buffer.x_str == temp->out_buffer->sim_x_str);
+    //         assert(linearized->simple[index].out_buffer.a_off == temp->out_buffer->sim_a_off);
+    //         assert(linearized->simple[index].out_buffer.z_off == temp->out_buffer->sim_z_off);
+    //         assert(linearized->simple[index].out_buffer.y_off == temp->out_buffer->sim_y_off);
+    //         assert(linearized->simple[index].out_buffer.x_off == temp->out_buffer->sim_x_off);
+    //         if(linearized->simple[index].type != operation_unary) {
+    //             assert(linearized->simple[index].in_buffer.a_sze == temp->in_buffer->sim_a_sze);
+    //             assert(linearized->simple[index].in_buffer.z_sze == temp->in_buffer->sim_z_sze);
+    //             assert(linearized->simple[index].in_buffer.y_sze == temp->in_buffer->sim_y_sze);
+    //             assert(linearized->simple[index].in_buffer.x_sze == temp->in_buffer->sim_x_sze);
+    //             assert(linearized->simple[index].in_buffer.a_str == temp->in_buffer->sim_a_str);
+    //             assert(linearized->simple[index].in_buffer.z_str == temp->in_buffer->sim_z_str);
+    //             assert(linearized->simple[index].in_buffer.y_str == temp->in_buffer->sim_y_str);
+    //             assert(linearized->simple[index].in_buffer.x_str == temp->in_buffer->sim_x_str);
+    //             assert(linearized->simple[index].in_buffer.a_off == temp->in_buffer->sim_a_off);
+    //             assert(linearized->simple[index].in_buffer.z_off == temp->in_buffer->sim_z_off);
+    //             assert(linearized->simple[index].in_buffer.y_off == temp->in_buffer->sim_y_off);
+    //             assert(linearized->simple[index].in_buffer.x_off == temp->in_buffer->sim_x_off);
+    //         }
+    //         index++;
+    //     }
+    //     op_cleanup(temp);
+    //     op_free(temp);
+    //     free(temp);
+    // }
+    // if(op->type == operation_move) {
+    //     assert(op);
+    //     switch(op->move_type) {
+    //         case move_reshape: {
+    //             op->out_buffer->sim_a_sze = op->var_a;
+    //             op->out_buffer->sim_z_sze = op->var_z;
+    //             op->out_buffer->sim_y_sze = op->var_y;
+    //             op->out_buffer->sim_x_sze = op->var_x;
+    //             op->out_buffer->sim_a_str = op->var_z * op->var_y * op->var_x;
+    //             op->out_buffer->sim_z_str = op->var_y * op->var_x;
+    //             op->out_buffer->sim_y_str = op->var_x;
+    //             op->out_buffer->sim_x_str = 1;
+    //             break;
+    //         }
+    //         case move_resize: {
+    //             op->out_buffer->sim_a_sze = op->var_a;
+    //             op->out_buffer->sim_z_sze = op->var_z;
+    //             op->out_buffer->sim_y_sze = op->var_y;
+    //             op->out_buffer->sim_x_sze = op->var_x;
+    //             break;
+    //         }
+    //         case move_offset: {
+    //             op->out_buffer->sim_off = op->out_buffer->sim_a_str * op->var_a + op->out_buffer->sim_z_str * op->var_z +
+    //                                         op->out_buffer->sim_y_str * op->var_y + op->out_buffer->sim_x_str * op->var_x;
+    //             op->out_buffer->sim_a_off = op->var_a;
+    //             op->out_buffer->sim_z_off = op->var_z;
+    //             op->out_buffer->sim_y_off = op->var_y;
+    //             op->out_buffer->sim_x_off = op->var_x;
+    //             break;
+    //         }
+    //     }
+    // } else {
+    //     assert(linearized->simple[index].type == op->type);
+    //     assert(linearized->simple[index].unary_type == op->unary_type);
+    //     assert(linearized->simple[index].binary_type == op->binary_type);
+    //     assert(linearized->simple[index].reduce_type == op->reduce_type);
+    //     assert(linearized->simple[index].var_unary == op->var_unary);
+    //     assert(linearized->simple[index].out_buffer.a_sze == op->out_buffer->sim_a_sze);
+    //     assert(linearized->simple[index].out_buffer.z_sze == op->out_buffer->sim_z_sze);
+    //     assert(linearized->simple[index].out_buffer.y_sze == op->out_buffer->sim_y_sze);
+    //     assert(linearized->simple[index].out_buffer.x_sze == op->out_buffer->sim_x_sze);
+    //     assert(linearized->simple[index].out_buffer.a_str == op->out_buffer->sim_a_str);
+    //     assert(linearized->simple[index].out_buffer.z_str == op->out_buffer->sim_z_str);
+    //     assert(linearized->simple[index].out_buffer.y_str == op->out_buffer->sim_y_str);
+    //     assert(linearized->simple[index].out_buffer.x_str == op->out_buffer->sim_x_str);
+    //     assert(linearized->simple[index].out_buffer.a_off == op->out_buffer->sim_a_off);
+    //     assert(linearized->simple[index].out_buffer.z_off == op->out_buffer->sim_z_off);
+    //     assert(linearized->simple[index].out_buffer.y_off == op->out_buffer->sim_y_off);
+    //     assert(linearized->simple[index].out_buffer.x_off == op->out_buffer->sim_x_off);
+    //     if(linearized->simple[index].type != operation_unary) {
+    //         assert(linearized->simple[index].in_buffer.a_sze == op->in_buffer->sim_a_sze);
+    //         assert(linearized->simple[index].in_buffer.z_sze == op->in_buffer->sim_z_sze);
+    //         assert(linearized->simple[index].in_buffer.y_sze == op->in_buffer->sim_y_sze);
+    //         assert(linearized->simple[index].in_buffer.x_sze == op->in_buffer->sim_x_sze);
+    //         assert(linearized->simple[index].in_buffer.a_str == op->in_buffer->sim_a_str);
+    //         assert(linearized->simple[index].in_buffer.z_str == op->in_buffer->sim_z_str);
+    //         assert(linearized->simple[index].in_buffer.y_str == op->in_buffer->sim_y_str);
+    //         assert(linearized->simple[index].in_buffer.x_str == op->in_buffer->sim_x_str);
+    //         assert(linearized->simple[index].in_buffer.a_off == op->in_buffer->sim_a_off);
+    //         assert(linearized->simple[index].in_buffer.z_off == op->in_buffer->sim_z_off);
+    //         assert(linearized->simple[index].in_buffer.y_off == op->in_buffer->sim_y_off);
+    //         assert(linearized->simple[index].in_buffer.x_off == op->in_buffer->sim_x_off);
+    //     }
+    //     index++;
+    // }
+    // op_cleanup(op);
+    // op_free(op);
+    // free(op);
+    // assert(linearized->op_count == index);
 }
 
 /* TODO: Validate equivalence between linearized and non-linearized fresh from the tree. */
