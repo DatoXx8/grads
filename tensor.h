@@ -86,6 +86,7 @@ enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
 /* NOTE: Move ops have 0 cost at runtime. */
 enum move_e { move_reshape, move_resize, move_offset };
 
+#define MAX_DEPTH 1000000
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
 typedef struct op {
     void *tensor_base;
@@ -140,7 +141,7 @@ extern void tensor_log_unary(tensor_t *tensor);
 extern void tensor_square_unary(tensor_t *tensor);
 extern void tensor_sqrt_unary(tensor_t *tensor);
 extern void tensor_reciprocal_unary(tensor_t *tensor);
-/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
+/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why you would do that in a ML framework but I digress. */
 extern void tensor_random_unary(tensor_t *tensor);
 extern void tensor_tanh_unary(tensor_t *tensor);
 extern void tensor_max_unary(tensor_t *tensor, double value);

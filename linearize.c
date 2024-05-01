@@ -869,7 +869,34 @@ linearized_t linearized_alloc(void) {
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     assert(linearized);
     if(!op) { return; }
-    while(op->parent_count > 0) { linearized_from_op(linearized, op->parent[0]); }
+    op_t *temp;
+    op_t *next = op;
+    while(op->parent_count > 0) {
+        temp = next;
+        for(int64_t i = 0; i < MAX_DEPTH; i++) {
+            if(temp->parent_count > 0) {
+                temp = temp->parent[0];
+            } else {
+                break;
+            }
+        }
+        assert(temp);
+        assert(temp->parent_count == 0);
+        if(linearized->op_capacity == linearized->op_count) {
+            linearized->op_capacity *= 2;
+            linearized->simple = reallocarray(linearized->simple, linearized->op_capacity, sizeof(simple_op_t));
+            assert(linearized->simple);
+        }
+        if(temp->type == operation_move) {
+            simple_op_simulate_move(temp);
+        } else {
+            simple_op_convert(&linearized->simple[linearized->op_count++], temp);
+        }
+        next = temp->child_count > 0 ? temp->child[0] : op;
+        op_cleanup(temp);
+        op_free(temp);
+        free(temp);
+    }
     if(linearized->op_capacity == linearized->op_count) {
         linearized->op_capacity *= 2;
         linearized->simple = reallocarray(linearized->simple, linearized->op_capacity, sizeof(simple_op_t));
