@@ -120,8 +120,8 @@ extern void op_single_op_cpu_realize(op_t *op);
 extern void op_cpu_realize(op_t *op);
 extern void op_tree(op_t *op);
 
-#define OP_PRINT(op) op_print(&op, 4, 0, (#op))
-#define OP_PRINT_(op) op_print(op, 4, 0, (#op))
+#define OP_PRINT(op) op_print(&(op), 4, 0, (#op))
+#define OP_PRINT_(op) op_print((op), 4, 0, (#op))
 
 typedef struct {
     buffer_t *buffer;
@@ -141,7 +141,8 @@ extern void tensor_unary_log(tensor_t *tensor);
 extern void tensor_unary_square(tensor_t *tensor);
 extern void tensor_unary_sqrt(tensor_t *tensor);
 extern void tensor_unary_reciprocal(tensor_t *tensor);
-/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why you would do that in a ML framework but I digress. */
+/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why you would do that in a ML framework but I
+ * digress. */
 extern void tensor_unary_random(tensor_t *tensor);
 extern void tensor_unary_tanh(tensor_t *tensor);
 extern void tensor_unary_max(tensor_t *tensor, double value);
@@ -178,9 +179,9 @@ extern void tensor_realize(tensor_t *tensor);
 extern void tensor_print(tensor_t *tensor, int padding, int offset, const char *name);
 extern void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name);
 
-#define TENSOR_PRINT(tensor) tensor_print(&tensor, 4, 0, (#tensor))
-#define TENSOR_PRINT_(tensor) tensor_print(tensor, 4, 0, (#tensor))
-#define TENSOR_PREVIEW(tensor) tensor_preview(&tensor, 4, 0, (#tensor))
-#define TENSOR_PREVIEW_(tensor) tensor_preview(tensor, 4, 0, (#tensor))
+#define TENSOR_PRINT(tensor) tensor_print(&(tensor), 4, 0, (#tensor))
+#define TENSOR_PRINT_(tensor) tensor_print((tensor), 4, 0, (#tensor))
+#define TENSOR_PREVIEW(tensor) tensor_preview(&(tensor), 4, 0, (#tensor))
+#define TENSOR_PREVIEW_(tensor) tensor_preview((tensor), 4, 0, (#tensor))
 
 #endif
