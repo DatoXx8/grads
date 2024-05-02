@@ -12,7 +12,7 @@ SpaceBeforeParens: Custom
 SpaceBeforeParensOptions:
   AfterControlStatements: false
   AfterFunctionDefinitionName: false
-IndentCaseLabels: false
+IndentCaseLabels: true
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false
 BreakStringLiterals: false

@@ -16,76 +16,76 @@ static activation_t activation_alloc_(enum activation_e activation_type, int64_t
     assert(x > 0);
     activation_t activation = {0};
     switch(activation_type) {
-    case activation_identity: {
-        activation.type = activation_identity;
-        break;
-    }
-    case activation_relu: {
-        activation.type = activation_relu;
-        break;
-    }
-    case activation_sigmoid: {
-        activation.type = activation_sigmoid;
-        break;
-    }
-    case activation_tanh: {
-        activation.type = activation_tanh;
-        break;
-    }
-    case activation_silu: {
-        activation.type = activation_silu;
-        activation.intermediary = calloc(1, sizeof(tensor_t));
-        assert(activation.intermediary);
-        *activation.intermediary = tensor_alloc(a, z, y, x);
-        break;
-    }
-    case activation_gelu: {
-        activation.type = activation_gelu;
-        activation.intermediary = calloc(1, sizeof(tensor_t));
-        assert(activation.intermediary);
-        *activation.intermediary = tensor_alloc(a, z, y, x);
-        break;
-    }
-    case activation_leaky: {
-        activation.type = activation_leaky;
-        activation.intermediary = calloc(1, sizeof(tensor_t));
-        assert(activation.intermediary);
-        *activation.intermediary = tensor_alloc(a, z, y, x);
-        break;
-    }
+        case activation_identity: {
+            activation.type = activation_identity;
+            break;
+        }
+        case activation_relu: {
+            activation.type = activation_relu;
+            break;
+        }
+        case activation_sigmoid: {
+            activation.type = activation_sigmoid;
+            break;
+        }
+        case activation_tanh: {
+            activation.type = activation_tanh;
+            break;
+        }
+        case activation_silu: {
+            activation.type = activation_silu;
+            activation.intermediary = calloc(1, sizeof(tensor_t));
+            assert(activation.intermediary);
+            *activation.intermediary = tensor_alloc(a, z, y, x);
+            break;
+        }
+        case activation_gelu: {
+            activation.type = activation_gelu;
+            activation.intermediary = calloc(1, sizeof(tensor_t));
+            assert(activation.intermediary);
+            *activation.intermediary = tensor_alloc(a, z, y, x);
+            break;
+        }
+        case activation_leaky: {
+            activation.type = activation_leaky;
+            activation.intermediary = calloc(1, sizeof(tensor_t));
+            assert(activation.intermediary);
+            *activation.intermediary = tensor_alloc(a, z, y, x);
+            break;
+        }
     }
     return activation;
 }
 static void activation_free_(activation_t *activation) {
     assert(activation);
     switch(activation->type) {
-    case activation_identity: {
-        break;
-    }
-    case activation_relu: {
-        break;
-    }
-    case activation_sigmoid: {
-        break;
-    }
-    case activation_tanh: {
-        break;
-    }
-    case activation_silu: {
-        tensor_free(activation->intermediary);
-        free(activation->intermediary);
-        break;
-    }
-    case activation_gelu: {
-        tensor_free(activation->intermediary);
-        free(activation->intermediary);
-        break;
-    }
-    case activation_leaky: {
-        tensor_free(activation->intermediary);
-        free(activation->intermediary);
-        break;
-    }
+        case activation_identity: {
+            break;
+        }
+        case activation_relu: {
+            break;
+        }
+        case activation_sigmoid: {
+            break;
+        }
+        case activation_tanh: {
+            break;
+        }
+        case activation_silu: {
+            tensor_free(activation->intermediary);
+            free(activation->intermediary);
+            break;
+        }
+        case activation_gelu: {
+            tensor_free(activation->intermediary);
+            free(activation->intermediary);
+            break;
+        }
+        case activation_leaky: {
+            tensor_free(activation->intermediary);
+            free(activation->intermediary);
+            break;
+        }
     }
 }
 const double LEAKY_FACTOR = 0.1;
@@ -95,53 +95,53 @@ static void activation_activate_(tensor_t *tensor, activation_t *activation) {
     assert(tensor);
     assert(activation);
     switch(activation->type) {
-    case activation_identity: {
-        break;
-    }
-    case activation_relu: {
-        tensor_unary_max(tensor, 0);
-        break;
-    }
-    case activation_sigmoid: {
-        tensor_unary_multiply(tensor, -1);
-        tensor_unary_exp(tensor);
-        tensor_unary_add(tensor, 1);
-        tensor_unary_reciprocal(tensor);
-        break;
-    }
-    case activation_tanh: {
-        tensor_unary_tanh(tensor);
-        break;
-    }
-    case activation_silu: {
-        tensor_binary_copy(activation->intermediary, tensor);
-        tensor_unary_max(tensor, 0);
-        tensor_unary_multiply(tensor, -1);
-        tensor_unary_exp(activation->intermediary);
-        tensor_unary_add(activation->intermediary, 1);
-        tensor_unary_reciprocal(activation->intermediary);
-        tensor_binary_multiply(tensor, activation->intermediary);
-        break;
-    }
-    case activation_gelu: {
-        /* NOTE: This is an approximation and can be found here: https://paperswithcode.com/method/gelu */
-        /* TODO: Write a brute forcer that minimizes the error by varying the constant. */
-        tensor_binary_copy(activation->intermediary, tensor);
-        tensor_unary_max(tensor, 0);
-        tensor_unary_multiply(activation->intermediary, 1.703);
-        tensor_unary_multiply(tensor, -1);
-        tensor_unary_exp(activation->intermediary);
-        tensor_unary_add(activation->intermediary, 1);
-        tensor_unary_reciprocal(activation->intermediary);
-        tensor_binary_multiply(tensor, activation->intermediary);
-        break;
-    }
-    case activation_leaky: {
-        tensor_binary_copy(activation->intermediary, tensor);
-        tensor_unary_multiply(activation->intermediary, LEAKY_FACTOR);
-        tensor_binary_max(tensor, activation->intermediary);
-        break;
-    }
+        case activation_identity: {
+            break;
+        }
+        case activation_relu: {
+            tensor_unary_max(tensor, 0);
+            break;
+        }
+        case activation_sigmoid: {
+            tensor_unary_multiply(tensor, -1);
+            tensor_unary_exp(tensor);
+            tensor_unary_add(tensor, 1);
+            tensor_unary_reciprocal(tensor);
+            break;
+        }
+        case activation_tanh: {
+            tensor_unary_tanh(tensor);
+            break;
+        }
+        case activation_silu: {
+            tensor_binary_copy(activation->intermediary, tensor);
+            tensor_unary_max(tensor, 0);
+            tensor_unary_multiply(tensor, -1);
+            tensor_unary_exp(activation->intermediary);
+            tensor_unary_add(activation->intermediary, 1);
+            tensor_unary_reciprocal(activation->intermediary);
+            tensor_binary_multiply(tensor, activation->intermediary);
+            break;
+        }
+        case activation_gelu: {
+            /* NOTE: This is an approximation and can be found here: https://paperswithcode.com/method/gelu */
+            /* TODO: Write a brute forcer that minimizes the error by varying the constant. */
+            tensor_binary_copy(activation->intermediary, tensor);
+            tensor_unary_max(tensor, 0);
+            tensor_unary_multiply(activation->intermediary, 1.703);
+            tensor_unary_multiply(tensor, -1);
+            tensor_unary_exp(activation->intermediary);
+            tensor_unary_add(activation->intermediary, 1);
+            tensor_unary_reciprocal(activation->intermediary);
+            tensor_binary_multiply(tensor, activation->intermediary);
+            break;
+        }
+        case activation_leaky: {
+            tensor_binary_copy(activation->intermediary, tensor);
+            tensor_unary_multiply(activation->intermediary, LEAKY_FACTOR);
+            tensor_binary_max(tensor, activation->intermediary);
+            break;
+        }
     }
 }
 static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor) {
@@ -150,76 +150,76 @@ static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor) {
         .type = type,
     };
     switch(norm.type) {
-    case norm_none: {
-        break;
-    }
-    case norm_batch: {
-        norm.batch_variance = calloc(1, sizeof(tensor_t));
-        norm.batch_expected = calloc(1, sizeof(tensor_t));
-        assert(norm.batch_expected);
-        assert(norm.batch_variance);
-        *norm.batch_expected =
-            tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y, tensor->buffer->inh_x);
-        *norm.batch_variance =
-            tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y, tensor->buffer->inh_x);
-        TODO();
-        break;
-    }
-    case norm_layer: {
-        norm.layer_expected = calloc(1, sizeof(tensor_t));
-        norm.layer_variance = calloc(1, sizeof(tensor_t));
-        norm.layer_intermediary = calloc(1, sizeof(tensor_t));
-        assert(norm.layer_expected);
-        assert(norm.layer_variance);
-        assert(norm.layer_intermediary);
-        *norm.layer_expected = tensor_alloc(1, 1, 1, 1);
-        *norm.layer_variance = tensor_alloc(1, 1, 1, 1);
-        *norm.layer_intermediary =
-            tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y, tensor->buffer->inh_x);
-        break;
-    }
-    case norm_simple: {
-        norm.simple_max = calloc(1, sizeof(tensor_t));
-        norm.simple_intermediary = calloc(1, sizeof(tensor_t));
-        assert(norm.simple_max);
-        assert(norm.simple_intermediary);
-        *norm.simple_max = tensor_alloc(1, 1, 1, 1);
-        *norm.simple_intermediary =
-            tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y, tensor->buffer->inh_x);
-        break;
-    }
+        case norm_none: {
+            break;
+        }
+        case norm_batch: {
+            norm.batch_variance = calloc(1, sizeof(tensor_t));
+            norm.batch_expected = calloc(1, sizeof(tensor_t));
+            assert(norm.batch_expected);
+            assert(norm.batch_variance);
+            *norm.batch_expected = tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y,
+                                                tensor->buffer->inh_x);
+            *norm.batch_variance = tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y,
+                                                tensor->buffer->inh_x);
+            TODO();
+            break;
+        }
+        case norm_layer: {
+            norm.layer_expected = calloc(1, sizeof(tensor_t));
+            norm.layer_variance = calloc(1, sizeof(tensor_t));
+            norm.layer_intermediary = calloc(1, sizeof(tensor_t));
+            assert(norm.layer_expected);
+            assert(norm.layer_variance);
+            assert(norm.layer_intermediary);
+            *norm.layer_expected = tensor_alloc(1, 1, 1, 1);
+            *norm.layer_variance = tensor_alloc(1, 1, 1, 1);
+            *norm.layer_intermediary = tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z, tensor->buffer->inh_y,
+                                                    tensor->buffer->inh_x);
+            break;
+        }
+        case norm_simple: {
+            norm.simple_max = calloc(1, sizeof(tensor_t));
+            norm.simple_intermediary = calloc(1, sizeof(tensor_t));
+            assert(norm.simple_max);
+            assert(norm.simple_intermediary);
+            *norm.simple_max = tensor_alloc(1, 1, 1, 1);
+            *norm.simple_intermediary = tensor_alloc(tensor->buffer->inh_a, tensor->buffer->inh_z,
+                                                     tensor->buffer->inh_y, tensor->buffer->inh_x);
+            break;
+        }
     }
     return norm;
 }
 static void norm_free_(norm_t *norm) {
     assert(norm);
     switch(norm->type) {
-    case norm_none: {
-        break;
-    }
-    case norm_batch: {
-        tensor_free(norm->batch_expected);
-        tensor_free(norm->batch_variance);
-        free(norm->batch_expected);
-        free(norm->batch_variance);
-        break;
-    }
-    case norm_layer: {
-        tensor_free(norm->layer_expected);
-        tensor_free(norm->layer_variance);
-        tensor_free(norm->layer_intermediary);
-        free(norm->layer_expected);
-        free(norm->layer_variance);
-        free(norm->layer_intermediary);
-        break;
-    }
-    case norm_simple: {
-        tensor_free(norm->simple_intermediary);
-        tensor_free(norm->simple_max);
-        free(norm->simple_intermediary);
-        free(norm->simple_max);
-        break;
-    }
+        case norm_none: {
+            break;
+        }
+        case norm_batch: {
+            tensor_free(norm->batch_expected);
+            tensor_free(norm->batch_variance);
+            free(norm->batch_expected);
+            free(norm->batch_variance);
+            break;
+        }
+        case norm_layer: {
+            tensor_free(norm->layer_expected);
+            tensor_free(norm->layer_variance);
+            tensor_free(norm->layer_intermediary);
+            free(norm->layer_expected);
+            free(norm->layer_variance);
+            free(norm->layer_intermediary);
+            break;
+        }
+        case norm_simple: {
+            tensor_free(norm->simple_intermediary);
+            tensor_free(norm->simple_max);
+            free(norm->simple_intermediary);
+            free(norm->simple_max);
+            break;
+        }
     }
 }
 const double EPSILON = 1e-6;
@@ -245,27 +245,27 @@ static void norm_apply_(norm_t *norm, tensor_t *tensor) {
     assert(norm);
     assert(tensor);
     switch(norm->type) {
-    case norm_none: {
-        break;
-    }
-    case norm_batch: {
-        norm_calculate_batch_();
-        assert(0);
-        break;
-    }
-    case norm_layer: {
-        norm_calculate_layer_(norm, tensor);
-        tensor_lbinary_subtract(tensor, norm->layer_expected);
-        tensor_lbinary_divide(tensor, norm->layer_variance);
-        break;
-    }
-    case norm_simple: {
-        tensor_binary_copy(norm->simple_intermediary, tensor);
-        tensor_unary_absolute(norm->simple_intermediary);
-        tensor_reduce_max(norm->simple_max, norm->simple_intermediary);
-        tensor_lbinary_divide(tensor, norm->simple_max);
-        break;
-    }
+        case norm_none: {
+            break;
+        }
+        case norm_batch: {
+            norm_calculate_batch_();
+            assert(0);
+            break;
+        }
+        case norm_layer: {
+            norm_calculate_layer_(norm, tensor);
+            tensor_lbinary_subtract(tensor, norm->layer_expected);
+            tensor_lbinary_divide(tensor, norm->layer_variance);
+            break;
+        }
+        case norm_simple: {
+            tensor_binary_copy(norm->simple_intermediary, tensor);
+            tensor_unary_absolute(norm->simple_intermediary);
+            tensor_reduce_max(norm->simple_max, norm->simple_intermediary);
+            tensor_lbinary_divide(tensor, norm->simple_max);
+            break;
+        }
     }
 }
 
@@ -704,54 +704,54 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     tensor_move_resize(output, 1, 1, 1, 1);
     /* PERF: Switch statement is on the outside cuz it only needs to be done once then. */
     switch(reduce->type) {
-    case layer_reduce_max: {
-        for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
-            output_y_i = 0;
-            for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
-                output_x_i = 0;
-                for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
-                    tensor_move_offset(input, 0, channel, y, x);
-                    tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
-                    tensor_reduce_max(output, input);
-                    output_x_i++;
+        case layer_reduce_max: {
+            for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
+                output_y_i = 0;
+                for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
+                    output_x_i = 0;
+                    for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
+                        tensor_move_offset(input, 0, channel, y, x);
+                        tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
+                        tensor_reduce_max(output, input);
+                        output_x_i++;
+                    }
+                    output_y_i++;
                 }
-                output_y_i++;
             }
+            break;
         }
-        break;
-    }
-    case layer_reduce_min: {
-        for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
-            output_y_i = 0;
-            for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
-                output_x_i = 0;
-                for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
-                    tensor_move_offset(input, 0, channel, y, x);
-                    tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
-                    tensor_reduce_min(output, input);
-                    output_x_i++;
+        case layer_reduce_min: {
+            for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
+                output_y_i = 0;
+                for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
+                    output_x_i = 0;
+                    for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
+                        tensor_move_offset(input, 0, channel, y, x);
+                        tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
+                        tensor_reduce_min(output, input);
+                        output_x_i++;
+                    }
+                    output_y_i++;
                 }
-                output_y_i++;
             }
+            break;
         }
-        break;
-    }
-    case layer_reduce_avg: {
-        for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
-            output_y_i = 0;
-            for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
-                output_x_i = 0;
-                for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
-                    tensor_move_offset(input, 0, channel, y, x);
-                    tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
-                    tensor_reduce_avg(output, input);
-                    output_x_i++;
+        case layer_reduce_avg: {
+            for(int64_t channel = 0; channel < reduce->input_channels_; channel++) {
+                output_y_i = 0;
+                for(int64_t y = 0; y < reduce->input_y_ - reduce->kernel_size + 1; y += reduce->kernel_stride) {
+                    output_x_i = 0;
+                    for(int64_t x = 0; x < reduce->input_x_ - reduce->kernel_size + 1; x += reduce->kernel_stride) {
+                        tensor_move_offset(input, 0, channel, y, x);
+                        tensor_move_offset(output, 0, channel, output_y_i, output_x_i);
+                        tensor_reduce_avg(output, input);
+                        output_x_i++;
+                    }
+                    output_y_i++;
                 }
-                output_y_i++;
             }
+            break;
         }
-        break;
-    }
     }
     tensor_move_resize(input, 1, input_z, input_y, input_x);
     tensor_move_offset(input, 0, 0, 0, 0);
@@ -774,54 +774,54 @@ void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *outpu
     tensor_move_resize(input_gradient, 1, 1, reduce->kernel_size, reduce->kernel_size);
     tensor_move_resize(output_gradient, 1, 1, 1, 1);
     switch(reduce->type) {
-    case layer_reduce_max: {
-        for(int64_t channel = 0; channel < input_z; channel++) {
-            input_y_i = 0;
-            for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
-                input_x_i = 0;
-                for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
-                    tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
-                    tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
-                    tensor_lbinary_add(input_gradient, output_gradient);
-                    input_x_i += reduce->kernel_stride;
+        case layer_reduce_max: {
+            for(int64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_lbinary_add(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
                 }
-                input_y_i += reduce->kernel_stride;
             }
+            break;
         }
-        break;
-    }
-    case layer_reduce_min: {
-        for(int64_t channel = 0; channel < input_z; channel++) {
-            input_y_i = 0;
-            for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
-                input_x_i = 0;
-                for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
-                    tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
-                    tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
-                    tensor_lbinary_add(input_gradient, output_gradient);
-                    input_x_i += reduce->kernel_stride;
+        case layer_reduce_min: {
+            for(int64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_lbinary_add(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
                 }
-                input_y_i += reduce->kernel_stride;
             }
+            break;
         }
-        break;
-    }
-    case layer_reduce_avg: {
-        for(int64_t channel = 0; channel < input_z; channel++) {
-            input_y_i = 0;
-            for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
-                input_x_i = 0;
-                for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
-                    tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
-                    tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
-                    tensor_lbinary_add(input_gradient, output_gradient);
-                    input_x_i += reduce->kernel_stride;
+        case layer_reduce_avg: {
+            for(int64_t channel = 0; channel < input_z; channel++) {
+                input_y_i = 0;
+                for(int64_t output_y_i = 0; output_y_i < output_y; output_y_i++) {
+                    input_x_i = 0;
+                    for(int64_t output_x_i = 0; output_x_i < output_x; output_x_i++) {
+                        tensor_move_offset(input_gradient, 0, channel, input_y_i, input_x_i);
+                        tensor_move_offset(output_gradient, 0, channel, output_y_i, output_x_i);
+                        tensor_lbinary_add(input_gradient, output_gradient);
+                        input_x_i += reduce->kernel_stride;
+                    }
+                    input_y_i += reduce->kernel_stride;
                 }
-                input_y_i += reduce->kernel_stride;
             }
+            break;
         }
-        break;
-    }
     }
     tensor_move_resize(input_gradient, 1, input_z, input_y, input_x);
     tensor_move_offset(input_gradient, 0, 0, 0, 0);
@@ -993,175 +993,178 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
     assert(layerconfig);
     layer_t layer = {0};
     switch(layerconfig->layer_type) {
-    case layer_input: {
-        layer.activation = calloc(1, sizeof(tensor_t));
-        *layer.activation = tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
-        layer.activation_g = calloc(1, sizeof(tensor_t));
-        *layer.activation_g = tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
-        layer.layer_type = layer_input;
-        assert(layer.activation);
-        assert(layer.activation_g);
-        break;
-    }
-    case layer_dense: {
-        layer.activation = calloc(1, sizeof(tensor_t));
-        *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
-        layer.activation_g = calloc(1, sizeof(tensor_t));
-        *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
-        layer.activation_function = calloc(1, sizeof(activation_t));
-        *layer.activation_function = activation_alloc_(layerconfig->activation_function, 1, 1, 1,
-                                                       layerconfig->dense_input_channels_ *
-                                                           layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
-        layer.norm = calloc(1, sizeof(norm_t));
-        *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
-        layer.layer_type = layer_dense;
-        layer.dense = calloc(1, sizeof(dense_t));
-        *layer.dense =
-            dense_alloc(layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_,
-                        layerconfig->dense_output_size);
-        assert(layer.activation);
-        assert(layer.activation_g);
-        assert(layer.activation_function);
-        assert(layer.norm);
-        assert(layer.dense);
-        break;
-    }
-    case layer_convolution: {
-        int64_t new_size_y =
-            CONVOLUTION_OUTPUT_SIZE(layerconfig->convolution_input_y_, layerconfig->convolution_kernel_size,
-                                    layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
-        int64_t new_size_x =
-            CONVOLUTION_OUTPUT_SIZE(layerconfig->convolution_input_x_, layerconfig->convolution_kernel_size,
-                                    layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
-        layer.activation = calloc(1, sizeof(tensor_t));
-        *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
-        layer.activation_g = calloc(1, sizeof(tensor_t));
-        *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
-        layer.activation_function = calloc(1, sizeof(activation_t));
-        *layer.activation_function =
-            activation_alloc_(layerconfig->activation_function, 1, layerconfig->convolution_input_channels_,
-                              layerconfig->convolution_input_y_, layerconfig->convolution_input_x_);
-        layer.norm = calloc(1, sizeof(norm_t));
-        *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
-        layer.layer_type = layer_convolution;
-        layer.convolution = calloc(1, sizeof(convolution_t));
-        *layer.convolution = convolution_alloc(
-            layerconfig->convolution_input_channels_, layerconfig->convolution_input_y_,
-            layerconfig->convolution_input_x_, layerconfig->convolution_filters, layerconfig->convolution_kernel_size,
-            layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
-        assert(layer.activation);
-        assert(layer.activation_g);
-        assert(layer.activation_function);
-        assert(layer.norm);
-        assert(layer.convolution);
-        break;
-    }
-    case layer_reduce: {
-        int64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_y_, layerconfig->reduce_kernel_size,
-                                                layerconfig->reduce_kernel_stride);
-        int64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_x_, layerconfig->reduce_kernel_size,
-                                                layerconfig->reduce_kernel_stride);
-        layer.activation = calloc(1, sizeof(tensor_t));
-        *layer.activation = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
-        layer.activation_g = calloc(1, sizeof(tensor_t));
-        *layer.activation_g = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
-        layer.layer_type = layer_reduce;
-        layer.reduce = calloc(1, sizeof(reduce_t));
-        *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels_,
-                                     layerconfig->reduce_input_y_, layerconfig->reduce_input_x_,
-                                     layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
-        assert(layer.activation);
-        assert(layer.activation_g);
-        assert(layerconfig->norm_type == norm_none);
-        assert(layerconfig->activation_function == activation_identity);
-        assert(layer.reduce);
-        break;
-    }
-    case layer_split: {
-        layer.activation = calloc(1, sizeof(tensor_t));
-        *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                         layerconfig->split_input_y_, layerconfig->split_input_x_);
-        layer.activation_g = calloc(1, sizeof(tensor_t));
-        *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                           layerconfig->split_input_y_, layerconfig->split_input_x_);
-        layer.activation_function = calloc(1, sizeof(activation_t));
-        *layer.activation_function =
-            activation_alloc_(layerconfig->activation_function, 1, layerconfig->split_input_channels_,
-                              layerconfig->split_input_y_, layerconfig->split_input_x_);
-        layer.norm = calloc(1, sizeof(norm_t));
-        *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
-        layer.layer_type = layer_split;
-        layer.split = calloc(1, sizeof(split_t));
-        *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels_,
-                                   layerconfig->split_input_y_, layerconfig->split_input_x_);
-        assert(layer.activation);
-        assert(layer.activation_g);
-        assert(layer.activation_function);
-        assert(layer.norm);
-        assert(layer.split);
-        break;
-    }
+        case layer_input: {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation =
+                tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g =
+                tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x);
+            layer.layer_type = layer_input;
+            assert(layer.activation);
+            assert(layer.activation_g);
+            break;
+        }
+        case layer_dense: {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function = activation_alloc_(
+                layerconfig->activation_function, 1, 1, 1,
+                layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
+            layer.norm = calloc(1, sizeof(norm_t));
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
+            layer.layer_type = layer_dense;
+            layer.dense = calloc(1, sizeof(dense_t));
+            *layer.dense = dense_alloc(layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ *
+                                           layerconfig->dense_input_x_,
+                                       layerconfig->dense_output_size);
+            assert(layer.activation);
+            assert(layer.activation_g);
+            assert(layer.activation_function);
+            assert(layer.norm);
+            assert(layer.dense);
+            break;
+        }
+        case layer_convolution: {
+            int64_t new_size_y = CONVOLUTION_OUTPUT_SIZE(
+                layerconfig->convolution_input_y_, layerconfig->convolution_kernel_size,
+                layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
+            int64_t new_size_x = CONVOLUTION_OUTPUT_SIZE(
+                layerconfig->convolution_input_x_, layerconfig->convolution_kernel_size,
+                layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function =
+                activation_alloc_(layerconfig->activation_function, 1, layerconfig->convolution_input_channels_,
+                                  layerconfig->convolution_input_y_, layerconfig->convolution_input_x_);
+            layer.norm = calloc(1, sizeof(norm_t));
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
+            layer.layer_type = layer_convolution;
+            layer.convolution = calloc(1, sizeof(convolution_t));
+            *layer.convolution =
+                convolution_alloc(layerconfig->convolution_input_channels_, layerconfig->convolution_input_y_,
+                                  layerconfig->convolution_input_x_, layerconfig->convolution_filters,
+                                  layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride,
+                                  layerconfig->convolution_kernel_padding);
+            assert(layer.activation);
+            assert(layer.activation_g);
+            assert(layer.activation_function);
+            assert(layer.norm);
+            assert(layer.convolution);
+            break;
+        }
+        case layer_reduce: {
+            int64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_y_, layerconfig->reduce_kernel_size,
+                                                    layerconfig->reduce_kernel_stride);
+            int64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_x_, layerconfig->reduce_kernel_size,
+                                                    layerconfig->reduce_kernel_stride);
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
+            layer.layer_type = layer_reduce;
+            layer.reduce = calloc(1, sizeof(reduce_t));
+            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels_,
+                                         layerconfig->reduce_input_y_, layerconfig->reduce_input_x_,
+                                         layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
+            assert(layer.activation);
+            assert(layer.activation_g);
+            assert(layerconfig->norm_type == norm_none);
+            assert(layerconfig->activation_function == activation_identity);
+            assert(layer.reduce);
+            break;
+        }
+        case layer_split: {
+            layer.activation = calloc(1, sizeof(tensor_t));
+            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
+                                             layerconfig->split_input_y_, layerconfig->split_input_x_);
+            layer.activation_g = calloc(1, sizeof(tensor_t));
+            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
+                                               layerconfig->split_input_y_, layerconfig->split_input_x_);
+            layer.activation_function = calloc(1, sizeof(activation_t));
+            *layer.activation_function =
+                activation_alloc_(layerconfig->activation_function, 1, layerconfig->split_input_channels_,
+                                  layerconfig->split_input_y_, layerconfig->split_input_x_);
+            layer.norm = calloc(1, sizeof(norm_t));
+            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
+            layer.layer_type = layer_split;
+            layer.split = calloc(1, sizeof(split_t));
+            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels_,
+                                       layerconfig->split_input_y_, layerconfig->split_input_x_);
+            assert(layer.activation);
+            assert(layer.activation_g);
+            assert(layer.activation_function);
+            assert(layer.norm);
+            assert(layer.split);
+            break;
+        }
     }
     return layer;
 }
 void layer_free(layer_t *layer) {
     assert(layer);
     switch(layer->layer_type) {
-    case layer_input: {
-        tensor_free(layer->activation);
-        free(layer->activation);
-        tensor_free(layer->activation_g);
-        free(layer->activation_g);
-        break;
-    }
-    case layer_dense: {
-        tensor_free(layer->activation);
-        free(layer->activation);
-        tensor_free(layer->activation_g);
-        free(layer->activation_g);
-        dense_free(layer->dense);
-        free(layer->dense);
-        activation_free_(layer->activation_function);
-        free(layer->activation_function);
-        norm_free_(layer->norm);
-        free(layer->norm);
-        break;
-    }
-    case layer_convolution: {
-        tensor_free(layer->activation);
-        free(layer->activation);
-        tensor_free(layer->activation_g);
-        free(layer->activation_g);
-        convolution_free(layer->convolution);
-        free(layer->convolution);
-        activation_free_(layer->activation_function);
-        free(layer->activation_function);
-        norm_free_(layer->norm);
-        free(layer->norm);
-        break;
-    }
-    case layer_reduce: {
-        tensor_free(layer->activation);
-        free(layer->activation);
-        tensor_free(layer->activation_g);
-        free(layer->activation_g);
-        // reduce_free(layer->reduce);
-        free(layer->reduce);
-        break;
-    }
-    case layer_split: {
-        tensor_free(layer->activation);
-        free(layer->activation);
-        tensor_free(layer->activation_g);
-        free(layer->activation_g);
-        split_free(layer->split);
-        free(layer->split);
-        activation_free_(layer->activation_function);
-        free(layer->activation_function);
-        norm_free_(layer->norm);
-        free(layer->norm);
-        break;
-    }
+        case layer_input: {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            break;
+        }
+        case layer_dense: {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            dense_free(layer->dense);
+            free(layer->dense);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
+            free(layer->norm);
+            break;
+        }
+        case layer_convolution: {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            convolution_free(layer->convolution);
+            free(layer->convolution);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
+            free(layer->norm);
+            break;
+        }
+        case layer_reduce: {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            // reduce_free(layer->reduce);
+            free(layer->reduce);
+            break;
+        }
+        case layer_split: {
+            tensor_free(layer->activation);
+            free(layer->activation);
+            tensor_free(layer->activation_g);
+            free(layer->activation_g);
+            split_free(layer->split);
+            free(layer->split);
+            activation_free_(layer->activation_function);
+            free(layer->activation_function);
+            norm_free_(layer->norm);
+            free(layer->norm);
+            break;
+        }
     }
 }
 
@@ -1196,207 +1199,211 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
         previous_y = neuralnet.layer[layer - 1].activation->buffer->sze_y;
         previous_x = neuralnet.layer[layer - 1].activation->buffer->sze_x;
         switch(layerconfig[layer]->layer_type) {
-        case layer_dense: {
-            layerconfig[layer]->dense_input_channels_ = previous_z;
-            layerconfig[layer]->dense_input_y_ = previous_y;
-            layerconfig[layer]->dense_input_x_ = previous_x;
-            neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
-            break;
-        }
-        case layer_convolution: {
-            layerconfig[layer]->convolution_input_channels_ = previous_z;
-            layerconfig[layer]->convolution_input_y_ = previous_y;
-            layerconfig[layer]->convolution_input_x_ = previous_x;
-            neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
-            break;
-        }
-        case layer_reduce: {
-            layerconfig[layer]->reduce_input_channels_ = previous_z;
-            layerconfig[layer]->reduce_input_y_ = previous_y;
-            layerconfig[layer]->reduce_input_x_ = previous_x;
-            neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
-            break;
-        }
-        case layer_split: {
-            layerconfig[layer]->split_input_channels_ = previous_z;
-            layerconfig[layer]->split_input_y_ = previous_y;
-            layerconfig[layer]->split_input_x_ = previous_x;
-            neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
-            break;
-        }
-        case layer_input: {
-            ERROR("Tried to allocate input layer at a layer with index %lu\n", layer);
-        }
+            case layer_dense: {
+                layerconfig[layer]->dense_input_channels_ = previous_z;
+                layerconfig[layer]->dense_input_y_ = previous_y;
+                layerconfig[layer]->dense_input_x_ = previous_x;
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
+                break;
+            }
+            case layer_convolution: {
+                layerconfig[layer]->convolution_input_channels_ = previous_z;
+                layerconfig[layer]->convolution_input_y_ = previous_y;
+                layerconfig[layer]->convolution_input_x_ = previous_x;
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
+                break;
+            }
+            case layer_reduce: {
+                layerconfig[layer]->reduce_input_channels_ = previous_z;
+                layerconfig[layer]->reduce_input_y_ = previous_y;
+                layerconfig[layer]->reduce_input_x_ = previous_x;
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
+                break;
+            }
+            case layer_split: {
+                layerconfig[layer]->split_input_channels_ = previous_z;
+                layerconfig[layer]->split_input_y_ = previous_y;
+                layerconfig[layer]->split_input_x_ = previous_x;
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer]);
+                break;
+            }
+            case layer_input: {
+                ERROR("Tried to allocate input layer at a layer with index %lu\n", layer);
+            }
         }
     }
 
     for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
         switch(neuralnet.layer[layer].layer_type) {
-        case layer_dense: {
-            dense_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].dense,
-                          neuralnet.layer[layer].activation);
-            activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-            norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
-            break;
-        }
-        case layer_convolution: {
-            convolution_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].convolution,
-                                neuralnet.layer[layer].activation);
-            activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-            norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
-            break;
-        }
-        case layer_reduce: {
-            reduce_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].reduce,
-                           neuralnet.layer[layer].activation);
-            break;
-        }
-        case layer_split: {
-            split_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].split,
-                          neuralnet.layer[layer].activation);
-            activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-            norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
-            break;
-        }
-        case layer_input: {
-            ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        }
-        }
-    }
-    /* NOTE: Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape. */
-    for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
-        switch(neuralnet.layer[layer].layer_type) {
-        case layer_dense: {
-            linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-            break;
-        }
-        case layer_convolution: {
-            linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-            break;
-        }
-        case layer_reduce: {
-            linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-            break;
-        }
-        case layer_split: {
-            linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-            break;
-        }
-        case layer_input: {
-            linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-            break;
-        }
-        }
-    }
-    for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
-        switch(neuralnet.layer[layer].layer_type) {
-        case layer_dense: {
-            tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
-            dense_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
-                           neuralnet.layer[layer].dense, neuralnet.layer[layer].activation_g);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-            break;
-        }
-        case layer_convolution: {
-            /* NOTE: This is `padded_grad_` here, because gradients get calculate in there and then copied into
-             * `activation_g`. */
-            tensor_unary_set(neuralnet.layer[layer].convolution->padded_grad_, 0);
-            convolution_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
-                                 neuralnet.layer[layer].convolution, neuralnet.layer[layer].activation,
-                                 neuralnet.layer[layer].activation_g);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->padded_grad_->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->padded_input_->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
-            break;
-        }
-        case layer_reduce: {
-            tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
-            reduce_backward(neuralnet.layer[layer - 1].activation_g, neuralnet.layer[layer].reduce,
-                            neuralnet.layer[layer].activation_g);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
-            break;
-        }
-        case layer_split: {
-            tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
-            split_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
-                           neuralnet.layer[layer].split, neuralnet.layer[layer].activation,
-                           neuralnet.layer[layer].activation_g);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-            linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
-            break;
-        }
-        case layer_input: {
-            ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        }
-        }
-        for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
-            switch(neuralnet.layer[layer].layer_type) {
             case layer_dense: {
-                tensor_unary_multiply(neuralnet.layer[layer].dense->weights_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].dense->weights, neuralnet.layer[layer].dense->weights_g);
-                tensor_unary_set(neuralnet.layer[layer].dense->weights_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights_g->op);
-                tensor_unary_multiply(neuralnet.layer[layer].dense->biases_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].dense->biases, neuralnet.layer[layer].dense->biases_g);
-                tensor_unary_set(neuralnet.layer[layer].dense->biases_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases_g->op);
+                dense_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].dense,
+                              neuralnet.layer[layer].activation);
+                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_convolution: {
-                tensor_unary_multiply(neuralnet.layer[layer].convolution->weights_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].convolution->weights,
-                                       neuralnet.layer[layer].convolution->weights_g);
-                tensor_unary_set(neuralnet.layer[layer].convolution->weights_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights_g->op);
-                tensor_unary_multiply(neuralnet.layer[layer].convolution->biases_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].convolution->biases,
-                                       neuralnet.layer[layer].convolution->biases_g);
-                tensor_unary_set(neuralnet.layer[layer].convolution->biases_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases_g->op);
+                convolution_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].convolution,
+                                    neuralnet.layer[layer].activation);
+                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_reduce: {
-                /* Nothing to update. */
+                reduce_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].reduce,
+                               neuralnet.layer[layer].activation);
                 break;
             }
             case layer_split: {
-                tensor_unary_multiply(neuralnet.layer[layer].split->biases_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].split->biases, neuralnet.layer[layer].split->biases_g);
-                tensor_unary_set(neuralnet.layer[layer].split->biases_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases_g->op);
-                tensor_unary_multiply(neuralnet.layer[layer].split->weights_g, learning);
-                tensor_binary_subtract(neuralnet.layer[layer].split->weights, neuralnet.layer[layer].split->weights_g);
-                tensor_unary_set(neuralnet.layer[layer].split->weights_g, 0);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights->op);
-                linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights_g->op);
+                split_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].split,
+                              neuralnet.layer[layer].activation);
+                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_input: {
                 ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
             }
+        }
+    }
+    /* NOTE: Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape. */
+    for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
+        switch(neuralnet.layer[layer].layer_type) {
+            case layer_dense: {
+                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+                break;
+            }
+            case layer_convolution: {
+                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+                break;
+            }
+            case layer_reduce: {
+                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+                break;
+            }
+            case layer_split: {
+                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+                break;
+            }
+            case layer_input: {
+                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+                break;
+            }
+        }
+    }
+    for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
+        switch(neuralnet.layer[layer].layer_type) {
+            case layer_dense: {
+                tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
+                dense_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
+                               neuralnet.layer[layer].dense, neuralnet.layer[layer].activation_g);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
+                break;
+            }
+            case layer_convolution: {
+                /* NOTE: This is `padded_grad_` here, because gradients get calculate in there and then copied into
+                 * `activation_g`. */
+                tensor_unary_set(neuralnet.layer[layer].convolution->padded_grad_, 0);
+                convolution_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
+                                     neuralnet.layer[layer].convolution, neuralnet.layer[layer].activation,
+                                     neuralnet.layer[layer].activation_g);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->padded_grad_->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->padded_input_->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                break;
+            }
+            case layer_reduce: {
+                tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
+                reduce_backward(neuralnet.layer[layer - 1].activation_g, neuralnet.layer[layer].reduce,
+                                neuralnet.layer[layer].activation_g);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                break;
+            }
+            case layer_split: {
+                tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
+                split_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
+                               neuralnet.layer[layer].split, neuralnet.layer[layer].activation,
+                               neuralnet.layer[layer].activation_g);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
+                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                break;
+            }
+            case layer_input: {
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
+        }
+        for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
+            switch(neuralnet.layer[layer].layer_type) {
+                case layer_dense: {
+                    tensor_unary_multiply(neuralnet.layer[layer].dense->weights_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].dense->weights,
+                                           neuralnet.layer[layer].dense->weights_g);
+                    tensor_unary_set(neuralnet.layer[layer].dense->weights_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights_g->op);
+                    tensor_unary_multiply(neuralnet.layer[layer].dense->biases_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].dense->biases,
+                                           neuralnet.layer[layer].dense->biases_g);
+                    tensor_unary_set(neuralnet.layer[layer].dense->biases_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases_g->op);
+                    break;
+                }
+                case layer_convolution: {
+                    tensor_unary_multiply(neuralnet.layer[layer].convolution->weights_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].convolution->weights,
+                                           neuralnet.layer[layer].convolution->weights_g);
+                    tensor_unary_set(neuralnet.layer[layer].convolution->weights_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights_g->op);
+                    tensor_unary_multiply(neuralnet.layer[layer].convolution->biases_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].convolution->biases,
+                                           neuralnet.layer[layer].convolution->biases_g);
+                    tensor_unary_set(neuralnet.layer[layer].convolution->biases_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases_g->op);
+                    break;
+                }
+                case layer_reduce: {
+                    /* Nothing to update. */
+                    break;
+                }
+                case layer_split: {
+                    tensor_unary_multiply(neuralnet.layer[layer].split->biases_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].split->biases,
+                                           neuralnet.layer[layer].split->biases_g);
+                    tensor_unary_set(neuralnet.layer[layer].split->biases_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases_g->op);
+                    tensor_unary_multiply(neuralnet.layer[layer].split->weights_g, learning);
+                    tensor_binary_subtract(neuralnet.layer[layer].split->weights,
+                                           neuralnet.layer[layer].split->weights_g);
+                    tensor_unary_set(neuralnet.layer[layer].split->weights_g, 0);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights->op);
+                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights_g->op);
+                    break;
+                }
+                case layer_input: {
+                    ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                }
             }
         }
     }
@@ -1429,41 +1436,44 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
     for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
         err = 0;
         switch(neuralnet->layer[layer].layer_type) {
-        case layer_dense: {
-            int64_t bias_size = neuralnet->layer[layer].dense->output_size;
-            int64_t weight_size =
-                neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
-            err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_convolution: {
-            int64_t bias_size = neuralnet->layer[layer].convolution->filters;
-            int64_t weight_size =
-                neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->input_channels_ *
-                neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
-            err |= fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_reduce: {
-            /* Nothing to initialize. */
-            break;
-        }
-        case layer_split: {
-            int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_channels *
-                                neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
-            int64_t weight_size = bias_size;
-            err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_input: {
-            ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        }
+            case layer_dense: {
+                int64_t bias_size = neuralnet->layer[layer].dense->output_size;
+                int64_t weight_size =
+                    neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_convolution: {
+                int64_t bias_size = neuralnet->layer[layer].convolution->filters;
+                int64_t weight_size = neuralnet->layer[layer].convolution->filters *
+                                      neuralnet->layer[layer].convolution->input_channels_ *
+                                      neuralnet->layer[layer].convolution->kernel_size *
+                                      neuralnet->layer[layer].convolution->kernel_size;
+                err |= fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
+                err |=
+                    fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_reduce: {
+                /* Nothing to initialize. */
+                break;
+            }
+            case layer_split: {
+                int64_t bias_size = neuralnet->layer[layer].split->filters *
+                                    neuralnet->layer[layer].split->input_channels *
+                                    neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                int64_t weight_size = bias_size;
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_input: {
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
         }
     }
     err = fclose(f);
@@ -1480,41 +1490,43 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
     for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
         err = 0;
         switch(neuralnet->layer[layer].layer_type) {
-        case layer_dense: {
-            int64_t bias_size = neuralnet->layer[layer].dense->output_size;
-            int64_t weight_size =
-                neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
-            err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_convolution: {
-            int64_t bias_size = neuralnet->layer[layer].convolution->filters;
-            int64_t weight_size =
-                neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->input_channels_ *
-                neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
-            err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_reduce: {
-            /* Nothing to initialize. */
-            break;
-        }
-        case layer_split: {
-            int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_channels *
-                                neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
-            int64_t weight_size = bias_size;
-            err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-            err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-            if(err) { return 1; }
-            break;
-        }
-        case layer_input: {
-            ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        }
+            case layer_dense: {
+                int64_t bias_size = neuralnet->layer[layer].dense->output_size;
+                int64_t weight_size =
+                    neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->input_size_;
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_convolution: {
+                int64_t bias_size = neuralnet->layer[layer].convolution->filters;
+                int64_t weight_size = neuralnet->layer[layer].convolution->filters *
+                                      neuralnet->layer[layer].convolution->input_channels_ *
+                                      neuralnet->layer[layer].convolution->kernel_size *
+                                      neuralnet->layer[layer].convolution->kernel_size;
+                err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_reduce: {
+                /* Nothing to initialize. */
+                break;
+            }
+            case layer_split: {
+                int64_t bias_size = neuralnet->layer[layer].split->filters *
+                                    neuralnet->layer[layer].split->input_channels *
+                                    neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                int64_t weight_size = bias_size;
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
+                if(err) { return 1; }
+                break;
+            }
+            case layer_input: {
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
         }
     }
     err = fclose(f);
@@ -1525,34 +1537,34 @@ void neuralnet_random(neuralnet_t *neuralnet) {
     assert(neuralnet);
     for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
-        case layer_dense: {
-            tensor_unary_random(neuralnet->layer[layer].dense->biases);
-            tensor_unary_random(neuralnet->layer[layer].dense->weights);
-            tensor_realize(neuralnet->layer[layer].dense->biases);
-            tensor_realize(neuralnet->layer[layer].dense->weights);
-            break;
-        }
-        case layer_convolution: {
-            tensor_unary_random(neuralnet->layer[layer].convolution->biases);
-            tensor_unary_random(neuralnet->layer[layer].convolution->weights);
-            tensor_realize(neuralnet->layer[layer].convolution->biases);
-            tensor_realize(neuralnet->layer[layer].convolution->weights);
-            break;
-        }
-        case layer_reduce: {
-            /* Nothing to initialize. */
-            break;
-        }
-        case layer_split: {
-            tensor_unary_random(neuralnet->layer[layer].split->biases);
-            tensor_unary_random(neuralnet->layer[layer].split->weights);
-            tensor_realize(neuralnet->layer[layer].split->biases);
-            tensor_realize(neuralnet->layer[layer].split->weights);
-            break;
-        }
-        case layer_input: {
-            ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
-        }
+            case layer_dense: {
+                tensor_unary_random(neuralnet->layer[layer].dense->biases);
+                tensor_unary_random(neuralnet->layer[layer].dense->weights);
+                tensor_realize(neuralnet->layer[layer].dense->biases);
+                tensor_realize(neuralnet->layer[layer].dense->weights);
+                break;
+            }
+            case layer_convolution: {
+                tensor_unary_random(neuralnet->layer[layer].convolution->biases);
+                tensor_unary_random(neuralnet->layer[layer].convolution->weights);
+                tensor_realize(neuralnet->layer[layer].convolution->biases);
+                tensor_realize(neuralnet->layer[layer].convolution->weights);
+                break;
+            }
+            case layer_reduce: {
+                /* Nothing to initialize. */
+                break;
+            }
+            case layer_split: {
+                tensor_unary_random(neuralnet->layer[layer].split->biases);
+                tensor_unary_random(neuralnet->layer[layer].split->weights);
+                tensor_realize(neuralnet->layer[layer].split->biases);
+                tensor_realize(neuralnet->layer[layer].split->weights);
+                break;
+            }
+            case layer_input: {
+                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+            }
         }
     }
 }
@@ -1611,32 +1623,32 @@ void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char
     }
     for(int64_t layer = 0; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
-        case layer_dense: {
-            printf("%*slayer[%lu] dense\n", offset + padding, "", layer);
-            dense_print(neuralnet->layer[layer].dense, padding, offset + 2 * padding, "");
-            break;
-        }
-        case layer_convolution: {
-            printf("%*slayer[%lu] convolution\n", offset + padding, "", layer);
-            convolution_print(neuralnet->layer[layer].convolution, padding, offset + 2 * padding, "");
-            break;
-        }
-        case layer_reduce: {
-            printf("%*slayer[%lu] reduce\n", offset + padding, "", layer);
-            reduce_print(neuralnet->layer[layer].reduce, padding, offset + 2 * padding, "");
-            break;
-        }
-        case layer_split: {
-            printf("%*slayer[%lu] split\n", offset + padding, "", layer);
-            split_print(neuralnet->layer[layer].split, padding, offset + 2 * padding, "");
-            break;
-        }
-        case layer_input: {
-            printf("%*slayer[%lu] input\n", offset + padding, "", layer);
-            printf("%*sinput\n", offset + 2 * padding, "");
-            tensor_print(neuralnet->layer[layer].activation, padding, offset + 3 * padding, "activation");
-            tensor_print(neuralnet->layer[layer].activation_g, padding, offset + 3 * padding, "activation_g");
-        }
+            case layer_dense: {
+                printf("%*slayer[%lu] dense\n", offset + padding, "", layer);
+                dense_print(neuralnet->layer[layer].dense, padding, offset + 2 * padding, "");
+                break;
+            }
+            case layer_convolution: {
+                printf("%*slayer[%lu] convolution\n", offset + padding, "", layer);
+                convolution_print(neuralnet->layer[layer].convolution, padding, offset + 2 * padding, "");
+                break;
+            }
+            case layer_reduce: {
+                printf("%*slayer[%lu] reduce\n", offset + padding, "", layer);
+                reduce_print(neuralnet->layer[layer].reduce, padding, offset + 2 * padding, "");
+                break;
+            }
+            case layer_split: {
+                printf("%*slayer[%lu] split\n", offset + padding, "", layer);
+                split_print(neuralnet->layer[layer].split, padding, offset + 2 * padding, "");
+                break;
+            }
+            case layer_input: {
+                printf("%*slayer[%lu] input\n", offset + padding, "", layer);
+                printf("%*sinput\n", offset + 2 * padding, "");
+                tensor_print(neuralnet->layer[layer].activation, padding, offset + 3 * padding, "activation");
+                tensor_print(neuralnet->layer[layer].activation_g, padding, offset + 3 * padding, "activation_g");
+            }
         }
     }
 }
@@ -1649,49 +1661,59 @@ void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, cons
     }
     for(int64_t layer = 0; layer < neuralnet->layers; layer++) {
         switch(neuralnet->layer[layer].layer_type) {
-        case layer_dense: {
-            printf("%*slayer[%lu] dense\n", offset + padding, "", layer);
-            dense_print_shape(neuralnet->layer[layer].dense, padding, offset + 2 * padding, "");
-            printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
-                   neuralnet->layer[layer].activation->buffer->sze_a, neuralnet->layer[layer].activation->buffer->sze_z,
-                   neuralnet->layer[layer].activation->buffer->sze_y, neuralnet->layer[layer].activation->buffer->sze_x,
-                   neuralnet->layer[layer].activation->buffer->off);
-            break;
-        }
-        case layer_convolution: {
-            printf("%*slayer[%lu] convolution\n", offset + padding, "", layer);
-            convolution_print_shape(neuralnet->layer[layer].convolution, padding, offset + 2 * padding, "");
-            printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
-                   neuralnet->layer[layer].activation->buffer->sze_a, neuralnet->layer[layer].activation->buffer->sze_z,
-                   neuralnet->layer[layer].activation->buffer->sze_y, neuralnet->layer[layer].activation->buffer->sze_x,
-                   neuralnet->layer[layer].activation->buffer->off);
-            break;
-        }
-        case layer_reduce: {
-            printf("%*slayer[%lu] reduce\n", offset + padding, "", layer);
-            // reduce_print_shape(neuralnet->layer[layer].reduce, padding, offset + 2 * padding, "");
-            printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
-                   neuralnet->layer[layer].activation->buffer->sze_a, neuralnet->layer[layer].activation->buffer->sze_z,
-                   neuralnet->layer[layer].activation->buffer->sze_y, neuralnet->layer[layer].activation->buffer->sze_x,
-                   neuralnet->layer[layer].activation->buffer->off);
-            break;
-        }
-        case layer_split: {
-            printf("%*slayer[%lu] split\n", offset + padding, "", layer);
-            split_print_shape(neuralnet->layer[layer].split, padding, offset + 2 * padding, "");
-            printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
-                   neuralnet->layer[layer].activation->buffer->sze_a, neuralnet->layer[layer].activation->buffer->sze_z,
-                   neuralnet->layer[layer].activation->buffer->sze_y, neuralnet->layer[layer].activation->buffer->sze_x,
-                   neuralnet->layer[layer].activation->buffer->off);
-            break;
-        }
-        case layer_input: {
-            printf("%*slayer[%lu] input\n", offset + padding, "", layer);
-            printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
-                   neuralnet->layer[layer].activation->buffer->sze_a, neuralnet->layer[layer].activation->buffer->sze_z,
-                   neuralnet->layer[layer].activation->buffer->sze_y, neuralnet->layer[layer].activation->buffer->sze_x,
-                   neuralnet->layer[layer].activation->buffer->off);
-        }
+            case layer_dense: {
+                printf("%*slayer[%lu] dense\n", offset + padding, "", layer);
+                dense_print_shape(neuralnet->layer[layer].dense, padding, offset + 2 * padding, "");
+                printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
+                       neuralnet->layer[layer].activation->buffer->sze_a,
+                       neuralnet->layer[layer].activation->buffer->sze_z,
+                       neuralnet->layer[layer].activation->buffer->sze_y,
+                       neuralnet->layer[layer].activation->buffer->sze_x,
+                       neuralnet->layer[layer].activation->buffer->off);
+                break;
+            }
+            case layer_convolution: {
+                printf("%*slayer[%lu] convolution\n", offset + padding, "", layer);
+                convolution_print_shape(neuralnet->layer[layer].convolution, padding, offset + 2 * padding, "");
+                printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
+                       neuralnet->layer[layer].activation->buffer->sze_a,
+                       neuralnet->layer[layer].activation->buffer->sze_z,
+                       neuralnet->layer[layer].activation->buffer->sze_y,
+                       neuralnet->layer[layer].activation->buffer->sze_x,
+                       neuralnet->layer[layer].activation->buffer->off);
+                break;
+            }
+            case layer_reduce: {
+                printf("%*slayer[%lu] reduce\n", offset + padding, "", layer);
+                // reduce_print_shape(neuralnet->layer[layer].reduce, padding, offset + 2 * padding, "");
+                printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
+                       neuralnet->layer[layer].activation->buffer->sze_a,
+                       neuralnet->layer[layer].activation->buffer->sze_z,
+                       neuralnet->layer[layer].activation->buffer->sze_y,
+                       neuralnet->layer[layer].activation->buffer->sze_x,
+                       neuralnet->layer[layer].activation->buffer->off);
+                break;
+            }
+            case layer_split: {
+                printf("%*slayer[%lu] split\n", offset + padding, "", layer);
+                split_print_shape(neuralnet->layer[layer].split, padding, offset + 2 * padding, "");
+                printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
+                       neuralnet->layer[layer].activation->buffer->sze_a,
+                       neuralnet->layer[layer].activation->buffer->sze_z,
+                       neuralnet->layer[layer].activation->buffer->sze_y,
+                       neuralnet->layer[layer].activation->buffer->sze_x,
+                       neuralnet->layer[layer].activation->buffer->off);
+                break;
+            }
+            case layer_input: {
+                printf("%*slayer[%lu] input\n", offset + padding, "", layer);
+                printf("%*s{%lu, %lu, %lu, %lu} %lu\n", offset + 2 * padding, "",
+                       neuralnet->layer[layer].activation->buffer->sze_a,
+                       neuralnet->layer[layer].activation->buffer->sze_z,
+                       neuralnet->layer[layer].activation->buffer->sze_y,
+                       neuralnet->layer[layer].activation->buffer->sze_x,
+                       neuralnet->layer[layer].activation->buffer->off);
+            }
         }
     }
 }
