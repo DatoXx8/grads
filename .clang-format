@@ -1,5 +1,5 @@
 IndentWidth: 4
-ColumnLimit: 160
+ColumnLimit: 120
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortEnumsOnASingleLine: true
@@ -12,7 +12,7 @@ SpaceBeforeParens: Custom
 SpaceBeforeParensOptions:
   AfterControlStatements: false
   AfterFunctionDefinitionName: false
-IndentCaseLabels: true
+IndentCaseLabels: false
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false
 BreakStringLiterals: false

@@ -1,7 +1,8 @@
 #ifndef LINEARIZE_H_
 #define LINEARIZE_H_
 
-/* The purpose of this is to turn the op tree structure into an array of ops that can then be fed to the GPU via OpenCL. */
+/* The purpose of this is to turn the op tree structure into an array of ops that can then be fed to the GPU via OpenCL.
+ */
 
 #include <stdint.h>
 
@@ -25,9 +26,9 @@ typedef struct {
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
-#define SIMPLE_AT(simple, a, z, y, x)                                                                                                                          \
+#define SIMPLE_AT(simple, a, z, y, x)                                                                                  \
     (simple).val[a * (simple).str_a + z * (simple).str_z + y * (simple).str_y + x * (simple).str_x + (simple).off]
-#define SIMPLE_AT_(simple, a, z, y, x)                                                                                                                         \
+#define SIMPLE_AT_(simple, a, z, y, x)                                                                                 \
     (simple)->val[a * (simple)->str_a + z * (simple)->str_z + y * (simple)->str_y + x * (simple)->str_x + (simple)->off]
 
 /* NOTE: Actually fusing in is not so basic given my way of compiling things. */

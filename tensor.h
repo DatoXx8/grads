@@ -40,9 +40,12 @@ typedef struct {
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
 extern void buffer_free(buffer_t *buffer);
 
-#define BUFFER_AT(buffer, a, z, y, x) ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) + (buffer).off])
-#define BUFFER_AT_(buffer, a, z, y, x)                                                                                                                         \
-    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) + (buffer)->off])
+#define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
+    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
+                  (buffer).off])
+#define BUFFER_AT_(buffer, a, z, y, x)                                                                                 \
+    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
+                   (buffer)->off])
 
 enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
 enum unary_e {
@@ -72,7 +75,8 @@ enum binary_e {
     binary_max,
     binary_min,
     binary_copy,
-    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the in_buffer, that has to have a shape of
+    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the
+       in_buffer, that has to have a shape of
        `{1, 1, 1, 1}`*/
     binary_add_like,
     binary_subtract_like,
@@ -141,8 +145,8 @@ extern void tensor_unary_log(tensor_t *tensor);
 extern void tensor_unary_square(tensor_t *tensor);
 extern void tensor_unary_sqrt(tensor_t *tensor);
 extern void tensor_unary_reciprocal(tensor_t *tensor);
-/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why you would do that in a ML framework but I
- * digress. */
+/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why
+ * you would do that in a ML framework but I digress. */
 extern void tensor_unary_random(tensor_t *tensor);
 extern void tensor_unary_tanh(tensor_t *tensor);
 extern void tensor_unary_max(tensor_t *tensor, double value);

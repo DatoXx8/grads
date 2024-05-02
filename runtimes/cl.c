@@ -18,16 +18,14 @@ cl_device_id device_get(void) {
     if(err < 0) { ERROR("Couldn't access any devices"); }
     return dev;
 }
-cl_program program_build(cl_context context, cl_device_id device, const char *filename) {
+cl_program program_build(cl_context context, cl_device_id device, const char *source, int64_t source_size) {
     cl_program program;
     FILE *program_handle;
     char *program_buffer, *program_log;
     size_t program_size, log_size;
     int err;
     program_handle = fopen(filename, "r");
-    if(program_handle == NULL) {
-        ERROR("Couldn't find the program file");
-    }
+    if(program_handle == NULL) { ERROR("Couldn't find the program file"); }
     fseek(program_handle, 0, SEEK_END);
     program_size = ftell(program_handle);
     rewind(program_handle);
@@ -36,9 +34,7 @@ cl_program program_build(cl_context context, cl_device_id device, const char *fi
     fread(program_buffer, sizeof(char), program_size, program_handle);
     fclose(program_handle);
     program = clCreateProgramWithSource(context, 1, (const char **) &program_buffer, &program_size, &err);
-    if(err < 0) {
-        ERROR("Couldn't create the program");
-    }
+    if(err < 0) { ERROR("Couldn't create the program"); }
     free(program_buffer);
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if(err < 0) {

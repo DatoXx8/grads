@@ -8,7 +8,15 @@
 #include "tensor.h"
 
 /* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
-enum activation_e { activation_identity, activation_relu, activation_sigmoid, activation_tanh, activation_silu, activation_gelu, activation_leaky };
+enum activation_e {
+    activation_identity,
+    activation_relu,
+    activation_sigmoid,
+    activation_tanh,
+    activation_silu,
+    activation_gelu,
+    activation_leaky
+};
 
 typedef struct {
     enum activation_e type;
@@ -94,13 +102,14 @@ typedef struct {
 } convolution_t;
 
 /* Calculates output size per dimension. */
-#define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                                                        \
+#define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                \
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
-extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters, int64_t kernel_size, int64_t kernel_stride,
-                                       int64_t kernel_padding);
+extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters,
+                                       int64_t kernel_size, int64_t kernel_stride, int64_t kernel_padding);
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
-extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution, tensor_t *output, tensor_t *output_gradient);
+extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution,
+                                 tensor_t *output, tensor_t *output_gradient);
 extern void convolution_print(convolution_t *convolution, int padding, int offset, const char *name);
 extern void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name);
 
@@ -118,8 +127,10 @@ typedef struct {
 } reduce_t;
 
 /* Calculates output size per dimension. */
-#define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride) ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
-extern reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_channels, int64_t input_y, int64_t input_x, int64_t kernel_size, int64_t kernel_stride);
+#define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride)                                                     \
+    ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
+extern reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_channels, int64_t input_y, int64_t input_x,
+                             int64_t kernel_size, int64_t kernel_stride);
 extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
@@ -127,9 +138,10 @@ extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *
 /* Trying some new types of residual connections beyond identity and conv. */
 enum residual_e { residual_identity, residual_convolution, residual_dense, residual_reduce };
 
-/* NOTE: Specifies a residual connection and not a residual block per se. Also only identity and convolutions are supported right now. */
-/* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can reuse the same layerconf and it is more
- * similar to the standard residual block. */
+/* NOTE: Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
+ * supported right now. */
+/* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can
+ * reuse the same layerconf and it is more similar to the standard residual block. */
 typedef struct {
     enum residual_e type;
     int64_t connection_from_layer;
@@ -158,7 +170,8 @@ typedef struct {
 extern split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, int64_t input_x);
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
-extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output, tensor_t *output_gradient);
+extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output,
+                           tensor_t *output_gradient);
 extern void split_print(split_t *split, int padding, int offset, const char *name);
 extern void split_print_shape(split_t *split, int padding, int offset, const char *name);
 

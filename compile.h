@@ -64,7 +64,8 @@ typedef struct {
     int64_t *op_cap;
 } compile_loop_t;
 
-/* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile option. */
+/* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile
+ * option. */
 typedef struct {
     const char *name;
     char **args;
