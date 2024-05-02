@@ -252,7 +252,7 @@ static void kernel_free(kernel_t *kernel) {
     for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
     free(kernel->args);
     free((void *) kernel->name);
-    free((void *) kernel->source);
+    free(kernel->source);
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type.
  * Offsets however should be irrelevant. */
@@ -283,15 +283,15 @@ static bool simple_loop_simple_op_equal(simple_op_t *starting, simple_op_t *comp
 static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, linearized_t *linearized, int64_t start_idx) {
     assert(simple);
     assert(linearized);
-    assert(start_idx >= 0 && start_idx < linearized->op_count);
+    assert(start_idx >= 0 && start_idx < linearized->op_len);
     int64_t loop_length = 0;
     int64_t loop_number = 0;
     int64_t diff;
     simple_op_t starting_op = linearized->simple[start_idx];
-    for(int64_t i = start_idx + 1; i < linearized->op_count; i++) {
+    for(int64_t i = start_idx + 1; i < linearized->op_len; i++) {
         if(simple_loop_simple_op_equal(&starting_op, &linearized->simple[i])) {
             /* TODO: This could probably just be done in the `for` statement. */
-            if(2 * i - start_idx < linearized->op_count) {
+            if(2 * i - start_idx < linearized->op_len) {
                 diff = 0;
                 for(int64_t j = 0; j < i - start_idx; j++) {
                     if(!simple_loop_simple_op_equal(&linearized->simple[start_idx + j], &linearized->simple[i + j])) {
@@ -319,7 +319,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
         free(loop_instances);
         return 1;
     }
-    for(int64_t i = start_idx; i < linearized->op_count; i += loop_length) {
+    for(int64_t i = start_idx; i < linearized->op_len; i += loop_length) {
         if(simple_loop_simple_op_equal(&starting_op, &linearized->simple[i])) {
             loop_number++;
         } else {
@@ -1396,23 +1396,23 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     free(temp);
 }
 int64_t kernel_counter = 0;
-static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size, int64_t local_size) {
+static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global, int64_t size_local) {
     assert(compile);
-    assert(global_size);
+    assert(size_global);
     /* TODO: Support `local_size > 1`. */
-    assert(local_size == 1);
+    assert(size_local == 1);
 
     char *func_name = calloc(1 + log10(kernel_counter + 1) + 3, sizeof(char));
     assert(func_name);
     snprintf(func_name, 1 + log10(kernel_counter + 1) + 3, "k%lu", kernel_counter);
     kernel_counter++;
-    int64_t leftover_loops = compile->loop_num % global_size;
-    int64_t assigned_loops = (compile->loop_num - leftover_loops) / global_size;
-    int64_t needed_loops;
-    if(leftover_loops) {
-        needed_loops = assigned_loops + 1;
+    int64_t loops_leftover = compile->loop_num % size_global;
+    int64_t loops_assigned = (compile->loop_num - loops_leftover) / size_global;
+    int64_t loops_needed;
+    if(loops_leftover) {
+        loops_needed = loops_assigned + 1;
     } else {
-        needed_loops = assigned_loops;
+        loops_needed = loops_assigned;
     }
 
     int64_t source_cap = INITIAL_SOURCE_SIZE;
@@ -1424,11 +1424,11 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
     int64_t arg_num = 0;
     char **args = NULL;
     int64_t found;
-    for(int64_t i = 0; i < compile->loop_len; i++) {
-        if(compile->op_num[i] == 1) {
+    for(int64_t loop_op_idx = 0; loop_op_idx < compile->loop_len; loop_op_idx++) {
+        if(compile->op_num[loop_op_idx] == 1) {
             found = 0;
-            for(int64_t j = 0; j < arg_num; j++) {
-                if(!strncmp(compile->op[i][0].buffer_out.name, args[j], BUFFER_NAME_SIZE)) {
+            for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+                if(!strncmp(compile->op[loop_op_idx][0].buffer_out.name, args[arg_idx], BUFFER_NAME_SIZE)) {
                     found = 1;
                     break;
                 }
@@ -1439,12 +1439,12 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
                 assert(args);
                 args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                 assert(args[arg_num - 1]);
-                strncpy(args[arg_num - 1], compile->op[i][0].buffer_out.name, BUFFER_NAME_SIZE);
+                strncpy(args[arg_num - 1], compile->op[loop_op_idx][0].buffer_out.name, BUFFER_NAME_SIZE);
             }
-            if(compile->op[i][0].type != operation_unary) {
+            if(compile->op[loop_op_idx][0].type != operation_unary) {
                 found = 0;
                 for(int64_t j = 0; j < arg_num; j++) {
-                    if(!strncmp(compile->op[i][0].buffer_in.name, args[j], BUFFER_NAME_SIZE)) {
+                    if(!strncmp(compile->op[loop_op_idx][0].buffer_in.name, args[j], BUFFER_NAME_SIZE)) {
                         found = 1;
                         break;
                     }
@@ -1455,16 +1455,16 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
                     assert(args);
                     args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                     assert(args[arg_num - 1]);
-                    strncpy(args[arg_num - 1], compile->op[i][0].buffer_in.name, BUFFER_NAME_SIZE);
+                    strncpy(args[arg_num - 1], compile->op[loop_op_idx][0].buffer_in.name, BUFFER_NAME_SIZE);
                 }
             }
         } else {
-            for(int64_t j = 0; j < compile->op_num[i]; j++) {
-                if(j) {
-                    if(compile->op[i][j].type != operation_unary) {
+            for(int64_t op_idx = 0; op_idx < compile->op_num[loop_op_idx]; op_idx++) {
+                if(op_idx) {
+                    if(compile->op[loop_op_idx][op_idx].type != operation_unary) {
                         found = 0;
                         for(int64_t k = 0; k < arg_num; k++) {
-                            if(!strncmp(compile->op[i][j].buffer_in.name, args[k], BUFFER_NAME_SIZE)) {
+                            if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_in.name, args[k], BUFFER_NAME_SIZE)) {
                                 found = 1;
                                 break;
                             }
@@ -1475,13 +1475,14 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
                             assert(args);
                             args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                             assert(args[arg_num - 1]);
-                            strncpy(args[arg_num - 1], compile->op[i][j].buffer_in.name, BUFFER_NAME_SIZE);
+                            strncpy(args[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_in.name,
+                                    BUFFER_NAME_SIZE);
                         }
                     }
                 } else {
                     found = 0;
                     for(int64_t k = 0; k < arg_num; k++) {
-                        if(!strncmp(compile->op[i][j].buffer_out.name, args[k], BUFFER_NAME_SIZE)) {
+                        if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_out.name, args[k], BUFFER_NAME_SIZE)) {
                             found = 1;
                             break;
                         }
@@ -1492,7 +1493,7 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
                         assert(args);
                         args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
                         assert(args[arg_num - 1]);
-                        strncpy(args[arg_num - 1], compile->op[i][j].buffer_out.name, BUFFER_NAME_SIZE);
+                        strncpy(args[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_out.name, BUFFER_NAME_SIZE);
                     }
                 }
             }
@@ -1503,78 +1504,90 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
     char **gid = calloc(gid_cap, sizeof(char *));
     curr += snprintf(curr, MAX_OP_SIZE, "int gid0 = get_global_id(0);\nint id = gid0;\n");
     EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
-    for(int64_t i = 0; i < needed_loops; i++) {
+    for(int64_t loop_idx = 0; loop_idx < loops_needed; loop_idx++) {
         gid_len = 0;
-        if(i == assigned_loops) {
-            curr += snprintf(curr, MAX_OP_SIZE, "if(gid0 < %lu) {\n", leftover_loops);
+        if(loop_idx == loops_assigned) {
+            curr += snprintf(curr, MAX_OP_SIZE, "if(gid0 < %lu) {\n", loops_leftover);
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
         }
-        if(i) {
-            curr += snprintf(curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
+        if(loop_idx) {
+            curr += snprintf(curr, MAX_OP_SIZE, "id += %lu;\n", size_global);
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
         }
-        for(int64_t j = 0; j < compile->loop_len; j++) {
-            if(compile->op_num[j] == 1) {
+        for(int64_t loop_op_idx = 0; loop_op_idx < compile->loop_len; loop_op_idx++) {
+            if(compile->op_num[loop_op_idx] == 1) {
                 curr += snprintf(
                     curr, MAX_OP_SIZE,
                     "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                    compile->op[j][0].buffer_out.name, i, j, compile->dim_info[j][0].res_a_out,
-                    compile->dim_info[j][0].wai_a_out, compile->dim_info[j][0].str_a_out,
-                    compile->dim_info[j][0].res_z_out, compile->dim_info[j][0].wai_z_out,
-                    compile->dim_info[j][0].str_z_out, compile->dim_info[j][0].res_y_out,
-                    compile->dim_info[j][0].wai_y_out, compile->dim_info[j][0].str_y_out,
-                    compile->dim_info[j][0].res_x_out, compile->dim_info[j][0].wai_x_out,
-                    compile->dim_info[j][0].str_x_out);
+                    compile->op[loop_op_idx][0].buffer_out.name, loop_idx, loop_op_idx,
+                    compile->dim_info[loop_op_idx][0].res_a_out, compile->dim_info[loop_op_idx][0].wai_a_out,
+                    compile->dim_info[loop_op_idx][0].str_a_out, compile->dim_info[loop_op_idx][0].res_z_out,
+                    compile->dim_info[loop_op_idx][0].wai_z_out, compile->dim_info[loop_op_idx][0].str_z_out,
+                    compile->dim_info[loop_op_idx][0].res_y_out, compile->dim_info[loop_op_idx][0].wai_y_out,
+                    compile->dim_info[loop_op_idx][0].str_y_out, compile->dim_info[loop_op_idx][0].res_x_out,
+                    compile->dim_info[loop_op_idx][0].wai_x_out, compile->dim_info[loop_op_idx][0].str_x_out);
                 EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
-                if(compile->op[j]->type != operation_unary) {
+                if(compile->op[loop_op_idx]->type != operation_unary) {
                     curr += snprintf(
                         curr, MAX_OP_SIZE,
                         "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                        compile->op[j][0].buffer_in.name, i, j, compile->dim_info[j][0].res_a_in,
-                        compile->dim_info[j][0].wai_a_in, compile->dim_info[j][0].str_a_in,
-                        compile->dim_info[j][0].res_z_in, compile->dim_info[j][0].wai_z_in,
-                        compile->dim_info[j][0].str_z_in, compile->dim_info[j][0].res_y_in,
-                        compile->dim_info[j][0].wai_y_in, compile->dim_info[j][0].str_y_in,
-                        compile->dim_info[j][0].res_x_in, compile->dim_info[j][0].wai_x_in,
-                        compile->dim_info[j][0].str_x_in);
+                        compile->op[loop_op_idx][0].buffer_in.name, loop_idx, loop_op_idx,
+                        compile->dim_info[loop_op_idx][0].res_a_in, compile->dim_info[loop_op_idx][0].wai_a_in,
+                        compile->dim_info[loop_op_idx][0].str_a_in, compile->dim_info[loop_op_idx][0].res_z_in,
+                        compile->dim_info[loop_op_idx][0].wai_z_in, compile->dim_info[loop_op_idx][0].str_z_in,
+                        compile->dim_info[loop_op_idx][0].res_y_in, compile->dim_info[loop_op_idx][0].wai_y_in,
+                        compile->dim_info[loop_op_idx][0].str_y_in, compile->dim_info[loop_op_idx][0].res_x_in,
+                        compile->dim_info[loop_op_idx][0].wai_x_in, compile->dim_info[loop_op_idx][0].str_x_in);
                     EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                 }
             } else {
-                for(int64_t k = 0; k < compile->op_num[j]; k++) {
-                    if(k) {
-                        if(compile->op[j][k].type != operation_unary) {
+                for(int64_t op_idx = 0; op_idx < compile->op_num[loop_op_idx]; op_idx++) {
+                    if(op_idx) {
+                        if(compile->op[loop_op_idx][op_idx].type != operation_unary) {
                             curr += snprintf(
                                 curr, MAX_OP_SIZE,
                                 "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                                compile->op[j][k].buffer_in.name, i, j, compile->dim_info[j][k].res_a_in,
-                                compile->dim_info[j][k].wai_a_in, compile->dim_info[j][k].str_a_in,
-                                compile->dim_info[j][k].res_z_in, compile->dim_info[j][k].wai_z_in,
-                                compile->dim_info[j][k].str_z_in, compile->dim_info[j][k].res_y_in,
-                                compile->dim_info[j][k].wai_y_in, compile->dim_info[j][k].str_y_in,
-                                compile->dim_info[j][k].res_x_in, compile->dim_info[j][k].wai_x_in,
-                                compile->dim_info[j][k].str_x_in);
+                                compile->op[loop_op_idx][op_idx].buffer_in.name, loop_idx, loop_op_idx,
+                                compile->dim_info[loop_op_idx][op_idx].res_a_in,
+                                compile->dim_info[loop_op_idx][op_idx].wai_a_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_a_in,
+                                compile->dim_info[loop_op_idx][op_idx].res_z_in,
+                                compile->dim_info[loop_op_idx][op_idx].wai_z_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_z_in,
+                                compile->dim_info[loop_op_idx][op_idx].res_y_in,
+                                compile->dim_info[loop_op_idx][op_idx].wai_y_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_y_in,
+                                compile->dim_info[loop_op_idx][op_idx].res_x_in,
+                                compile->dim_info[loop_op_idx][op_idx].wai_x_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_x_in);
                             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                         }
                     } else {
                         curr += snprintf(
                             curr, MAX_OP_SIZE,
                             "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
-                            compile->op[j][k].buffer_out.name, i, j, compile->dim_info[j][k].res_a_out,
-                            compile->dim_info[j][k].wai_a_out, compile->dim_info[j][k].str_a_out,
-                            compile->dim_info[j][k].res_z_out, compile->dim_info[j][k].wai_z_out,
-                            compile->dim_info[j][k].str_z_out, compile->dim_info[j][k].res_y_out,
-                            compile->dim_info[j][k].wai_y_out, compile->dim_info[j][k].str_y_out,
-                            compile->dim_info[j][k].res_x_out, compile->dim_info[j][k].wai_x_out,
-                            compile->dim_info[j][k].str_x_out);
+                            compile->op[loop_op_idx][op_idx].buffer_out.name, loop_idx, loop_op_idx,
+                            compile->dim_info[loop_op_idx][op_idx].res_a_out,
+                            compile->dim_info[loop_op_idx][op_idx].wai_a_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_a_out,
+                            compile->dim_info[loop_op_idx][op_idx].res_z_out,
+                            compile->dim_info[loop_op_idx][op_idx].wai_z_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_z_out,
+                            compile->dim_info[loop_op_idx][op_idx].res_y_out,
+                            compile->dim_info[loop_op_idx][op_idx].wai_y_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_y_out,
+                            compile->dim_info[loop_op_idx][op_idx].res_x_out,
+                            compile->dim_info[loop_op_idx][op_idx].wai_x_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_x_out);
                         EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                     }
                 }
             }
-            compile_single_op_to_cl(compile->op[j], compile->dim_info[j], compile->op_num[j], i, j, &source, &curr,
-                                    &source_cap);
+            compile_single_op_to_cl(compile->op[loop_op_idx], compile->dim_info[loop_op_idx],
+                                    compile->op_num[loop_op_idx], loop_idx, loop_op_idx, &source, &curr, &source_cap);
         }
-        for(int64_t i = 0; i < gid_len; i++) { free(gid[i]); }
-        if(i == assigned_loops) {
+        for(int64_t gix_idx = 0; gix_idx < gid_len; gix_idx++) { free(gid[gix_idx]); }
+        if(loop_idx == loops_assigned) {
             curr += snprintf(curr, MAX_OP_SIZE, "}\n");
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
         }
@@ -1590,13 +1603,13 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
     char *kernel_i = kernel_source;
     kernel_i += snprintf(kernel_i, 1 + log10(kernel_counter + 1) + 3 + strnlen("__kernel void(", 20),
                          "__kernel void %s(", func_name);
-    for(int64_t i = 0; i < arg_num; i++) {
-        if(i != arg_num - 1) {
+    for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+        if(arg_idx != arg_num - 1) {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 30),
-                                 "__global double *%s, ", args[i]);
+                                 "__global double *%s, ", args[arg_idx]);
         } else {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 30),
-                                 "__global double *%s) {\n", args[i]);
+                                 "__global double *%s) {\n", args[arg_idx]);
         }
     }
     /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
@@ -1609,16 +1622,16 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
         .arg_num = arg_num,
         .args = calloc(arg_num, sizeof(char *)),
         .name = strndup(func_name, strlen(func_name)),
-        .size_local = local_size,
-        .size_global = global_size,
+        .size_local = size_local,
+        .size_global = size_global,
         .source = kernel_source,
         .source_cap = source_cap,
         .source_len = kernel_i - kernel_source,
     };
     assert(kernel.args);
-    for(int64_t i = 0; i < arg_num; i++) {
-        kernel.args[i] = strndup(args[i], BUFFER_NAME_SIZE + 1);
-        free(args[i]);
+    for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+        kernel.args[arg_idx] = strndup(args[arg_idx], BUFFER_NAME_SIZE + 1);
+        free(args[arg_idx]);
     }
     free(args);
     free(source);
@@ -1627,17 +1640,16 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t global_size,
     return kernel;
 }
 void program_compile(program_t *program, linearized_t *linearized) {
-    if(!linearized->op_count) { return; }
+    if(!linearized->op_len) { return; }
     simple_loop_t simple = {0};
     int64_t global_size = 9;
     int64_t local_size = 1;
     compile_loop_t compile;
-    int64_t i = 0;
+    int64_t op_idx = 0;
     kernel_t kernel;
-    while(i < linearized->op_count) {
-        i += simple_loop_from_linearized_index(&simple, linearized, i);
+    while(op_idx < linearized->op_len) {
+        op_idx += simple_loop_from_linearized_index(&simple, linearized, op_idx);
         compile = compile_loop_alloc(&simple, OPTIMIZE_INLINE);
-        // compile = compile_loop_alloc(&simple, OPTIMIZE_NONE);
         kernel = compile_loop_to_cl(&compile, global_size, local_size);
         program->kernel_num++;
         program->kernel = reallocarray(program->kernel, program->kernel_num, sizeof(kernel_t));
@@ -1645,10 +1657,24 @@ void program_compile(program_t *program, linearized_t *linearized) {
         program->kernel[program->kernel_num - 1] = kernel;
         compile_loop_free(&compile);
     }
-
     simple_loop_free(&simple);
+
+    int64_t source_len_cumulative = 0;
+    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+        source_len_cumulative += program->kernel[kernel_idx].source_len;
+    }
+    program->source_len = source_len_cumulative;
+    program->source = calloc(source_len_cumulative + 1, sizeof(char)); /* NOTE: `+1` for '\0'. */
+    char *source_curr = program->source;
+    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+        source_curr +=
+            snprintf(source_curr, program->kernel[kernel_idx].source_cap, "%s", program->kernel[kernel_idx].source);
+    }
 }
 void program_free(program_t *program) {
-    for(int64_t i = 0; i < program->kernel_num; i++) { kernel_free(&program->kernel[i]); }
+    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+        kernel_free(&program->kernel[kernel_idx]);
+    }
     free(program->kernel);
+    free((void *) program->source);
 }

@@ -50,8 +50,8 @@ extern void simple_op_realize(simple_op_t *simple);
 #define SIMPLE_OP_PRINT_(simple) (simple_op_print((simple_op), 4, 0, (#simple)))
 
 typedef struct {
-    int64_t op_count;
-    int64_t op_capacity;
+    int64_t op_len;
+    int64_t op_cap;
     simple_op_t *simple;
 } linearized_t;
 

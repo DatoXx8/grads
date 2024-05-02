@@ -996,8 +996,8 @@ void simple_op_realize(simple_op_t *simple) {
 const int64_t INITIAL_SIMPLE_OP_CAPACTITY = 25;
 linearized_t linearized_alloc(void) {
     linearized_t linearized = {
-        .op_count = 0,
-        .op_capacity = INITIAL_SIMPLE_OP_CAPACTITY,
+        .op_len = 0,
+        .op_cap = INITIAL_SIMPLE_OP_CAPACTITY,
         .simple = calloc(INITIAL_SIMPLE_OP_CAPACTITY, sizeof(simple_op_t)),
     };
     assert(linearized.simple);
@@ -1021,30 +1021,30 @@ void linearized_from_op(linearized_t *linearized, op_t *op) {
         }
         assert(temp);
         assert(temp->parent_count == 0);
-        if(linearized->op_capacity == linearized->op_count) {
-            linearized->op_capacity *= 2;
-            linearized->simple = reallocarray(linearized->simple, linearized->op_capacity, sizeof(simple_op_t));
+        if(linearized->op_cap == linearized->op_len) {
+            linearized->op_cap *= 2;
+            linearized->simple = reallocarray(linearized->simple, linearized->op_cap, sizeof(simple_op_t));
             assert(linearized->simple);
         }
         if(temp->type == operation_move) {
             simple_op_simulate_move(temp);
         } else {
-            simple_op_convert(&linearized->simple[linearized->op_count++], temp);
+            simple_op_convert(&linearized->simple[linearized->op_len++], temp);
         }
         next = temp->child_count > 0 ? temp->child[0] : op;
         op_cleanup(temp);
         op_free(temp);
         free(temp);
     }
-    if(linearized->op_capacity == linearized->op_count) {
-        linearized->op_capacity *= 2;
-        linearized->simple = reallocarray(linearized->simple, linearized->op_capacity, sizeof(simple_op_t));
+    if(linearized->op_cap == linearized->op_len) {
+        linearized->op_cap *= 2;
+        linearized->simple = reallocarray(linearized->simple, linearized->op_cap, sizeof(simple_op_t));
         assert(linearized->simple);
     }
     if(op->type == operation_move) {
         simple_op_simulate_move(op);
     } else {
-        simple_op_convert(&linearized->simple[linearized->op_count++], op);
+        simple_op_convert(&linearized->simple[linearized->op_len++], op);
     }
     op_cleanup(op);
     op_free(op);
@@ -1056,19 +1056,19 @@ void linearized_free(linearized_t *linearized) {
 }
 void linearized_clear(linearized_t *linearized) {
     assert(linearized);
-    linearized->op_count = 0;
+    linearized->op_len = 0;
 }
 void linearized_run(linearized_t *linearized) {
     assert(linearized);
-    for(int64_t i = 0; i < linearized->op_count; i++) { simple_op_realize(&linearized->simple[i]); }
+    for(int64_t i = 0; i < linearized->op_len; i++) { simple_op_realize(&linearized->simple[i]); }
 }
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
     assert(linearized);
     if(!linearized) { return; }
     if(strncmp(name, "", 1)) {
-        printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_count, linearized->op_capacity, name);
+        printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_len, linearized->op_cap, name);
     } else {
-        printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_count, linearized->op_capacity);
+        printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
     }
     /* NOTE: Kind of a nice allignment for printing */
     // int64_t max = log10(linearized->op_count);
@@ -1077,7 +1077,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     //     simple_op_print(linearized->simple + i, 0, 0, "");
     // }
     /* This one is not alligned. */
-    for(int64_t i = 0; i < linearized->op_count; i++) {
+    for(int64_t i = 0; i < linearized->op_len; i++) {
         printf("%*s[%lu] ", padding + offset, "", i);
         simple_op_print(linearized->simple + i, 0, 0, "");
     }

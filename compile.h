@@ -79,6 +79,8 @@ typedef struct {
 typedef struct {
     kernel_t *kernel;
     int64_t kernel_num;
+    char *source;
+    int64_t source_len;
 } program_t;
 
 /* Could also be called `program_alloc()`. */
