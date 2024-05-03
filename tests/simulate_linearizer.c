@@ -159,7 +159,7 @@ void linearized_op_tree_equal(linearized_t *linearized, op_t *op) {
     op_cleanup(op);
     op_free(op);
     free(op);
-    assert(linearized->op_count == index);
+    assert(linearized->op_len == index);
 }
 
 /* TODO: Validate equivalence between linearized and non-linearized fresh from the tree. */
