@@ -1,3 +1,4 @@
+#include <CL/cl.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -249,10 +250,14 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
 }
 static void kernel_free(kernel_t *kernel) {
     assert(kernel);
-    for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args[i]); }
-    free(kernel->args);
+    for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args_name[i]); }
+    free(kernel->args_name);
     free((void *) kernel->name);
     free(kernel->source);
+    if(kernel->cl_kernel) {
+        clReleaseKernel(*kernel->cl_kernel);
+        free(kernel->cl_kernel);
+    }
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type.
  * Offsets however should be irrelevant. */
@@ -746,11 +751,23 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case unary_max: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case unary_min: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case unary_set: {
@@ -1268,7 +1285,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             default: {
-                                                ERROR("???");
+                                                ERROR("This should not happen. Ever.\n");
                                             }
                                         }
                                         break;
@@ -1620,7 +1637,7 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
 
     kernel_t kernel = {
         .arg_num = arg_num,
-        .args = calloc(arg_num, sizeof(char *)),
+        .args_name = calloc(arg_num, sizeof(char *)),
         .name = strndup(func_name, strlen(func_name)),
         .size_local = size_local,
         .size_global = size_global,
@@ -1628,9 +1645,9 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
         .source_cap = source_cap,
         .source_len = kernel_i - kernel_source,
     };
-    assert(kernel.args);
+    assert(kernel.args_name);
     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-        kernel.args[arg_idx] = strndup(args[arg_idx], BUFFER_NAME_SIZE + 1);
+        kernel.args_name[arg_idx] = strndup(args[arg_idx], BUFFER_NAME_SIZE + 1);
         free(args[arg_idx]);
     }
     free(args);
@@ -1677,4 +1694,8 @@ void program_free(program_t *program) {
     }
     free(program->kernel);
     free((void *) program->source);
+    if(program->cl_program) {
+        clRetainProgram(*program->cl_program);
+        free(program->cl_program);
+    }
 }

@@ -7,6 +7,7 @@
     3. Each loop gets split up into multiple work items
  */
 
+#include <CL/cl.h>
 #include <stdint.h>
 
 #include "linearize.h"
@@ -64,23 +65,27 @@ typedef struct {
     int64_t *op_cap;
 } compile_loop_t;
 
-/* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile
- * option. */
 typedef struct {
     const char *name;
-    char **args;
+    char **args_name;
+    cl_mem *args_mem;
     int64_t arg_num;
     int64_t size_global;
     int64_t size_local;
     char *source;
     int64_t source_len;
     int64_t source_cap;
+    cl_kernel *cl_kernel;
 } kernel_t;
 typedef struct {
     kernel_t *kernel;
     int64_t kernel_num;
     char *source;
     int64_t source_len;
+    cl_program *cl_program;
+    cl_device_id cl_device_id;
+    cl_context cl_context;
+    cl_command_queue cl_command_queue;
 } program_t;
 
 /* Could also be called `program_alloc()`. */
