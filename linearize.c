@@ -1008,17 +1008,22 @@ linearized_t linearized_alloc(void) {
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     assert(linearized);
     if(!op) { return; }
+    /* NOTE: Depth does not really do anything and is used solely to enforce the max depth. */
+    int64_t depth = 1;
     op_t *temp;
     op_t *next = op;
     while(op->parent_count > 0) {
         temp = next;
+        depth--;
         for(int64_t i = 0; i < MAX_DEPTH; i++) {
             if(temp->parent_count > 0) {
+                depth++;
                 temp = temp->parent[0];
             } else {
                 break;
             }
         }
+        assert(depth < MAX_DEPTH && depth > 0);
         assert(temp);
         assert(temp->parent_count == 0);
         if(linearized->op_cap == linearized->op_len) {
