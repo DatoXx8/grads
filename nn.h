@@ -7,7 +7,7 @@
 #include "linearize.h"
 #include "tensor.h"
 
-/* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum activation_e {
     activation_identity,
     activation_relu,
@@ -23,7 +23,7 @@ typedef struct {
     tensor_t *intermediary;
 } activation_t;
 
-/* WARN: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
 enum norm_e { norm_none, norm_layer, norm_batch, norm_simple };
 
 /* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
@@ -36,13 +36,6 @@ typedef struct {
     tensor_t *layer_intermediary;
     tensor_t *simple_max;
     tensor_t *simple_intermediary;
-    // cl_mem cl_simple_max;
-    // cl_mem cl_simple_intermediary;
-    // cl_mem cl_batch_expected;
-    // cl_mem cl_batch_variance;
-    // cl_mem cl_layer_expected;
-    // cl_mem cl_layer_variance;
-    // cl_mem cl_layer_intermediary;
 } norm_t;
 
 typedef struct {
@@ -53,17 +46,10 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
-    // cl_mem cl_weights;
-    // cl_mem cl_weights_g;
-    // cl_mem cl_biases;
-    // cl_mem cl_biases_g;
 
     tensor_t *input_multiply_temp_;
     tensor_t *output_multiply_temp_;
     tensor_t *full_temp_;
-    // cl_mem cl_input_multiply_temp_;
-    // cl_mem cl_output_multiply_temp_;
-    // cl_mem cl_full_temp_;
 } dense_t;
 
 #ifdef USE_OPENCL
@@ -90,19 +76,11 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
-    // cl_mem cl_weights;
-    // cl_mem cl_weights_g;
-    // cl_mem cl_biases;
-    // cl_mem cl_biases_g;
 
     tensor_t *padded_input_;
     tensor_t *padded_grad_;
     tensor_t *kernel_temp_;
     tensor_t *single_temp_;
-    // cl_mem cl_padded_input_;
-    // cl_mem cl_padded_grad_;
-    // cl_mem cl_kernel_temp_;
-    // cl_mem cl_single_temp_;
 } convolution_t;
 
 /* Calculates output size per dimension. */
@@ -168,13 +146,8 @@ typedef struct {
     tensor_t *weights_g;
     tensor_t *biases;
     tensor_t *biases_g;
-    // cl_mem cl_weights;
-    // cl_mem cl_weights_g;
-    // cl_mem cl_biases;
-    // cl_mem cl_biases_g;
 
     tensor_t *input_temp_;
-    // cl_mem cl_input_temp_;
 } split_t;
 
 #ifdef USE_OPENCL
@@ -199,37 +172,37 @@ typedef struct {
     int64_t input_y;
     int64_t input_x;
 
-    int64_t dense_input_channels_; /* Not set directly */
-    int64_t dense_input_y_;        /* Not set directly */
-    int64_t dense_input_x_;        /* Not set directly */
+    int64_t _dense_input_channels; /* Not set directly */
+    int64_t _dense_input_y;        /* Not set directly */
+    int64_t _dense_input_x;        /* Not set directly */
     int64_t dense_output_size;
 
-    int64_t convolution_input_channels_; /* Not set directly */
-    int64_t convolution_input_y_;        /* Not set directly */
-    int64_t convolution_input_x_;        /* Not set directly */
+    int64_t _convolution_input_channels; /* Not set directly */
+    int64_t _convolution_input_y;        /* Not set directly */
+    int64_t _convolution_input_x;        /* Not set directly */
     int64_t convolution_filters;
     int64_t convolution_kernel_size;
     int64_t convolution_kernel_stride;
     int64_t convolution_kernel_padding;
 
     enum layer_reduce_e reduce_type;
-    int64_t reduce_input_channels_; /* Not set directly */
-    int64_t reduce_input_y_;        /* Not set directly */
-    int64_t reduce_input_x_;        /* Not set directly */
+    int64_t _reduce_input_channels; /* Not set directly */
+    int64_t _reduce_input_y;        /* Not set directly */
+    int64_t _reduce_input_x;        /* Not set directly */
     int64_t reduce_kernel_size;
     int64_t reduce_kernel_stride;
     // int64_t reduce_kernel_padding;
 
-    int64_t split_input_channels_; /* Not set directly */
-    int64_t split_input_y_;        /* Not set directly */
-    int64_t split_input_x_;        /* Not set directly */
+    int64_t _split_input_channels; /* Not set directly */
+    int64_t _split_input_y;        /* Not set directly */
+    int64_t _split_input_x;        /* Not set directly */
     int64_t split_filters;
 
     enum residual_e residual_type;
     int64_t residual_connection_from_layer;
-    int64_t residual_convolution_input_channels_; /* Not set directly */
-    int64_t residual_convolution_input_y_;        /* Not set directly */
-    int64_t residual_convolution_input_x_;        /* Not set directly */
+    int64_t _residual_convolution_input_channels; /* Not set directly */
+    int64_t _residual_convolution_input_y;        /* Not set directly */
+    int64_t _residual_convolution_input_x;        /* Not set directly */
     int64_t residual_convolution_filters;
     int64_t residual_convolution_kernel_size;
     int64_t residual_convolution_kernel_stride;
@@ -255,8 +228,6 @@ typedef struct {
 
     tensor_t *activation;
     tensor_t *activation_g;
-    // cl_mem cl_activation;
-    // cl_mem cl_activation_g;
 } layer_t;
 
 #ifdef USE_OPENCL
@@ -286,7 +257,7 @@ typedef struct {
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
 #ifdef USE_OPENCL
-extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_context context);
+extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_device_id device_id, cl_context context);
 #else
 extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning);
 #endif

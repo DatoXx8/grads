@@ -10,10 +10,10 @@
 #include "utils.h"
 
 #ifdef USE_OPENCL
-static activation_t activation_alloc_(enum activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x,
+static activation_t _activation_alloc(enum activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x,
                                       cl_context context) {
 #else
-static activation_t activation_alloc_(enum activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x) {
+static activation_t _activation_alloc(enum activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x) {
 #endif
     assert(a > 0);
     assert(z > 0);
@@ -162,9 +162,9 @@ static void activation_activate_(tensor_t *tensor, activation_t *activation) {
     }
 }
 #ifdef USE_OPENCL
-static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor, cl_context context) {
+static norm_t _norm_alloc(enum norm_e type, tensor_t *tensor, cl_context context) {
 #else
-static norm_t norm_alloc_(enum norm_e type, tensor_t *tensor) {
+static norm_t _norm_alloc(enum norm_e type, tensor_t *tensor) {
 #endif
     assert(tensor);
     norm_t norm = {
@@ -1117,23 +1117,23 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
 #ifdef USE_OPENCL
             *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size, context);
             *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size, context);
-            *layer.activation_function = activation_alloc_(
+            *layer.activation_function = _activation_alloc(
                 layerconfig->activation_function, 1, 1, 1,
-                layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_,
+                layerconfig->_dense_input_channels * layerconfig->_dense_input_y * layerconfig->_dense_input_x,
                 context);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation, context);
-            *layer.dense = dense_alloc(layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ *
-                                           layerconfig->dense_input_x_,
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
+            *layer.dense = dense_alloc(layerconfig->_dense_input_channels * layerconfig->_dense_input_y *
+                                           layerconfig->_dense_input_x,
                                        layerconfig->dense_output_size, context);
 #else
             *layer.activation = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
             *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size);
-            *layer.activation_function = activation_alloc_(
+            *layer.activation_function = _activation_alloc(
                 layerconfig->activation_function, 1, 1, 1,
-                layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ * layerconfig->dense_input_x_);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
-            *layer.dense = dense_alloc(layerconfig->dense_input_channels_ * layerconfig->dense_input_y_ *
-                                           layerconfig->dense_input_x_,
+                layerconfig->_dense_input_channels * layerconfig->_dense_input_y * layerconfig->_dense_input_x);
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation);
+            *layer.dense = dense_alloc(layerconfig->_dense_input_channels * layerconfig->_dense_input_y *
+                                           layerconfig->_dense_input_x,
                                        layerconfig->dense_output_size);
 #endif
             break;
@@ -1141,10 +1141,10 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
         case layer_convolution: {
             layer.layer_type = layer_convolution;
             int64_t new_size_y = CONVOLUTION_OUTPUT_SIZE(
-                layerconfig->convolution_input_y_, layerconfig->convolution_kernel_size,
+                layerconfig->_convolution_input_y, layerconfig->convolution_kernel_size,
                 layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
             int64_t new_size_x = CONVOLUTION_OUTPUT_SIZE(
-                layerconfig->convolution_input_x_, layerconfig->convolution_kernel_size,
+                layerconfig->_convolution_input_x, layerconfig->convolution_kernel_size,
                 layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding);
             layer.activation = calloc(1, sizeof(tensor_t));
             layer.activation_g = calloc(1, sizeof(tensor_t));
@@ -1160,24 +1160,24 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x, context);
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x, context);
             *layer.activation_function =
-                activation_alloc_(layerconfig->activation_function, 1, layerconfig->convolution_input_channels_,
-                                  layerconfig->convolution_input_y_, layerconfig->convolution_input_x_, context);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation, context);
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_convolution_input_channels,
+                                  layerconfig->_convolution_input_y, layerconfig->_convolution_input_x, context);
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
             *layer.convolution =
-                convolution_alloc(layerconfig->convolution_input_channels_, layerconfig->convolution_input_y_,
-                                  layerconfig->convolution_input_x_, layerconfig->convolution_filters,
+                convolution_alloc(layerconfig->_convolution_input_channels, layerconfig->_convolution_input_y,
+                                  layerconfig->_convolution_input_x, layerconfig->convolution_filters,
                                   layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride,
                                   layerconfig->convolution_kernel_padding, context);
 #else
             *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x);
             *layer.activation_function =
-                activation_alloc_(layerconfig->activation_function, 1, layerconfig->convolution_input_channels_,
-                                  layerconfig->convolution_input_y_, layerconfig->convolution_input_x_);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_convolution_input_channels,
+                                  layerconfig->_convolution_input_y, layerconfig->_convolution_input_x);
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation);
             *layer.convolution =
-                convolution_alloc(layerconfig->convolution_input_channels_, layerconfig->convolution_input_y_,
-                                  layerconfig->convolution_input_x_, layerconfig->convolution_filters,
+                convolution_alloc(layerconfig->_convolution_input_channels, layerconfig->_convolution_input_y,
+                                  layerconfig->_convolution_input_x, layerconfig->convolution_filters,
                                   layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride,
                                   layerconfig->convolution_kernel_padding);
 #endif
@@ -1185,9 +1185,9 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
         }
         case layer_reduce: {
             layer.layer_type = layer_reduce;
-            int64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_y_, layerconfig->reduce_kernel_size,
+            int64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->_reduce_input_y, layerconfig->reduce_kernel_size,
                                                     layerconfig->reduce_kernel_stride);
-            int64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->reduce_input_x_, layerconfig->reduce_kernel_size,
+            int64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->_reduce_input_x, layerconfig->reduce_kernel_size,
                                                     layerconfig->reduce_kernel_stride);
             layer.activation = calloc(1, sizeof(tensor_t));
             layer.activation_g = calloc(1, sizeof(tensor_t));
@@ -1198,16 +1198,16 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             assert(layerconfig->activation_function == activation_identity);
             assert(layer.reduce);
 #ifdef USE_OPENCL
-            *layer.activation = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x, context);
-            *layer.activation_g = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x, context);
-            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels_,
-                                         layerconfig->reduce_input_y_, layerconfig->reduce_input_x_,
+            *layer.activation = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x, context);
+            *layer.activation_g = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x, context);
+            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->_reduce_input_channels,
+                                         layerconfig->_reduce_input_y, layerconfig->_reduce_input_x,
                                          layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
 #else
-            *layer.activation = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
-            *layer.activation_g = tensor_alloc(1, layerconfig->reduce_input_channels_, new_size_y, new_size_x);
-            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->reduce_input_channels_,
-                                         layerconfig->reduce_input_y_, layerconfig->reduce_input_x_,
+            *layer.activation = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x);
+            *layer.activation_g = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x);
+            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->_reduce_input_channels,
+                                         layerconfig->_reduce_input_y, layerconfig->_reduce_input_x,
                                          layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
 #endif
             break;
@@ -1225,27 +1225,27 @@ layer_t layer_alloc(layerconfig_t *layerconfig) {
             assert(layer.norm);
             assert(layer.split);
 #ifdef USE_OPENCL
-            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                             layerconfig->split_input_y_, layerconfig->split_input_x_, context);
-            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                               layerconfig->split_input_y_, layerconfig->split_input_x_, context);
+            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+                                             layerconfig->_split_input_y, layerconfig->_split_input_x, context);
+            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+                                               layerconfig->_split_input_y, layerconfig->_split_input_x, context);
             *layer.activation_function =
-                activation_alloc_(layerconfig->activation_function, 1, layerconfig->split_input_channels_,
-                                  layerconfig->split_input_y_, layerconfig->split_input_x_, context);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation, context);
-            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels_,
-                                       layerconfig->split_input_y_, layerconfig->split_input_x_, context);
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_split_input_channels,
+                                  layerconfig->_split_input_y, layerconfig->_split_input_x, context);
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
+            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->_split_input_channels,
+                                       layerconfig->_split_input_y, layerconfig->_split_input_x, context);
 #else
-            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                             layerconfig->split_input_y_, layerconfig->split_input_x_);
-            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->split_input_channels_,
-                                               layerconfig->split_input_y_, layerconfig->split_input_x_);
+            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+                                             layerconfig->_split_input_y, layerconfig->_split_input_x);
+            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+                                               layerconfig->_split_input_y, layerconfig->_split_input_x);
             *layer.activation_function =
-                activation_alloc_(layerconfig->activation_function, 1, layerconfig->split_input_channels_,
-                                  layerconfig->split_input_y_, layerconfig->split_input_x_);
-            *layer.norm = norm_alloc_(layerconfig->norm_type, layer.activation);
-            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->split_input_channels_,
-                                       layerconfig->split_input_y_, layerconfig->split_input_x_);
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_split_input_channels,
+                                  layerconfig->_split_input_y, layerconfig->_split_input_x);
+            *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation);
+            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->_split_input_channels,
+                                       layerconfig->_split_input_y, layerconfig->_split_input_x);
 #endif
             break;
         }
@@ -1316,7 +1316,8 @@ void layer_free(layer_t *layer) {
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a
  * tensor. */
 #ifdef USE_OPENCL
-neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_context context) {
+neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_device_id device_id,
+                            cl_context context) {
 #else
 neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning) {
 #endif
@@ -1354,9 +1355,9 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
         previous_x = neuralnet.layer[layer - 1].activation->buffer->sze_x;
         switch(layerconfig[layer]->layer_type) {
             case layer_dense: {
-                layerconfig[layer]->dense_input_channels_ = previous_z;
-                layerconfig[layer]->dense_input_y_ = previous_y;
-                layerconfig[layer]->dense_input_x_ = previous_x;
+                layerconfig[layer]->_dense_input_channels = previous_z;
+                layerconfig[layer]->_dense_input_y = previous_y;
+                layerconfig[layer]->_dense_input_x = previous_x;
 #ifdef USE_OPENCL
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
 #else
@@ -1365,9 +1366,9 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_convolution: {
-                layerconfig[layer]->convolution_input_channels_ = previous_z;
-                layerconfig[layer]->convolution_input_y_ = previous_y;
-                layerconfig[layer]->convolution_input_x_ = previous_x;
+                layerconfig[layer]->_convolution_input_channels = previous_z;
+                layerconfig[layer]->_convolution_input_y = previous_y;
+                layerconfig[layer]->_convolution_input_x = previous_x;
 #ifdef USE_OPENCL
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
 #else
@@ -1376,9 +1377,9 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_reduce: {
-                layerconfig[layer]->reduce_input_channels_ = previous_z;
-                layerconfig[layer]->reduce_input_y_ = previous_y;
-                layerconfig[layer]->reduce_input_x_ = previous_x;
+                layerconfig[layer]->_reduce_input_channels = previous_z;
+                layerconfig[layer]->_reduce_input_y = previous_y;
+                layerconfig[layer]->_reduce_input_x = previous_x;
 #ifdef USE_OPENCL
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
 #else
@@ -1387,9 +1388,9 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_split: {
-                layerconfig[layer]->split_input_channels_ = previous_z;
-                layerconfig[layer]->split_input_y_ = previous_y;
-                layerconfig[layer]->split_input_x_ = previous_x;
+                layerconfig[layer]->_split_input_channels = previous_z;
+                layerconfig[layer]->_split_input_y = previous_y;
+                layerconfig[layer]->_split_input_x = previous_x;
 #ifdef USE_OPENCL
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
 #else
