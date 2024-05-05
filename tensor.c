@@ -1,3 +1,4 @@
+#include <CL/cl.h>
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -20,7 +21,11 @@ void name_update(char *name) {
         }
     }
 }
+#ifdef USE_OPENCL
+buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
+#else
 buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
+#endif
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -39,6 +44,9 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .str_y = x,
         .str_x = 1,
         .val = calloc(a * z * y * x, sizeof(double)),
+#ifdef USE_OPENCL
+        .val_cl = calloc(1, sizeof(cl_mem)),
+#endif
         .sze_a_sim = a,
         .sze_z_sim = z,
         .sze_y_sim = y,
@@ -48,6 +56,12 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .str_y_sim = x,
         .str_x_sim = 1,
     };
+#ifdef USE_OPENCL
+    int err;
+    assert(buffer.val_cl);
+    *buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
+    assert(err == 0);
+#endif
     assert(buffer.val);
     strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
     name_update(name);
@@ -55,18 +69,20 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
 }
 void buffer_free(buffer_t *buffer) {
     free(buffer->val);
+#ifdef USE_OPENCL
+    clReleaseMemObject(*buffer->val_cl);
+    free(buffer->val_cl);
+#endif
 }
 
-/* Not a special or tested value at all. This is pure intuition. */
-const int64_t INITIAL_CHILD_NUMBER = 8;
-/* However there is a max of two parents per lazyop. */
-const int64_t MAX_PARENT_NUMBER = 2;
+const int64_t CHILD_NUMBER_INIT = 8;
+const int64_t PARENT_NUMBER_MAX = 2;
 op_t op_alloc(void) {
     op_t op = {
-        .parent_capacity = MAX_PARENT_NUMBER,
-        .parent = calloc(MAX_PARENT_NUMBER, sizeof(op_t *)),
-        .child_capacity = INITIAL_CHILD_NUMBER,
-        .child = calloc(INITIAL_CHILD_NUMBER, sizeof(op_t *)),
+        .parent_capacity = PARENT_NUMBER_MAX,
+        .parent = calloc(PARENT_NUMBER_MAX, sizeof(op_t *)),
+        .child_capacity = CHILD_NUMBER_INIT,
+        .child = calloc(CHILD_NUMBER_INIT, sizeof(op_t *)),
     };
     assert(op.parent);
     assert(op.child);
@@ -1308,7 +1324,11 @@ void op_cpu_realize(op_t *op) {
     free(op);
 }
 
+#ifdef USE_OPENCL
+tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
+#else
 tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
+#endif
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -1318,7 +1338,11 @@ tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .buffer = malloc(sizeof(buffer_t)),
     };
     assert(tensor.buffer);
+#ifdef USE_OPENCL
+    *tensor.buffer = buffer_alloc(a, z, y, x, context);
+#else
     *tensor.buffer = buffer_alloc(a, z, y, x);
+#endif
     return tensor;
 }
 void tensor_free(tensor_t *tensor) {

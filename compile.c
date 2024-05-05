@@ -1656,7 +1656,7 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     free(gid);
     return kernel;
 }
-void program_compile(program_t *program, linearized_t *linearized) {
+void program_compile(program_t *program, linearized_t *linearized, cl_device_id device_id, cl_context context) {
     if(!linearized->op_len) { return; }
     simple_loop_t simple = {0};
     int64_t global_size = 9;
@@ -1682,6 +1682,8 @@ void program_compile(program_t *program, linearized_t *linearized) {
     }
     program->source_len = source_len_cumulative;
     program->source = calloc(source_len_cumulative + 1, sizeof(char)); /* NOTE: `+1` for '\0'. */
+    program->cl_context = context;
+    program->cl_device_id = device_id;
     char *source_curr = program->source;
     for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
         source_curr +=

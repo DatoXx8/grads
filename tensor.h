@@ -1,6 +1,9 @@
 #ifndef TENSOR_H_
 #define TENSOR_H_
 
+#ifdef USE_OPENCL
+#include <CL/cl.h>
+#endif
 #include <stdint.h>
 
 #include "utils.h"
@@ -21,6 +24,9 @@ typedef struct {
     int64_t sze_x;
     int64_t off;
     double *val;
+#ifdef USE_OPENCL
+    cl_mem *val_cl;
+#endif
     char name[BUFFER_NAME_SIZE + 1];
     int64_t str_a_sim;
     int64_t str_z_sim;
@@ -37,8 +43,11 @@ typedef struct {
     int64_t off_sim;
 } buffer_t;
 
+#ifdef USE_OPENCL
+extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
+#else
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
-extern void buffer_free(buffer_t *buffer);
+#endif
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
     ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
@@ -132,7 +141,11 @@ typedef struct {
     op_t *op;
 } tensor_t;
 
+#ifdef USE_OPENCL
+extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
+#else
 extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
+#endif
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_set(tensor_t *tensor, double value);

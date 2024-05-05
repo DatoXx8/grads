@@ -14,7 +14,6 @@
 #include "tensor.h"
 
 /* TODO: Add other compile languages like CUDA. */
-/* TODO: Add compilation to fixed binaries and also just the "normal" compilation. */
 enum compile_e { compile_none, compile_cl };
 
 typedef struct {
@@ -68,7 +67,8 @@ typedef struct {
 typedef struct {
     const char *name;
     char **args_name;
-    cl_mem *args_mem;
+    /* NOTE: Since the memory is shared `**` might be necessary. This is questionable since cl_mem is already a `_cl_mem *` */
+    cl_mem **args_mem;
     int64_t arg_num;
     int64_t size_global;
     int64_t size_local;
@@ -89,7 +89,7 @@ typedef struct {
 } program_t;
 
 /* Could also be called `program_alloc()`. */
-extern void program_compile(program_t *program, linearized_t *linearized);
+extern void program_compile(program_t *program, linearized_t *linearized, cl_device_id device_id, cl_context context);
 extern void program_free(program_t *program);
 
 #endif /* COMPILE_H_ */

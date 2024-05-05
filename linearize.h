@@ -4,6 +4,7 @@
 /* The purpose of this is to turn the op tree structure into an array of ops that can then be fed to the GPU via OpenCL.
  */
 
+#include <CL/cl.h>
 #include <stdint.h>
 
 #include "tensor.h"
@@ -23,6 +24,7 @@ typedef struct {
     int64_t off_x;
     int64_t off;
     double *val;
+    cl_mem *val_cl;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 

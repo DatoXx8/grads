@@ -66,7 +66,11 @@ typedef struct {
     // cl_mem cl_full_temp_;
 } dense_t;
 
+#ifdef USE_OPENCL
+extern dense_t dense_alloc(int64_t input_size, int64_t output_size, cl_context context);
+#else
 extern dense_t dense_alloc(int64_t input_size, int64_t output_size);
+#endif
 extern void dense_free(dense_t *dense);
 extern void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output);
 extern void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient);
@@ -104,8 +108,14 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                \
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
+#ifdef USE_OPENCL
+extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters,
+                                       int64_t kernel_size, int64_t kernel_stride, int64_t kernel_padding,
+                                       cl_context context);
+#else
 extern convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters,
                                        int64_t kernel_size, int64_t kernel_stride, int64_t kernel_padding);
+#endif
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
 extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution,
@@ -167,7 +177,12 @@ typedef struct {
     // cl_mem cl_input_temp_;
 } split_t;
 
+#ifdef USE_OPENCL
+extern split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, int64_t input_x,
+                           cl_context context);
+#else
 extern split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, int64_t input_x);
+#endif
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
 extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output,
@@ -244,7 +259,11 @@ typedef struct {
     // cl_mem cl_activation_g;
 } layer_t;
 
+#ifdef USE_OPENCL
+extern layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context);
+#else
 extern layer_t layer_alloc(layerconfig_t *layerconfig);
+#endif
 extern void layer_free(layer_t *layer);
 
 enum compilation_e { compilation_none, compilation_cl };
@@ -256,7 +275,6 @@ typedef struct {
     linearized_t *forward;
     linearized_t *learn;
     linearized_t *backward;
-    // cl_context context;
     // program_t *forward;
     // program_t *learn;
     // program_t *backward;
@@ -267,7 +285,11 @@ typedef struct {
 #define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
+#ifdef USE_OPENCL
+extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_context context);
+#else
 extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning);
+#endif
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* TODO: Make this save the neuralnet structure and not only the weights and biases. */
 extern int neuralnet_save(neuralnet_t *neuralnet, const char *filename);
