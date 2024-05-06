@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef USE_OPENCL
+#include "compile.h"
+#endif
 #include "linearize.h"
 #include "nn.h"
 #include "tensor.h"
@@ -1439,29 +1442,11 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     }
     /* NOTE: Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape. */
     for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
-        switch(neuralnet.layer[layer].layer_type) {
-            case layer_dense: {
-                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-                break;
-            }
-            case layer_convolution: {
-                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-                break;
-            }
-            case layer_reduce: {
-                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-                break;
-            }
-            case layer_split: {
-                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-                break;
-            }
-            case layer_input: {
-                linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
-                break;
-            }
-        }
+        linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
     }
+#ifdef USE_OPENCL
+    program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context);
+#endif
     for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
         switch(neuralnet.layer[layer].layer_type) {
             case layer_dense: {
@@ -1595,6 +1580,11 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     free(neuralnet->backward);
     linearized_free(neuralnet->learn);
     free(neuralnet->learn);
+#ifdef USE_OPENCL
+    program_free(&neuralnet->forward_cl);
+    program_free(&neuralnet->backward_cl);
+    program_free(&neuralnet->learn_cl);
+#endif
 }
 /* TODO: Make this save the neuralnet structure and not only the weights and biases. */
 /* NOTE: Returns 1 on error. */

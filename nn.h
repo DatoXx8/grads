@@ -246,9 +246,11 @@ typedef struct {
     linearized_t *forward;
     linearized_t *learn;
     linearized_t *backward;
-    // program_t *forward;
-    // program_t *learn;
-    // program_t *backward;
+#ifdef USE_OPENCL
+    program_t forward_cl;
+    program_t learn_cl;
+    program_t backward_cl;
+#endif
 } neuralnet_t;
 
 #define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0])
@@ -257,7 +259,8 @@ typedef struct {
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
 #ifdef USE_OPENCL
-extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_device_id device_id, cl_context context);
+extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, cl_device_id device_id,
+                                   cl_context context);
 #else
 extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning);
 #endif

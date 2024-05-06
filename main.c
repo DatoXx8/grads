@@ -1,20 +1,29 @@
+#include <CL/cl.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "compile.h"
+#ifdef USE_OPENCL
+#include "runtimes/cl.h"
+#endif
 #include "nn.h"
 #include "tensor.h"
 #include "utils.h"
 
 /*
+ *  TODO: Do a compile-time flag to opt in or out of OpenCL
+ *      -> Not compiling
+ *      -> Not including "runtimes/cl.c"
+ *      -> Not allocating and freeing cl_mem for the tensors
+ *  TODO: Make cl_mem a field in the buffers and then have a counter for synchronisation (+1 for copying from
+ * host->device and -1 for copying from device->host)
  *  TODO: Make OpenCL work with the in memory programs.
  *  TODO: Refactor op-trees to deep copy the op tree to make sure flipping tensors would work (think of the linearizer
  * simulator debacle and why that broke).
  *  TODO: Write more tiger-beetle style tests.
- *      Compilation gives the same results (within error) in all compilation options.
- *      Test compiler edge cases.
+ *      -> Compilation gives the same results (within error) in all compilation options.
+ *      -> Test compiler edge cases.
  *  TODO: Fix inlining ops that already have stuff inlined. (Might not be necessary when you think about it.)
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
@@ -22,14 +31,26 @@
  *  TODO: Support SYCL, that seems pretty neat.
  *  TODO: Update README with installation and usage guides.
  *
- *  Idea for chess engine: Train solely on fischer-random self play.
+ *  TODO: Rewrite this to use Zig instead of C. Maybe after I have written Compyle in Zig.
+ *
+ *  Idea for chess engine: Train solely on chess960 self play.
  *                         Bunch of different heads with a core net.
+ *
+ *                         Piece placing chess is very interesting.
+ *
+ *
+ * Also wanna make a go engine.
  */
 
 int main(void) {
-    const uint32_t RNG = time(NULL);
-    printf("RNG Seed %u\n", RNG);
-    // srand(rng);
+    // const uint32_t RNG = time(NULL);
+    // printf("INFO: RNG Seed %u\n", RNG);
+    // srand(RNG);
+#ifdef USE_OPENCL
+    printf("INFO: Using OpenCL\n");
+#else
+    printf("INFO: Not using OpenCL\n");
+#endif
     INIT_TIMER();
 
     START_TIME();
@@ -80,21 +101,37 @@ int main(void) {
     // layerconfig[3] = &l3;
     // layerconfig[4] = &l4;
 
-    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING);
-    neuralnet_random(&neuralnet);
-
     const int64_t SAMPLES = 1;
+#ifdef USE_OPENCL
+    int err;
+    cl_device_id device_id = cl_device_get();
+    cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
+    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, device_id, context);
+    tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
+                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
+                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_x, context);
+    tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_z,
+                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_y,
+                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_x, context);
+#else
+    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_x);
     tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_z,
                                    NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_y,
                                    NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_x);
-    program_t program = {0};
-    program_compile(&program, neuralnet.forward);
-    for(int64_t i = 0; i < program.kernel_num; i++) { printf("%s\n", program.kernel[i].source); }
+#endif
+    tensor_unary_random(&input);
+    tensor_unary_random(&output);
+    tensor_realize(&input);
+    tensor_realize(&output);
+    neuralnet_random(&neuralnet);
 
-    program_free(&program);
+    neuralnet_forward(&neuralnet, &input);
+    TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
+    TENSOR_PRINT(input);
+
     neuralnet_free(&neuralnet);
     tensor_free(&input);
     tensor_free(&output);

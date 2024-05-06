@@ -35,9 +35,6 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
 }
 static void program_build(program_t *program) {
     int err;
-    program->cl_device_id = cl_device_get();
-    program->cl_context = clCreateContext(NULL, 1, &program->cl_device_id, NULL, NULL, &err);
-    if(err < 0) { ERROR("Could not create OpenCL context!\nError %d\n", err); }
     program->cl_command_queue =
         clCreateCommandQueueWithProperties(program->cl_context, program->cl_device_id, NULL, &err);
     if(err < 0) { ERROR("Could not create OpenCL command queue!\nError %d\n", err); }
@@ -60,7 +57,9 @@ void program_run(program_t *program) {
         if(kernel_idx) { printf("\n"); }
         for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
             printf("%s\n", program->kernel[kernel_idx].args_name[arg_idx]);
-            // clSetKernelArg(program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem), );
+            // clSetKernelArg(*program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
+            //                program->kernel[kernel_idx].args_mem[arg_idx]);
         }
+        printf("%s\n", program->kernel[kernel_idx].source);
     }
 }
