@@ -1697,7 +1697,7 @@ void program_free(program_t *program) {
     free(program->kernel);
     free((void *) program->source);
     if(program->cl_program) {
-        clRetainProgram(*program->cl_program);
+        clReleaseProgram(*program->cl_program);
         free(program->cl_program);
     }
 }
