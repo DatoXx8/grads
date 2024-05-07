@@ -1,6 +1,10 @@
 #ifndef NN_H_
 #define NN_H_
 
+#ifdef USE_OPENCL
+#include "CL/cl.h"
+#endif
+
 #include <stdint.h>
 
 #include "compile.h"
@@ -39,7 +43,7 @@ typedef struct {
 } norm_t;
 
 typedef struct {
-    int64_t input_size_; /* Not set directly. */
+    int64_t _input_size; /* Not set directly. */
     int64_t output_size;
 
     tensor_t *weights;
@@ -47,9 +51,9 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *input_multiply_temp_;
-    tensor_t *output_multiply_temp_;
-    tensor_t *full_temp_;
+    tensor_t *_input_multiply_temp;
+    tensor_t *_output_multiply_temp;
+    tensor_t *_full_temp;
 } dense_t;
 
 #ifdef USE_OPENCL
@@ -64,9 +68,9 @@ extern void dense_print(dense_t *dense, int padding, int offset, const char *nam
 extern void dense_print_shape(dense_t *dense, int padding, int offset, const char *name);
 
 typedef struct {
-    int64_t input_channels_; /* Equivalent to input_z. Also not set directly. */
-    int64_t input_y_;        /* Not set directly. */
-    int64_t input_x_;        /* Not set directly. */
+    int64_t _input_channels; /* Equivalent to input_z. Also not set directly. */
+    int64_t _input_y;        /* Not set directly. */
+    int64_t _input_x;        /* Not set directly. */
     int64_t filters;
     int64_t kernel_size;
     int64_t kernel_stride;
@@ -77,10 +81,10 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *padded_input_;
-    tensor_t *padded_grad_;
-    tensor_t *kernel_temp_;
-    tensor_t *single_temp_;
+    tensor_t *_padded_input;
+    tensor_t *_padded_grad;
+    tensor_t *_kernel_temp;
+    tensor_t *_single_temp;
 } convolution_t;
 
 /* Calculates output size per dimension. */
@@ -106,9 +110,9 @@ enum layer_reduce_e { layer_reduce_max, layer_reduce_avg, layer_reduce_min };
 
 typedef struct {
     enum layer_reduce_e type;
-    int64_t input_channels_; /* Equivalent to input_z. */
-    int64_t input_y_;        /* Not set directly. */
-    int64_t input_x_;        /* Not set directly. */
+    int64_t _input_channels; /* Equivalent to input_z. */
+    int64_t _input_y;        /* Not set directly. */
+    int64_t _input_x;        /* Not set directly. */
     int64_t kernel_size;
     int64_t kernel_stride;
     // int64_t kernel_padding;
@@ -147,7 +151,7 @@ typedef struct {
     tensor_t *biases;
     tensor_t *biases_g;
 
-    tensor_t *input_temp_;
+    tensor_t *_input_temp;
 } split_t;
 
 #ifdef USE_OPENCL
