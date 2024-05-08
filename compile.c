@@ -1618,14 +1618,14 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     char *kernel_source = calloc(kernel_size, sizeof(char));
     assert(kernel_source);
     char *kernel_i = kernel_source;
-    kernel_i += snprintf(kernel_i, 1 + log10(kernel_counter + 1) + 3 + strnlen("__kernel void(", 20),
+    kernel_i += snprintf(kernel_i, 1 + log10(kernel_counter + 1) + 3 + strnlen("__kernel void(", 15),
                          "__kernel void %s(", func_name);
     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
         if(arg_idx != arg_num - 1) {
-            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 30),
+            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 20),
                                  "__global double *%s, ", args[arg_idx]);
         } else {
-            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 30),
+            kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 22),
                                  "__global double *%s) {\n", args[arg_idx]);
         }
     }
