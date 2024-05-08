@@ -426,18 +426,17 @@ void dense_print_shape(dense_t *dense, int padding, int offset, const char *name
            dense->weights->buffer->sze_z, dense->weights->buffer->sze_y, dense->weights->buffer->sze_x);
 }
 
-convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t input_x, int64_t filters,
-                                int64_t kernel_size, int64_t kernel_stride, int64_t kernel_padding,
-                                cl_context context) {
+convolution_t convolution_alloc(int64_t input_z, int64_t input_y, int64_t input_x, int64_t filters, int64_t kernel_size,
+                                int64_t kernel_stride, int64_t kernel_padding, cl_context context) {
     assert(filters > 0);
     assert(kernel_size > 0);
     assert(kernel_stride > 0);
     assert(kernel_padding >= 0);
-    assert(input_channels > 0);
+    assert(input_z > 0);
     assert(input_y >= kernel_size);
     assert(input_x >= kernel_size);
     convolution_t convolution = {
-        ._input_channels = input_channels,
+        ._input_z = input_z,
         ._input_y = input_y,
         ._input_x = input_x,
         .filters = filters,
@@ -466,13 +465,13 @@ convolution_t convolution_alloc(int64_t input_channels, int64_t input_y, int64_t
 
     *convolution.biases = tensor_alloc(filters, 1, 1, 1, context);
     *convolution.biases_g = tensor_alloc(filters, 1, 1, 1, context);
-    *convolution.weights = tensor_alloc(filters, input_channels, kernel_size, kernel_size, context);
-    *convolution.weights_g = tensor_alloc(filters, input_channels, kernel_size, kernel_size, context);
+    *convolution.weights = tensor_alloc(filters, input_z, kernel_size, kernel_size, context);
+    *convolution.weights_g = tensor_alloc(filters, input_z, kernel_size, kernel_size, context);
     *convolution._padded_input =
-        tensor_alloc(1, input_channels, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding, context);
+        tensor_alloc(1, input_z, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding, context);
     *convolution._padded_grad =
-        tensor_alloc(1, input_channels, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding, context);
-    *convolution._kernel_temp = tensor_alloc(1, input_channels, kernel_size, kernel_size, context);
+        tensor_alloc(1, input_z, input_y + 2 * kernel_padding, input_x + 2 * kernel_padding, context);
+    *convolution._kernel_temp = tensor_alloc(1, input_z, kernel_size, kernel_size, context);
     *convolution._single_temp = tensor_alloc(1, 1, 1, 1, context);
 
     return convolution;
@@ -541,8 +540,8 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
     }
     tensor_move_resize(convolution->biases, convolution->filters, 1, 1, 1);
     tensor_move_offset(convolution->biases, 0, 0, 0, 0);
-    tensor_move_resize(convolution->weights, convolution->filters, convolution->_input_channels,
-                       convolution->kernel_size, convolution->kernel_size);
+    tensor_move_resize(convolution->weights, convolution->filters, convolution->_input_z, convolution->kernel_size,
+                       convolution->kernel_size);
     tensor_move_offset(convolution->weights, 0, 0, 0, 0);
     tensor_move_resize(output, 1, output_z, output_y, output_x);
     tensor_move_offset(output, 0, 0, 0, 0);
@@ -672,16 +671,16 @@ void convolution_print_shape(convolution_t *convolution, int padding, int offset
 
 /* NOTE: Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). I
  * like the name continuity tho. */
-reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_channels, int64_t input_y, int64_t input_x,
-                      int64_t kernel_size, int64_t kernel_stride) {
+reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x, int64_t kernel_size,
+                      int64_t kernel_stride) {
     assert(kernel_size > 0);
     assert(kernel_stride > 0);
-    assert(input_channels > 0);
+    assert(input_z > 0);
     assert(input_y >= kernel_size);
     assert(input_x >= kernel_size);
     reduce_t reduce = {
         .type = type,
-        ._input_channels = input_channels,
+        ._input_z = input_z,
         ._input_y = input_y,
         ._input_x = input_x,
         .kernel_size = kernel_size,
@@ -710,7 +709,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     /* PERF: Switch statement is on the outside cuz it only needs to be done once then. */
     switch(reduce->type) {
         case layer_reduce_max: {
-            for(int64_t channel = 0; channel < reduce->_input_channels; channel++) {
+            for(int64_t channel = 0; channel < reduce->_input_z; channel++) {
                 output_y_i = 0;
                 for(int64_t y = 0; y < reduce->_input_y - reduce->kernel_size + 1; y += reduce->kernel_stride) {
                     output_x_i = 0;
@@ -726,7 +725,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
             break;
         }
         case layer_reduce_min: {
-            for(int64_t channel = 0; channel < reduce->_input_channels; channel++) {
+            for(int64_t channel = 0; channel < reduce->_input_z; channel++) {
                 output_y_i = 0;
                 for(int64_t y = 0; y < reduce->_input_y - reduce->kernel_size + 1; y += reduce->kernel_stride) {
                     output_x_i = 0;
@@ -742,7 +741,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
             break;
         }
         case layer_reduce_avg: {
-            for(int64_t channel = 0; channel < reduce->_input_channels; channel++) {
+            for(int64_t channel = 0; channel < reduce->_input_z; channel++) {
                 output_y_i = 0;
                 for(int64_t y = 0; y < reduce->_input_y - reduce->kernel_size + 1; y += reduce->kernel_stride) {
                     output_x_i = 0;
@@ -840,18 +839,18 @@ void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
     } else {
         printf("%*sconvolution\n", offset, "");
     }
-    printf("%*ssize %lu, stride %lu, channels %lu, input y %lu, input x %lu\n", offset + padding, "",
-           reduce->kernel_size, reduce->kernel_stride, reduce->_input_channels, reduce->_input_y, reduce->_input_x);
+    printf("%*ssize %lu, stride %lu, z %lu, y %lu, x %lu\n", offset + padding, "", reduce->kernel_size,
+           reduce->kernel_stride, reduce->_input_z, reduce->_input_y, reduce->_input_x);
 }
 
-split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, int64_t input_x, cl_context context) {
+split_t split_alloc(int64_t filters, int64_t input_z, int64_t input_y, int64_t input_x, cl_context context) {
     assert(filters > 0);
-    assert(input_channels > 0);
+    assert(input_z > 0);
     assert(input_y > 0);
     assert(input_x > 0);
     split_t split = {
         .filters = filters,
-        .input_channels = input_channels,
+        .input_z = input_z,
         .input_y = input_y,
         .input_x = input_x,
 
@@ -868,11 +867,11 @@ split_t split_alloc(int64_t filters, int64_t input_channels, int64_t input_y, in
     assert(split.weights_g);
     assert(split._input_temp);
 
-    *split.biases = tensor_alloc(filters, input_channels, input_y, input_x, context);
-    *split.biases_g = tensor_alloc(filters, input_channels, input_y, input_x, context);
-    *split.weights = tensor_alloc(filters, input_channels, input_y, input_x, context);
-    *split.weights_g = tensor_alloc(filters, input_channels, input_y, input_x, context);
-    *split._input_temp = tensor_alloc(1, input_channels, input_y, input_x, context);
+    *split.biases = tensor_alloc(filters, input_z, input_y, input_x, context);
+    *split.biases_g = tensor_alloc(filters, input_z, input_y, input_x, context);
+    *split.weights = tensor_alloc(filters, input_z, input_y, input_x, context);
+    *split.weights_g = tensor_alloc(filters, input_z, input_y, input_x, context);
+    *split._input_temp = tensor_alloc(1, input_z, input_y, input_x, context);
 
     return split;
 }
@@ -1005,9 +1004,9 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             assert(layer.activation);
             assert(layer.activation_g);
             *layer.activation =
-                tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x, context);
+                tensor_alloc(1, layerconfig->input_z, layerconfig->input_y, layerconfig->input_x, context);
             *layer.activation_g =
-                tensor_alloc(1, layerconfig->input_channels, layerconfig->input_y, layerconfig->input_x, context);
+                tensor_alloc(1, layerconfig->input_z, layerconfig->input_y, layerconfig->input_x, context);
             break;
         }
         case layer_dense: {
@@ -1026,12 +1025,11 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             *layer.activation_g = tensor_alloc(1, 1, 1, layerconfig->dense_output_size, context);
             *layer.activation_function = _activation_alloc(
                 layerconfig->activation_function, 1, 1, 1,
-                layerconfig->_dense_input_channels * layerconfig->_dense_input_y * layerconfig->_dense_input_x,
-                context);
+                layerconfig->_dense_input_z * layerconfig->_dense_input_y * layerconfig->_dense_input_x, context);
             *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
-            *layer.dense = dense_alloc(layerconfig->_dense_input_channels * layerconfig->_dense_input_y *
-                                           layerconfig->_dense_input_x,
-                                       layerconfig->dense_output_size, context);
+            *layer.dense =
+                dense_alloc(layerconfig->_dense_input_z * layerconfig->_dense_input_y * layerconfig->_dense_input_x,
+                            layerconfig->dense_output_size, context);
             break;
         }
         case layer_convolution: {
@@ -1055,14 +1053,13 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             *layer.activation = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x, context);
             *layer.activation_g = tensor_alloc(1, layerconfig->convolution_filters, new_size_y, new_size_x, context);
             *layer.activation_function =
-                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_convolution_input_channels,
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_convolution_input_z,
                                   layerconfig->_convolution_input_y, layerconfig->_convolution_input_x, context);
             *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
-            *layer.convolution =
-                convolution_alloc(layerconfig->_convolution_input_channels, layerconfig->_convolution_input_y,
-                                  layerconfig->_convolution_input_x, layerconfig->convolution_filters,
-                                  layerconfig->convolution_kernel_size, layerconfig->convolution_kernel_stride,
-                                  layerconfig->convolution_kernel_padding, context);
+            *layer.convolution = convolution_alloc(
+                layerconfig->_convolution_input_z, layerconfig->_convolution_input_y, layerconfig->_convolution_input_x,
+                layerconfig->convolution_filters, layerconfig->convolution_kernel_size,
+                layerconfig->convolution_kernel_stride, layerconfig->convolution_kernel_padding, context);
             break;
         }
         case layer_reduce: {
@@ -1079,9 +1076,9 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             assert(layerconfig->norm_type == norm_none);
             assert(layerconfig->activation_function == activation_identity);
             assert(layer.reduce);
-            *layer.activation = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x, context);
-            *layer.activation_g = tensor_alloc(1, layerconfig->_reduce_input_channels, new_size_y, new_size_x, context);
-            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->_reduce_input_channels,
+            *layer.activation = tensor_alloc(1, layerconfig->_reduce_input_z, new_size_y, new_size_x, context);
+            *layer.activation_g = tensor_alloc(1, layerconfig->_reduce_input_z, new_size_y, new_size_x, context);
+            *layer.reduce = reduce_alloc(layerconfig->reduce_type, layerconfig->_reduce_input_z,
                                          layerconfig->_reduce_input_y, layerconfig->_reduce_input_x,
                                          layerconfig->reduce_kernel_size, layerconfig->reduce_kernel_stride);
             break;
@@ -1098,15 +1095,15 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             assert(layer.activation_function);
             assert(layer.norm);
             assert(layer.split);
-            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+            *layer.activation = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_z,
                                              layerconfig->_split_input_y, layerconfig->_split_input_x, context);
-            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_channels,
+            *layer.activation_g = tensor_alloc(1, layerconfig->split_filters * layerconfig->_split_input_z,
                                                layerconfig->_split_input_y, layerconfig->_split_input_x, context);
             *layer.activation_function =
-                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_split_input_channels,
+                _activation_alloc(layerconfig->activation_function, 1, layerconfig->_split_input_z,
                                   layerconfig->_split_input_y, layerconfig->_split_input_x, context);
             *layer.norm = _norm_alloc(layerconfig->norm_type, layer.activation, context);
-            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->_split_input_channels,
+            *layer.split = split_alloc(layerconfig->split_filters, layerconfig->_split_input_z,
                                        layerconfig->_split_input_y, layerconfig->_split_input_x, context);
             break;
         }
@@ -1224,28 +1221,28 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
         previous_x = neuralnet.layer[layer - 1].activation->buffer->sze_x;
         switch(layerconfig[layer]->layer_type) {
             case layer_dense: {
-                layerconfig[layer]->_dense_input_channels = previous_z;
+                layerconfig[layer]->_dense_input_z = previous_z;
                 layerconfig[layer]->_dense_input_y = previous_y;
                 layerconfig[layer]->_dense_input_x = previous_x;
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
                 break;
             }
             case layer_convolution: {
-                layerconfig[layer]->_convolution_input_channels = previous_z;
+                layerconfig[layer]->_convolution_input_z = previous_z;
                 layerconfig[layer]->_convolution_input_y = previous_y;
                 layerconfig[layer]->_convolution_input_x = previous_x;
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
                 break;
             }
             case layer_reduce: {
-                layerconfig[layer]->_reduce_input_channels = previous_z;
+                layerconfig[layer]->_reduce_input_z = previous_z;
                 layerconfig[layer]->_reduce_input_y = previous_y;
                 layerconfig[layer]->_reduce_input_x = previous_x;
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
                 break;
             }
             case layer_split: {
-                layerconfig[layer]->_split_input_channels = previous_z;
+                layerconfig[layer]->_split_input_z = previous_z;
                 layerconfig[layer]->_split_input_y = previous_y;
                 layerconfig[layer]->_split_input_x = previous_x;
                 neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
@@ -1468,10 +1465,9 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
             }
             case layer_convolution: {
                 int64_t bias_size = neuralnet->layer[layer].convolution->filters;
-                int64_t weight_size = neuralnet->layer[layer].convolution->filters *
-                                      neuralnet->layer[layer].convolution->_input_channels *
-                                      neuralnet->layer[layer].convolution->kernel_size *
-                                      neuralnet->layer[layer].convolution->kernel_size;
+                int64_t weight_size =
+                    neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->_input_z *
+                    neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
                 err |= fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
                 err |=
                     fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
@@ -1483,8 +1479,7 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
                 break;
             }
             case layer_split: {
-                int64_t bias_size = neuralnet->layer[layer].split->filters *
-                                    neuralnet->layer[layer].split->input_channels *
+                int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
                 err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
@@ -1522,10 +1517,9 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
             }
             case layer_convolution: {
                 int64_t bias_size = neuralnet->layer[layer].convolution->filters;
-                int64_t weight_size = neuralnet->layer[layer].convolution->filters *
-                                      neuralnet->layer[layer].convolution->_input_channels *
-                                      neuralnet->layer[layer].convolution->kernel_size *
-                                      neuralnet->layer[layer].convolution->kernel_size;
+                int64_t weight_size =
+                    neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->_input_z *
+                    neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
                 err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
                 err |= fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
                 if(err) { return 1; }
@@ -1536,8 +1530,7 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 break;
             }
             case layer_split: {
-                int64_t bias_size = neuralnet->layer[layer].split->filters *
-                                    neuralnet->layer[layer].split->input_channels *
+                int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
                 err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
