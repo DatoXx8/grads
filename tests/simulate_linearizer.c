@@ -170,8 +170,8 @@ void simulate_linearize(int64_t op_num, int64_t tensor_num) {
     tensor_t *tensor = calloc(tensor_num, sizeof(tensor_t));
     tensor_t *tensor_d = calloc(tensor_num, sizeof(tensor_t));
     for(int64_t i = 0; i < tensor_num; i++) {
-        tensor[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
-        tensor_d[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
+        tensor[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
+        tensor_d[i] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
     }
 
     /* TODO: I don't think there is a easy way to make sure that all these modulos are accurate, when adding new ops. However I *really* should figure out a way

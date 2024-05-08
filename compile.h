@@ -13,9 +13,6 @@
 #include "linearize.h"
 #include "tensor.h"
 
-/* TODO: Add other compile languages like CUDA. */
-enum compile_e { compile_none, compile_cl };
-
 typedef struct {
     int64_t str_a_in;
     int64_t str_z_in;

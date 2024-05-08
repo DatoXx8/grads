@@ -1,4 +1,6 @@
+#ifdef USE_OPENCL
 #include <CL/cl.h>
+#endif
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -21,11 +23,9 @@ void name_update(char *name) {
         }
     }
 }
-#ifdef USE_OPENCL
+void buffer_update_sync(buffer_t *buffer, enum sync_e sync) {}
+
 buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
-#else
-buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
-#endif
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -44,9 +44,8 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .str_y = x,
         .str_x = 1,
         .val = calloc(a * z * y * x, sizeof(double)),
-#ifdef USE_OPENCL
-        .val_cl = calloc(1, sizeof(cl_mem)),
-#endif
+        .val_cl = NULL,
+        .sync = sync_none,
         .sze_a_sim = a,
         .sze_z_sim = z,
         .sze_y_sim = y,
@@ -56,12 +55,12 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .str_y_sim = x,
         .str_x_sim = 1,
     };
-#ifdef USE_OPENCL
-    int err;
-    assert(buffer.val_cl);
-    *buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
-    assert(err == 0);
-#endif
+    if(context) {
+        int err;
+        buffer.val_cl = calloc(1, sizeof(cl_mem)), assert(buffer.val_cl);
+        *buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
+        assert(err == 0);
+    }
     assert(buffer.val);
     strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
     name_update(name);
@@ -69,10 +68,10 @@ buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
 }
 void buffer_free(buffer_t *buffer) {
     free(buffer->val);
-#ifdef USE_OPENCL
-    clReleaseMemObject(*buffer->val_cl);
-    free(buffer->val_cl);
-#endif
+    if(buffer->val_cl) {
+        clReleaseMemObject(*buffer->val_cl);
+        free(buffer->val_cl);
+    }
 }
 
 const int64_t CHILD_NUMBER_INIT = 8;
@@ -221,7 +220,6 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
     //                        op->buffer_out->sze_x, op->buffer_out->off, op->var_unary, (void *) op->buffer_out);
     //                 break;
     //             }
-    //             /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important!
     //             */ case unary_random: {
     //                 printf("U ran {%lu, %lu, %lu, %lu} %lu [%p]\n", op->buffer_out->sze_a, op->buffer_out->sze_z,
     //                 op->buffer_out->sze_y, op->buffer_out->sze_x,
@@ -508,7 +506,6 @@ void op_single_print(op_t *op, int padding, int offset, const char *name) {
                            op->buffer_out->off_sim, op->var_unary, (void *) op->buffer_out);
                     break;
                 }
-                /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case unary_random: {
                     printf("U ran {%lu, %lu, %lu, %lu} %lu [%p]\n", op->buffer_out->sze_a_sim,
                            op->buffer_out->sze_z_sim, op->buffer_out->sze_y_sim, op->buffer_out->sze_x_sim,
@@ -888,7 +885,6 @@ void op_single_op_cpu_realize(op_t *op) {
                     }
                     break;
                 }
-                /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
                 case unary_random: {
                     for(int64_t a = 0; a < op->buffer_out->sze_a; a++) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
@@ -1324,11 +1320,7 @@ void op_cpu_realize(op_t *op) {
     free(op);
 }
 
-#ifdef USE_OPENCL
 tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
-#else
-tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
-#endif
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -1338,11 +1330,7 @@ tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x) {
         .buffer = malloc(sizeof(buffer_t)),
     };
     assert(tensor.buffer);
-#ifdef USE_OPENCL
     *tensor.buffer = buffer_alloc(a, z, y, x, context);
-#else
-    *tensor.buffer = buffer_alloc(a, z, y, x);
-#endif
     return tensor;
 }
 void tensor_free(tensor_t *tensor) {
@@ -1517,7 +1505,6 @@ void tensor_unary_set(tensor_t *tensor, double value) {
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
 }
-/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
 void tensor_unary_random(tensor_t *tensor) {
     assert(tensor);
     op_t *parent = tensor->op;

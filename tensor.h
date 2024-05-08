@@ -1,9 +1,9 @@
 #ifndef TENSOR_H_
 #define TENSOR_H_
 
-#ifdef USE_OPENCL
 #include <CL/cl.h>
-#endif
+enum sync_e { sync_none = 0, sync_to_host, sync_to_device };
+
 #include <stdint.h>
 
 #include "utils.h"
@@ -24,9 +24,8 @@ typedef struct {
     int64_t sze_x;
     int64_t off;
     double *val;
-#ifdef USE_OPENCL
     cl_mem *val_cl;
-#endif
+    enum sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
     int64_t str_a_sim;
     int64_t str_z_sim;
@@ -43,11 +42,7 @@ typedef struct {
     int64_t off_sim;
 } buffer_t;
 
-#ifdef USE_OPENCL
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
-#else
-extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
-#endif
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
     ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
@@ -70,7 +65,6 @@ enum unary_e {
     unary_max,
     unary_min,
     unary_set,
-    /* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! */
     unary_random,
     unary_tanh,
     unary_absolute,
@@ -141,11 +135,7 @@ typedef struct {
     op_t *op;
 } tensor_t;
 
-#ifdef USE_OPENCL
 extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
-#else
-extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x);
-#endif
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_set(tensor_t *tensor, double value);
@@ -158,8 +148,6 @@ extern void tensor_unary_log(tensor_t *tensor);
 extern void tensor_unary_square(tensor_t *tensor);
 extern void tensor_unary_sqrt(tensor_t *tensor);
 extern void tensor_unary_reciprocal(tensor_t *tensor);
-/* Never *ever* use this for things like encryption, where the randomnes of the numbers is important! I don't know why
- * you would do that in a ML framework but I digress. */
 extern void tensor_unary_random(tensor_t *tensor);
 extern void tensor_unary_tanh(tensor_t *tensor);
 extern void tensor_unary_max(tensor_t *tensor, double value);

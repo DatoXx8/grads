@@ -23,8 +23,8 @@ int main(void) {
         data_out[element_idx] = ((double) rand() / RAND_MAX) * 2 - 1;
     }
 
-    tensor_t in = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
-    tensor_t out = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
+    tensor_t in = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
+    tensor_t out = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
 
     /* Unary ops. */
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
