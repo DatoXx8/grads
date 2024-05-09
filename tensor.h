@@ -24,7 +24,7 @@ typedef struct {
     int64_t sze_x;
     int64_t off;
     double *val;
-    cl_mem *val_cl;
+    cl_mem val_cl;
     enum sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
     int64_t str_a_sim;
