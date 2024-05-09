@@ -1192,18 +1192,24 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     *neuralnet.backward = linearized_alloc();
     *neuralnet.learn = linearized_alloc();
 
-    cl_device_id device_id;
-    cl_context context;
+    cl_device_id *device_id = calloc(1, sizeof(cl_device_id));
+    assert(device_id);
+    cl_context *context = calloc(1, sizeof(cl_context));
+    assert(context);
+    cl_command_queue *command_queue = calloc(1, sizeof(cl_command_queue));
+    assert(command_queue);
     switch(compile_type) {
         case compile_cl: {
             int err;
-            device_id = cl_device_get();
-            context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
+            *device_id = cl_device_get();
+            *context = clCreateContext(NULL, 1, device_id, NULL, NULL, &err);
+            assert(err == 0);
+            *command_queue = clCreateCommandQueueWithProperties(*context, *device_id, NULL, &err);
             assert(err == 0);
             break;
         }
         case compile_none: {
-            context = NULL;
+            *context = NULL;
             break;
         }
     }
@@ -1213,7 +1219,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     int64_t previous_x;
     assert(layerconfig[0]);
     assert(layerconfig[0]->layer_type == layer_input);
-    neuralnet.layer[0] = layer_alloc(layerconfig[0], context);
+    neuralnet.layer[0] = layer_alloc(layerconfig[0], *context);
     for(int64_t layer = 1; layer < layers; layer++) {
         assert(layerconfig[layer]);
         previous_z = neuralnet.layer[layer - 1].activation->buffer->sze_z;
@@ -1224,28 +1230,28 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 layerconfig[layer]->_dense_input_z = previous_z;
                 layerconfig[layer]->_dense_input_y = previous_y;
                 layerconfig[layer]->_dense_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
                 break;
             }
             case layer_convolution: {
                 layerconfig[layer]->_convolution_input_z = previous_z;
                 layerconfig[layer]->_convolution_input_y = previous_y;
                 layerconfig[layer]->_convolution_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
                 break;
             }
             case layer_reduce: {
                 layerconfig[layer]->_reduce_input_z = previous_z;
                 layerconfig[layer]->_reduce_input_y = previous_y;
                 layerconfig[layer]->_reduce_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
                 break;
             }
             case layer_split: {
                 layerconfig[layer]->_split_input_z = previous_z;
                 layerconfig[layer]->_split_input_y = previous_y;
                 layerconfig[layer]->_split_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], context);
+                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
                 break;
             }
             case layer_input: {
@@ -1408,19 +1414,13 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
         }
     }
     if(neuralnet.compile_type == compile_cl) {
-        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context);
-        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context);
-        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context);
-    }
-    switch(compile_type) {
-        case compile_cl: {
-            clReleaseDevice(device_id);
-            clReleaseContext(context);
-            break;
-        }
-        case compile_none: {
-            break;
-        }
+        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue);
+        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue);
+        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue);
+    } else {
+        free(device_id);
+        free(context);
+        free(command_queue);
     }
 
     return neuralnet;
@@ -1440,9 +1440,15 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     linearized_free(neuralnet->learn);
     free(neuralnet->learn);
     if(neuralnet->compile_type == compile_cl) {
+        cl_device_id *device_id_temp = neuralnet->forward_cl.cl_device_id;
+        cl_context *context_temp = neuralnet->forward_cl.cl_context;
+        cl_command_queue *command_queue_temp = neuralnet->forward_cl.cl_command_queue;
         program_free(&neuralnet->forward_cl);
         program_free(&neuralnet->backward_cl);
         program_free(&neuralnet->learn_cl);
+        free(device_id_temp);
+        free(context_temp);
+        free(command_queue_temp);
     }
 }
 /* TODO: Make this save the neuralnet structure and not only the weights and biases. */

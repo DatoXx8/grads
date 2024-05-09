@@ -1028,11 +1028,23 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case unary_max: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]<%lf?%lf:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].var_unary,
+                                            op[0].var_unary, op[0].buffer_out.name, op[0].buffer_out.name, loop_idx,
+                                            op_idx, SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case unary_min: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]>%lf?%lf:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].var_unary,
+                                            op[0].var_unary, op[0].buffer_out.name, op[0].buffer_out.name, loop_idx,
+                                            op_idx, SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case unary_set: {
@@ -1268,10 +1280,18 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             case unary_max: {
+                                                /* NOTE: It is very interesting wether or not this should be inlined. I
+                                                 * should measure wether writing is less expensive than doing more
+                                                 * calculations with cached values. Obviously it's worth it to a point
+                                                 * but I should measure at what point inlining is more expensive. */
                                                 TODO();
                                                 break;
                                             }
                                             case unary_min: {
+                                                /* NOTE: It is very interesting wether or not this should be inlined. I
+                                                 * should measure wether writing is less expensive than doing more
+                                                 * calculations with cached values. Obviously it's worth it to a point
+                                                 * but I should measure at what point inlining is more expensive. */
                                                 TODO();
                                                 break;
                                             }
@@ -1656,7 +1676,13 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     free(gid);
     return kernel;
 }
-void program_compile(program_t *program, linearized_t *linearized, cl_device_id device_id, cl_context context) {
+void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
+                     cl_command_queue *command_queue) {
+    assert(program);
+    assert(linearized);
+    assert(device_id);
+    assert(context);
+    assert(command_queue);
     if(!linearized->op_len) { return; }
     simple_loop_t simple = {0};
     int64_t global_size = 9;
@@ -1682,8 +1708,10 @@ void program_compile(program_t *program, linearized_t *linearized, cl_device_id 
     }
     program->source_len = source_len_cumulative;
     program->source = calloc(source_len_cumulative + 1, sizeof(char)); /* NOTE: `+1` for '\0'. */
-    program->cl_context = context;
+    assert(program->source);
     program->cl_device_id = device_id;
+    program->cl_context = context;
+    program->cl_command_queue = command_queue;
     char *source_curr = program->source;
     for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
         source_curr +=
@@ -1696,8 +1724,35 @@ void program_free(program_t *program) {
     }
     free(program->kernel);
     free((void *) program->source);
-    if(program->cl_program) {
-        clReleaseProgram(*program->cl_program);
-        free(program->cl_program);
+    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer. */
+    if(program->cl_program && *program->cl_program) {
+        if(*program->cl_program) {
+            clReleaseProgram(*program->cl_program);
+            free(*program->cl_program);
+            *program->cl_program = NULL;
+        }
+        program->cl_program = NULL;
+    }
+
+    if(program->cl_device_id) {
+        if(*program->cl_device_id) {
+            clReleaseDevice(*program->cl_device_id);
+            *program->cl_device_id = NULL;
+        }
+        program->cl_device_id = NULL;
+    }
+    if(program->cl_context) {
+        if(*program->cl_context) {
+            clReleaseContext(*program->cl_context);
+            *program->cl_context = NULL;
+        }
+        program->cl_context = NULL;
+    }
+    if(program->cl_command_queue) {
+        if(*program->cl_command_queue) {
+            clReleaseCommandQueue(*program->cl_command_queue);
+            *program->cl_command_queue = NULL;
+        }
+        program->cl_command_queue = NULL;
     }
 }

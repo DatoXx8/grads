@@ -17,7 +17,7 @@ cl_device_id cl_device_get(void) {
 }
 cl_program cl_program_build(cl_context context, cl_device_id device, const char *source, int64_t source_size) {
     uint64_t log_size;
-    int err;
+    int err = 0;
     char *program_log;
     cl_program program =
         clCreateProgramWithSource(context, 1, (const char **) &source, (const size_t *) &source_size, &err);
@@ -34,13 +34,9 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
     return program;
 }
 static void program_build(program_t *program) {
-    int err;
-    program->cl_command_queue =
-        clCreateCommandQueueWithProperties(program->cl_context, program->cl_device_id, NULL, &err);
-    if(err < 0) { ERROR("Could not create OpenCL command queue!\nError %d\n", err); }
     program->cl_program = calloc(1, sizeof(cl_program));
     *program->cl_program =
-        cl_program_build(program->cl_context, program->cl_device_id, program->source, program->source_len);
+        cl_program_build(*program->cl_context, *program->cl_device_id, program->source, program->source_len);
 }
 /* NOTE: Compiles the program if it wasn't already. */
 void program_run(program_t *program) {
