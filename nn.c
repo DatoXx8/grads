@@ -128,7 +128,7 @@ static void activation_activate_(tensor_t *tensor, activation_t *activation) {
             break;
         }
         case activation_gelu: {
-            /* NOTE: This is an approximation and can be found here: https://paperswithcode.com/method/gelu */
+            /* This is an approximation and can be found here: https://paperswithcode.com/method/gelu */
             /* TODO: Write a brute forcer that minimizes the error by varying the constant. */
             tensor_binary_copy(activation->intermediary, tensor);
             tensor_unary_max(tensor, 0);
@@ -233,13 +233,13 @@ static void norm_calculate_layer_(norm_t *norm, tensor_t *tensor) {
     assert(tensor);
     tensor_reduce_avg(norm->layer_expected, tensor);
     tensor_binary_copy(norm->layer_intermediary, tensor);
-    /* NOTE: The reason this is commented out is quite ugly. Basically when realizing the tensor the expected value
+    /* The reason this is commented out is quite ugly. Basically when realizing the tensor the expected value
      * already gets subtracted before in the calculation. I understand that isn't nice, but otherwise I would have to
      * make a copy here and that would be worse. */
     // tensor_lbinary_subtract(norm->layer_intermediary, norm->layer_expected);
     tensor_unary_square(norm->layer_intermediary);
     tensor_reduce_avg(norm->layer_variance, norm->layer_intermediary);
-    /* NOTE: Added to avoid dividing by 0 when normalizing the layer. */
+    /* Added to avoid dividing by 0 when normalizing the layer. */
     tensor_unary_add(norm->layer_variance, EPSILON);
     tensor_unary_sqrt(norm->layer_variance);
 }
@@ -324,7 +324,7 @@ void dense_free(dense_t *dense) {
     free(dense->_output_multiply_temp);
     free(dense->_full_temp);
 }
-/* NOTE: Automagically "flattens" the input tensor to shape `{1, 1, a * z * y * x, 1}`. */
+/* Automagically "flattens" the input tensor to shape `{1, 1, a * z * y * x, 1}`. */
 void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
     assert(input);
     assert(dense);
@@ -392,7 +392,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
         tensor_move_offset(dense->weights, 0, 0, i, 0);
         tensor_binary_copy(dense->_output_multiply_temp, dense->weights);
         tensor_binary_multiply(dense->_output_multiply_temp, output_gradient);
-        /* NOTE: Sum is technically the right one I think, but avg provides better scaling. */
+        /* Sum is technically the right one I think, but avg provides better scaling. */
         tensor_reduce_sum(input_gradient, dense->_output_multiply_temp);
         // tensor_reduce_avg(input_gradient, dense->_output_multiply_temp);
     }
@@ -669,7 +669,7 @@ void convolution_print_shape(convolution_t *convolution, int padding, int offset
            convolution->weights->buffer->sze_x);
 }
 
-/* NOTE: Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). I
+/* Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). I
  * like the name continuity tho. */
 reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x, int64_t kernel_size,
                       int64_t kernel_stride) {
@@ -706,7 +706,7 @@ void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     tensor_move_reshape(input, 1, input_z, input_y, input_x);
     tensor_move_resize(input, 1, 1, reduce->kernel_size, reduce->kernel_size);
     tensor_move_resize(output, 1, 1, 1, 1);
-    /* PERF: Switch statement is on the outside cuz it only needs to be done once then. */
+    /* Switch statement is on the outside cuz it only needs to be done once then. */
     switch(reduce->type) {
         case layer_reduce_max: {
             for(int64_t channel = 0; channel < reduce->_input_z; channel++) {
@@ -1173,7 +1173,7 @@ void layer_free(layer_t *layer) {
 
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a
  * tensor. */
-neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning, enum compile_e compile_type) {
+neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning, enum compile_e compile_type) {
     assert(layers > 1);
     assert(learning > 0);
     neuralnet_t neuralnet = {
@@ -1217,41 +1217,39 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     int64_t previous_z;
     int64_t previous_y;
     int64_t previous_x;
-    assert(layerconfig[0]);
-    assert(layerconfig[0]->layer_type == layer_input);
-    neuralnet.layer[0] = layer_alloc(layerconfig[0], *context);
+    assert(layerconfig[0].layer_type == layer_input);
+    neuralnet.layer[0] = layer_alloc(&layerconfig[0], *context);
     for(int64_t layer = 1; layer < layers; layer++) {
-        assert(layerconfig[layer]);
         previous_z = neuralnet.layer[layer - 1].activation->buffer->sze_z;
         previous_y = neuralnet.layer[layer - 1].activation->buffer->sze_y;
         previous_x = neuralnet.layer[layer - 1].activation->buffer->sze_x;
-        switch(layerconfig[layer]->layer_type) {
+        switch(layerconfig[layer].layer_type) {
             case layer_dense: {
-                layerconfig[layer]->_dense_input_z = previous_z;
-                layerconfig[layer]->_dense_input_y = previous_y;
-                layerconfig[layer]->_dense_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
+                layerconfig[layer]._dense_input_z = previous_z;
+                layerconfig[layer]._dense_input_y = previous_y;
+                layerconfig[layer]._dense_input_x = previous_x;
+                neuralnet.layer[layer] = layer_alloc(&layerconfig[layer], *context);
                 break;
             }
             case layer_convolution: {
-                layerconfig[layer]->_convolution_input_z = previous_z;
-                layerconfig[layer]->_convolution_input_y = previous_y;
-                layerconfig[layer]->_convolution_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
+                layerconfig[layer]._convolution_input_z = previous_z;
+                layerconfig[layer]._convolution_input_y = previous_y;
+                layerconfig[layer]._convolution_input_x = previous_x;
+                neuralnet.layer[layer] = layer_alloc(&layerconfig[layer], *context);
                 break;
             }
             case layer_reduce: {
-                layerconfig[layer]->_reduce_input_z = previous_z;
-                layerconfig[layer]->_reduce_input_y = previous_y;
-                layerconfig[layer]->_reduce_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
+                layerconfig[layer]._reduce_input_z = previous_z;
+                layerconfig[layer]._reduce_input_y = previous_y;
+                layerconfig[layer]._reduce_input_x = previous_x;
+                neuralnet.layer[layer] = layer_alloc(&layerconfig[layer], *context);
                 break;
             }
             case layer_split: {
-                layerconfig[layer]->_split_input_z = previous_z;
-                layerconfig[layer]->_split_input_y = previous_y;
-                layerconfig[layer]->_split_input_x = previous_x;
-                neuralnet.layer[layer] = layer_alloc(layerconfig[layer], *context);
+                layerconfig[layer]._split_input_z = previous_z;
+                layerconfig[layer]._split_input_y = previous_y;
+                layerconfig[layer]._split_input_x = previous_x;
+                neuralnet.layer[layer] = layer_alloc(&layerconfig[layer], *context);
                 break;
             }
             case layer_input: {
@@ -1293,7 +1291,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
             }
         }
     }
-    /* NOTE: Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape. */
+    /* Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape. */
     for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
         linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
     }
@@ -1312,7 +1310,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_convolution: {
-                /* NOTE: This is `_padded_grad` here, because gradients get calculate in there and then copied into
+                /* This is `_padded_grad` here, because gradients get calculate in there and then copied into
                  * `activation_g`. */
                 tensor_unary_set(neuralnet.layer[layer].convolution->_padded_grad, 0);
                 convolution_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
@@ -1647,7 +1645,7 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
     tensor_move_offset(training_output, 0, 0, 0, 0);
     tensor_realize(training_output);
 }
-/* NOTE: Have to call `neuralnet_backward()` before this one. This also clears the gradients. */
+/* Have to call `neuralnet_backward()` before this one. This also clears the gradients. */
 void neuralnet_learn(neuralnet_t *neuralnet) {
     assert(neuralnet);
     assert(neuralnet->learn);

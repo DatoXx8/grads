@@ -9,7 +9,7 @@
 #include "linearize.h"
 #include "tensor.h"
 
-/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* NOT APPLICABLE FOR REDUCE LAYERS. */
 enum activation_e {
     activation_identity,
     activation_relu,
@@ -25,7 +25,7 @@ typedef struct {
     tensor_t *intermediary;
 } activation_t;
 
-/* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+/* NOT APPLICABLE FOR REDUCE LAYERS. */
 enum norm_e { norm_none, norm_layer, norm_batch, norm_simple };
 
 /* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
@@ -119,7 +119,7 @@ extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *
 /* Trying some new types of residual connections beyond identity and conv. */
 enum residual_e { residual_identity, residual_convolution, residual_dense, residual_reduce };
 
-/* NOTE: Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
+/* Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
  * supported right now. */
 /* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can
  * reuse the same layerconf and it is more similar to the standard residual block. */
@@ -196,9 +196,9 @@ typedef struct {
     int64_t residual_convolution_kernel_stride;
     int64_t residual_convolution_kernel_padding;
 
-    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+    /* NOT APPLICABLE FOR REDUCE LAYERS. */
     enum activation_e activation_function;
-    /* NOTE: NOT APPLICABLE FOR REDUCE LAYERS. */
+    /* NOT APPLICABLE FOR REDUCE LAYERS. */
     enum norm_e norm_type;
 } layerconfig_t;
 
@@ -241,14 +241,14 @@ typedef struct {
 #define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
-extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double learning,
+extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning,
                                    enum compile_e compilation_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
-/* TODO: Make this save the neuralnet structure and not only the weights and biases. */
+/* You have to keep track of the NN architecture yourself. I might add that in the future but it's not a thing yet. */
 extern void neuralnet_save(neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_load(neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_random(neuralnet_t *neuralnet);
-/* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
+/* Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
 extern void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input);
 extern void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output);
