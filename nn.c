@@ -1283,7 +1283,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_input: {
-                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu\n", layer);
             }
         }
     }
@@ -1291,9 +1291,6 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
     for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
         linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
     }
-#ifdef USE_OPENCL
-    program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context);
-#endif
     for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
         switch(neuralnet.layer[layer].layer_type) {
             case layer_dense: {
@@ -1350,7 +1347,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                 break;
             }
             case layer_input: {
-                ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                ERROR("Input layer at layer %lu\n", layer);
             }
         }
         for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
@@ -1405,10 +1402,15 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, double 
                     break;
                 }
                 case layer_input: {
-                    ERROR("Input layer at layer %lu. I don't even know how this can possibly happen.\n", layer);
+                    ERROR("Input layer at layer %lu\n", layer);
                 }
             }
         }
+    }
+    if(neuralnet.compile_type == compile_cl) {
+        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context);
+        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context);
+        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context);
     }
     switch(compile_type) {
         case compile_cl: {
@@ -1437,20 +1439,19 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     free(neuralnet->backward);
     linearized_free(neuralnet->learn);
     free(neuralnet->learn);
-#ifdef USE_OPENCL
-    program_free(&neuralnet->forward_cl);
-    program_free(&neuralnet->backward_cl);
-    program_free(&neuralnet->learn_cl);
-#endif
+    if(neuralnet->compile_type == compile_cl) {
+        program_free(&neuralnet->forward_cl);
+        program_free(&neuralnet->backward_cl);
+        program_free(&neuralnet->learn_cl);
+    }
 }
 /* TODO: Make this save the neuralnet structure and not only the weights and biases. */
-/* NOTE: Returns 1 on error. */
-int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
+void neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
     assert(neuralnet);
     assert(filename);
     int err;
-    FILE *f = fopen(filename, "wb");
-    if(!f) { return 1; }
+    FILE *file = fopen(filename, "wb");
+    assert(file);
     for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
         err = 0;
         switch(neuralnet->layer[layer].layer_type) {
@@ -1458,9 +1459,9 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
                 int64_t bias_size = neuralnet->layer[layer].dense->output_size;
                 int64_t weight_size =
                     neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->_input_size;
-                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
+                assert(err == 0);
                 break;
             }
             case layer_convolution: {
@@ -1468,10 +1469,11 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
                 int64_t weight_size =
                     neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->_input_z *
                     neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
-                err |= fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
                 err |=
-                    fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                    fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, file);
+                err |= fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size,
+                              file);
+                assert(err == 0);
                 break;
             }
             case layer_reduce: {
@@ -1482,9 +1484,9 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
                 int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
-                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
+                err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
+                assert(err == 0);
                 break;
             }
             case layer_input: {
@@ -1492,17 +1494,15 @@ int neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
             }
         }
     }
-    err = fclose(f);
-    if(err) { return 1; }
-    return 0;
+    err = fclose(file);
+    assert(err == 0);
 }
-/* NOTE: Returns 1 on error. */
-int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
+void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
     assert(neuralnet);
     assert(filename);
     int err;
-    FILE *f = fopen(filename, "rb");
-    if(!f) { return 1; }
+    FILE *file = fopen(filename, "rb");
+    assert(file);
     for(int64_t layer = 1; layer < neuralnet->layers; layer++) {
         err = 0;
         switch(neuralnet->layer[layer].layer_type) {
@@ -1510,9 +1510,9 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 int64_t bias_size = neuralnet->layer[layer].dense->output_size;
                 int64_t weight_size =
                     neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->_input_size;
-                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
+                assert(err == 0);
                 break;
             }
             case layer_convolution: {
@@ -1520,9 +1520,10 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 int64_t weight_size =
                     neuralnet->layer[layer].convolution->filters * neuralnet->layer[layer].convolution->_input_z *
                     neuralnet->layer[layer].convolution->kernel_size * neuralnet->layer[layer].convolution->kernel_size;
-                err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, f);
-                err |= fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, file);
+                err |=
+                    fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, file);
+                assert(err == 0);
                 break;
             }
             case layer_reduce: {
@@ -1533,9 +1534,9 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 int64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
-                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, f);
-                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, f);
-                if(err) { return 1; }
+                err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
+                err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
+                assert(err == 0);
                 break;
             }
             case layer_input: {
@@ -1543,9 +1544,8 @@ int neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
             }
         }
     }
-    err = fclose(f);
-    if(err) { return 1; }
-    return 0;
+    err = fclose(file);
+    assert(err == 0);
 }
 void neuralnet_random(neuralnet_t *neuralnet) {
     assert(neuralnet);
@@ -1588,11 +1588,17 @@ void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input) {
     assert(neuralnet->forward);
     tensor_binary_copy(NEURALNET_INPUT_(neuralnet).activation, input);
     tensor_realize(NEURALNET_INPUT_(neuralnet).activation);
-#ifdef USE_OPENCL
-    program_run(&neuralnet->forward_cl);
-#else
-    linearized_run(neuralnet->forward);
-#endif
+
+    switch(neuralnet->compile_type) {
+        case(compile_cl): {
+            program_run(&neuralnet->forward_cl);
+            break;
+        }
+        case(compile_none): {
+            linearized_run(neuralnet->forward);
+            break;
+        }
+    }
 }
 void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output) {
     assert(neuralnet);
@@ -1617,7 +1623,16 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
         tensor_binary_subtract(NEURALNET_OUTPUT_(neuralnet).activation_g, training_output);
         // tensor_unary_multiply(NEURALNET_OUTPUT_(neuralnet).activation_g, 2);
         tensor_realize(NEURALNET_OUTPUT_(neuralnet).activation_g);
-        linearized_run(neuralnet->backward);
+        switch(neuralnet->compile_type) {
+            case(compile_cl): {
+                program_run(&neuralnet->backward_cl);
+                break;
+            }
+            case(compile_none): {
+                linearized_run(neuralnet->backward);
+                break;
+            }
+        }
     }
     tensor_move_resize(training_input, training_samples, input_z, input_y, input_x);
     tensor_move_offset(training_input, 0, 0, 0, 0);
@@ -1630,7 +1645,16 @@ void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor
 void neuralnet_learn(neuralnet_t *neuralnet) {
     assert(neuralnet);
     assert(neuralnet->learn);
-    linearized_run(neuralnet->learn);
+    switch(neuralnet->compile_type) {
+        case(compile_cl): {
+            program_run(&neuralnet->learn_cl);
+            break;
+        }
+        case(compile_none): {
+            linearized_run(neuralnet->learn);
+            break;
+        }
+    }
 }
 void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
     assert(neuralnet);

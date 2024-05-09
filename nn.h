@@ -231,9 +231,9 @@ typedef struct {
     linearized_t *forward;
     linearized_t *learn;
     linearized_t *backward;
-    program_t *forward_cl;
-    program_t *learn_cl;
-    program_t *backward_cl;
+    program_t forward_cl;
+    program_t learn_cl;
+    program_t backward_cl;
 } neuralnet_t;
 
 #define NEURALNET_INPUT(neuralnet) ((neuralnet).layer[0])
@@ -245,8 +245,8 @@ extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t **layerconfig, 
                                    enum compile_e compilation_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* TODO: Make this save the neuralnet structure and not only the weights and biases. */
-extern int neuralnet_save(neuralnet_t *neuralnet, const char *filename);
-extern int neuralnet_load(neuralnet_t *neuralnet, const char *filename);
+extern void neuralnet_save(neuralnet_t *neuralnet, const char *filename);
+extern void neuralnet_load(neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_random(neuralnet_t *neuralnet);
 /* NOTE: Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. */
