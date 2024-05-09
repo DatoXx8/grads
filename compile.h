@@ -7,14 +7,11 @@
     3. Each loop gets split up into multiple work items
  */
 
+#include <CL/cl.h>
 #include <stdint.h>
 
 #include "linearize.h"
 #include "tensor.h"
-
-/* TODO: Add other compile languages like CUDA. */
-/* TODO: Add compilation to fixed binaries and also just the "normal" compilation. */
-enum compile_e { compile_none, compile_cl };
 
 typedef struct {
     int64_t str_a_in;
@@ -64,22 +61,35 @@ typedef struct {
     int64_t *op_cap;
 } compile_loop_t;
 
-/* Arguments names, number of arguments, kernel name and other stuff like that. These should exist for each compile option. */
 typedef struct {
     const char *name;
-    char **args;
+    char **args_name;
+    /* NOTE: Since the memory is shared `**` might be necessary. This is questionable since cl_mem is already a `_cl_mem
+     * *` */
+    cl_mem **args_mem;
     int64_t arg_num;
-    int64_t global_size;
-    int64_t local_size;
+    int64_t size_global;
+    int64_t size_local;
+    char *source;
+    int64_t source_len;
+    int64_t source_cap;
+    cl_kernel *cl_kernel;
 } kernel_t;
 typedef struct {
     kernel_t *kernel;
     int64_t kernel_num;
-    const char *filename;
+    char *source;
+    int64_t source_len;
+    cl_program *cl_program;
+    cl_device_id *cl_device_id; /* NOTE: Has to be done like this if we want these all the programs to have the same
+                                   `device_id`s and all that other stuff.*/
+    cl_context *cl_context;
+    cl_command_queue *cl_command_queue;
 } program_t;
 
 /* Could also be called `program_alloc()`. */
-extern int program_compile(program_t *program, const char *filename, linearized_t *linearized);
+extern void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
+                            cl_command_queue *command_queue);
 extern void program_free(program_t *program);
 
 #endif /* COMPILE_H_ */

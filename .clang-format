@@ -1,5 +1,5 @@
 IndentWidth: 4
-ColumnLimit: 160
+ColumnLimit: 120
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortEnumsOnASingleLine: true
