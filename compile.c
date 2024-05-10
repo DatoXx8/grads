@@ -331,6 +331,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
             break;
         }
     }
+    assert(loop_number > 0);
 
     simple_op_t **loop_instances = calloc(loop_number, sizeof(simple_op_t *));
     assert(loop_instances);
@@ -435,8 +436,7 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
     }
     if(optim & OPTIMIZE_FUSE) { printf("Optimizing: Fuse\n"); }
 }
-// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char
-// *name) {
+// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
 //     assert(compile);
 //     if(!strncmp(name, "", 1)) {
 //         printf("%*scompile loop repetitions %lu\n", offset, "", compile->loop_num);
@@ -463,14 +463,14 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
 //             }
 //             if(compile->op[i][j].type == operation_unary) {
 //                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out,
-//                 compile->dim_info[i][j].str_z_out, compile->dim_info[i][j].str_y_out,
-//                        compile->dim_info[i][j].str_x_out);
+//                 compile->dim_info[i][j].str_z_out,
+//                        compile->dim_info[i][j].str_y_out, compile->dim_info[i][j].str_x_out);
 //             } else {
-//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n",
-//                 compile->dim_info[i][j].str_a_out, compile->dim_info[i][j].str_z_out,
-//                        compile->dim_info[i][j].str_y_out, compile->dim_info[i][j].str_x_out,
-//                        compile->dim_info[i][j].str_a_in, compile->dim_info[i][j].str_z_in,
-//                        compile->dim_info[i][j].str_y_in, compile->dim_info[i][j].str_x_in);
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].str_a_out,
+//                        compile->dim_info[i][j].str_z_out, compile->dim_info[i][j].str_y_out,
+//                        compile->dim_info[i][j].str_x_out, compile->dim_info[i][j].str_a_in,
+//                        compile->dim_info[i][j].str_z_in, compile->dim_info[i][j].str_y_in,
+//                        compile->dim_info[i][j].str_x_in);
 //             }
 //         }
 //     }
@@ -484,14 +484,14 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
 //             }
 //             if(compile->op[i][j].type == operation_unary) {
 //                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out,
-//                 compile->dim_info[i][j].res_z_out, compile->dim_info[i][j].res_y_out,
-//                        compile->dim_info[i][j].res_x_out);
+//                 compile->dim_info[i][j].res_z_out,
+//                        compile->dim_info[i][j].res_y_out, compile->dim_info[i][j].res_x_out);
 //             } else {
-//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n",
-//                 compile->dim_info[i][j].res_a_out, compile->dim_info[i][j].res_z_out,
-//                        compile->dim_info[i][j].res_y_out, compile->dim_info[i][j].res_x_out,
-//                        compile->dim_info[i][j].res_a_in, compile->dim_info[i][j].res_z_in,
-//                        compile->dim_info[i][j].res_y_in, compile->dim_info[i][j].res_x_in);
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].res_a_out,
+//                        compile->dim_info[i][j].res_z_out, compile->dim_info[i][j].res_y_out,
+//                        compile->dim_info[i][j].res_x_out, compile->dim_info[i][j].res_a_in,
+//                        compile->dim_info[i][j].res_z_in, compile->dim_info[i][j].res_y_in,
+//                        compile->dim_info[i][j].res_x_in);
 //             }
 //         }
 //     }
@@ -505,14 +505,14 @@ static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
 //             }
 //             if(compile->op[i][j].type == operation_unary) {
 //                 printf("{%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out,
-//                 compile->dim_info[i][j].wai_z_out, compile->dim_info[i][j].wai_y_out,
-//                        compile->dim_info[i][j].wai_x_out);
+//                 compile->dim_info[i][j].wai_z_out,
+//                        compile->dim_info[i][j].wai_y_out, compile->dim_info[i][j].wai_x_out);
 //             } else {
-//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n",
-//                 compile->dim_info[i][j].wai_a_out, compile->dim_info[i][j].wai_z_out,
-//                        compile->dim_info[i][j].wai_y_out, compile->dim_info[i][j].wai_x_out,
-//                        compile->dim_info[i][j].wai_a_in, compile->dim_info[i][j].wai_z_in,
-//                        compile->dim_info[i][j].wai_y_in, compile->dim_info[i][j].wai_x_in);
+//                 printf("{%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", compile->dim_info[i][j].wai_a_out,
+//                        compile->dim_info[i][j].wai_z_out, compile->dim_info[i][j].wai_y_out,
+//                        compile->dim_info[i][j].wai_x_out, compile->dim_info[i][j].wai_a_in,
+//                        compile->dim_info[i][j].wai_z_in, compile->dim_info[i][j].wai_y_in,
+//                        compile->dim_info[i][j].wai_x_in);
 //             }
 //         }
 //     }
@@ -572,7 +572,7 @@ static compile_loop_t compile_loop_alloc(simple_loop_t *simple, uint64_t optim) 
 const int64_t INITIAL_SOURCE_SIZE = 1024;
 const int64_t MAX_ARG_SIZE = 24;
 const int64_t MAX_INDEX_DIGITS = 9;
-/* NOTE: Biggest I found was 131 for `max` or `min` binary ops. */
+/* Biggest I found was 131 for `max` or `min` binary ops. */
 const int64_t MAX_OP_SIZE = 512;
 #define EXPAND_SOURCE_IF_NEEDED(curr, source, source_size, max_op_size)                                                \
     if(source_size - (curr - source) <= max_op_size) {                                                                 \
@@ -610,8 +610,8 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     int64_t max_y = op[0].type == operation_reduce ? op[0].buffer_in.sze_y : op[0].buffer_out.sze_y;
     int64_t max_x = op[0].type == operation_reduce ? op[0].buffer_in.sze_x : op[0].buffer_out.sze_x;
     /* TODO: This needs a really big refactor. */
-    /* WARN: This is very, very sus. A lot of things could go wrong just from thinking about it. I
-     * haven't found a case where it breaks, but be cautious! */
+    /* This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where
+     * it breaks, but be cautious! */
     if(op[0].type == operation_reduce) {
         switch(op[0].type_reduce) {
             case reduce_sum: {
@@ -781,7 +781,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case unary_random: {
-                                    TODO();
+                                    ERROR("RNG not supported for OpenCL");
                                     break;
                                 }
                                 case unary_tanh: {
@@ -854,11 +854,23 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case binary_max: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_min: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_copy: {
@@ -912,11 +924,23 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case binary_max_like: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_min_like: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c +=
+                                        snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu+%lu]=", op[0].buffer_out.name,
+                                                 op[0].buffer_out.name, loop_idx, op_idx,
+                                                 SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case binary_copy_like: {
@@ -951,11 +975,19 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                     break;
                                 }
                                 case reduce_max: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].buffer_out.name,
+                                                       op[0].buffer_out.name, loop_idx, op_idx);
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                                 case reduce_min: {
-                                    TODO();
+                                    super_temp = temp_c;
+                                    temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]=", op[0].buffer_out.name,
+                                                       op[0].buffer_out.name, loop_idx, op_idx);
+                                    op_offset = temp_c - super_temp;
+                                    EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                     break;
                                 }
                             }
@@ -1053,7 +1085,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case unary_random: {
-                                        TODO();
+                                        ERROR("RNG not supported for OpenCL");
                                         break;
                                     }
                                     case unary_tanh: {
@@ -1108,11 +1140,33 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case binary_max: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]<%s[%s%luoff%lu+%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_min: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]>%s[%s%luoff%lu+%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_copy: {
@@ -1147,11 +1201,29 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case binary_max_like: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]<%s[%s%luoff%lu]?%s[%s%luoff%lu]:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx, op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx, op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_min_like: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]>%s[%s%luoff%lu]?%s[%s%luoff%lu]:%s[%s%luoff%lu+%lu]",
+                                            op[0].buffer_out.name, op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x), op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx, op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx, op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case binary_copy_like: {
@@ -1180,18 +1252,36 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case reduce_max: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]>%s[%s%luoff%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu]",
+                                            op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx, op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case reduce_min: {
-                                        TODO();
+                                        temp_c += snprintf(
+                                            temp_c, MAX_OP_SIZE,
+                                            "%s[%s%luoff%lu+%lu]<%s[%s%luoff%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu]",
+                                            op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx, op[0].buffer_in.name,
+                                            op[0].buffer_in.name, loop_idx, op_idx,
+                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                            op[0].buffer_out.name, loop_idx, op_idx);
+                                        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                 }
                                 break;
                             }
                             case operation_move: {
-                                ERROR("Tried to compile move operation to OpenCL at index %lu\n", op_idx);
+                                ERROR("Tried to compile move operation to OpenCL\n");
                             }
                         }
                     } else {
@@ -1230,7 +1320,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     default: {
-                                        ERROR("This should not ever happen.\n");
+                                        ERROR("Tried to compile non-prefix operation as prefix\n");
                                     }
                                 }
                             } else {
@@ -1280,19 +1370,35 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             case unary_max: {
-                                                /* NOTE: It is very interesting wether or not this should be inlined. I
+                                                /* It is very interesting wether or not this should be inlined. I
                                                  * should measure wether writing is less expensive than doing more
                                                  * calculations with cached values. Obviously it's worth it to a point
                                                  * but I should measure at what point inlining is more expensive. */
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp), "%s<%lf?%lf:%s)",
+                                                                   dup, op[i].var_unary, op[i].var_unary, dup);
+                                                free(dup);
                                                 break;
                                             }
                                             case unary_min: {
-                                                /* NOTE: It is very interesting wether or not this should be inlined. I
+                                                /* It is very interesting wether or not this should be inlined. I
                                                  * should measure wether writing is less expensive than doing more
                                                  * calculations with cached values. Obviously it's worth it to a point
                                                  * but I should measure at what point inlining is more expensive. */
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp), "%s<%lf?%lf:%s)",
+                                                                   dup, op[i].var_unary, op[i].var_unary, dup);
+                                                free(dup);
                                                 break;
                                             }
                                             case unary_set: {
@@ -1341,11 +1447,33 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             case binary_max: {
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp),
+                                                                   "%s>%s[%s%luoff%lu]?%s:%s[%s%luoff%lu])", dup,
+                                                                   op[i].buffer_in.name, op[i].buffer_in.name, loop_idx,
+                                                                   op_idx, dup, op[i].buffer_in.name,
+                                                                   op[i].buffer_in.name, loop_idx, op_idx);
+                                                free(dup);
                                                 break;
                                             }
                                             case binary_min: {
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp),
+                                                                   "%s<%s[%s%luoff%lu]?%s:%s[%s%luoff%lu])", dup,
+                                                                   op[i].buffer_in.name, op[i].buffer_in.name, loop_idx,
+                                                                   op_idx, dup, op[i].buffer_in.name,
+                                                                   op[i].buffer_in.name, loop_idx, op_idx);
+                                                free(dup);
                                                 break;
                                             }
                                             case binary_copy: {
@@ -1384,11 +1512,33 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                                 break;
                                             }
                                             case binary_max_like: {
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp),
+                                                                   "%s>%s[%s%luoff%lu]?%s:%s[%s%luoff%lu])", dup,
+                                                                   op[i].buffer_in.name, op[i].buffer_in.name, loop_idx,
+                                                                   op_idx, dup, op[i].buffer_in.name,
+                                                                   op[i].buffer_in.name, loop_idx, op_idx);
+                                                free(dup);
                                                 break;
                                             }
                                             case binary_min_like: {
-                                                TODO();
+                                                super_temp = temp + op_offset + op_num - i;
+                                                char *dup = calloc(temp_c - super_temp + 1, sizeof(char));
+                                                assert(dup);
+                                                for(int64_t lol = 0; lol < temp_c - super_temp; lol++) {
+                                                    dup[lol] = super_temp[lol];
+                                                }
+                                                temp_c += snprintf(temp_c, 3 + (temp_c - super_temp),
+                                                                   "%s<%s[%s%luoff%lu]?%s:%s[%s%luoff%lu])", dup,
+                                                                   op[i].buffer_in.name, op[i].buffer_in.name, loop_idx,
+                                                                   op_idx, dup, op[i].buffer_in.name,
+                                                                   op[i].buffer_in.name, loop_idx, op_idx);
+                                                free(dup);
                                                 break;
                                             }
                                             case binary_copy_like: {
@@ -1428,6 +1578,22 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                 }
             }
         }
+    }
+    if(op[0].type == operation_reduce && op[0].type_reduce == reduce_avg) {
+        temp_c += snprintf(temp_c, MAX_OP_SIZE, "%s[%s%luoff%lu]/=%lf;\n", op[0].buffer_out.name, op[0].buffer_out.name,
+                           loop_idx, op_idx, (double) max_a * max_z * max_y * max_x);
+        EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
+        while(*source_cap - (*curr - *source) - (temp_c - temp) <= MAX_OP_SIZE) {
+            *source_cap *= 2;
+            offset = *curr - *source;
+            *source = reallocarray(*source, *source_cap, sizeof(char));
+            assert(*source);
+            *curr = *source + offset;
+        }
+        *curr += snprintf(*curr, temp_cap, "%s", temp);
+        EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_cap, MAX_OP_SIZE);
+        memset(temp, 0, temp_cap);
+        temp_c = temp;
     }
 
     free(temp);
@@ -1631,7 +1797,7 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     }
 
     assert(arg_num != 0);
-    /* NOTE: That `+ 3` is pure magic. I have no clue where it comes from. */
+    /* That `+ 3` is pure magic. I have no clue where it comes from. */
     int64_t kernel_size = strlen("__kernel void ") + strlen(func_name) +
                           (strlen("__global double *") + BUFFER_NAME_SIZE) * arg_num + strlen(", ") * (arg_num - 1) +
                           strlen(") {\n") + (curr - source) + strlen("}\n") + 3;
@@ -1707,7 +1873,7 @@ void program_compile(program_t *program, linearized_t *linearized, cl_device_id 
         source_len_cumulative += program->kernel[kernel_idx].source_len;
     }
     program->source_len = source_len_cumulative;
-    program->source = calloc(source_len_cumulative + 1, sizeof(char)); /* NOTE: `+1` for '\0'. */
+    program->source = calloc(source_len_cumulative + 1, sizeof(char)); /* `+1` for '\0'. */
     assert(program->source);
     program->cl_device_id = device_id;
     program->cl_context = context;
@@ -1725,15 +1891,14 @@ void program_free(program_t *program) {
     free(program->kernel);
     free((void *) program->source);
     /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer. */
-    if(program->cl_program && *program->cl_program) {
+    if(program->cl_program) {
         if(*program->cl_program) {
             clReleaseProgram(*program->cl_program);
-            free(*program->cl_program);
             *program->cl_program = NULL;
+            free(*program->cl_program);
         }
         program->cl_program = NULL;
     }
-
     if(program->cl_device_id) {
         if(*program->cl_device_id) {
             clReleaseDevice(*program->cl_device_id);
