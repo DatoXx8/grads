@@ -20,8 +20,8 @@ static activation_t _activation_alloc(enum activation_e activation_type, int64_t
     assert(x > 0);
     activation_t activation = {0};
     switch(activation_type) {
-        case activation_identity: {
-            activation.type = activation_identity;
+        case activation_none: {
+            activation.type = activation_none;
             break;
         }
         case activation_relu: {
@@ -60,10 +60,10 @@ static activation_t _activation_alloc(enum activation_e activation_type, int64_t
     }
     return activation;
 }
-static void activation_free_(activation_t *activation) {
+static void _activation_free(activation_t *activation) {
     assert(activation);
     switch(activation->type) {
-        case activation_identity: {
+        case activation_none: {
             break;
         }
         case activation_relu: {
@@ -95,11 +95,11 @@ static void activation_free_(activation_t *activation) {
 const double LEAKY_FACTOR = 0.1;
 /* TODO: Implement the other activation functions */
 /* TODO: This should also calculate the derivatives if a new flag `forward_only` is not set for the neuralnet. */
-static void activation_activate_(tensor_t *tensor, activation_t *activation) {
+static void _activation_activate(tensor_t *tensor, activation_t *activation) {
     assert(tensor);
     assert(activation);
     switch(activation->type) {
-        case activation_identity: {
+        case activation_none: {
             break;
         }
         case activation_relu: {
@@ -195,7 +195,7 @@ static norm_t _norm_alloc(enum norm_e type, tensor_t *tensor, cl_context context
     }
     return norm;
 }
-static void norm_free_(norm_t *norm) {
+static void _norm_free(norm_t *norm) {
     assert(norm);
     switch(norm->type) {
         case norm_none: {
@@ -227,7 +227,7 @@ static void norm_free_(norm_t *norm) {
     }
 }
 const double EPSILON = 1e-6;
-static void norm_calculate_layer_(norm_t *norm, tensor_t *tensor) {
+static void _norm_calculate_layer(norm_t *norm, tensor_t *tensor) {
     assert(EPSILON > 0);
     assert(norm);
     assert(tensor);
@@ -244,8 +244,8 @@ static void norm_calculate_layer_(norm_t *norm, tensor_t *tensor) {
     tensor_unary_sqrt(norm->layer_variance);
 }
 /* This ones tricky. Even the function signature isn't obvious. */
-static void norm_calculate_batch_(void) {}
-static void norm_apply_(norm_t *norm, tensor_t *tensor) {
+static void _norm_calculate_batch(void) {}
+static void _norm_apply(norm_t *norm, tensor_t *tensor) {
     assert(norm);
     assert(tensor);
     switch(norm->type) {
@@ -253,12 +253,12 @@ static void norm_apply_(norm_t *norm, tensor_t *tensor) {
             break;
         }
         case norm_batch: {
-            norm_calculate_batch_();
+            _norm_calculate_batch();
             assert(0);
             break;
         }
         case norm_layer: {
-            norm_calculate_layer_(norm, tensor);
+            _norm_calculate_layer(norm, tensor);
             tensor_lbinary_subtract(tensor, norm->layer_expected);
             tensor_lbinary_divide(tensor, norm->layer_variance);
             break;
@@ -1074,7 +1074,7 @@ layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
             assert(layer.activation);
             assert(layer.activation_g);
             assert(layerconfig->norm_type == norm_none);
-            assert(layerconfig->activation_function == activation_identity);
+            assert(layerconfig->activation_function == activation_none);
             assert(layer.reduce);
             *layer.activation = tensor_alloc(1, layerconfig->_reduce_input_z, new_size_y, new_size_x, context);
             *layer.activation_g = tensor_alloc(1, layerconfig->_reduce_input_z, new_size_y, new_size_x, context);
@@ -1127,9 +1127,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             dense_free(layer->dense);
             free(layer->dense);
-            activation_free_(layer->activation_function);
+            _activation_free(layer->activation_function);
             free(layer->activation_function);
-            norm_free_(layer->norm);
+            _norm_free(layer->norm);
             free(layer->norm);
             break;
         }
@@ -1140,9 +1140,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             convolution_free(layer->convolution);
             free(layer->convolution);
-            activation_free_(layer->activation_function);
+            _activation_free(layer->activation_function);
             free(layer->activation_function);
-            norm_free_(layer->norm);
+            _norm_free(layer->norm);
             free(layer->norm);
             break;
         }
@@ -1162,9 +1162,9 @@ void layer_free(layer_t *layer) {
             free(layer->activation_g);
             split_free(layer->split);
             free(layer->split);
-            activation_free_(layer->activation_function);
+            _activation_free(layer->activation_function);
             free(layer->activation_function);
-            norm_free_(layer->norm);
+            _norm_free(layer->norm);
             free(layer->norm);
             break;
         }
@@ -1263,15 +1263,15 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
             case layer_dense: {
                 dense_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].dense,
                               neuralnet.layer[layer].activation);
-                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
+                _activation_activate(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                _norm_apply(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_convolution: {
                 convolution_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].convolution,
                                     neuralnet.layer[layer].activation);
-                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
+                _activation_activate(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                _norm_apply(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_reduce: {
@@ -1282,8 +1282,8 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
             case layer_split: {
                 split_forward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer].split,
                               neuralnet.layer[layer].activation);
-                activation_activate_(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
-                norm_apply_(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
+                _activation_activate(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
+                _norm_apply(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
                 break;
             }
             case layer_input: {
@@ -1539,6 +1539,7 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
                 err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
+                assert(err == 0);
                 err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
                 assert(err == 0);
                 break;

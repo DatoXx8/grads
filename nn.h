@@ -11,7 +11,7 @@
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */
 enum activation_e {
-    activation_identity,
+    activation_none,
     activation_relu,
     activation_sigmoid,
     activation_tanh,
