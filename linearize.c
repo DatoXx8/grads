@@ -61,6 +61,7 @@ void simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->buffer_out.off_y = op->buffer_out->off_y_sim;
     simple_op->buffer_out.off_x = op->buffer_out->off_x_sim;
     simple_op->buffer_out.val = op->buffer_out->val;
+    simple_op->buffer_out.val_cl = op->buffer_out->val_cl;
     strncpy(simple_op->buffer_out.name, op->buffer_out->name, BUFFER_NAME_SIZE + 1);
     if((op->type == operation_binary) || (op->type == operation_reduce)) {
         simple_op->buffer_in.sze_a = op->buffer_in->sze_a_sim;
@@ -77,6 +78,7 @@ void simple_op_convert(simple_op_t *simple_op, op_t *op) {
         simple_op->buffer_in.off_y = op->buffer_in->off_y_sim;
         simple_op->buffer_in.off_x = op->buffer_in->off_x_sim;
         simple_op->buffer_in.val = op->buffer_in->val;
+        simple_op->buffer_in.val_cl = op->buffer_in->val_cl;
         strncpy(simple_op->buffer_in.name, op->buffer_in->name, BUFFER_NAME_SIZE + 1);
     }
 }

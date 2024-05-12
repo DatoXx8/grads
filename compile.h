@@ -63,10 +63,10 @@ typedef struct {
 
 typedef struct {
     const char *name;
-    char **args_name;
-    /* Since the memory is shared `**` might be necessary. This is questionable since cl_mem is already a `_cl_mem` */
-    cl_mem **args_mem;
+    char **arg_name;
+    cl_mem *arg_mem;
     int64_t arg_num;
+    int64_t arg_cap;
     int64_t size_global;
     int64_t size_local;
     char *source;

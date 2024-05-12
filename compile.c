@@ -248,10 +248,11 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
         }
     }
 }
+/* This does *not* free the `cl_mem` fields */
 static void kernel_free(kernel_t *kernel) {
     assert(kernel);
-    for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->args_name[i]); }
-    free(kernel->args_name);
+    for(int64_t i = 0; i < kernel->arg_num; i++) { free(kernel->arg_name[i]); }
+    free(kernel->arg_name);
     free((void *) kernel->name);
     free(kernel->source);
     if(kernel->cl_kernel) {
@@ -1636,40 +1637,47 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     int64_t offset;
 
     int64_t arg_num = 0;
-    char **args = NULL;
+    char **arg = NULL;
+    cl_mem *arg_cl = NULL;
     int64_t found;
     for(int64_t loop_op_idx = 0; loop_op_idx < compile->loop_len; loop_op_idx++) {
         if(compile->op_num[loop_op_idx] == 1) {
             found = 0;
             for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                if(!strncmp(compile->op[loop_op_idx][0].buffer_out.name, args[arg_idx], BUFFER_NAME_SIZE)) {
+                if(!strncmp(compile->op[loop_op_idx][0].buffer_out.name, arg[arg_idx], BUFFER_NAME_SIZE)) {
                     found = 1;
                     break;
                 }
             }
             if(!found) {
                 arg_num++;
-                args = reallocarray(args, arg_num, sizeof(char *));
-                assert(args);
-                args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                assert(args[arg_num - 1]);
-                strncpy(args[arg_num - 1], compile->op[loop_op_idx][0].buffer_out.name, BUFFER_NAME_SIZE);
+                arg = reallocarray(arg, arg_num, sizeof(char *));
+                arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
+                assert(arg);
+                assert(arg_cl);
+                arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                assert(arg[arg_num - 1]);
+                strncpy(arg[arg_num - 1], compile->op[loop_op_idx][0].buffer_out.name, BUFFER_NAME_SIZE);
+                arg_cl[arg_num - 1] = compile->op[loop_op_idx][0].buffer_out.val_cl;
             }
             if(compile->op[loop_op_idx][0].type != operation_unary) {
                 found = 0;
                 for(int64_t j = 0; j < arg_num; j++) {
-                    if(!strncmp(compile->op[loop_op_idx][0].buffer_in.name, args[j], BUFFER_NAME_SIZE)) {
+                    if(!strncmp(compile->op[loop_op_idx][0].buffer_in.name, arg[j], BUFFER_NAME_SIZE)) {
                         found = 1;
                         break;
                     }
                 }
                 if(!found) {
                     arg_num++;
-                    args = reallocarray(args, arg_num, sizeof(char *));
-                    assert(args);
-                    args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                    assert(args[arg_num - 1]);
-                    strncpy(args[arg_num - 1], compile->op[loop_op_idx][0].buffer_in.name, BUFFER_NAME_SIZE);
+                    arg = reallocarray(arg, arg_num, sizeof(char *));
+                    arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
+                    assert(arg);
+                    assert(arg_cl);
+                    arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                    assert(arg[arg_num - 1]);
+                    strncpy(arg[arg_num - 1], compile->op[loop_op_idx][0].buffer_in.name, BUFFER_NAME_SIZE);
+                    arg_cl[arg_num - 1] = compile->op[loop_op_idx][0].buffer_in.val_cl;
                 }
             }
         } else {
@@ -1678,36 +1686,42 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
                     if(compile->op[loop_op_idx][op_idx].type != operation_unary) {
                         found = 0;
                         for(int64_t k = 0; k < arg_num; k++) {
-                            if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_in.name, args[k], BUFFER_NAME_SIZE)) {
+                            if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_in.name, arg[k], BUFFER_NAME_SIZE)) {
                                 found = 1;
                                 break;
                             }
                         }
                         if(!found) {
                             arg_num++;
-                            args = reallocarray(args, arg_num, sizeof(char *));
-                            assert(args);
-                            args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                            assert(args[arg_num - 1]);
-                            strncpy(args[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_in.name,
+                            arg = reallocarray(arg, arg_num, sizeof(char *));
+                            arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
+                            assert(arg);
+                            assert(arg_cl);
+                            arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                            assert(arg[arg_num - 1]);
+                            strncpy(arg[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_in.name,
                                     BUFFER_NAME_SIZE);
+                            arg_cl[arg_num - 1] = compile->op[loop_op_idx][op_idx].buffer_in.val_cl;
                         }
                     }
                 } else {
                     found = 0;
                     for(int64_t k = 0; k < arg_num; k++) {
-                        if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_out.name, args[k], BUFFER_NAME_SIZE)) {
+                        if(!strncmp(compile->op[loop_op_idx][op_idx].buffer_out.name, arg[k], BUFFER_NAME_SIZE)) {
                             found = 1;
                             break;
                         }
                     }
                     if(!found) {
                         arg_num++;
-                        args = reallocarray(args, arg_num, sizeof(char *));
-                        assert(args);
-                        args[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                        assert(args[arg_num - 1]);
-                        strncpy(args[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_out.name, BUFFER_NAME_SIZE);
+                        arg = reallocarray(arg, arg_num, sizeof(char *));
+                        arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
+                        assert(arg);
+                        assert(arg_cl);
+                        arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                        assert(arg[arg_num - 1]);
+                        strncpy(arg[arg_num - 1], compile->op[loop_op_idx][op_idx].buffer_out.name, BUFFER_NAME_SIZE);
+                        arg_cl[arg_num - 1] = compile->op[loop_op_idx][op_idx].buffer_out.val_cl;
                     }
                 }
             }
@@ -1820,10 +1834,10 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
         if(arg_idx != arg_num - 1) {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 20),
-                                 "__global double *%s, ", args[arg_idx]);
+                                 "__global double *%s, ", arg[arg_idx]);
         } else {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 22),
-                                 "__global double *%s) {\n", args[arg_idx]);
+                                 "__global double *%s) {\n", arg[arg_idx]);
         }
     }
     /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
@@ -1834,7 +1848,8 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
 
     kernel_t kernel = {
         .arg_num = arg_num,
-        .args_name = calloc(arg_num, sizeof(char *)),
+        .arg_mem = calloc(arg_num, sizeof(cl_mem)),
+        .arg_name = calloc(arg_num, sizeof(char *)),
         .name = strndup(func_name, strlen(func_name)),
         .size_local = size_local,
         .size_global = size_global,
@@ -1842,12 +1857,14 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
         .source_cap = source_cap,
         .source_len = kernel_i - kernel_source,
     };
-    assert(kernel.args_name);
+    assert(kernel.arg_name);
     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-        kernel.args_name[arg_idx] = strndup(args[arg_idx], BUFFER_NAME_SIZE + 1);
-        free(args[arg_idx]);
+        kernel.arg_mem[arg_idx] = arg_cl[arg_idx];
+        kernel.arg_name[arg_idx] = strndup(arg[arg_idx], BUFFER_NAME_SIZE + 1);
+        free(arg[arg_idx]);
     }
-    free(args);
+    free(arg_cl);
+    free(arg);
     free(source);
     free(func_name);
     free(gid);

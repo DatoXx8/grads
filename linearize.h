@@ -24,7 +24,7 @@ typedef struct {
     int64_t off_x;
     int64_t off;
     double *val;
-    cl_mem *val_cl;
+    cl_mem val_cl;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
