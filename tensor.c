@@ -18,7 +18,7 @@ void name_update(char *name) {
             name[i]++;
             return;
         } else {
-            assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */ 
+            assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */
             name[i] = 'a';
         }
     }
@@ -588,9 +588,7 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
                                     BUFFER_AT_(op->buffer_out, a, z, y, x) =
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) > op->var_unary
-                                            ? BUFFER_AT_(op->buffer_out, a, z, y, x)
-                                            : op->var_unary;
+                                        fmax(BUFFER_AT_(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
                             }
                         }
@@ -603,9 +601,7 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
                                     BUFFER_AT_(op->buffer_out, a, z, y, x) =
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) < op->var_unary
-                                            ? BUFFER_AT_(op->buffer_out, a, z, y, x)
-                                            : op->var_unary;
+                                        fmin(BUFFER_AT_(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
                             }
                         }
@@ -758,9 +754,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) < BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmax(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -776,9 +771,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) > BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmin(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -874,9 +868,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) < BUFFER_AT_(op->buffer_in, 0, 0, 0, 0)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmax(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -892,9 +885,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) > BUFFER_AT_(op->buffer_in, 0, 0, 0, 0)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmin(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -950,9 +942,7 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_in->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_in->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_in->sze_x; x++) {
-                                    if(temp < BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        temp = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    temp = fmax(temp, BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -989,9 +979,7 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_in->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_in->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_in->sze_x; x++) {
-                                    if(temp > BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        temp = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    temp = fmin(temp, BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }

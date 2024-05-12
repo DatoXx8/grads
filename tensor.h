@@ -43,6 +43,8 @@ typedef struct {
 } buffer_t;
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
+extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue);
+extern void buffer_sync_update(buffer_t *buffer, enum sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
     ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
@@ -78,7 +80,7 @@ enum binary_e {
     binary_max,
     binary_min,
     binary_copy,
-    /* NOTE: Use these as their respective unary ops, but the unary_value is not constant and instead provided by the
+    /* Use these as their respective unary ops, but the unary_value is not constant and instead provided by the
        in_buffer, that has to have a shape of
        `{1, 1, 1, 1}`*/
     binary_add_like,
@@ -90,7 +92,7 @@ enum binary_e {
     binary_copy_like
 };
 enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
-/* NOTE: Move ops have 0 cost at runtime. */
+/* Move ops have 0 cost at runtime. */
 enum move_e { move_reshape, move_resize, move_offset };
 
 #define MAX_DEPTH 1000000
