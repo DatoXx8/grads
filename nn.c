@@ -1170,6 +1170,47 @@ void layer_free(layer_t *layer) {
         }
     }
 }
+void layer_sync(layer_t *layer, cl_command_queue command_queue) {
+    switch(layer->layer_type) {
+        case layer_dense: {
+            buffer_sync_realize(layer->activation->buffer, command_queue);
+            buffer_sync_realize(layer->dense->biases->buffer, command_queue);
+            buffer_sync_realize(layer->dense->weights->buffer, command_queue);
+            buffer_sync_realize(layer->activation_g->buffer, command_queue);
+            buffer_sync_realize(layer->dense->biases_g->buffer, command_queue);
+            buffer_sync_realize(layer->dense->weights_g->buffer, command_queue);
+            break;
+        }
+        case layer_convolution: {
+            buffer_sync_realize(layer->activation->buffer, command_queue);
+            buffer_sync_realize(layer->convolution->biases->buffer, command_queue);
+            buffer_sync_realize(layer->convolution->weights->buffer, command_queue);
+            buffer_sync_realize(layer->activation_g->buffer, command_queue);
+            buffer_sync_realize(layer->convolution->biases_g->buffer, command_queue);
+            buffer_sync_realize(layer->convolution->weights_g->buffer, command_queue);
+            break;
+        }
+        case layer_reduce: {
+            buffer_sync_realize(layer->activation->buffer, command_queue);
+            buffer_sync_realize(layer->activation_g->buffer, command_queue);
+            break;
+        }
+        case layer_split: {
+            buffer_sync_realize(layer->activation->buffer, command_queue);
+            buffer_sync_realize(layer->split->biases->buffer, command_queue);
+            buffer_sync_realize(layer->split->weights->buffer, command_queue);
+            buffer_sync_realize(layer->activation_g->buffer, command_queue);
+            buffer_sync_realize(layer->split->biases_g->buffer, command_queue);
+            buffer_sync_realize(layer->split->weights_g->buffer, command_queue);
+            break;
+        }
+        case layer_input: {
+            buffer_sync_realize(layer->activation->buffer, command_queue);
+            buffer_sync_realize(layer->activation_g->buffer, command_queue);
+            break;
+        }
+    }
+}
 
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a
  * tensor. */
@@ -1596,7 +1637,16 @@ void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input) {
 
     switch(neuralnet->compile_type) {
         case(compile_cl): {
+            for(int64_t layer = 0; layer < neuralnet->layers; layer++) {
+                layer_sync(&neuralnet->layer[layer], *neuralnet->forward_cl.cl_command_queue);
+            }
+            clFinish(*neuralnet->forward_cl.cl_command_queue);
             program_run(&neuralnet->forward_cl);
+            clFinish(*neuralnet->forward_cl.cl_command_queue);
+            buffer_sync_update(NEURALNET_OUTPUT_(neuralnet).activation->buffer, sync_to_host);
+            buffer_sync_realize(NEURALNET_OUTPUT_(neuralnet).activation->buffer,
+                                *neuralnet->forward_cl.cl_command_queue);
+            clFinish(*neuralnet->forward_cl.cl_command_queue);
             break;
         }
         case(compile_none): {

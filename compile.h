@@ -81,7 +81,8 @@ typedef struct {
     int64_t source_len;
     cl_program *cl_program;
     cl_device_id *cl_device_id; /* Has to be done like this if we want these all the programs to have the same
-                                   `device_id`s and all that other stuff. */
+                                   `device_id`s and all that other stuff. This is not technically necessary, but then
+                                   `program_free` would ne very strange. */
     cl_context *cl_context;
     cl_command_queue *cl_command_queue;
 } program_t;

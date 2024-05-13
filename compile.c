@@ -1251,28 +1251,20 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case reduce_max: {
-                                        temp_c += snprintf(
-                                            temp_c, MAX_OP_SIZE,
-                                            "%s[%s%luoff%lu+%lu]>%s[%s%luoff%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu]",
-                                            op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
-                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
-                                            op[0].buffer_out.name, loop_idx, op_idx, op[0].buffer_in.name,
-                                            op[0].buffer_in.name, loop_idx, op_idx,
-                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
-                                            op[0].buffer_out.name, loop_idx, op_idx);
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "fmax(%s[%s%luoff%lu+%lu],%s[%s%luoff%lu])",
+                                                     op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                                     op[0].buffer_out.name, loop_idx, op_idx);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
                                     case reduce_min: {
-                                        temp_c += snprintf(
-                                            temp_c, MAX_OP_SIZE,
-                                            "%s[%s%luoff%lu+%lu]<%s[%s%luoff%lu]?%s[%s%luoff%lu+%lu]:%s[%s%luoff%lu]",
-                                            op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
-                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
-                                            op[0].buffer_out.name, loop_idx, op_idx, op[0].buffer_in.name,
-                                            op[0].buffer_in.name, loop_idx, op_idx,
-                                            SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
-                                            op[0].buffer_out.name, loop_idx, op_idx);
+                                        temp_c +=
+                                            snprintf(temp_c, MAX_OP_SIZE, "fmin(%s[%s%luoff%lu+%lu],%s[%s%luoff%lu])",
+                                                     op[0].buffer_in.name, op[0].buffer_in.name, loop_idx, op_idx,
+                                                     SIMPLE_INDEX(op[0].buffer_in, a, z, y, x), op[0].buffer_out.name,
+                                                     op[0].buffer_out.name, loop_idx, op_idx);
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
                                         break;
                                     }
@@ -1749,11 +1741,13 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
                     "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
                     compile->op[loop_op_idx][0].buffer_out.name, loop_idx, loop_op_idx,
                     compile->dim_info[loop_op_idx][0].res_a_out, compile->dim_info[loop_op_idx][0].wai_a_out,
-                    compile->dim_info[loop_op_idx][0].str_a_out, compile->dim_info[loop_op_idx][0].res_z_out,
-                    compile->dim_info[loop_op_idx][0].wai_z_out, compile->dim_info[loop_op_idx][0].str_z_out,
+                    compile->dim_info[loop_op_idx][0].str_a_out * compile->op[loop_op_idx][0].buffer_out.str_a,
+                    compile->dim_info[loop_op_idx][0].res_z_out, compile->dim_info[loop_op_idx][0].wai_z_out,
+                    compile->dim_info[loop_op_idx][0].str_z_out * compile->op[loop_op_idx][0].buffer_out.str_z,
                     compile->dim_info[loop_op_idx][0].res_y_out, compile->dim_info[loop_op_idx][0].wai_y_out,
-                    compile->dim_info[loop_op_idx][0].str_y_out, compile->dim_info[loop_op_idx][0].res_x_out,
-                    compile->dim_info[loop_op_idx][0].wai_x_out, compile->dim_info[loop_op_idx][0].str_x_out);
+                    compile->dim_info[loop_op_idx][0].str_y_out * compile->op[loop_op_idx][0].buffer_out.str_y,
+                    compile->dim_info[loop_op_idx][0].res_x_out, compile->dim_info[loop_op_idx][0].wai_x_out,
+                    compile->dim_info[loop_op_idx][0].str_x_out * compile->op[loop_op_idx][0].buffer_out.str_x);
                 EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                 if(compile->op[loop_op_idx]->type != operation_unary) {
                     curr += snprintf(
@@ -1761,11 +1755,13 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
                         "int %s%luoff%lu=(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu)+(((id%%%lu)/%lu)*%lu);\n",
                         compile->op[loop_op_idx][0].buffer_in.name, loop_idx, loop_op_idx,
                         compile->dim_info[loop_op_idx][0].res_a_in, compile->dim_info[loop_op_idx][0].wai_a_in,
-                        compile->dim_info[loop_op_idx][0].str_a_in, compile->dim_info[loop_op_idx][0].res_z_in,
-                        compile->dim_info[loop_op_idx][0].wai_z_in, compile->dim_info[loop_op_idx][0].str_z_in,
+                        compile->dim_info[loop_op_idx][0].str_a_in * compile->op[loop_op_idx][0].buffer_in.str_a,
+                        compile->dim_info[loop_op_idx][0].res_z_in, compile->dim_info[loop_op_idx][0].wai_z_in,
+                        compile->dim_info[loop_op_idx][0].str_z_in * compile->op[loop_op_idx][0].buffer_in.str_z,
                         compile->dim_info[loop_op_idx][0].res_y_in, compile->dim_info[loop_op_idx][0].wai_y_in,
-                        compile->dim_info[loop_op_idx][0].str_y_in, compile->dim_info[loop_op_idx][0].res_x_in,
-                        compile->dim_info[loop_op_idx][0].wai_x_in, compile->dim_info[loop_op_idx][0].str_x_in);
+                        compile->dim_info[loop_op_idx][0].str_y_in * compile->op[loop_op_idx][0].buffer_in.str_y,
+                        compile->dim_info[loop_op_idx][0].res_x_in, compile->dim_info[loop_op_idx][0].wai_x_in,
+                        compile->dim_info[loop_op_idx][0].str_x_in * compile->op[loop_op_idx][0].buffer_in.str_x);
                     EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                 }
             } else {
@@ -1778,16 +1774,20 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
                                 compile->op[loop_op_idx][op_idx].buffer_in.name, loop_idx, loop_op_idx,
                                 compile->dim_info[loop_op_idx][op_idx].res_a_in,
                                 compile->dim_info[loop_op_idx][op_idx].wai_a_in,
-                                compile->dim_info[loop_op_idx][op_idx].str_a_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_a_in *
+                                    compile->op[loop_op_idx][op_idx].buffer_in.str_a,
                                 compile->dim_info[loop_op_idx][op_idx].res_z_in,
                                 compile->dim_info[loop_op_idx][op_idx].wai_z_in,
-                                compile->dim_info[loop_op_idx][op_idx].str_z_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_z_in *
+                                    compile->op[loop_op_idx][op_idx].buffer_in.str_z,
                                 compile->dim_info[loop_op_idx][op_idx].res_y_in,
                                 compile->dim_info[loop_op_idx][op_idx].wai_y_in,
-                                compile->dim_info[loop_op_idx][op_idx].str_y_in,
+                                compile->dim_info[loop_op_idx][op_idx].str_y_in *
+                                    compile->op[loop_op_idx][op_idx].buffer_in.str_y,
                                 compile->dim_info[loop_op_idx][op_idx].res_x_in,
                                 compile->dim_info[loop_op_idx][op_idx].wai_x_in,
-                                compile->dim_info[loop_op_idx][op_idx].str_x_in);
+                                compile->dim_info[loop_op_idx][op_idx].str_x_in *
+                                    compile->op[loop_op_idx][op_idx].buffer_in.str_x);
                             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                         }
                     } else {
@@ -1797,16 +1797,20 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
                             compile->op[loop_op_idx][op_idx].buffer_out.name, loop_idx, loop_op_idx,
                             compile->dim_info[loop_op_idx][op_idx].res_a_out,
                             compile->dim_info[loop_op_idx][op_idx].wai_a_out,
-                            compile->dim_info[loop_op_idx][op_idx].str_a_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_a_out *
+                                compile->op[loop_op_idx][op_idx].buffer_out.str_a,
                             compile->dim_info[loop_op_idx][op_idx].res_z_out,
                             compile->dim_info[loop_op_idx][op_idx].wai_z_out,
-                            compile->dim_info[loop_op_idx][op_idx].str_z_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_z_out *
+                                compile->op[loop_op_idx][op_idx].buffer_out.str_z,
                             compile->dim_info[loop_op_idx][op_idx].res_y_out,
                             compile->dim_info[loop_op_idx][op_idx].wai_y_out,
-                            compile->dim_info[loop_op_idx][op_idx].str_y_out,
+                            compile->dim_info[loop_op_idx][op_idx].str_y_out *
+                                compile->op[loop_op_idx][op_idx].buffer_out.str_y,
                             compile->dim_info[loop_op_idx][op_idx].res_x_out,
                             compile->dim_info[loop_op_idx][op_idx].wai_x_out,
-                            compile->dim_info[loop_op_idx][op_idx].str_x_out);
+                            compile->dim_info[loop_op_idx][op_idx].str_x_out *
+                                compile->op[loop_op_idx][op_idx].buffer_out.str_x);
                         EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
                     }
                 }
