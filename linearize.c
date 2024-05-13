@@ -61,6 +61,7 @@ void simple_op_convert(simple_op_t *simple_op, op_t *op) {
     simple_op->buffer_out.off_y = op->buffer_out->off_y_sim;
     simple_op->buffer_out.off_x = op->buffer_out->off_x_sim;
     simple_op->buffer_out.val = op->buffer_out->val;
+    simple_op->buffer_out.val_cl = op->buffer_out->val_cl;
     strncpy(simple_op->buffer_out.name, op->buffer_out->name, BUFFER_NAME_SIZE + 1);
     if((op->type == operation_binary) || (op->type == operation_reduce)) {
         simple_op->buffer_in.sze_a = op->buffer_in->sze_a_sim;
@@ -77,6 +78,7 @@ void simple_op_convert(simple_op_t *simple_op, op_t *op) {
         simple_op->buffer_in.off_y = op->buffer_in->off_y_sim;
         simple_op->buffer_in.off_x = op->buffer_in->off_x_sim;
         simple_op->buffer_in.val = op->buffer_in->val;
+        simple_op->buffer_in.val_cl = op->buffer_in->val_cl;
         strncpy(simple_op->buffer_in.name, op->buffer_in->name, BUFFER_NAME_SIZE + 1);
     }
 }
@@ -563,9 +565,8 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) < simple->var_unary) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) = simple->var_unary;
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmax(SIMPLE_AT(simple->buffer_out, a, z, y, x), simple->var_unary);
                                 }
                             }
                         }
@@ -577,9 +578,8 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) > simple->var_unary) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) = simple->var_unary;
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmin(SIMPLE_AT(simple->buffer_out, a, z, y, x), simple->var_unary);
                                 }
                             }
                         }
@@ -643,8 +643,6 @@ void simple_op_realize(simple_op_t *simple) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
                                     if(SIMPLE_AT(simple->buffer_out, a, z, y, x) < 0) {
                                         SIMPLE_AT(simple->buffer_out, a, z, y, x) = -1;
-                                        /* Better perf but kinda ugly */
-                                        // } else if(!SIMPLE_AT(simple_op->buffer_out, a, z, y, x)) {
                                     } else if(SIMPLE_AT(simple->buffer_out, a, z, y, x) == 0) {
                                         SIMPLE_AT(simple->buffer_out, a, z, y, x) = 0;
                                     } else {
@@ -738,11 +736,9 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) <
-                                       SIMPLE_AT(simple->buffer_in, a, z, y, x)) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                            SIMPLE_AT(simple->buffer_in, a, z, y, x);
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmax(SIMPLE_AT(simple->buffer_in, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_out, a, z, y, x));
                                 }
                             }
                         }
@@ -758,11 +754,9 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) >
-                                       SIMPLE_AT(simple->buffer_in, a, z, y, x)) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                            SIMPLE_AT(simple->buffer_in, a, z, y, x);
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmin(SIMPLE_AT(simple->buffer_in, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_out, a, z, y, x));
                                 }
                             }
                         }
@@ -863,11 +857,9 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) <
-                                       SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0)) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                            SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmax(SIMPLE_AT(simple->buffer_in, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_out, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -883,11 +875,9 @@ void simple_op_realize(simple_op_t *simple) {
                         for(int64_t z = 0; z < simple->buffer_out.sze_z; z++) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
-                                    if(SIMPLE_AT(simple->buffer_out, a, z, y, x) >
-                                       SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0)) {
-                                        SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                            SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    SIMPLE_AT(simple->buffer_out, a, z, y, x) =
+                                        fmin(SIMPLE_AT(simple->buffer_in, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_out, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -991,7 +981,7 @@ void simple_op_realize(simple_op_t *simple) {
     }
 }
 
-/* NOTE: Completely made up value. No reasoning behind it at all. */
+/* Completely made up value. No reasoning behind it at all. */
 const int64_t INITIAL_SIMPLE_OP_CAPACTITY = 25;
 linearized_t linearized_alloc(void) {
     linearized_t linearized = {
@@ -1003,11 +993,11 @@ linearized_t linearized_alloc(void) {
 
     return linearized;
 }
-/* NOTE: Does `not` override the linearized ops instead appends ops. */
+/* Does `not` override the linearized ops instead appends ops. */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     assert(linearized);
     if(!op) { return; }
-    /* NOTE: Depth does not really do anything and is used solely to enforce the max depth. */
+    /* Depth does not really do anything and is used solely to enforce the max depth. */
     int64_t depth = 1;
     op_t *temp;
     op_t *next = op;
@@ -1022,7 +1012,9 @@ void linearized_from_op(linearized_t *linearized, op_t *op) {
                 break;
             }
         }
-        assert(depth < MAX_DEPTH && depth > 0);
+        // printf("%ld\n", depth);
+        // assert(depth < MAX_DEPTH && depth >= 0);
+        assert(depth < MAX_DEPTH);
         assert(temp);
         assert(temp->parent_count == 0);
         if(linearized->op_cap == linearized->op_len) {
@@ -1074,7 +1066,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
     }
-    /* NOTE: Kind of a nice allignment for printing */
+    /* Kind of a nice allignment for printing */
     // int64_t max = log10(linearized->op_count);
     // for(int64_t i = 0; i < linearized->op_count; i++) {
     //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (int64_t) log10(i)), "", i);

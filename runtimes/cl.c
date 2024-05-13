@@ -11,7 +11,6 @@ cl_device_id cl_device_get(void) {
     err = clGetPlatformIDs(1, &platform, NULL);
     if(err < 0) { ERROR("Couldn't identify a OpenCL platform!\nError %d\n", err); }
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &dev, NULL);
-    if(err == CL_DEVICE_NOT_FOUND) { err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &dev, NULL); }
     if(err < 0) { ERROR("Couldn't access any devices!\nError %d\n", err); }
     return dev;
 }
@@ -38,24 +37,27 @@ static void program_build(program_t *program) {
     *program->cl_program =
         cl_program_build(*program->cl_context, *program->cl_device_id, program->source, program->source_len);
 }
-/* NOTE: Compiles the program if it wasn't already. */
+/* Compiles the program if it wasn't already. All `cl_mem` fields need to be synced before and after this function to
+ * make sure they are up to date. */
 void program_run(program_t *program) {
     int err;
     if(!program->cl_program) {
         program_build(program);
         for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-            program->kernel->cl_kernel = calloc(1, sizeof(cl_kernel));
-            *program->kernel->cl_kernel = clCreateKernel(*program->cl_program, program->kernel[kernel_idx].name, &err);
+            program->kernel[kernel_idx].cl_kernel = calloc(1, sizeof(cl_kernel));
+            *program->kernel[kernel_idx].cl_kernel =
+                clCreateKernel(*program->cl_program, program->kernel[kernel_idx].name, &err);
             if(err < 0) { ERROR("Could not create OpenCL kernel at index %lu\nError %d\n", kernel_idx, err); }
         }
     }
     for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-        if(kernel_idx) { printf("\n"); }
         for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
-            printf("%s\n", program->kernel[kernel_idx].args_name[arg_idx]);
-            // clSetKernelArg(*program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
-            //                program->kernel[kernel_idx].args_mem[arg_idx]);
+            clSetKernelArg(*program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
+                           &program->kernel[kernel_idx].arg_mem[arg_idx]);
         }
-        printf("%s\n", program->kernel[kernel_idx].source);
+        clEnqueueNDRangeKernel(*program->cl_command_queue, *program->kernel[kernel_idx].cl_kernel, 1, NULL,
+                               (size_t *) &program->kernel[kernel_idx].size_global,
+                               (size_t *) &program->kernel[kernel_idx].size_local, 0, NULL, NULL);
+        clFinish(*program->cl_command_queue);
     }
 }

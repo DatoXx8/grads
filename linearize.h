@@ -24,7 +24,7 @@ typedef struct {
     int64_t off_x;
     int64_t off;
     double *val;
-    cl_mem *val_cl;
+    cl_mem val_cl;
     char name[BUFFER_NAME_SIZE + 1];
 } simple_buffer_t;
 
@@ -33,7 +33,7 @@ typedef struct {
 #define SIMPLE_AT_(simple, a, z, y, x)                                                                                 \
     (simple)->val[a * (simple)->str_a + z * (simple)->str_z + y * (simple)->str_y + x * (simple)->str_x + (simple)->off]
 
-/* NOTE: Actually fusing in is not so basic given my way of compiling things. */
+/* Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
     enum operation_e type;
     enum unary_e type_unary;
@@ -58,7 +58,7 @@ typedef struct {
 } linearized_t;
 
 extern linearized_t linearized_alloc(void);
-/* NOTE: `op` should be the root of the tree. */
+/* `op` should be the root of the tree. */
 extern void linearized_free(linearized_t *linearized);
 extern void linearized_from_op(linearized_t *linearized, op_t *op);
 extern void linearized_run(linearized_t *linearized);

@@ -18,7 +18,7 @@ void name_update(char *name) {
             name[i]++;
             return;
         } else {
-            assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */ 
+            assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */
             name[i] = 'a';
         }
     }
@@ -26,9 +26,6 @@ void name_update(char *name) {
 void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
     assert(command_queue);
     assert(buffer);
-    /* I am not 100% this assert is good, but I think it is probably useful to make sure we don't try to sync when not
-     * necessary. */
-    assert(buffer->sync != sync_none);
     switch(buffer->sync) {
         case sync_none: {
             break;
@@ -36,11 +33,13 @@ void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
         case sync_to_device: {
             int64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
             clEnqueueWriteBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
+            buffer->sync = sync_none;
             break;
         }
         case sync_to_host: {
             int64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
             clEnqueueReadBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
+            buffer->sync = sync_none;
             break;
         }
     }
@@ -588,9 +587,7 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
                                     BUFFER_AT_(op->buffer_out, a, z, y, x) =
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) > op->var_unary
-                                            ? BUFFER_AT_(op->buffer_out, a, z, y, x)
-                                            : op->var_unary;
+                                        fmax(BUFFER_AT_(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
                             }
                         }
@@ -603,9 +600,7 @@ void op_single_op_cpu_realize(op_t *op) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
                                     BUFFER_AT_(op->buffer_out, a, z, y, x) =
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) < op->var_unary
-                                            ? BUFFER_AT_(op->buffer_out, a, z, y, x)
-                                            : op->var_unary;
+                                        fmin(BUFFER_AT_(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
                             }
                         }
@@ -758,9 +753,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) < BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmax(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -776,9 +770,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) > BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmin(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -874,9 +867,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) < BUFFER_AT_(op->buffer_in, 0, 0, 0, 0)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmax(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -892,9 +884,8 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_out->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_out->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_out->sze_x; x++) {
-                                    if(BUFFER_AT_(op->buffer_out, a, z, y, x) > BUFFER_AT_(op->buffer_in, 0, 0, 0, 0)) {
-                                        BUFFER_AT_(op->buffer_out, a, z, y, x) = BUFFER_AT_(op->buffer_in, 0, 0, 0, 0);
-                                    }
+                                    BUFFER_AT_(op->buffer_out, a, z, y, x) = fmin(
+                                        BUFFER_AT_(op->buffer_out, a, z, y, x), BUFFER_AT_(op->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -950,9 +941,7 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_in->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_in->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_in->sze_x; x++) {
-                                    if(temp < BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        temp = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    temp = fmax(temp, BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -989,9 +978,7 @@ void op_single_op_cpu_realize(op_t *op) {
                         for(int64_t z = 0; z < op->buffer_in->sze_z; z++) {
                             for(int64_t y = 0; y < op->buffer_in->sze_y; y++) {
                                 for(int64_t x = 0; x < op->buffer_in->sze_x; x++) {
-                                    if(temp > BUFFER_AT_(op->buffer_in, a, z, y, x)) {
-                                        temp = BUFFER_AT_(op->buffer_in, a, z, y, x);
-                                    }
+                                    temp = fmin(temp, BUFFER_AT_(op->buffer_in, a, z, y, x));
                                 }
                             }
                         }
@@ -1094,6 +1081,7 @@ void tensor_unary_add(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_add;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_subtract(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1108,6 +1096,7 @@ void tensor_unary_subtract(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_subtract;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_multiply(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1122,6 +1111,7 @@ void tensor_unary_multiply(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_multiply;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_divide(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1136,6 +1126,7 @@ void tensor_unary_divide(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_divide;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_exp(tensor_t *tensor) {
     assert(tensor);
@@ -1149,6 +1140,7 @@ void tensor_unary_exp(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_exp;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_log(tensor_t *tensor) {
     assert(tensor);
@@ -1162,6 +1154,7 @@ void tensor_unary_log(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_log;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_square(tensor_t *tensor) {
     assert(tensor);
@@ -1175,6 +1168,7 @@ void tensor_unary_square(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_square;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_sqrt(tensor_t *tensor) {
     assert(tensor);
@@ -1188,6 +1182,7 @@ void tensor_unary_sqrt(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_sqrt;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_reciprocal(tensor_t *tensor) {
     assert(tensor);
@@ -1201,6 +1196,7 @@ void tensor_unary_reciprocal(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_reciprocal;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_max(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1215,6 +1211,7 @@ void tensor_unary_max(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_max;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_min(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1229,6 +1226,7 @@ void tensor_unary_min(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_min;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_set(tensor_t *tensor, double value) {
     assert(tensor);
@@ -1243,6 +1241,7 @@ void tensor_unary_set(tensor_t *tensor, double value) {
     tensor->op->type_unary = unary_set;
     tensor->op->var_unary = value;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_random(tensor_t *tensor) {
     assert(tensor);
@@ -1256,6 +1255,7 @@ void tensor_unary_random(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_random;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_tanh(tensor_t *tensor) {
     assert(tensor);
@@ -1269,6 +1269,7 @@ void tensor_unary_tanh(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_tanh;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_absolute(tensor_t *tensor) {
     assert(tensor);
@@ -1282,6 +1283,7 @@ void tensor_unary_absolute(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_absolute;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_sign(tensor_t *tensor) {
     assert(tensor);
@@ -1295,6 +1297,7 @@ void tensor_unary_sign(tensor_t *tensor) {
     tensor->op->type = operation_unary;
     tensor->op->type_unary = unary_sign;
     tensor->op->buffer_out = tensor->buffer;
+    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 
 void tensor_binary_add(tensor_t *out, tensor_t *in) {
@@ -1311,6 +1314,7 @@ void tensor_binary_add(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_add;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1326,6 +1330,7 @@ void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_subtract;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1341,6 +1346,7 @@ void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_multiply;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1356,6 +1362,7 @@ void tensor_binary_divide(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_divide;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1371,6 +1378,7 @@ void tensor_binary_max(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_max;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1386,6 +1394,7 @@ void tensor_binary_min(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_min;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1401,6 +1410,7 @@ void tensor_binary_copy(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_copy;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1416,6 +1426,7 @@ void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_add_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1431,6 +1442,7 @@ void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_subtract_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1446,6 +1458,7 @@ void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_multiply_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1461,6 +1474,7 @@ void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_divide_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1476,6 +1490,7 @@ void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_max_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1491,6 +1506,7 @@ void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_min_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1506,6 +1522,7 @@ void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
     out->op->type_binary = binary_copy_like;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 
 void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
@@ -1522,6 +1539,7 @@ void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
     out->op->type_reduce = reduce_sum;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1537,6 +1555,7 @@ void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     out->op->type_reduce = reduce_max;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1552,6 +1571,7 @@ void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     out->op->type_reduce = reduce_avg;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1567,9 +1587,9 @@ void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     out->op->type_reduce = reduce_min;
     out->op->buffer_out = out->buffer;
     out->op->buffer_in = in->buffer;
+    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 
-/* A per-dim size should never be `0`. */
 void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
     assert(tensor);
     assert(a > 0);
@@ -1591,7 +1611,6 @@ void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int6
     tensor->op->var_y = y;
     tensor->op->var_x = x;
 }
-/* A per-dim size should never be `0`. */
 void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
     assert(tensor);
     assert(a > 0);
@@ -1613,7 +1632,6 @@ void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->op->var_y = y;
     tensor->op->var_x = x;
 }
-/* A per-dim offset should never be `0`. */
 void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
     assert(tensor);
     assert(a >= 0);
@@ -1644,9 +1662,9 @@ void tensor_realize(tensor_t *tensor) {
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1)) {
-        printf("%*s%s NAME: %s\n", offset, "", name, tensor->buffer->name);
+        printf("%*s%s NAME: %s %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->sync);
     } else {
-        printf("%*sNAME: %s\n", offset, "", tensor->buffer->name);
+        printf("%*sNAME: %s sync status %u\n", offset, "", tensor->buffer->name, tensor->buffer->sync);
     }
     for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a) {

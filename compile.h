@@ -63,11 +63,10 @@ typedef struct {
 
 typedef struct {
     const char *name;
-    char **args_name;
-    /* NOTE: Since the memory is shared `**` might be necessary. This is questionable since cl_mem is already a `_cl_mem
-     * *` */
-    cl_mem **args_mem;
+    char **arg_name;
+    cl_mem *arg_mem;
     int64_t arg_num;
+    int64_t arg_cap;
     int64_t size_global;
     int64_t size_local;
     char *source;
@@ -81,8 +80,9 @@ typedef struct {
     char *source;
     int64_t source_len;
     cl_program *cl_program;
-    cl_device_id *cl_device_id; /* NOTE: Has to be done like this if we want these all the programs to have the same
-                                   `device_id`s and all that other stuff.*/
+    cl_device_id *cl_device_id; /* Has to be done like this if we want these all the programs to have the same
+                                   `device_id`s and all that other stuff. This is not technically necessary, but then
+                                   `program_free` would ne very strange. */
     cl_context *cl_context;
     cl_command_queue *cl_command_queue;
 } program_t;
