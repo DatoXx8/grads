@@ -176,10 +176,10 @@ void simulate_linearize(int64_t op_num, int64_t tensor_num) {
 
     /* TODO: I don't think there is a easy way to make sure that all these modulos are accurate, when adding new ops. However I *really* should figure out a way
      * to do that. */
-    enum operation_e op_type;
-    enum unary_e type_unary;
-    enum binary_e type_binary;
-    enum reduce_e type_reduce;
+    op_e op_type;
+    unary_e type_unary;
+    binary_e type_binary;
+    reduce_e type_reduce;
     // enum move_e type_move;
     int64_t tensor_out = 0;
     int64_t tensor_in;

@@ -3,27 +3,17 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#ifdef USE_OPENCL
-#include "runtimes/cl.h"
-#endif
 #include "nn.h"
+#include "runtimes/cl.h"
 #include "tensor.h"
 #include "utils.h"
 
 /*
- *  TODO: Do a compile-time flag to opt in or out of OpenCL
- *      -> Not compiling
- *      -> Not including "runtimes/cl.c"
- *      -> Not allocating and freeing cl_mem for the tensors
- *  TODO: Make cl_mem a field in the buffers and then have a counter for synchronisation (+1 for copying from
- * host->device and -1 for copying from device->host)
- *  TODO: Make OpenCL work with the in memory programs.
+ *  TODO: Make compile validity tests for arbitrary programs for all optimization options.
  *  TODO: Refactor op-trees to deep copy the op tree to make sure flipping tensors would work (think of the linearizer
  * simulator debacle and why that broke).
- *  TODO: Write more tiger-beetle style tests.
- *      -> Compilation gives the same results (within error) in all compilation options.
- *      -> Test compiler edge cases.
  *  TODO: Fix inlining ops that already have stuff inlined. (Might not be necessary when you think about it.)
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
@@ -31,7 +21,7 @@
  *  TODO: Support SYCL, that seems pretty neat.
  *  TODO: Update README with installation and usage guides.
  *
- *  TODO: Rewrite this to use Zig instead of C. Maybe after I have written Compyle in Zig.
+ *  TODO: Rewrite this to use Zig instead of C. Maybe after I writte Compyle in Zig.
  *
  *  Idea for chess engine: Train solely on chess960 self play.
  *                         Bunch of different heads with a core net.
@@ -42,86 +32,103 @@
  * Also wanna make a go engine.
  */
 
-int main(void) {
+void usage_print(const char *program_name) {
+    assert(program_name);
+    printf("USAGE:%s \n", program_name);
+    printf("    -cl   for using OpenCL\n");
+    printf("    -c    for using C\n");
+}
+
+int main(int argc, const char **argv) {
     // const uint32_t RNG = time(NULL);
     // printf("INFO: RNG Seed %u\n", RNG);
     // srand(RNG);
-#ifdef USE_OPENCL
-    printf("INFO: Using OpenCL\n");
-#else
-    printf("INFO: Not using OpenCL\n");
-#endif
+    compile_e compile_type;
+    if(argc != 2) {
+        usage_print(argv[0]);
+        ERROR("Program expects an argument\n");
+    }
+    if(!strncmp(argv[1], "-cl", 4)) {
+        printf("INFO: Using OpenCL\n");
+        compile_type = compile_cl;
+    } else if(!strncmp(argv[1], "-c", 3)) {
+        printf("INFO: Not using OpenCL\n");
+        compile_type = compile_none;
+    } else {
+        usage_print(argv[0]);
+        ERROR("Invaling argument\n");
+    }
     INIT_TIMER();
 
     START_TIME();
 
     const double LEARNING = 1e-2;
     const int64_t LAYERS = 2;
-    const int64_t INPUT_CHANNELS = 2;
+    const int64_t INPUT_Z = 2;
     const int64_t INPUT_Y = 4;
     const int64_t INPUT_X = INPUT_Y;
-    layerconfig_t **layerconfig = calloc(LAYERS, sizeof(layerconfig_t *));
+    layerconfig_t *layerconfig = calloc(LAYERS, sizeof(layerconfig_t));
     assert(layerconfig);
     layerconfig_t l0 = {
         .layer_type = layer_input,
-        .input_channels = INPUT_CHANNELS,
+        .input_z = INPUT_Z,
         .input_y = INPUT_Y,
         .input_x = INPUT_X,
     };
-    layerconfig_t l1 = {
-        .layer_type = layer_convolution,
-        .norm_type = norm_none,
-        .convolution_filters = 2,
-        .convolution_kernel_size = 3,
-        .convolution_kernel_stride = 1,
-        .convolution_kernel_padding = 1,
-        .activation_function = activation_identity,
-    };
+    // layerconfig_t l1 = {
+    //     .layer_type = layer_convolution,
+    //     .norm_type = norm_none,
+    //     .convolution_filters = 2,
+    //     .convolution_kernel_size = 3,
+    //     .convolution_kernel_stride = 1,
+    //     .convolution_kernel_padding = 1,
+    //     .activation_function = activation_none,
+    // };
     // layerconfig_t l2 = {
     //     .layer_type = layer_split,
     //     .norm_type = norm_none,
     //     .split_filters = 2,
-    //     .activation_function = activation_identity,
+    //     .activation_function = activation_none,
     // };
-    // layerconfig_t l3 = {
-    //     .layer_type = layer_reduce,
-    //     .reduce_type = layer_reduce_max,
-    //     .reduce_kernel_size = 2,
-    //     .reduce_kernel_stride = 1,
-    // };
+    layerconfig_t l3 = {
+        .layer_type = layer_reduce,
+        .reduce_type = layer_reduce_max,
+        .reduce_kernel_size = 2,
+        .reduce_kernel_stride = 1,
+    };
     // layerconfig_t l4 = {
     //     .layer_type = layer_dense,
     //     .norm_type = norm_none,
     //     .dense_output_size = 3,
-    //     .activation_function = activation_identity,
+    //     .activation_function = activation_none,
     // };
-    layerconfig[0] = &l0;
-    layerconfig[1] = &l1;
-    // layerconfig[2] = &l2;
-    // layerconfig[3] = &l3;
-    // layerconfig[4] = &l4;
+    layerconfig[0] = l0;
+    layerconfig[1] = l3;
+    // layerconfig[1] = l1;
+    // layerconfig[2] = l2;
+    // layerconfig[3] = l3;
+    // layerconfig[4] = l4;
 
     const int64_t SAMPLES = 1;
-#ifdef USE_OPENCL
-    int err;
-    cl_device_id device_id = cl_device_get();
-    cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
-    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, device_id, context);
+    cl_device_id device_id;
+    cl_context context;
+    if(compile_type == compile_cl) {
+        int err;
+        device_id = cl_device_get();
+        context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
+    } else {
+        context = NULL;
+    }
+    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
+    printf("forward\n%s\n", neuralnet.forward_cl.source);
+    // printf("backward\n%s\n", neuralnet.backward_cl.source);
+    // printf("learn\n%s\n", neuralnet.learn_cl.source);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_x, context);
     tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_z,
                                    NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_y,
                                    NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_x, context);
-#else
-    neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING);
-    tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
-                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
-                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_x);
-    tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_z,
-                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_y,
-                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_x);
-#endif
     tensor_unary_random(&input);
     tensor_unary_random(&output);
     tensor_realize(&input);

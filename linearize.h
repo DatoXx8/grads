@@ -35,10 +35,10 @@ typedef struct {
 
 /* Actually fusing in is not so basic given my way of compiling things. */
 typedef struct {
-    enum operation_e type;
-    enum unary_e type_unary;
-    enum binary_e type_binary;
-    enum reduce_e type_reduce;
+    op_e type;
+    unary_e type_unary;
+    binary_e type_binary;
+    reduce_e type_reduce;
     double var_unary;
     simple_buffer_t buffer_out;
     simple_buffer_t buffer_in;
