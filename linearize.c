@@ -18,6 +18,7 @@ void simple_op_simulate_move(op_t *op) {
             op->buffer_out->str_a_sim = op->var_z * op->var_y * op->var_x;
             op->buffer_out->str_z_sim = op->var_y * op->var_x;
             op->buffer_out->str_y_sim = op->var_x;
+            /* This is always 1 so it's pointles to update */
             op->buffer_out->str_x_sim = 1;
             break;
         }
@@ -446,6 +447,14 @@ void simple_op_realize(simple_op_t *simple) {
     assert(simple);
     switch(simple->type) {
         case operation_unary: {
+            assert(simple->buffer_out.sze_a > 0);
+            assert(simple->buffer_out.sze_z > 0);
+            assert(simple->buffer_out.sze_y > 0);
+            assert(simple->buffer_out.sze_x > 0);
+            assert(simple->buffer_out.str_a > 0);
+            assert(simple->buffer_out.str_z > 0);
+            assert(simple->buffer_out.str_y > 0);
+            assert(simple->buffer_out.str_x > 0);
             switch(simple->type_unary) {
                 case unary_add: {
                     for(int64_t a = 0; a < simple->buffer_out.sze_a; a++) {
@@ -658,6 +667,22 @@ void simple_op_realize(simple_op_t *simple) {
             break;
         }
         case operation_binary: {
+            assert(simple->buffer_out.sze_a > 0);
+            assert(simple->buffer_out.sze_z > 0);
+            assert(simple->buffer_out.sze_y > 0);
+            assert(simple->buffer_out.sze_x > 0);
+            assert(simple->buffer_out.str_a > 0);
+            assert(simple->buffer_out.str_z > 0);
+            assert(simple->buffer_out.str_y > 0);
+            assert(simple->buffer_out.str_x > 0);
+            assert(simple->buffer_in.sze_a > 0);
+            assert(simple->buffer_in.sze_z > 0);
+            assert(simple->buffer_in.sze_y > 0);
+            assert(simple->buffer_in.sze_x > 0);
+            assert(simple->buffer_in.str_a > 0);
+            assert(simple->buffer_in.str_z > 0);
+            assert(simple->buffer_in.str_y > 0);
+            assert(simple->buffer_in.str_x > 0);
             switch(simple->type_binary) {
                 case binary_add: {
                     assert(simple->buffer_out.sze_a == simple->buffer_in.sze_a);
@@ -858,8 +883,8 @@ void simple_op_realize(simple_op_t *simple) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
                                     SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                        fmax(SIMPLE_AT(simple->buffer_in, a, z, y, x),
-                                             SIMPLE_AT(simple->buffer_out, 0, 0, 0, 0));
+                                        fmax(SIMPLE_AT(simple->buffer_out, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -876,8 +901,8 @@ void simple_op_realize(simple_op_t *simple) {
                             for(int64_t y = 0; y < simple->buffer_out.sze_y; y++) {
                                 for(int64_t x = 0; x < simple->buffer_out.sze_x; x++) {
                                     SIMPLE_AT(simple->buffer_out, a, z, y, x) =
-                                        fmin(SIMPLE_AT(simple->buffer_in, a, z, y, x),
-                                             SIMPLE_AT(simple->buffer_out, 0, 0, 0, 0));
+                                        fmin(SIMPLE_AT(simple->buffer_out, a, z, y, x),
+                                             SIMPLE_AT(simple->buffer_in, 0, 0, 0, 0));
                                 }
                             }
                         }
@@ -909,6 +934,18 @@ void simple_op_realize(simple_op_t *simple) {
             assert(simple->buffer_out.sze_z == 1);
             assert(simple->buffer_out.sze_y == 1);
             assert(simple->buffer_out.sze_x == 1);
+            assert(simple->buffer_out.str_a > 0);
+            assert(simple->buffer_out.str_z > 0);
+            assert(simple->buffer_out.str_y > 0);
+            assert(simple->buffer_out.str_x > 0);
+            assert(simple->buffer_in.sze_a > 0);
+            assert(simple->buffer_in.sze_z > 0);
+            assert(simple->buffer_in.sze_y > 0);
+            assert(simple->buffer_in.sze_x > 0);
+            assert(simple->buffer_in.str_a > 0);
+            assert(simple->buffer_in.str_z > 0);
+            assert(simple->buffer_in.str_y > 0);
+            assert(simple->buffer_in.str_x > 0);
             switch(simple->type_reduce) {
                 case reduce_sum: {
                     double temp = 0;

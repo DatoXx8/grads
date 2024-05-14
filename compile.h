@@ -14,30 +14,8 @@
 #include "tensor.h"
 
 typedef struct {
-    int64_t str_a_in;
-    int64_t str_z_in;
-    int64_t str_y_in;
-    int64_t str_x_in;
-    int64_t res_a_in;
-    int64_t res_z_in;
-    int64_t res_y_in;
-    int64_t res_x_in;
-    int64_t wai_a_in;
-    int64_t wai_z_in;
-    int64_t wai_y_in;
-    int64_t wai_x_in;
-    int64_t str_a_out;
-    int64_t str_z_out;
-    int64_t str_y_out;
-    int64_t str_x_out;
-    int64_t res_a_out;
-    int64_t res_z_out;
-    int64_t res_y_out;
-    int64_t res_x_out;
-    int64_t wai_a_out;
-    int64_t wai_z_out;
-    int64_t wai_y_out;
-    int64_t wai_x_out;
+    int64_t *off_in;
+    int64_t *off_out;
 } dim_info_t;
 
 typedef struct {
