@@ -63,7 +63,7 @@ int main(void) {
     }
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
-    tensor_unary_absolute(&in); /* NOTE: Needed to deal with negative values. */
+    tensor_unary_absolute(&in); /* Needed to deal with negative values. */
     tensor_unary_log(&in);
     tensor_realize(&in);
     for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
@@ -78,7 +78,7 @@ int main(void) {
     }
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
-    tensor_unary_absolute(&in); /* NOTE: Needed to deal with negative values. */
+    tensor_unary_absolute(&in); /* Needed to deal with negative values. */
     tensor_unary_sqrt(&in);
     tensor_realize(&in);
     for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {

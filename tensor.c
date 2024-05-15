@@ -44,7 +44,7 @@ void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
         }
     }
 }
-void buffer_sync_update(buffer_t *buffer, enum sync_e sync) {
+void buffer_sync_update(buffer_t *buffer, sync_e sync) {
     if(buffer->sync == sync_none) {
         assert(sync != sync_none);
         buffer->sync = sync;

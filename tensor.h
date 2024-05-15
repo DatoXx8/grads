@@ -2,7 +2,7 @@
 #define TENSOR_H_
 
 #include <CL/cl.h>
-enum sync_e { sync_none = 0, sync_to_host, sync_to_device };
+typedef enum { sync_none = 0, sync_to_host, sync_to_device } sync_e;
 
 #include <stdint.h>
 
@@ -25,7 +25,7 @@ typedef struct {
     int64_t off;
     double *val;
     cl_mem val_cl;
-    enum sync_e sync;
+    sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
     int64_t str_a_sim;
     int64_t str_z_sim;
@@ -44,7 +44,7 @@ typedef struct {
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
 extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue);
-extern void buffer_sync_update(buffer_t *buffer, enum sync_e sync);
+extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
     ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
@@ -53,8 +53,8 @@ extern void buffer_sync_update(buffer_t *buffer, enum sync_e sync);
     ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
                    (buffer)->off])
 
-enum operation_e { operation_unary, operation_binary, operation_reduce, operation_move };
-enum unary_e {
+typedef enum { operation_unary, operation_binary, operation_reduce, operation_move } op_e;
+typedef enum {
     unary_add,
     unary_subtract,
     unary_multiply,
@@ -71,8 +71,8 @@ enum unary_e {
     unary_tanh,
     unary_absolute,
     unary_sign
-};
-enum binary_e {
+} unary_e;
+typedef enum {
     binary_add,
     binary_subtract,
     binary_multiply,
@@ -90,10 +90,9 @@ enum binary_e {
     binary_max_like,
     binary_min_like,
     binary_copy_like
-};
-enum reduce_e { reduce_sum, reduce_max, reduce_avg, reduce_min };
-/* Move ops have 0 cost at runtime. */
-enum move_e { move_reshape, move_resize, move_offset };
+} binary_e;
+typedef enum { reduce_sum, reduce_max, reduce_avg, reduce_min } reduce_e;
+typedef enum { move_reshape, move_resize, move_offset } move_e;
 
 #define MAX_DEPTH 1000000
 /* TODO: Could maybe merge all the enums for a smaller op_t struct. */
@@ -105,11 +104,11 @@ typedef struct op {
     int64_t child_count;
     int64_t child_capacity;
     struct op **child;
-    enum operation_e type;
-    enum unary_e type_unary;
-    enum binary_e type_binary;
-    enum reduce_e type_reduce;
-    enum move_e type_move;
+    op_e type;
+    unary_e type_unary;
+    binary_e type_binary;
+    reduce_e type_reduce;
+    move_e type_move;
     double var_unary;
     int64_t var_a;
     int64_t var_z;

@@ -12,7 +12,7 @@
 #include "tensor.h"
 #include "utils.h"
 
-static activation_t _activation_alloc(enum activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x,
+static activation_t _activation_alloc(activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x,
                                       cl_context context) {
     assert(a > 0);
     assert(z > 0);
@@ -148,7 +148,7 @@ static void _activation_activate(tensor_t *tensor, activation_t *activation) {
         }
     }
 }
-static norm_t _norm_alloc(enum norm_e type, tensor_t *tensor, cl_context context) {
+static norm_t _norm_alloc(norm_e type, tensor_t *tensor, cl_context context) {
     assert(tensor);
     norm_t norm = {
         .type = type,
@@ -671,7 +671,7 @@ void convolution_print_shape(convolution_t *convolution, int padding, int offset
 
 /* Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). I
  * like the name continuity tho. */
-reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x, int64_t kernel_size,
+reduce_t reduce_alloc(layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x, int64_t kernel_size,
                       int64_t kernel_stride) {
     assert(kernel_size > 0);
     assert(kernel_stride > 0);
@@ -1214,7 +1214,7 @@ void layer_sync(layer_t *layer, cl_command_queue command_queue) {
 
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a
  * tensor. */
-neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning, enum compile_e compile_type) {
+neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning, compile_e compile_type) {
     assert(layers > 1);
     assert(learning > 0);
     neuralnet_t neuralnet = {

@@ -10,7 +10,7 @@
 #include "tensor.h"
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */
-enum activation_e {
+typedef enum  {
     activation_none,
     activation_relu,
     activation_sigmoid,
@@ -18,19 +18,19 @@ enum activation_e {
     activation_silu,
     activation_gelu,
     activation_leaky
-};
+}activation_e;
 
 typedef struct {
-    enum activation_e type;
+    activation_e type;
     tensor_t *intermediary;
 } activation_t;
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */
-enum norm_e { norm_none, norm_layer, norm_batch, norm_simple };
+typedef enum { norm_none, norm_layer, norm_batch, norm_simple } norm_e;
 
 /* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
 typedef struct {
-    enum norm_e type;
+    norm_e type;
     tensor_t *batch_expected;
     tensor_t *batch_variance;
     tensor_t *layer_expected;
@@ -95,10 +95,10 @@ extern void convolution_print(convolution_t *convolution, int padding, int offse
 extern void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name);
 
 /* Can rename this to reduce_e after unifying all the op types. */
-enum layer_reduce_e { layer_reduce_max, layer_reduce_avg, layer_reduce_min };
+typedef enum  { layer_reduce_max, layer_reduce_avg, layer_reduce_min }layer_reduce_e;
 
 typedef struct {
-    enum layer_reduce_e type;
+    layer_reduce_e type;
     int64_t _input_z; /* Equivalent to input_z. */
     int64_t _input_y; /* Not set directly. */
     int64_t _input_x; /* Not set directly. */
@@ -110,21 +110,21 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride)                                                     \
     ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
-extern reduce_t reduce_alloc(enum layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x,
+extern reduce_t reduce_alloc(layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x,
                              int64_t kernel_size, int64_t kernel_stride);
 extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
-enum residual_e { residual_identity, residual_convolution, residual_dense, residual_reduce };
+typedef enum  { residual_identity, residual_convolution, residual_dense, residual_reduce }residual_e;
 
 /* Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
  * supported right now. */
 /* TODO: Think about specifying the amount of layers you need to go back for the residual connection. This way you can
  * reuse the same layerconf and it is more similar to the standard residual block. */
 typedef struct {
-    enum residual_e type;
+    residual_e type;
     int64_t connection_from_layer;
     convolution_t *convolution; /* Optional. */
 } residual_t;
@@ -151,10 +151,10 @@ extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *s
 extern void split_print(split_t *split, int padding, int offset, const char *name);
 extern void split_print_shape(split_t *split, int padding, int offset, const char *name);
 
-enum layer_e { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split };
+typedef enum  { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split }layer_e;
 
 typedef struct {
-    enum layer_e layer_type;
+    layer_e layer_type;
 
     int64_t input_z;
     int64_t input_y;
@@ -173,7 +173,7 @@ typedef struct {
     int64_t convolution_kernel_stride;
     int64_t convolution_kernel_padding;
 
-    enum layer_reduce_e reduce_type;
+    layer_reduce_e reduce_type;
     int64_t _reduce_input_z; /* Not set directly */
     int64_t _reduce_input_y; /* Not set directly */
     int64_t _reduce_input_x; /* Not set directly */
@@ -186,7 +186,7 @@ typedef struct {
     int64_t _split_input_x; /* Not set directly */
     int64_t split_filters;
 
-    enum residual_e residual_type;
+    residual_e residual_type;
     int64_t residual_connection_from_layer;
     int64_t _residual_convolution_input_z; /* Not set directly */
     int64_t _residual_convolution_input_y; /* Not set directly */
@@ -197,13 +197,13 @@ typedef struct {
     int64_t residual_convolution_kernel_padding;
 
     /* NOT APPLICABLE FOR REDUCE LAYERS. */
-    enum activation_e activation_function;
+    activation_e activation_function;
     /* NOT APPLICABLE FOR REDUCE LAYERS. */
-    enum norm_e norm_type;
+    norm_e norm_type;
 } layerconfig_t;
 
 typedef struct {
-    enum layer_e layer_type;
+    layer_e layer_type;
     activation_t *activation_function;
     norm_t *norm;
 
@@ -222,12 +222,12 @@ extern layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context);
 extern void layer_free(layer_t *layer);
 
 /* TODO: Add other languages. */
-enum compile_e { compile_none, compile_cl };
+typedef enum  { compile_none, compile_cl }compile_e;
 
 typedef struct {
     int64_t layers;
     layer_t *layer;
-    enum compile_e compile_type;
+    compile_e compile_type;
     linearized_t *forward;
     linearized_t *learn;
     linearized_t *backward;
@@ -242,7 +242,7 @@ typedef struct {
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
 extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning,
-                                   enum compile_e compilation_type);
+                                   compile_e compilation_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* You have to keep track of the NN architecture yourself. I might add that in the future but it's not a thing yet. */
 extern void neuralnet_save(neuralnet_t *neuralnet, const char *filename);
