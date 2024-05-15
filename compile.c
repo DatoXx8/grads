@@ -10,11 +10,9 @@
 #include "tensor.h"
 
 #define SIMPLE_INDEX(simple, a, z, y, x)                                                                               \
-    ((simple).str_a * (a + (simple).off_a) + (simple).str_z * (z + (simple).off_z) +                                   \
-     (simple).str_y * (y + (simple).off_y) + (simple).str_x * (x + (simple).off_x))
+    ((simple).str_a * (a) + (simple).str_z * (z) + (simple).str_y * (y) + (simple).str_x * (x))
 #define SIMPLE_INDEX_(simple, a, z, y, x)                                                                              \
-    ((simple)->str_a * (a + (simple)->off_a) + (simple)->str_z * (z + (simple)->off_z) +                               \
-     (simple)->str_y * (y + (simple)->off_y) + (simple)->str_x * (x + (simple)->off_x))
+    ((simple)->str_a * (a) + (simple)->str_z * (z) + (simple)->str_y * (y) + (simple)->str_x * (x))
 static void simple_loop_free(simple_loop_t *simple) {
     assert(simple);
     assert(simple->op);
@@ -26,8 +24,8 @@ static void simple_loop_free(simple_loop_t *simple) {
     }
     free(simple->dim_info);
 }
-/* Has to have the same input and output tensors, with the same shape and be the same op type.
- * Offsets however should be irrelevant. */
+/* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be
+ * irrelevant. */
 static int64_t simple_op_equal(simple_op_t *starting, simple_op_t *compared) {
     assert(starting);
     assert(compared);
@@ -62,7 +60,7 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
     loop->loop_len = loop_len;
     loop->op = calloc(loop_len, sizeof(simple_op_t));
     assert(loop->op);
-    loop->dim_info = calloc(loop_num, sizeof(dim_info_t));
+    loop->dim_info = calloc(loop_len, sizeof(dim_info_t));
     assert(loop->dim_info);
     for(int64_t i = 0; i < loop_len; i++) {
         loop->op[i] = op[0][i];
@@ -90,8 +88,8 @@ static void kernel_free(kernel_t *kernel) {
         kernel->cl_kernel = NULL;
     }
 }
-/* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to
- * use like `snprintf` for format-string appending. */
+/* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf`
+ * for format-string appending. */
 static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, linearized_t *linearized, int64_t start_idx) {
     assert(simple);
     assert(linearized);
@@ -313,8 +311,8 @@ const int64_t MAX_OP_SIZE = 512;
       (op)->type_unary == unary_max || (op)->type_unary == unary_min)) ||                                              \
         ((op)->type == operation_binary) && ((op)->type_binary == binary_min || (op)->type_binary == binary_max)
 
-/* Pointers for the last 3 cuz they need to be modified, which is kinda horrible but you can't have
- * multiple return types in C. */
+/* Pointers for the last 3 cuz they need to be modified, which is kinda horrible but you can't have multiple return
+ * types in C. */
 static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64_t op_num, int64_t loop_idx,
                                     int64_t op_idx, char **source, char **curr, int64_t *source_cap) {
     assert(op);
@@ -818,7 +816,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
                                         break;
                                     }
                                     case unary_absolute: {
-                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "exp(%s[%s%luoff%lu+%lu])",
+                                        temp_c += snprintf(temp_c, MAX_OP_SIZE, "fabs(%s[%s%luoff%lu+%lu])",
                                                            op[0].buffer_out.name, op[0].buffer_out.name, op_idx,
                                                            loop_idx, SIMPLE_INDEX(op[0].buffer_out, a, z, y, x));
                                         EXPAND_SOURCE_IF_NEEDED(temp_c, temp, temp_cap, MAX_OP_SIZE);
