@@ -10,7 +10,7 @@
 #include "../runtimes/cl.h"
 #include "../tensor.h"
 
-void program_free_most_things(program_t *program) {
+void program_free_non_reusable(program_t *program) {
     for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
         for(int64_t i = 0; i < program->kernel[kernel_idx].arg_num; i++) {
             free(program->kernel[kernel_idx].arg_name[i]);
@@ -34,10 +34,12 @@ void program_free_most_things(program_t *program) {
 const int64_t RANDOM_MAX_TRIES = 100;
 const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
+const double MARGIN_OF_ERROR = 1e-4; /* .1% max error */
 /* TODO: Increase perf by moving all the tensor allocs and frees to the outside */
 void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *command_queue, cl_context *context,
                       cl_device_id *device_id) {
-    assert(op_num > 0);
+    /* No particular reason for 1e5. Just felt like that was a good amount */
+    assert(op_num > 0 && op_num < 1e5);
     assert(tensor_num > 1);
     assert(command_queue && *command_queue);
     assert(context && *context);
@@ -413,20 +415,21 @@ void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *comm
     program_t program = {0};
     program_compile(&program, &linearized_d, device_id, context, command_queue);
     for(int64_t i = 0; i < tensor_num; i++) { buffer_sync_realize(tensor_d[i].buffer, *command_queue); }
+    clFinish(*command_queue);
     program_run(&program);
     for(int64_t i = 0; i < tensor_num; i++) {
         buffer_sync_update(tensor_d[i].buffer, sync_to_host);
         buffer_sync_realize(tensor_d[i].buffer, *command_queue);
     }
+    clFinish(*command_queue);
 
     for(int64_t i = 0; i < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; i++) {
-        /* Asserts don't work for whatever reason here */
         if(isnan(tensor[tensor_out].buffer->val[i])) {
             printf("out t %lf\n", tensor[tensor_out].buffer->val[i]);
             exit(1);
         }
         if(isnan(tensor_d[tensor_out].buffer->val[i])) {
-            printf("out d[tensor_out].buffer->val[i] %lf\n", tensor_d[tensor_out].buffer->val[i]);
+            printf("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
             exit(1);
         }
         if(isinf(tensor[tensor_out].buffer->val[i])) {
@@ -437,7 +440,13 @@ void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *comm
             printf("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
             exit(1);
         }
-        assert(fabs(tensor[tensor_out].buffer->val[i] - tensor_d[tensor_out].buffer->val[i]) < EPSILON);
+        if(fabs((tensor[tensor_out].buffer->val[i] - tensor_d[tensor_out].buffer->val[i])) >= (MARGIN_OF_ERROR) &&
+           fabs((tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i]) - 1) >= (MARGIN_OF_ERROR)) {
+            printf("%lf %lf\n", tensor[tensor_out].buffer->val[i], tensor_d[tensor_out].buffer->val[i]);
+            printf("%lf >= %lf\n", fabs((tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i]) - 1),
+                   MARGIN_OF_ERROR);
+            exit(1);
+        }
     }
 
     for(int64_t i = 0; i < tensor_num; i++) {
@@ -450,7 +459,7 @@ void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *comm
     free(tensor_d);
     linearized_free(&linearized);
     linearized_free(&linearized_d);
-    program_free_most_things(&program);
+    program_free_non_reusable(&program);
 }
 
 int main(int argc, char **argv) {
