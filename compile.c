@@ -83,6 +83,7 @@ static void kernel_free(kernel_t *kernel) {
     free(kernel->arg_name);
     free((void *) kernel->name);
     free(kernel->source);
+    free(kernel->arg_mem);
     if(kernel->cl_kernel) {
         clReleaseKernel(*kernel->cl_kernel);
         free(kernel->cl_kernel);
@@ -1444,6 +1445,7 @@ static kernel_t compile_loop_to_cl(compile_loop_t *compile, int64_t size_global,
     curr += snprintf(curr, MAX_OP_SIZE, "int gid0 = get_global_id(0);\nint id = gid0;\n");
     for(int64_t op_idx = 0; op_idx < compile->loop_len; op_idx++) {
         if(compile->op_num[op_idx] == 1) {
+            /* TODO: Add static / const for better perf? */
             curr += snprintf(curr, MAX_OP_SIZE, "int %s%luoff[]={", compile->op[op_idx][0].buffer_out.name, op_idx);
             EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
             for(int64_t loop_idx = 0; loop_idx < compile->loop_num; loop_idx++) {
