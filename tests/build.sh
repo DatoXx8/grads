@@ -1,2 +1,4 @@
-zig cc simulate_linearizer.c ../tensor.c ../linearize.c -o simulate_linearizer -lm -Wall -Wextra -pedantic -fsanitize=address,undefined,leak,pointer-compare,pointer-subtract -ggdb -DUSE_OPENCL
-zig cc unit_ops_cpu.c ../tensor.c ../linearize.c -o unit_ops_cpu -lm -Wall -Wextra -pedantic -fsanitize=address,undefined,leak,pointer-compare,pointer-subtract -ggdb -DUSE_OPENCL
+set -xe
+zig cc simulate-linearizer.c ../tensor.c ../linearize.c -o simulate-linearizer -lm -lasan -lOpenCL -Wall -Wextra -pedantic -fsanitize=null,address,undefined,leak,pointer-compare,pointer-subtract -ggdb
+zig cc unit-ops-cpu.c ../tensor.c ../linearize.c -o unit-ops-cpu -lm -lasan -lOpenCL -Wall -Wextra -pedantic -fsanitize=address,undefined,leak,pointer-compare,pointer-subtract -ggdb
+zig cc simulate-compiler.c ../tensor.c ../linearize.c ../compile.c ../runtimes/cl.c -o simulate-compiler -lm -lOpenCL -Wall -Wextra -pedantic
