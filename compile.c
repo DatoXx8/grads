@@ -1335,14 +1335,6 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
 
     char *func_name = KERNEL_NAME;
     assert(func_name);
-    int64_t loops_leftover = compile->loop_num % global_size;
-    int64_t loops_assigned = (compile->loop_num - loops_leftover) / global_size;
-    int64_t loops_needed;
-    if(loops_leftover) {
-        loops_needed = loops_assigned + 1;
-    } else {
-        loops_needed = loops_assigned;
-    }
 
     int64_t source_cap = INITIAL_SOURCE_SIZE;
     char *source = calloc(source_cap, sizeof(char));
@@ -1540,6 +1532,14 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
             }
         }
         EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
+        int64_t loops_leftover = compile[compile_idx].loop_num % global_size;
+        int64_t loops_assigned = (compile[compile_idx].loop_num - loops_leftover) / global_size;
+        int64_t loops_needed;
+        if(loops_leftover) {
+            loops_needed = loops_assigned + 1;
+        } else {
+            loops_needed = loops_assigned;
+        }
         for(int64_t loop_idx = 0; loop_idx < loops_needed; loop_idx++) {
             if(loop_idx == loops_assigned) {
                 curr += snprintf(curr, MAX_OP_SIZE, "if(gid0 < %lu) {\n", loops_leftover);
