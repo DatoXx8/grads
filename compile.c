@@ -25,7 +25,7 @@ static void simple_loop_free(simple_loop_t *simple) {
     free(simple->dim_info);
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be
- * irrelevant. */
+ * irrelevant */
 static int64_t simple_op_equal(simple_op_t *starting, simple_op_t *compared) {
     assert(starting);
     assert(compared);
@@ -75,7 +75,7 @@ static void simple_loop_configure(simple_loop_t *loop, simple_op_t **op, int64_t
     }
 }
 /* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf`
- * for format-string appending. */
+ * for format-string appending */
 static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, linearized_t *linearized, int64_t start_idx) {
     assert(simple);
     assert(linearized);
@@ -86,7 +86,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
     simple_op_t starting_op = linearized->simple[start_idx];
     for(int64_t i = start_idx + 1; i < linearized->op_len; i++) {
         if(simple_op_equal(&starting_op, &linearized->simple[i])) {
-            /* TODO: This could probably just be done in the `for` statement. */
+            /* TODO: This could probably just be done in the `for` statement */
             if(2 * i - start_idx < linearized->op_len) {
                 diff = 0;
                 for(int64_t j = 0; j < i - start_idx; j++) {
@@ -104,7 +104,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
             }
         }
     }
-    if(!loop_length) { /* Could not find loop. */
+    if(!loop_length) { /* Could not find loop */
         simple_op_t **loop_instances = calloc(1, sizeof(simple_op_t *));
         assert(loop_instances);
         loop_instances[0] = calloc(1, sizeof(simple_op_t));
@@ -143,7 +143,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
 
     return loop_length * loop_number;
 }
-const int64_t INITIAL_CAP = 4;
+static const int64_t INITIAL_CAP = 4;
 #define OVERRIDES_OUTPUT(op)                                                                                           \
     ((op.type == operation_unary && (op.type_unary == unary_set)) ||                                                   \
      (op.type == operation_binary && (op.type_binary == binary_copy || op.type_binary == binary_copy_like)) ||         \
@@ -234,6 +234,10 @@ static void compile_loop_free(compile_loop_t *compile) {
     for(int64_t i = 0; i < compile->loop_len; i++) {
         assert(compile->op[i]);
         assert(compile->dim_info[i]);
+        for(int64_t j = 0; j < compile->op_num[i]; j++) {
+            if(compile->dim_info[i][j].off_out) { free(compile->dim_info[i][j].off_out); }
+            if(compile->dim_info[i][j].off_in) { free(compile->dim_info[i][j].off_in); }
+        }
         free(compile->op[i]);
         free(compile->dim_info[i]);
     }
@@ -287,7 +291,7 @@ static compile_loop_t compile_loop_alloc(simple_loop_t *simple, uint64_t optim) 
 const int64_t INITIAL_SOURCE_SIZE = 1024;
 const int64_t MAX_ARG_SIZE = 24;
 const int64_t MAX_INDEX_DIGITS = 9;
-/* Biggest I found was 131 for `max` or `min` binary ops. */
+/* Biggest I found was 131 for `max` or `min` binary ops */
 const int64_t MAX_OP_SIZE = 512;
 #define EXPAND_SOURCE_IF_NEEDED(curr, source, source_size, max_op_size)                                                \
     if(source_size - (curr - source) <= max_op_size) {                                                                 \
@@ -305,7 +309,7 @@ const int64_t MAX_OP_SIZE = 512;
         ((op)->type == operation_binary) && ((op)->type_binary == binary_min || (op)->type_binary == binary_max)
 
 /* Pointers for the last 3 cuz they need to be modified, which is kinda horrible but you can't have multiple return
- * types in C. */
+ * types in C */
 static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64_t op_num, int64_t compile_idx,
                                     int64_t loop_idx, int64_t op_idx, char **source, char **curr, int64_t *source_cap) {
     assert(op);
@@ -327,7 +331,7 @@ static void compile_single_op_to_cl(simple_op_t *op, dim_info_t *dim_info, int64
     int64_t max_z = op[0].type == operation_reduce ? op[0].buffer_in.sze_z : op[0].buffer_out.sze_z;
     int64_t max_y = op[0].type == operation_reduce ? op[0].buffer_in.sze_y : op[0].buffer_out.sze_y;
     int64_t max_x = op[0].type == operation_reduce ? op[0].buffer_in.sze_x : op[0].buffer_out.sze_x;
-    /* TODO: This needs a really big refactor. */
+    /* TODO: This needs a really big refactor */
     /* This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where
      * it breaks, but be cautious! */
     if(op[0].type == operation_reduce) {
@@ -1326,7 +1330,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
                                 int64_t compile_loops) {
     assert(compile);
     assert(global_size);
-    /* TODO: Support `local_size > 1`. */
+    /* TODO: Support `local_size > 1`*/
     assert(local_size == 1);
 
     char *func_name = KERNEL_NAME;
@@ -1457,7 +1461,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
         }
         for(int64_t op_idx = 0; op_idx < compile[compile_idx].loop_len; op_idx++) {
             if(compile[compile_idx].op_num[op_idx] == 1) {
-                /* TODO: Add static / const for better perf? */
+                /* TODO: Add static / const for better perf?  */
                 curr += snprintf(curr, MAX_OP_SIZE, "int %s%lu_%luoff[]={",
                                  compile[compile_idx].op[op_idx][0].buffer_out.name, compile_idx, op_idx);
                 EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
@@ -1600,7 +1604,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
     }
 
     assert(arg_num != 0);
-    /* That `+ 3` is pure magic. I have no clue where it comes from. */
+    /* That `+ 3` is pure magic. I have no clue where it comes from */
     int64_t kernel_size = strlen("__kernel void ") + strlen(KERNEL_NAME "(") +
                           (strlen("__global double *") + BUFFER_NAME_SIZE) * arg_num + strlen(", ") * (arg_num - 1) +
                           strlen(") {\n") + (curr - source) + strlen("}\n") + 3;
@@ -1679,13 +1683,14 @@ void program_free(program_t *program) {
         clReleaseKernel(program->cl_kernel);
         program->cl_kernel = NULL;
     }
-    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer. */
+    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
     if(program->cl_program) {
         if(*program->cl_program) {
             clReleaseProgram(*program->cl_program);
             *program->cl_program = NULL;
             free(*program->cl_program);
         }
+        free(program->cl_program);
         program->cl_program = NULL;
     }
     if(program->cl_device_id) {
