@@ -43,21 +43,15 @@ void program_run(program_t *program) {
     int err;
     if(!program->cl_program) {
         program_build(program);
-        for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-            program->kernel[kernel_idx].cl_kernel = calloc(1, sizeof(cl_kernel));
-            *program->kernel[kernel_idx].cl_kernel =
-                clCreateKernel(*program->cl_program, program->kernel[kernel_idx].name, &err);
-            if(err < 0) { ERROR("Could not create OpenCL kernel at index %lu\nError %d\n", kernel_idx, err); }
-        }
+        program->cl_kernel = clCreateKernel(*program->cl_program, KERNEL_NAME, &err);
+        if(err < 0) { ERROR("Could not create OpenCL kernel\nError %d\n", err); }
     }
-    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-        for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
-            clSetKernelArg(*program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
-                           &program->kernel[kernel_idx].arg_mem[arg_idx]);
-        }
-        clEnqueueNDRangeKernel(*program->cl_command_queue, *program->kernel[kernel_idx].cl_kernel, 1, NULL,
-                               (size_t *) &program->kernel[kernel_idx].size_global,
-                               (size_t *) &program->kernel[kernel_idx].size_local, 0, NULL, NULL);
-        clFinish(*program->cl_command_queue);
+    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
+        clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem),
+                       &program->arg_mem[arg_idx]);
     }
+    clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL,
+                           (size_t *) &program->global_size,
+                           (size_t *) &program->local_size, 0, NULL, NULL);
+    clFinish(*program->cl_command_queue);
 }
