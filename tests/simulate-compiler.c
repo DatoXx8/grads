@@ -11,30 +11,32 @@
 #include "../tensor.h"
 
 void program_free_non_reusable(program_t *program) {
-    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-        for(int64_t i = 0; i < program->kernel[kernel_idx].arg_num; i++) {
-            free(program->kernel[kernel_idx].arg_name[i]);
-        }
-        free(program->kernel[kernel_idx].arg_name);
-        free((void *) program->kernel[kernel_idx].name);
-        free(program->kernel[kernel_idx].source);
-        free(program->kernel[kernel_idx].arg_mem);
-        if(program->kernel[kernel_idx].cl_kernel) {
-            clReleaseKernel(*program->kernel[kernel_idx].cl_kernel);
-            free(program->kernel[kernel_idx].cl_kernel);
-            program->kernel[kernel_idx].cl_kernel = NULL;
-        }
-    }
-    free(program->kernel);
+    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) { free(program->arg_name[arg_idx]); }
+    free(program->arg_name);
+    program->arg_name = NULL;
+    free(program->arg_mem);
+    program->arg_mem = NULL;
     free(program->source);
-    clReleaseProgram(*program->cl_program);
-    free(program->cl_program);
+    program->source = NULL;
+    if(program->cl_kernel) {
+        clReleaseKernel(program->cl_kernel);
+        program->cl_kernel = NULL;
+    }
+    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer. */
+    if(program->cl_program) {
+        if(*program->cl_program) {
+            clReleaseProgram(*program->cl_program);
+            *program->cl_program = NULL;
+            free(*program->cl_program);
+        }
+        program->cl_program = NULL;
+    }
 }
 
 const int64_t RANDOM_MAX_TRIES = 100;
 const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
-const double MARGIN_OF_ERROR = 1e-4; /* .1% max error */
+const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 /* TODO: Increase perf by moving all the tensor allocs and frees to the outside */
 void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *command_queue, cl_context *context,
                       cl_device_id *device_id) {
@@ -425,27 +427,25 @@ void simulate_compile(int64_t op_num, int64_t tensor_num, cl_command_queue *comm
 
     for(int64_t i = 0; i < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; i++) {
         if(isnan(tensor[tensor_out].buffer->val[i])) {
-            printf("out t %lf\n", tensor[tensor_out].buffer->val[i]);
-            exit(1);
+            ERROR("out t %lf\n", tensor[tensor_out].buffer->val[i]);
         }
         if(isnan(tensor_d[tensor_out].buffer->val[i])) {
-            printf("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
-            exit(1);
+            ERROR("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
         }
         if(isinf(tensor[tensor_out].buffer->val[i])) {
-            printf("out t %lf\n", tensor[tensor_out].buffer->val[i]);
-            exit(1);
+            ERROR("out t %lf\n", tensor[tensor_out].buffer->val[i]);
         }
         if(isinf(tensor_d[tensor_out].buffer->val[i])) {
-            printf("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
-            exit(1);
+            ERROR("out d %lf\n", tensor_d[tensor_out].buffer->val[i]);
         }
-        if(fabs((tensor[tensor_out].buffer->val[i] - tensor_d[tensor_out].buffer->val[i])) >= (MARGIN_OF_ERROR) &&
-           fabs((tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i]) - 1) >= (MARGIN_OF_ERROR)) {
-            printf("%lf %lf\n", tensor[tensor_out].buffer->val[i], tensor_d[tensor_out].buffer->val[i]);
-            printf("%lf >= %lf\n", fabs((tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i]) - 1),
-                   MARGIN_OF_ERROR);
-            exit(1);
+        if(fabs(tensor[tensor_out].buffer->val[i] - tensor_d[tensor_out].buffer->val[i]) >= MARGIN_OF_ERROR &&
+           fabs(tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i] - 1) >= MARGIN_OF_ERROR) {
+            linearized_print(&linearized, 4, 0, "");
+            printf("%s\n", program.source);
+            ERROR("ERROR: CPU %lf GPU %lf Ratio %lf >= %lf Diff %lf >= %lf\n", tensor[tensor_out].buffer->val[i],
+                  tensor_d[tensor_out].buffer->val[i],
+                  fabs(tensor[tensor_out].buffer->val[i] / tensor_d[tensor_out].buffer->val[i] - 1), MARGIN_OF_ERROR,
+                  fabs(tensor[tensor_out].buffer->val[i] - tensor_d[tensor_out].buffer->val[i]), MARGIN_OF_ERROR);
         }
     }
 

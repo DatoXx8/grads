@@ -1060,6 +1060,8 @@ tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context con
     return tensor;
 }
 void tensor_free(tensor_t *tensor) {
+    assert(tensor);
+    assert(tensor->buffer);
     if(tensor->op) {
         op_free(tensor->op);
         free(tensor->op);
@@ -1115,6 +1117,7 @@ void tensor_unary_multiply(tensor_t *tensor, double value) {
 }
 void tensor_unary_divide(tensor_t *tensor, double value) {
     assert(tensor);
+    assert(value != 0);
     op_t *parent = tensor->op;
     tensor->op = malloc(sizeof(op_t));
     assert(tensor->op);

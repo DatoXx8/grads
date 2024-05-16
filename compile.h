@@ -39,28 +39,21 @@ typedef struct {
     int64_t *op_cap;
 } compile_loop_t;
 
+#define KERNEL_NAME "k"
 typedef struct {
-    const char *name;
     char **arg_name;
     cl_mem *arg_mem;
     int64_t arg_num;
     int64_t arg_cap;
-    int64_t size_global;
-    int64_t size_local;
+    int64_t global_size;
+    int64_t local_size;
     char *source;
     int64_t source_len;
     int64_t source_cap;
-    cl_kernel *cl_kernel;
-} kernel_t;
-typedef struct {
-    kernel_t *kernel;
-    int64_t kernel_num;
-    char *source;
-    int64_t source_len;
+    cl_kernel cl_kernel;
+
     cl_program *cl_program;
-    cl_device_id *cl_device_id; /* Has to be done like this if we want these all the programs to have the same
-                                   `device_id`s and all that other stuff. This is not technically necessary, but then
-                                   `program_free` would ne very strange. */
+    cl_device_id *cl_device_id;
     cl_context *cl_context;
     cl_command_queue *cl_command_queue;
 } program_t;
