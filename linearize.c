@@ -1018,7 +1018,7 @@ void simple_op_realize(simple_op_t *simple) {
     }
 }
 
-/* Completely made up value. No reasoning behind it at all. */
+/* Completely made up value. No reasoning behind it at all */
 const int64_t INITIAL_SIMPLE_OP_CAPACTITY = 25;
 linearized_t linearized_alloc(void) {
     linearized_t linearized = {
@@ -1030,11 +1030,11 @@ linearized_t linearized_alloc(void) {
 
     return linearized;
 }
-/* Does `not` override the linearized ops instead appends ops. */
+/* Does `not` override the linearized ops instead appends ops */
 void linearized_from_op(linearized_t *linearized, op_t *op) {
     assert(linearized);
     if(!op) { return; }
-    /* Depth does not really do anything and is used solely to enforce the max depth. */
+    /* Depth does not really do anything and is used solely to enforce the max depth */
     int64_t depth = 1;
     op_t *temp;
     op_t *next = op;
@@ -1044,13 +1044,11 @@ void linearized_from_op(linearized_t *linearized, op_t *op) {
         for(int64_t i = 0; i < MAX_DEPTH; i++) {
             if(temp->parent_count > 0) {
                 depth++;
-                temp = temp->parent[0];
+                temp = temp->parent[temp->parent_count - 1];
             } else {
                 break;
             }
         }
-        // printf("%ld\n", depth);
-        // assert(depth < MAX_DEPTH && depth >= 0);
         assert(depth < MAX_DEPTH);
         assert(temp);
         assert(temp->parent_count == 0);
@@ -1064,7 +1062,7 @@ void linearized_from_op(linearized_t *linearized, op_t *op) {
         } else {
             simple_op_convert(&linearized->simple[linearized->op_len++], temp);
         }
-        next = temp->child_count > 0 ? temp->child[0] : op;
+        next = temp->child_count > 0 ? temp->child[temp->child_count - 1] : op;
         op_cleanup(temp);
         op_free(temp);
         free(temp);
@@ -1109,7 +1107,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (int64_t) log10(i)), "", i);
     //     simple_op_print(linearized->simple + i, 0, 0, "");
     // }
-    /* This one is not alligned. */
+    /* This one is not alligned */
     for(int64_t i = 0; i < linearized->op_len; i++) {
         printf("%*s[%lu] ", padding + offset, "", i);
         simple_op_print(linearized->simple + i, 0, 0, "");
