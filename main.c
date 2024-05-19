@@ -11,7 +11,7 @@
 #include "utils.h"
 
 /*
- *  TODO: Fix the tress changing the ops. This is a really weird buggg and might require a different data structure 
+ *  TODO: Fix the tress changing the ops. This is a really weird buggg and might require a different data structure
  *  TODO: Rewrite the compiler simulator to be determistic
  *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
  * `global_size` is guaranteed to be a multiple of `local_size`)
@@ -138,6 +138,7 @@ int main(int argc, const char **argv) {
     neuralnet_random(&neuralnet);
 
     neuralnet_forward(&neuralnet, &input);
+    LINEARIZED_PRINT_(neuralnet.forward);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
 

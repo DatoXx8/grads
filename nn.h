@@ -9,7 +9,7 @@
 #include "tensor.h"
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */
-typedef enum  {
+typedef enum {
     activation_none,
     activation_relu,
     activation_sigmoid,
@@ -17,7 +17,7 @@ typedef enum  {
     activation_silu,
     activation_gelu,
     activation_leaky
-}activation_e;
+} activation_e;
 
 typedef struct {
     activation_e type;
@@ -94,7 +94,7 @@ extern void convolution_print(convolution_t *convolution, int padding, int offse
 extern void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name);
 
 /* Can rename this to reduce_e after unifying all the op types. */
-typedef enum  { layer_reduce_max, layer_reduce_avg, layer_reduce_min }layer_reduce_e;
+typedef enum { layer_reduce_max, layer_reduce_avg, layer_reduce_min } layer_reduce_e;
 
 typedef struct {
     layer_reduce_e type;
@@ -116,7 +116,7 @@ extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t
 extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
-typedef enum  { residual_identity, residual_convolution, residual_dense, residual_reduce }residual_e;
+typedef enum { residual_identity, residual_convolution, residual_dense, residual_reduce } residual_e;
 
 /* Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
  * supported right now. */
@@ -150,7 +150,7 @@ extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *s
 extern void split_print(split_t *split, int padding, int offset, const char *name);
 extern void split_print_shape(split_t *split, int padding, int offset, const char *name);
 
-typedef enum  { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split }layer_e;
+typedef enum { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split } layer_e;
 
 typedef struct {
     layer_e layer_type;
@@ -221,7 +221,7 @@ extern layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context);
 extern void layer_free(layer_t *layer);
 
 /* TODO: Add other languages. */
-typedef enum  { compile_none, compile_cl }compile_e;
+typedef enum { compile_none, compile_cl } compile_e;
 
 typedef struct {
     int64_t layers;

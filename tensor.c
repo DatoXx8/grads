@@ -98,69 +98,6 @@ void buffer_free(buffer_t *buffer) {
     if(buffer->val_cl) { clReleaseMemObject(buffer->val_cl); }
 }
 
-static const int64_t INITIAL_CAP = 4;
-op_t op_alloc(void) {
-    op_t op = {
-        .child_cap = INITIAL_CAP,
-        .child_len = 0,
-        .child = calloc(INITIAL_CAP, sizeof(op_t *)),
-        .parent_out = NULL,
-        .parent_in = NULL,
-        .tensor_base = NULL,
-    };
-    return op;
-}
-void op_add_parent(op_t *op, op_t *parent_out, op_t *parent_in) {
-    assert(op);
-    assert(op->parent_out == NULL);
-    assert(op->parent_in == NULL);
-    assert(((parent_out == NULL) && (parent_in == NULL)) || (parent_out != parent_in));
-    if(parent_out) {
-        op->parent_out = parent_out;
-        parent_out->child_len++;
-        if(parent_out->child_len == parent_out->child_cap) {
-            parent_out->child_cap *= 2;
-            parent_out->child = reallocarray(parent_out->child, parent_out->child_cap, sizeof(op_t *));
-            assert(parent_out->child);
-        }
-        parent_out->child[parent_out->child_len - 1] = op;
-    } else {
-        op->parent_out = NULL;
-    }
-    if(parent_in) {
-        op->parent_in = parent_in;
-        parent_in->child_len++;
-        if(parent_in->child_len == parent_in->child_cap) {
-            parent_in->child_cap *= 2;
-            parent_in->child = reallocarray(parent_in->child, parent_in->child_cap, sizeof(op_t *));
-            assert(parent_in->child);
-        }
-        parent_in->child[parent_in->child_len - 1] = op;
-    } else {
-        op->parent_in = NULL;
-    }
-}
-void op_cleanup(op_t *op) {
-    assert(op);
-    assert(op->parent_out == NULL);
-    assert(op->parent_in == NULL);
-    if(op->tensor_base) {
-        tensor_t *base = op->tensor_base;
-        base->op = NULL;
-    }
-    for(int64_t child_idx = 0; child_idx < op->child_len; child_idx++) {
-        if(op->child[child_idx]->parent_out == op) {
-            op->child[child_idx]->parent_out = NULL;
-        } else if(op->child[child_idx]->parent_in == op) {
-            op->child[child_idx]->parent_in = NULL;
-        }
-    }
-}
-void op_free(op_t *op) {
-    assert(op);
-    free(op->child);
-}
-
 void op_print(op_t *op, int padding, int offset, const char *name) {
     if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
@@ -970,46 +907,9 @@ void op_realize(op_t *op) {
             break;
         }
         case op_move: {
-            fprintf(stderr, "!\n");
-            break;
+            ERROR("Tried to execute move op at runtime\n");
         }
     }
-}
-void op_realize_tree(op_t *op) {
-    assert(op);
-    assert(op->child_len == 0);
-    int64_t depth = 1;
-    op_t *curr;
-    op_t *next = op;
-    while(op->parent_out || op->parent_in) {
-        /* Do this without having to traverse the entire tree */
-        curr = op;
-        for(int64_t i = 0; i < MAX_DEPTH; i++) {
-            if(curr->parent_out) {
-                curr = curr->parent_out;
-                depth++;
-            } else if(curr->parent_in) {
-                curr = curr->parent_in;
-                depth++;
-            } else {
-                break;
-            }
-        }
-        assert(depth > 0);
-        assert(curr->parent_out == NULL);
-        assert(curr->parent_in == NULL);
-        op_realize(curr);
-        op_print(curr, 4, 0, "");
-        op_cleanup(curr);
-        op_free(curr);
-        free(curr);
-        curr = NULL;
-    }
-    op_realize(op);
-    op_print(op, 4, 0, "");
-    op_cleanup(op);
-    op_free(op);
-    free(op);
 }
 
 /* Completely made up value. No reasoning behind it at all */
@@ -1024,51 +924,6 @@ linearized_t linearized_alloc(void) {
 
     return linearized;
 }
-void linearized_from_op(linearized_t *linearized, op_t *op) {
-    if(!op) { return; }
-    assert(linearized);
-    assert(op->child_len == 0);
-    int64_t depth = 1;
-    op_t *curr;
-    op_t *next = op;
-    while(op->child_len) {
-        /* Do this without having to traverse the entire tree */
-        curr = op;
-        for(int64_t i = 0; i < MAX_DEPTH; i++) {
-            if(curr->parent_in) {
-                curr = curr->parent_in;
-                depth++;
-            } else if(curr->parent_out) {
-                curr = curr->parent_out;
-                depth++;
-            } else {
-                break;
-            }
-        }
-        assert(depth > 0);
-        assert(curr->parent_out == NULL);
-        assert(curr->parent_in == NULL);
-        linearized->op_len++;
-        if(linearized->op_len == linearized->op_cap) {
-            linearized->op_cap *= 2;
-            linearized->op = reallocarray(linearized->op, linearized->op_cap, sizeof(op_t));
-        }
-        linearized->op[linearized->op_len - 1] = *curr;
-        op_cleanup(curr);
-        op_free(curr);
-        free(curr);
-        curr = NULL;
-    }
-    linearized->op_len++;
-    if(linearized->op_len == linearized->op_cap) {
-        linearized->op_cap *= 2;
-        linearized->op = reallocarray(linearized->op, linearized->op_cap, sizeof(op_t));
-    }
-    linearized->op[linearized->op_len - 1] = *op;
-    op_cleanup(op);
-    op_free(op);
-    free(op);
-}
 void linearized_free(linearized_t *linearized) {
     assert(linearized);
     free(linearized->op);
@@ -1082,6 +937,26 @@ void linearized_clear(linearized_t *linearized) {
 void linearized_run(linearized_t *linearized) {
     assert(linearized);
     for(int64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) { op_realize(&linearized->op[op_idx]); }
+}
+void linearized_add_op(linearized_t *linearized, op_t op) {
+    linearized->op_len++;
+    if(linearized->op_len >= linearized->op_cap) {
+        linearized->op_cap *= 2;
+        linearized->op = reallocarray(linearized->op, linearized->op_cap, sizeof(op_t));
+    }
+    linearized->op[linearized->op_len - 1] = op;
+}
+void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
+    while(linearized1->op_len + linearized2->op_len >= linearized1->op_cap) {
+        linearized1->op_cap *= 2;
+        linearized1->op = reallocarray(linearized1->op, linearized1->op_cap, sizeof(op_t));
+        assert(linearized1->op);
+    }
+    for(int64_t op_idx = 0; op_idx < linearized2->op_len; op_idx++) {
+        linearized1->op[linearized1->op_len + op_idx] = linearized2->op[op_idx];
+    }
+    linearized1->op_len += linearized2->op_len;
+    linearized_clear(linearized2);
 }
 void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
     assert(linearized);
@@ -1112,10 +987,12 @@ tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context con
     assert(x > 0);
     tensor_t tensor = {
         .buffer = calloc(1, sizeof(buffer_t)),
-        .op = NULL,
+        .linearized = calloc(1, sizeof(linearized_t)),
     };
     assert(tensor.buffer);
+    assert(tensor.linearized);
     *tensor.buffer = buffer_alloc(a, z, y, x, context);
+    *tensor.linearized = linearized_alloc();
     return tensor;
 }
 void tensor_free(tensor_t *tensor) {
@@ -1123,631 +1000,412 @@ void tensor_free(tensor_t *tensor) {
     assert(tensor->buffer);
     buffer_free(tensor->buffer);
     free(tensor->buffer);
-    assert(tensor->op == NULL);
+    linearized_free(tensor->linearized);
+    free(tensor->linearized);
 }
 
 void tensor_unary_add(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_add;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_add,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_subtract(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_subtract;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_subtract,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_multiply(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_multiply;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_multiply,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_divide(tensor_t *tensor, double value) {
     assert(tensor);
     assert(value != 0);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_divide;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_divide,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_set(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_set;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_set,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_exp(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_exp;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_exp,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_log(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_log;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_log,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_square(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_square;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_square,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_sqrt(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_sqrt;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_sqrt,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_reciprocal(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_reciprocal;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_reciprocal,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_random(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_random;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_random,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_tanh(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_tanh;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_tanh,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_max(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_max;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_max,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_min(tensor_t *tensor, double value) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_min;
-    tensor->op->var_unary = value;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_min,
+        .var_unary = value,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_absolute(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    assert(tensor->op);
-    *tensor->op = op_alloc();
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_absolute;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_absolute,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 void tensor_unary_sign(tensor_t *tensor) {
     assert(tensor);
-    op_t *parent = tensor->op;
-    if(parent) {
-        assert(tensor->op->tensor_base == tensor);
-        parent->tensor_base = NULL;
-    }
-    tensor->op = calloc(1, sizeof(op_t));
-    *tensor->op = op_alloc();
-    assert(tensor->op);
-    tensor->op->type = op_unary;
-    tensor->op->type_unary = unary_sign;
-    tensor->op->tensor_base = (void *) tensor;
-    tensor->op->buffer_out = *tensor->buffer;
-    op_add_parent(tensor->op, parent, NULL);
+    op_t new = {
+        .type = op_unary,
+        .type_unary = unary_sign,
+        .buffer_out = *tensor->buffer,
+    };
+    linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
 
 void tensor_binary_add(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_add;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_add,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_subtract;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_subtract,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_multiply;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_multiply,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_divide;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_divide,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_max;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_max,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_min;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_min,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_binary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_copy;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_copy,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_add_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_add_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_subtract_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_subtract_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_multiply_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_multiply_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_divide_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_divide_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_max_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_max_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_min_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_min_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_binary;
-    out->op->type_binary = binary_copy_like;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_binary,
+        .type_binary = binary_copy_like,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 
 void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_reduce;
-    out->op->type_reduce = reduce_sum;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_reduce,
+        .type_reduce = reduce_sum,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_reduce;
-    out->op->type_reduce = reduce_avg;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_reduce,
+        .type_reduce = reduce_avg,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_reduce;
-    out->op->type_reduce = reduce_min;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_reduce,
+        .type_reduce = reduce_min,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
-    op_t *parent = out->op;
-    if(parent) {
-        assert(out->op->tensor_base == out);
-        parent->tensor_base = NULL;
-    }
-    out->op = calloc(1, sizeof(op_t));
-    assert(out->op);
-    *out->op = op_alloc();
-    out->op->type = op_reduce;
-    out->op->type_reduce = reduce_max;
-    out->op->tensor_base = (void *) out;
-    out->op->buffer_out = *out->buffer;
-    out->op->buffer_in = *in->buffer;
-    op_add_parent(out->op, parent, in->op);
+    op_t new = {
+        .type = op_reduce,
+        .type_reduce = reduce_max,
+        .buffer_out = *out->buffer,
+        .buffer_in = *in->buffer,
+    };
+    linearized_append(out->linearized, in->linearized);
+    linearized_add_op(out->linearized, new);
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 
@@ -1782,13 +1440,14 @@ void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->buffer->off_z_sim = z;
     tensor->buffer->off_y_sim = y;
     tensor->buffer->off_x_sim = x;
-    tensor->buffer->off_x_sim = tensor->buffer->str_a_sim * a + tensor->buffer->str_z_sim * z +
-                                 tensor->buffer->str_y_sim * y + tensor->buffer->str_x_sim * x;
+    tensor->buffer->off_sim = tensor->buffer->str_a_sim * a + tensor->buffer->str_z_sim * z +
+                              tensor->buffer->str_y_sim * y + tensor->buffer->str_x_sim * x;
 }
 
 void tensor_realize(tensor_t *tensor) {
     assert(tensor);
-    if(tensor->op) { op_realize_tree(tensor->op); }
+    linearized_run(tensor->linearized);
+    linearized_clear(tensor->linearized);
 }
 
 void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {

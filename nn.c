@@ -1333,7 +1333,7 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
     }
     /* Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape */
     for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
-        linearized_from_op(neuralnet.forward, neuralnet.layer[layer].activation->op);
+        linearized_append(neuralnet.forward, neuralnet.layer[layer].activation->linearized);
     }
     for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
         switch(neuralnet.layer[layer].layer_type) {
@@ -1341,12 +1341,12 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                 tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
                 dense_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
                                neuralnet.layer[layer].dense, neuralnet.layer[layer].activation_g);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->weights->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].dense->biases->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].dense->weights_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].dense->weights->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].dense->biases_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].dense->biases->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation->linearized);
                 break;
             }
             case layer_convolution: {
@@ -1356,24 +1356,24 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                 convolution_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
                                      neuralnet.layer[layer].convolution, neuralnet.layer[layer].activation,
                                      neuralnet.layer[layer].activation_g);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->biases->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->weights->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->_padded_grad->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].convolution->_padded_input->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->biases_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->biases->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->weights_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->weights->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->_padded_grad->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].convolution->_padded_input->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].activation_g->linearized);
                 break;
             }
             case layer_reduce: {
                 tensor_unary_set(neuralnet.layer[layer - 1].activation_g, 0);
                 reduce_backward(neuralnet.layer[layer - 1].activation_g, neuralnet.layer[layer].reduce,
                                 neuralnet.layer[layer].activation_g);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].activation_g->linearized);
                 break;
             }
             case layer_split: {
@@ -1381,13 +1381,13 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                 split_backward(neuralnet.layer[layer - 1].activation, neuralnet.layer[layer - 1].activation_g,
                                neuralnet.layer[layer].split, neuralnet.layer[layer].activation,
                                neuralnet.layer[layer].activation_g);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->biases->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].split->weights->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer - 1].activation->op);
-                linearized_from_op(neuralnet.backward, neuralnet.layer[layer].activation_g->op);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].split->biases_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].split->biases->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].split->weights_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].split->weights->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation_g->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer - 1].activation->linearized);
+                linearized_append(neuralnet.backward, neuralnet.layer[layer].activation_g->linearized);
                 break;
             }
             case layer_input: {
@@ -1401,14 +1401,14 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                     tensor_binary_subtract(neuralnet.layer[layer].dense->weights,
                                            neuralnet.layer[layer].dense->weights_g);
                     tensor_unary_set(neuralnet.layer[layer].dense->weights_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->weights_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].dense->weights->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].dense->weights_g->linearized);
                     tensor_unary_multiply(neuralnet.layer[layer].dense->biases_g, learning);
                     tensor_binary_subtract(neuralnet.layer[layer].dense->biases,
                                            neuralnet.layer[layer].dense->biases_g);
                     tensor_unary_set(neuralnet.layer[layer].dense->biases_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].dense->biases_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].dense->biases->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].dense->biases_g->linearized);
                     break;
                 }
                 case layer_convolution: {
@@ -1416,14 +1416,14 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                     tensor_binary_subtract(neuralnet.layer[layer].convolution->weights,
                                            neuralnet.layer[layer].convolution->weights_g);
                     tensor_unary_set(neuralnet.layer[layer].convolution->weights_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->weights_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].convolution->weights->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].convolution->weights_g->linearized);
                     tensor_unary_multiply(neuralnet.layer[layer].convolution->biases_g, learning);
                     tensor_binary_subtract(neuralnet.layer[layer].convolution->biases,
                                            neuralnet.layer[layer].convolution->biases_g);
                     tensor_unary_set(neuralnet.layer[layer].convolution->biases_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].convolution->biases_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].convolution->biases->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].convolution->biases_g->linearized);
                     break;
                 }
                 case layer_reduce: {
@@ -1435,14 +1435,14 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
                     tensor_binary_subtract(neuralnet.layer[layer].split->biases,
                                            neuralnet.layer[layer].split->biases_g);
                     tensor_unary_set(neuralnet.layer[layer].split->biases_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->biases_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].split->biases->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].split->biases_g->linearized);
                     tensor_unary_multiply(neuralnet.layer[layer].split->weights_g, learning);
                     tensor_binary_subtract(neuralnet.layer[layer].split->weights,
                                            neuralnet.layer[layer].split->weights_g);
                     tensor_unary_set(neuralnet.layer[layer].split->weights_g, 0);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights->op);
-                    linearized_from_op(neuralnet.learn, neuralnet.layer[layer].split->weights_g->op);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].split->weights->linearized);
+                    linearized_append(neuralnet.learn, neuralnet.layer[layer].split->weights_g->linearized);
                     break;
                 }
                 case layer_input: {

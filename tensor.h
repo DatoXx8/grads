@@ -101,11 +101,6 @@ typedef enum { move_reshape, move_resize, move_offset } move_e;
 #define MAX_DEPTH (0x100000)
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
 typedef struct op {
-    struct op *parent_out;
-    struct op *parent_in;
-    struct op **child;
-    int64_t child_len;
-    int64_t child_cap;
     op_e type;
     unary_e type_unary;
     binary_e type_binary;
@@ -118,16 +113,10 @@ typedef struct op {
     int64_t var_x;
     buffer_t buffer_out;
     buffer_t buffer_in;
-    void *tensor_base;
 } op_t;
 
-extern op_t op_alloc(void);
-extern void op_free(op_t *op);
-extern void op_cleanup(op_t *op);
 extern void op_realize(op_t *op);
 extern void op_print(op_t *op, int padding, int offset, const char *name);
-extern void op_add_parent(op_t *op, op_t *parent_out, op_t *parent_in);
-extern void op_cleanup(op_t *op);
 
 #define OP_PRINT(op) op_print(&(op), 4, 0, (#op))
 #define OP_PRINT_(op) op_print((op), 4, 0, (#op))
@@ -140,9 +129,10 @@ typedef struct {
 
 extern linearized_t linearized_alloc(void);
 extern void linearized_free(linearized_t *linearized);
-extern void linearized_from_op(linearized_t *linearized, op_t *op);
-extern void linearized_run(linearized_t *linearized);
 extern void linearized_clear(linearized_t *linearized);
+extern void linearized_run(linearized_t *linearized);
+extern void linearized_add_op(linearized_t *linearized, op_t op);
+extern void linearized_append(linearized_t *linearized1, linearized_t *linearized2);
 extern void linearized_print(linearized_t *linearized, int padding, int offset, const char *name);
 
 #define LINEARIZED_PRINT(linearized) (linearized_print(&(linearized), 4, 0, (#linearized)))
@@ -150,7 +140,7 @@ extern void linearized_print(linearized_t *linearized, int padding, int offset, 
 
 typedef struct {
     buffer_t *buffer;
-    op_t *op;
+    linearized_t *linearized;
 } tensor_t;
 
 extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);

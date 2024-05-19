@@ -16,7 +16,7 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
     assert(op_num > 0);
     assert(tensor_num > 1);
 
-    int64_t tensor_out, tensor_in = rand() % tensor_num;
+    int64_t tensor_out = rand() % tensor_num, tensor_in;
     int64_t a_off, z_off, y_off, x_off;
     int64_t a_sze, z_sze, y_sze, x_sze;
     op_e type;
@@ -25,10 +25,9 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
     reduce_e type_reduce;
     for(int64_t op_idx = 0; op_idx < op_num; op_idx++) {
         type = rand() % 3;
+        /* TODO: Randomise in and out tensors */
         switch(type) {
             case op_unary: {
-                // tensor_out = rand() % tensor_num;
-                tensor_out = tensor_in;
                 type_unary = rand() % 16;
                 a_sze = rand() % DIM_SZE + 1;
                 z_sze = rand() % DIM_SZE + 1;
@@ -152,193 +151,191 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
                 break;
             }
             case op_binary: {
-                // tensor_out = tensor_in;
-                // for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
-                //     tensor_in = rand() % tensor_num;
-                //     if(tensor_out != tensor_in) { break; }
-                // }
-                // assert(tensor_in != tensor_out);
-                // type_binary = rand() % 14;
-                // a_sze = rand() % DIM_SZE + 1;
-                // z_sze = rand() % DIM_SZE + 1;
-                // y_sze = rand() % DIM_SZE + 1;
-                // x_sze = rand() % DIM_SZE + 1;
-                // a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
-                // z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
-                // y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
-                // x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
-                // tensor_move_resize(&tensor1[tensor_out], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_resize(&tensor2[tensor_out], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
-                // if(type_binary >= binary_add_like) {
-                //     a_sze = 1;
-                //     z_sze = 1;
-                //     y_sze = 1;
-                //     x_sze = 1;
-                // }
-                // a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
-                // z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
-                // y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
-                // x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
-                // tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
-                // switch(type_binary) {
-                //     case binary_add: {
-                //         tensor_binary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_subtract: {
-                //         tensor_binary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_multiply: {
-                //         tensor_binary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_divide: {
-                //         tensor_unary_absolute(&tensor1[tensor_in]);
-                //         tensor_unary_absolute(&tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         tensor_unary_add(&tensor1[tensor_in], EPSILON);
-                //         tensor_unary_add(&tensor2[tensor_in], EPSILON);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         tensor_binary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_max: {
-                //         tensor_binary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_min: {
-                //         tensor_binary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_copy: {
-                //         tensor_binary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_binary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_add_like: {
-                //         tensor_lbinary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_subtract_like: {
-                //         tensor_lbinary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_multiply_like: {
-                //         tensor_lbinary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_divide_like: {
-                //         tensor_unary_absolute(&tensor1[tensor_in]);
-                //         tensor_unary_absolute(&tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         tensor_unary_add(&tensor1[tensor_in], EPSILON);
-                //         tensor_unary_add(&tensor2[tensor_in], EPSILON);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         tensor_lbinary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_max_like: {
-                //         tensor_lbinary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_min_like: {
-                //         tensor_lbinary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case binary_copy_like: {
-                //         tensor_lbinary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_lbinary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                // }
+                for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
+                    tensor_in = rand() % tensor_num;
+                    if(tensor_out != tensor_in) { break; }
+                }
+                assert(tensor_in != tensor_out);
+                type_binary = rand() % 14;
+                a_sze = rand() % DIM_SZE + 1;
+                z_sze = rand() % DIM_SZE + 1;
+                y_sze = rand() % DIM_SZE + 1;
+                x_sze = rand() % DIM_SZE + 1;
+                a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
+                z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
+                y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
+                x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
+                tensor_move_resize(&tensor1[tensor_out], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_resize(&tensor2[tensor_out], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
+                if(type_binary >= binary_add_like) {
+                    a_sze = 1;
+                    z_sze = 1;
+                    y_sze = 1;
+                    x_sze = 1;
+                }
+                a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
+                z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
+                y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
+                x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
+                tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
+                switch(type_binary) {
+                    case binary_add: {
+                        tensor_binary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_subtract: {
+                        tensor_binary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_multiply: {
+                        tensor_binary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_divide: {
+                        tensor_unary_absolute(&tensor1[tensor_in]);
+                        tensor_unary_absolute(&tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        tensor_unary_add(&tensor1[tensor_in], EPSILON);
+                        tensor_unary_add(&tensor2[tensor_in], EPSILON);
+                        tensor_realize(&tensor1[tensor_out]);
+                        tensor_binary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_max: {
+                        tensor_binary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_min: {
+                        tensor_binary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_copy: {
+                        tensor_binary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_binary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_add_like: {
+                        tensor_lbinary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_subtract_like: {
+                        tensor_lbinary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_multiply_like: {
+                        tensor_lbinary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_divide_like: {
+                        tensor_unary_absolute(&tensor1[tensor_in]);
+                        tensor_unary_absolute(&tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        tensor_unary_add(&tensor1[tensor_in], EPSILON);
+                        tensor_unary_add(&tensor2[tensor_in], EPSILON);
+                        tensor_realize(&tensor1[tensor_out]);
+                        tensor_lbinary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_max_like: {
+                        tensor_lbinary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_min_like: {
+                        tensor_lbinary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case binary_copy_like: {
+                        tensor_lbinary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                }
                 break;
             }
             case op_reduce: {
-                // tensor_out = tensor_in;
-                // for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
-                //     tensor_in = rand() % tensor_num;
-                //     if(tensor_out != tensor_in) { break; }
-                // }
-                // assert(tensor_in != tensor_out);
-                // type_reduce = rand() % 4;
-                // a_off = rand() % DIM_SZE;
-                // z_off = rand() % DIM_SZE;
-                // y_off = rand() % DIM_SZE;
-                // x_off = rand() % DIM_SZE;
-                // tensor_move_resize(&tensor1[tensor_out], 1, 1, 1, 1);
-                // tensor_move_resize(&tensor2[tensor_out], 1, 1, 1, 1);
-                // tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
-                // a_sze = rand() % DIM_SZE + 1;
-                // z_sze = rand() % DIM_SZE + 1;
-                // y_sze = rand() % DIM_SZE + 1;
-                // x_sze = rand() % DIM_SZE + 1;
-                // a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
-                // z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
-                // y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
-                // x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
-                // tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
-                // switch(type_reduce) {
-                //     case reduce_sum: {
-                //         tensor_reduce_sum(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_reduce_sum(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case reduce_avg: {
-                //         tensor_reduce_avg(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_reduce_avg(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case reduce_max: {
-                //         tensor_reduce_max(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_reduce_max(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                //     case reduce_min: {
-                //         tensor_reduce_min(&tensor1[tensor_out], &tensor1[tensor_in]);
-                //         tensor_reduce_min(&tensor2[tensor_out], &tensor2[tensor_in]);
-                //         tensor_realize(&tensor1[tensor_out]);
-                //         break;
-                //     }
-                // }
+                for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
+                    tensor_in = rand() % tensor_num;
+                    if(tensor_out != tensor_in) { break; }
+                }
+                assert(tensor_in != tensor_out);
+                type_reduce = rand() % 4;
+                a_off = rand() % DIM_SZE;
+                z_off = rand() % DIM_SZE;
+                y_off = rand() % DIM_SZE;
+                x_off = rand() % DIM_SZE;
+                tensor_move_resize(&tensor1[tensor_out], 1, 1, 1, 1);
+                tensor_move_resize(&tensor2[tensor_out], 1, 1, 1, 1);
+                tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
+                a_sze = rand() % DIM_SZE + 1;
+                z_sze = rand() % DIM_SZE + 1;
+                y_sze = rand() % DIM_SZE + 1;
+                x_sze = rand() % DIM_SZE + 1;
+                a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
+                z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
+                y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
+                x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
+                tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
+                switch(type_reduce) {
+                    case reduce_sum: {
+                        tensor_reduce_sum(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_sum(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case reduce_avg: {
+                        tensor_reduce_avg(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_avg(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case reduce_max: {
+                        tensor_reduce_max(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_max(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                    case reduce_min: {
+                        tensor_reduce_min(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_min(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        tensor_realize(&tensor1[tensor_out]);
+                        break;
+                    }
+                }
                 break;
             }
             default: {
@@ -347,16 +344,17 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
         }
     }
     tensor_realize(&tensor2[tensor_out]);
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) { tensor_realize(&tensor2[tensor_idx]); }
 
+    for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
+        assert(!isnan(tensor1[tensor_out].buffer->val[val_idx]));
+        assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
+        assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
+        assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
+        assert(tensor1[tensor_out].buffer->val[val_idx] == tensor2[tensor_out].buffer->val[val_idx]);
+    }
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
-        for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
-            assert(!isnan(tensor1[tensor_idx].buffer->val[val_idx]));
-            assert(!isnan(tensor2[tensor_idx].buffer->val[val_idx]));
-            assert(!isinf(tensor1[tensor_idx].buffer->val[val_idx]));
-            assert(!isinf(tensor2[tensor_idx].buffer->val[val_idx]));
-            assert(tensor1[tensor_idx].buffer->val[val_idx] == tensor2[tensor_idx].buffer->val[val_idx]);
-        }
+        linearized_clear(tensor1[tensor_idx].linearized);
+        linearized_clear(tensor2[tensor_idx].linearized);
     }
 }
 int main(int argc, char **argv) {
@@ -365,7 +363,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     // const uint32_t seed = time(NULL);
-    const uint32_t seed = 1716061811;
+    const uint32_t seed = 1716156470;
     printf("RNG Seed %u\n", seed);
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);

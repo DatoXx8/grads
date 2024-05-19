@@ -34,16 +34,16 @@ static int64_t op_equal(op_t *starting, op_t *compared) {
     if(starting->type_reduce != compared->type_reduce) { return 0; }
 
     if(strncmp(starting->buffer_out.name, compared->buffer_out.name, BUFFER_NAME_SIZE)) { return 0; }
-    if(starting->buffer_out.sze_a != compared->buffer_out.sze_a) { return 0; }
-    if(starting->buffer_out.sze_z != compared->buffer_out.sze_z) { return 0; }
-    if(starting->buffer_out.sze_y != compared->buffer_out.sze_y) { return 0; }
-    if(starting->buffer_out.sze_x != compared->buffer_out.sze_x) { return 0; }
+    if(starting->buffer_out.sze_a_sim != compared->buffer_out.sze_a_sim) { return 0; }
+    if(starting->buffer_out.sze_z_sim != compared->buffer_out.sze_z_sim) { return 0; }
+    if(starting->buffer_out.sze_y_sim != compared->buffer_out.sze_y_sim) { return 0; }
+    if(starting->buffer_out.sze_x_sim != compared->buffer_out.sze_x_sim) { return 0; }
     if(starting->type != op_unary) {
         if(strncmp(starting->buffer_in.name, compared->buffer_in.name, BUFFER_NAME_SIZE)) { return 0; }
-        if(starting->buffer_in.sze_a != compared->buffer_in.sze_a) { return 0; }
-        if(starting->buffer_in.sze_z != compared->buffer_in.sze_z) { return 0; }
-        if(starting->buffer_in.sze_y != compared->buffer_in.sze_y) { return 0; }
-        if(starting->buffer_in.sze_x != compared->buffer_in.sze_x) { return 0; }
+        if(starting->buffer_in.sze_a_sim != compared->buffer_in.sze_a_sim) { return 0; }
+        if(starting->buffer_in.sze_z_sim != compared->buffer_in.sze_z_sim) { return 0; }
+        if(starting->buffer_in.sze_y_sim != compared->buffer_in.sze_y_sim) { return 0; }
+        if(starting->buffer_in.sze_x_sim != compared->buffer_in.sze_x_sim) { return 0; }
     }
     return 1;
 }
@@ -326,10 +326,10 @@ static void compile_single_op_to_cl(op_t *op, dim_info_t *dim_info, int64_t op_n
     int64_t temp_cap = INITIAL_SOURCE_SIZE;
     char *temp = calloc(INITIAL_SOURCE_SIZE, sizeof(char));
     char *temp_c = temp;
-    int64_t max_a = op[0].type == op_reduce ? op[0].buffer_in.sze_a : op[0].buffer_out.sze_a;
-    int64_t max_z = op[0].type == op_reduce ? op[0].buffer_in.sze_z : op[0].buffer_out.sze_z;
-    int64_t max_y = op[0].type == op_reduce ? op[0].buffer_in.sze_y : op[0].buffer_out.sze_y;
-    int64_t max_x = op[0].type == op_reduce ? op[0].buffer_in.sze_x : op[0].buffer_out.sze_x;
+    int64_t max_a = op[0].type == op_reduce ? op[0].buffer_in.sze_a_sim : op[0].buffer_out.sze_a_sim;
+    int64_t max_z = op[0].type == op_reduce ? op[0].buffer_in.sze_z_sim : op[0].buffer_out.sze_z_sim;
+    int64_t max_y = op[0].type == op_reduce ? op[0].buffer_in.sze_y_sim : op[0].buffer_out.sze_y_sim;
+    int64_t max_x = op[0].type == op_reduce ? op[0].buffer_in.sze_x_sim : op[0].buffer_out.sze_x_sim;
     /* TODO: This needs a really big refactor */
     /* This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where
      * it breaks, but be cautious! */
