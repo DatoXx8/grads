@@ -10,7 +10,6 @@
 #include <CL/cl.h>
 #include <stdint.h>
 
-#include "linearize.h"
 #include "tensor.h"
 
 typedef struct {
@@ -21,10 +20,10 @@ typedef struct {
 typedef struct {
     int64_t loop_num;
     int64_t loop_len;
-    simple_op_t *op;
+    op_t *op;
     dim_info_t *dim_info;
 } simple_loop_t;
-/* TODO: Maybe do this in an enum. */
+/* TODO: Maybe do this in an enum */
 #define OPTIMIZE_NONE (0UL)
 #define OPTIMIZE_INLINE (1UL)
 #define OPTIMIZE_FUSE (1UL << 1)
@@ -33,7 +32,7 @@ typedef struct {
     uint64_t optim;
     int64_t loop_num;
     int64_t loop_len;
-    simple_op_t **op;
+    op_t **op;
     dim_info_t **dim_info;
     int64_t *op_num;
     int64_t *op_cap;
@@ -51,14 +50,13 @@ typedef struct {
     int64_t source_len;
     int64_t source_cap;
     cl_kernel cl_kernel;
-
     cl_program *cl_program;
     cl_device_id *cl_device_id;
     cl_context *cl_context;
     cl_command_queue *cl_command_queue;
 } program_t;
 
-/* Could also be called `program_alloc()`. */
+/* Could also be called `program_alloc()` */
 extern void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
                             cl_command_queue *command_queue);
 extern void program_free(program_t *program);

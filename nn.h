@@ -6,7 +6,6 @@
 #include <stdint.h>
 
 #include "compile.h"
-#include "linearize.h"
 #include "tensor.h"
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */

@@ -21,6 +21,8 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
     cl_program program =
         clCreateProgramWithSource(context, 1, (const char **) &source, (const size_t *) &source_size, &err);
     if(err < 0) { ERROR("Couldn't create the program!\nError %d\n", err); }
+    /* TODO: This is really slow for large kernels. Maybe there is a way of splitting the kernels up in a smarter
+     * fashion such that this builds faster */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if(err < 0) {
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
@@ -47,11 +49,11 @@ void program_run(program_t *program) {
         if(err < 0) { ERROR("Could not create OpenCL kernel\nError %d\n", err); }
     }
     for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
-        clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem),
-                       &program->arg_mem[arg_idx]);
+        clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem), &program->arg_mem[arg_idx]);
     }
-    clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL,
-                           (size_t *) &program->global_size,
+
+    clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL, (size_t *) &program->global_size,
                            (size_t *) &program->local_size, 0, NULL, NULL);
+
     clFinish(*program->cl_command_queue);
 }

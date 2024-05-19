@@ -22,6 +22,10 @@ typedef struct {
     int64_t sze_z;
     int64_t sze_y;
     int64_t sze_x;
+    int64_t off_a;
+    int64_t off_z;
+    int64_t off_y;
+    int64_t off_x;
     int64_t off;
     double *val;
     cl_mem val_cl;
@@ -53,7 +57,7 @@ extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
     ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
                    (buffer)->off])
 
-typedef enum { operation_unary, operation_binary, operation_reduce, operation_move } op_e;
+typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
 typedef enum {
     unary_add,
     unary_subtract,
@@ -94,16 +98,14 @@ typedef enum {
 typedef enum { reduce_sum, reduce_max, reduce_avg, reduce_min } reduce_e;
 typedef enum { move_reshape, move_resize, move_offset } move_e;
 
-#define MAX_DEPTH 1000000
-/* TODO: Could maybe merge all the enums for a smaller op_t struct. */
+#define MAX_DEPTH (0x100000)
+/* TODO: Could maybe merge all the enums for a smaller op_t struct */
 typedef struct op {
-    void *tensor_base;
-    int64_t parent_count;
-    int64_t parent_capacity;
-    struct op **parent;
-    int64_t child_count;
-    int64_t child_capacity;
+    struct op *parent_out;
+    struct op *parent_in;
     struct op **child;
+    int64_t child_len;
+    int64_t child_cap;
     op_e type;
     unary_e type_unary;
     binary_e type_binary;
@@ -114,22 +116,37 @@ typedef struct op {
     int64_t var_z;
     int64_t var_y;
     int64_t var_x;
-    buffer_t *buffer_out;
-    buffer_t *buffer_in;
+    buffer_t buffer_out;
+    buffer_t buffer_in;
+    void *tensor_base;
 } op_t;
 
 extern op_t op_alloc(void);
-extern void op_add_parents(op_t *op, op_t *output_parent, op_t *input_parent);
 extern void op_free(op_t *op);
 extern void op_cleanup(op_t *op);
-extern void op_single_print(op_t *op, int padding, int offset, const char *name);
+extern void op_realize(op_t *op);
 extern void op_print(op_t *op, int padding, int offset, const char *name);
-extern void op_single_op_cpu_realize(op_t *op);
-extern void op_cpu_realize(op_t *op);
-extern void op_tree(op_t *op);
+extern void op_add_parent(op_t *op, op_t *parent_out, op_t *parent_in);
+extern void op_cleanup(op_t *op);
 
 #define OP_PRINT(op) op_print(&(op), 4, 0, (#op))
 #define OP_PRINT_(op) op_print((op), 4, 0, (#op))
+
+typedef struct {
+    int64_t op_len;
+    int64_t op_cap;
+    op_t *op;
+} linearized_t;
+
+extern linearized_t linearized_alloc(void);
+extern void linearized_free(linearized_t *linearized);
+extern void linearized_from_op(linearized_t *linearized, op_t *op);
+extern void linearized_run(linearized_t *linearized);
+extern void linearized_clear(linearized_t *linearized);
+extern void linearized_print(linearized_t *linearized, int padding, int offset, const char *name);
+
+#define LINEARIZED_PRINT(linearized) (linearized_print(&(linearized), 4, 0, (#linearized)))
+#define LINEARIZED_PRINT_(linearized) (linearized_print((linearized), 4, 0, (#linearized)))
 
 typedef struct {
     buffer_t *buffer;
@@ -139,11 +156,11 @@ typedef struct {
 extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
-extern void tensor_unary_set(tensor_t *tensor, double value);
 extern void tensor_unary_add(tensor_t *tensor, double value);
 extern void tensor_unary_subtract(tensor_t *tensor, double value);
 extern void tensor_unary_multiply(tensor_t *tensor, double value);
 extern void tensor_unary_divide(tensor_t *tensor, double value);
+extern void tensor_unary_set(tensor_t *tensor, double value);
 extern void tensor_unary_exp(tensor_t *tensor);
 extern void tensor_unary_log(tensor_t *tensor);
 extern void tensor_unary_square(tensor_t *tensor);
