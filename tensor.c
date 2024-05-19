@@ -985,11 +985,11 @@ void op_realize_tree(op_t *op) {
         /* Do this without having to traverse the entire tree */
         curr = op;
         for(int64_t i = 0; i < MAX_DEPTH; i++) {
-            if(curr->parent_in) {
-                curr = curr->parent_in;
-                depth++;
-            } else if(curr->parent_out) {
+            if(curr->parent_out) {
                 curr = curr->parent_out;
+                depth++;
+            } else if(curr->parent_in) {
+                curr = curr->parent_in;
                 depth++;
             } else {
                 break;
@@ -998,12 +998,14 @@ void op_realize_tree(op_t *op) {
         assert(depth > 0);
         assert(curr->parent_out == NULL);
         assert(curr->parent_in == NULL);
+        op_realize(curr);
         op_print(curr, 4, 0, "");
         op_cleanup(curr);
         op_free(curr);
         free(curr);
         curr = NULL;
     }
+    op_realize(op);
     op_print(op, 4, 0, "");
     op_cleanup(op);
     op_free(op);
@@ -1094,7 +1096,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     // int64_t max = log10(linearized->op_count);
     // for(int64_t i = 0; i < linearized->op_count; i++) {
     //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (int64_t) log10(i)), "", i);
-    //     simple_op_print(linearized->simple + i, 0, 0, "");
+    //     op_print(linearized->simple + i, 0, 0, "");
     // }
     /* This one is not alligned */
     for(int64_t i = 0; i < linearized->op_len; i++) {
@@ -1684,7 +1686,7 @@ void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
     assert(out->op);
     *out->op = op_alloc();
     out->op->type = op_reduce;
-    out->op->type_reduce = reduce_max;
+    out->op->type_reduce = reduce_sum;
     out->op->tensor_base = (void *) out;
     out->op->buffer_out = *out->buffer;
     out->op->buffer_in = *in->buffer;
@@ -1703,7 +1705,7 @@ void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     assert(out->op);
     *out->op = op_alloc();
     out->op->type = op_reduce;
-    out->op->type_reduce = reduce_max;
+    out->op->type_reduce = reduce_avg;
     out->op->tensor_base = (void *) out;
     out->op->buffer_out = *out->buffer;
     out->op->buffer_in = *in->buffer;
@@ -1722,7 +1724,7 @@ void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     assert(out->op);
     *out->op = op_alloc();
     out->op->type = op_reduce;
-    out->op->type_reduce = reduce_max;
+    out->op->type_reduce = reduce_min;
     out->op->tensor_base = (void *) out;
     out->op->buffer_out = *out->buffer;
     out->op->buffer_in = *in->buffer;
@@ -1780,6 +1782,8 @@ void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->buffer->off_z_sim = z;
     tensor->buffer->off_y_sim = y;
     tensor->buffer->off_x_sim = x;
+    tensor->buffer->off_x_sim = tensor->buffer->str_a_sim * a + tensor->buffer->str_z_sim * z +
+                                 tensor->buffer->str_y_sim * y + tensor->buffer->str_x_sim * x;
 }
 
 void tensor_realize(tensor_t *tensor) {

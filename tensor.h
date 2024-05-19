@@ -51,11 +51,11 @@ extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue
 extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
-    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
-                  (buffer).off])
+    ((buffer).val[(buffer).str_a_sim * (a) + (buffer).str_z_sim * (z) + (buffer).str_y_sim * (y) +                     \
+                  (buffer).str_x_sim * (x) + (buffer).off_sim])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                 \
-    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
-                   (buffer)->off])
+    ((buffer)->val[(buffer)->str_a_sim * (a) + (buffer)->str_z_sim * (z) + (buffer)->str_y_sim * (y) +                 \
+                   (buffer)->str_x_sim * (x) + (buffer)->off_sim])
 
 typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
 typedef enum {
