@@ -17,5 +17,5 @@ git clone https://github.com/DatoXx8/cgrad.git
 ```
 2. Add all the .c files to your compile step, which could look as following:
 ``` sh
-clang main.c [your files]  ./cgrad/tensor.c ./cgrad/nn.c ./cgrad/compile.c ./cgrad/runtimes/cl.c -o grad -O3 -lm -lOpenCL
+clang main.c [your files]  ./cgrad/tensor.c ./cgrad/nn.c ./cgrad/compile.c ./cgrad/runtimes/cl.c -o grad -O3 -lm -lOpenCL -Wall -Wextra -pedantic
 ```
