@@ -359,7 +359,7 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
 }
 int main(int argc, char **argv) {
     if(argc != 4) {
-        printf("USAGE: %s [number of ops] [number of tensors] [number of iterations]\n", argv[0]);
+        printf("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
         return 1;
     }
     // const uint32_t seed = time(NULL);

@@ -1,5 +1,6 @@
 #include <CL/cl.h>
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,27 +32,6 @@ static void program_free_non_cl(program_t *program) {
         free(program->cl_program);
         program->cl_program = NULL;
     }
-    if(program->cl_device_id) {
-        if(*program->cl_device_id) {
-            clReleaseDevice(*program->cl_device_id);
-            *program->cl_device_id = NULL;
-        }
-        program->cl_device_id = NULL;
-    }
-    if(program->cl_context) {
-        if(*program->cl_context) {
-            clReleaseContext(*program->cl_context);
-            *program->cl_context = NULL;
-        }
-        program->cl_context = NULL;
-    }
-    if(program->cl_command_queue) {
-        if(*program->cl_command_queue) {
-            clReleaseCommandQueue(*program->cl_command_queue);
-            *program->cl_command_queue = NULL;
-        }
-        program->cl_command_queue = NULL;
-    }
 }
 
 const int64_t RANDOM_MAX_TRIES = 100;
@@ -59,20 +39,20 @@ const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
 const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 /* TODO: Increase perf by moving all the tensor allocs and frees to the outside */
-static void simulate_compiler(linearized_t *linearized1, linearized_t *linearized2, tensor_t *tensor1,
-                              tensor_t *tensor2, int64_t op_num, int64_t tensor_num, cl_device_id *device_id,
-                              cl_context *context, cl_command_queue *command_queue) {
-    assert(linearized1);
-    assert(linearized2);
+static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, int64_t tensor_num,
+                              cl_device_id *device_id, cl_context *context, cl_command_queue *command_queue) {
     assert(tensor1);
     assert(tensor2);
     assert(op_num > 0);
     assert(tensor_num > 1);
     assert(device_id);
+    assert(*device_id);
     assert(context);
+    assert(*context);
     assert(command_queue);
+    assert(*command_queue);
 
-    int64_t tensor_out, tensor_in = rand() % tensor_num;
+    int64_t tensor_out = rand() % tensor_num, tensor_in;
     int64_t a_off, z_off, y_off, x_off;
     int64_t a_sze, z_sze, y_sze, x_sze;
     op_e type;
@@ -82,8 +62,10 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
     for(int64_t op_idx = 0; op_idx < op_num; op_idx++) {
         type = rand() % 3;
         switch(type) {
+            /* TODO: Make this randomize in and out tensor */
+            /* TODO: Make sure exp and square don't get too big */
             case op_unary: {
-                tensor_out = tensor_in;
+                // tensor_out = tensor_in;
                 type_unary = rand() % 16;
                 a_sze = rand() % DIM_SZE + 1;
                 z_sze = rand() % DIM_SZE + 1;
@@ -188,7 +170,7 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
                 break;
             }
             case op_binary: {
-                tensor_out = tensor_in;
+                // tensor_out = tensor_in;
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
                     if(tensor_out != tensor_in) { break; }
@@ -207,20 +189,20 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
                 tensor_move_resize(&tensor2[tensor_out], a_sze, z_sze, y_sze, x_sze);
                 tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
                 tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
+                if(type_binary >= binary_add_like) {
+                    a_sze = 1;
+                    z_sze = 1;
+                    y_sze = 1;
+                    x_sze = 1;
+                }
+                a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
+                z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
+                y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
+                x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
                 tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
                 tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
                 tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
                 tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
-                // if(type_binary >= binary_add_like) {
-                //     a_sze = 1;
-                //     z_sze = 1;
-                //     y_sze = 1;
-                //     x_sze = 1;
-                // }
-                // a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
-                // z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
-                // y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
-                // x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
                 switch(type_binary) {
                     case binary_add: {
                         tensor_binary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
@@ -261,45 +243,45 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
                         tensor_binary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
                         break;
                     }
-                    // case binary_add_like: {
-                    //     tensor_lbinary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_subtract_like: {
-                    //     tensor_lbinary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_multiply_like: {
-                    //     tensor_lbinary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_divide_like: {
-                    //     tensor_unary_absolute(&tensor1[tensor_in]);
-                    //     tensor_unary_absolute(&tensor2[tensor_in]);
-                    //     tensor_unary_add(&tensor1[tensor_in], EPSILON);
-                    //     tensor_unary_add(&tensor2[tensor_in], EPSILON);
-                    //     tensor_lbinary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_max_like: {
-                    //     tensor_lbinary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_min_like: {
-                    //     tensor_lbinary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
-                    // case binary_copy_like: {
-                    //     tensor_lbinary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
-                    //     tensor_lbinary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
-                    //     break;
-                    // }
+                    case binary_add_like: {
+                        tensor_lbinary_add(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_add(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_subtract_like: {
+                        tensor_lbinary_subtract(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_subtract(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_multiply_like: {
+                        tensor_lbinary_multiply(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_multiply(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_divide_like: {
+                        tensor_unary_absolute(&tensor1[tensor_in]);
+                        tensor_unary_absolute(&tensor2[tensor_in]);
+                        tensor_unary_add(&tensor1[tensor_in], EPSILON);
+                        tensor_unary_add(&tensor2[tensor_in], EPSILON);
+                        tensor_lbinary_divide(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_divide(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_max_like: {
+                        tensor_lbinary_max(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_max(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_min_like: {
+                        tensor_lbinary_min(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_min(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
+                    case binary_copy_like: {
+                        tensor_lbinary_copy(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_lbinary_copy(&tensor2[tensor_out], &tensor2[tensor_in]);
+                        break;
+                    }
                     default: {
                         break;
                     }
@@ -308,46 +290,46 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
             }
             case op_reduce: {
                 // tensor_out = tensor_in;
-                // for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
-                //     tensor_in = rand() % tensor_num;
-                //     if(tensor_out != tensor_in) { break; }
-                // }
-                // assert(tensor_in != tensor_out);
-                // type_reduce = rand() % 4;
-                // a_off = rand() % DIM_SZE;
-                // z_off = rand() % DIM_SZE;
-                // y_off = rand() % DIM_SZE;
-                // x_off = rand() % DIM_SZE;
-                // tensor_move_resize(&tensor1[tensor_out], 1, 1, 1, 1);
-                // tensor_move_resize(&tensor2[tensor_out], 1, 1, 1, 1);
-                // tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
-                // a_sze = rand() % DIM_SZE + 1;
-                // z_sze = rand() % DIM_SZE + 1;
-                // y_sze = rand() % DIM_SZE + 1;
-                // x_sze = rand() % DIM_SZE + 1;
-                // a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
-                // z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
-                // y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
-                // x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
-                // tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
-                // tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
-                // tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
-                // switch(type_reduce) {
-                //     case reduce_sum: {
-                //         break;
-                //     }
-                //     case reduce_avg: {
-                //         break;
-                //     }
-                //     case reduce_max: {
-                //         break;
-                //     }
-                //     case reduce_min: {
-                //         break;
-                //     }
-                // }
+                for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
+                    tensor_in = rand() % tensor_num;
+                    if(tensor_out != tensor_in) { break; }
+                }
+                assert(tensor_in != tensor_out);
+                type_reduce = rand() % 4;
+                a_off = rand() % DIM_SZE;
+                z_off = rand() % DIM_SZE;
+                y_off = rand() % DIM_SZE;
+                x_off = rand() % DIM_SZE;
+                tensor_move_resize(&tensor1[tensor_out], 1, 1, 1, 1);
+                tensor_move_resize(&tensor2[tensor_out], 1, 1, 1, 1);
+                tensor_move_offset(&tensor1[tensor_out], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_out], a_off, z_off, y_off, x_off);
+                a_sze = rand() % DIM_SZE + 1;
+                z_sze = rand() % DIM_SZE + 1;
+                y_sze = rand() % DIM_SZE + 1;
+                x_sze = rand() % DIM_SZE + 1;
+                a_off = DIM_SZE == a_sze ? 0 : rand() % (DIM_SZE - a_sze);
+                z_off = DIM_SZE == z_sze ? 0 : rand() % (DIM_SZE - z_sze);
+                y_off = DIM_SZE == y_sze ? 0 : rand() % (DIM_SZE - y_sze);
+                x_off = DIM_SZE == x_sze ? 0 : rand() % (DIM_SZE - x_sze);
+                tensor_move_resize(&tensor1[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_resize(&tensor2[tensor_in], a_sze, z_sze, y_sze, x_sze);
+                tensor_move_offset(&tensor1[tensor_in], a_off, z_off, y_off, x_off);
+                tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
+                switch(type_reduce) {
+                    case reduce_sum: {
+                        break;
+                    }
+                    case reduce_avg: {
+                        break;
+                    }
+                    case reduce_max: {
+                        break;
+                    }
+                    case reduce_min: {
+                        break;
+                    }
+                }
                 break;
             }
             default: {
@@ -356,22 +338,11 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
         }
     }
 
-    int64_t *tensor_changed = calloc(tensor_num, sizeof(int64_t));
-    linearized_clear(linearized1);
-    linearized_clear(linearized2);
-    linearized_from_op(linearized1, tensor1[tensor_out].op);
-    linearized_from_op(linearized2, tensor2[tensor_out].op);
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
-        linearized_from_op(linearized1, tensor1[tensor_out].op);
-        linearized_from_op(linearized2, tensor2[tensor_out].op);
-    }
-    linearized_print(linearized1, 4, 0, "");
-    linearized_print(linearized2, 4, 0, "");
-    linearized_run(linearized1);
+    linearized_run(tensor1[tensor_out].linearized);
 
     program_t program = {0};
 
-    program_compile(&program, linearized2, device_id, context, command_queue);
+    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue);
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -384,24 +355,32 @@ static void simulate_compiler(linearized_t *linearized1, linearized_t *linearize
     clFinish(*command_queue);
 
     double margin_of_error = pow(1 + MARGIN_OF_ERROR, op_num) - 1;
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
-        for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
-            assert(!isnan(tensor1[tensor_idx].buffer->val[val_idx]));
-            assert(!isnan(tensor2[tensor_idx].buffer->val[val_idx]));
-            assert(!isinf(tensor1[tensor_idx].buffer->val[val_idx]));
-            assert(!isinf(tensor2[tensor_idx].buffer->val[val_idx]));
-            assert(fabs(tensor1[tensor_idx].buffer->val[val_idx] - tensor2[tensor_idx].buffer->val[val_idx]) <
-                   margin_of_error);
+    for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
+        assert(!isnan(tensor1[tensor_out].buffer->val[val_idx]));
+        assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
+        assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
+        assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
+        if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
+            margin_of_error)) {
+            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx]) - 1 >
+                margin_of_error)) {
+                printf("%lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
+                       tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
+                       tensor2[tensor_out].buffer->name);
+                ERROR("Invalid values\n");
+            }
+            printf("%lf %lf in tensors %lu %s and %s. Not too big a diff tho.\n",
+                   tensor1[tensor_out].buffer->val[val_idx], tensor2[tensor_out].buffer->val[val_idx], tensor_out,
+                   tensor1[tensor_out].buffer->name, tensor2[tensor_out].buffer->name);
         }
     }
 
     program_free_non_cl(&program);
-    free(tensor_changed);
 }
 
 int main(int argc, char **argv) {
     if(argc != 4) {
-        printf("USAGE: %s [number of ops] [number of tensors] [number of iterations]\n", argv[0]);
+        printf("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
         return 1;
     }
     int err;
@@ -428,8 +407,6 @@ int main(int argc, char **argv) {
         // random_values[val_idx] = ((double) rand() / RAND_MAX) * 2 - 1;
         random_values[val_idx] = 1;
     }
-    linearized_t linearized1 = linearized_alloc();
-    linearized_t linearized2 = linearized_alloc();
     tensor_t *tensor1 = calloc(tensor_num, sizeof(tensor_t));
     tensor_t *tensor2 = calloc(tensor_num, sizeof(tensor_t));
     assert(tensor1);
@@ -446,16 +423,16 @@ int main(int argc, char **argv) {
             memcpy(tensor2[tensor_idx].buffer->val, random_values,
                    DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
         }
-        simulate_compiler(&linearized1, &linearized2, tensor1, tensor2, op_num, tensor_num, &device_id, &context,
-                          &command_queue);
+        simulate_compiler(tensor1, tensor2, op_num, tensor_num, &device_id, &context, &command_queue);
     }
 
-    linearized_free(&linearized1);
-    linearized_free(&linearized2);
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         tensor_free(&tensor1[tensor_idx]);
         tensor_free(&tensor2[tensor_idx]);
     }
+    clReleaseDevice(device_id);
+    clReleaseContext(context);
+    clReleaseCommandQueue(command_queue);
     free(tensor1);
     free(tensor2);
     free(random_values);
