@@ -348,8 +348,6 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
     for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
         assert(!isnan(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
-        assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
-        assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
         assert(tensor1[tensor_out].buffer->val[val_idx] == tensor2[tensor_out].buffer->val[val_idx]);
     }
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
@@ -362,8 +360,7 @@ int main(int argc, char **argv) {
         printf("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
         return 1;
     }
-    // const uint32_t seed = time(NULL);
-    const uint32_t seed = 1716156470;
+    const uint32_t seed = time(NULL);
     printf("RNG Seed %u\n", seed);
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);

@@ -384,8 +384,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     int err;
-    // const uint32_t seed = time(NULL);
-    const uint32_t seed = 1715950666;
+    const uint32_t seed = time(NULL);
     printf("RNG Seed %u\n", seed);
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);
