@@ -4,11 +4,10 @@ C Grad is a deep learning framework written in C. It is mainly a recreational pr
 
 ## Dependencies
 
-Right now, there are only 2  dependencies:
+Right now, there are only 2 (3 if you want OpenCl) dependencies:
 - a C compiler
 - the C standard library
-
-In the not so distant future, OpenCL will also be an optional dependency.
+- OpenCL runtime & headers
 
 ## Installation
 
@@ -18,7 +17,5 @@ git clone https://github.com/DatoXx8/cgrad.git
 ```
 2. Add all the .c files to your compile step, which could look as following:
 ``` sh
-clang main.c <your files> ./cgrad/linearize.c ./cgrad/tensor.c ./cgrad/nn.c ./cgrad/compile.c ./cgrad/runtimes/cl.c -o grad -Ofast -lm -lOpenCL
+clang main.c [your files]  ./cgrad/tensor.c ./cgrad/nn.c ./cgrad/compile.c ./cgrad/runtimes/cl.c -o grad -O3 -lm -lOpenCL -Wall -Wextra -pedantic
 ```
-
-You can remove the `-lOpenCL` flag if you are sure you don't want OpenCL.

@@ -11,7 +11,11 @@
 #include "utils.h"
 
 /*
- *  TODO: Make compile validity tests for arbitrary programs for all optimization options.
+ *  TODO: Fix the tress changing the ops. This is a really weird buggg and might require a different data structure
+ *  TODO: Rewrite the compiler simulator to be determistic
+ *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
+ * `global_size` is guaranteed to be a multiple of `local_size`)
+ *  TODO: Add multi-thread c runtime
  *  TODO: Refactor op-trees to deep copy the op tree to make sure flipping tensors would work (think of the linearizer
  * simulator debacle and why that broke).
  *  TODO: Fix inlining ops that already have stuff inlined. (Might not be necessary when you think about it.)
@@ -119,10 +123,8 @@ int main(int argc, const char **argv) {
     } else {
         context = NULL;
     }
+
     neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
-    printf("forward\n%s\n", neuralnet.forward_cl.source);
-    // printf("backward\n%s\n", neuralnet.backward_cl.source);
-    // printf("learn\n%s\n", neuralnet.learn_cl.source);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
                                   NEURALNET_INPUT(neuralnet).activation->buffer->sze_x, context);
@@ -136,6 +138,7 @@ int main(int argc, const char **argv) {
     neuralnet_random(&neuralnet);
 
     neuralnet_forward(&neuralnet, &input);
+    LINEARIZED_PRINT_(neuralnet.forward);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
 
@@ -145,7 +148,7 @@ int main(int argc, const char **argv) {
     free(layerconfig);
 
     STOP_TIME();
-    PRINT_TIME();
+    PRINT_TIME(main);
 
     return 0;
 }

@@ -96,7 +96,9 @@ int main(void) {
     tensor_unary_random(&in);
     tensor_realize(&in);
     double temp = 0;
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { temp *= in.buffer->val[element_idx]; }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        temp *= in.buffer->val[element_idx];
+    }
     assert(fabs(temp) <= MARGIN_OF_ERROR);
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
@@ -109,12 +111,16 @@ int main(void) {
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
     tensor_unary_max(&in, 0.5);
     tensor_realize(&in);
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { assert(in.buffer->val[element_idx] >= 0.5); }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        assert(in.buffer->val[element_idx] >= 0.5);
+    }
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
     tensor_unary_min(&in, 0.5);
     tensor_realize(&in);
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { assert(in.buffer->val[element_idx] <= 0.5); }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        assert(in.buffer->val[element_idx] <= 0.5);
+    }
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
     tensor_unary_absolute(&in);
@@ -282,7 +288,9 @@ int main(void) {
     tensor_move_resize(&out, DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_realize(&in);
     tensor_realize(&out);
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { assert(in.buffer->val[element_idx] == data_out[0]); }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        assert(in.buffer->val[element_idx] == data_out[0]);
+    }
 
     /* Reduce ops. */
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
@@ -292,7 +300,9 @@ int main(void) {
     tensor_move_resize(&in, DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_realize(&in);
     temp = 0;
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { temp += data_out[element_idx]; }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        temp += data_out[element_idx];
+    }
     assert(in.buffer->val[0] == temp);
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
@@ -302,7 +312,9 @@ int main(void) {
     tensor_move_resize(&in, DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_realize(&in);
     temp = 0;
-    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) { temp += data_out[element_idx]; }
+    for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
+        temp += data_out[element_idx];
+    }
     assert(in.buffer->val[0] == temp / ((double) DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE));
 
     memcpy(in.buffer->val, data_in, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
