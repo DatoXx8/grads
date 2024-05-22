@@ -57,8 +57,9 @@ typedef struct {
 } program_t;
 
 /* Could also be called `program_alloc()` */
-extern void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
-                            cl_command_queue *command_queue);
+extern void program_compile(program_t *program, const linearized_t *linearized, const cl_device_id *device_id,
+                            const cl_context *context, const cl_command_queue *command_queue, const int64_t global_size,
+                            const int64_t local_size);
 extern void program_free(program_t *program);
 
 #endif /* COMPILE_H_ */

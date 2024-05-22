@@ -38,11 +38,11 @@ extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue
 extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
-    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) +                     \
-                  (buffer).str_x * (x) + (buffer).off])
+    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
+                  (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                 \
-    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) +                 \
-                   (buffer)->str_x * (x) + (buffer)->off])
+    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
+                   (buffer)->off])
 
 typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
 typedef enum {
@@ -102,8 +102,8 @@ typedef struct op {
     buffer_t buffer_in;
 } op_t;
 
-extern void op_realize(op_t *op);
-extern void op_print(op_t *op, int padding, int offset, const char *name);
+extern void op_realize(const op_t *op);
+extern void op_print(const op_t *op, const int padding, const int offset, const char *name);
 
 #define OP_PRINT(op) op_print(&(op), 4, 0, (#op))
 #define OP_PRINT_(op) op_print((op), 4, 0, (#op))
@@ -117,10 +117,10 @@ typedef struct {
 extern linearized_t linearized_alloc(void);
 extern void linearized_free(linearized_t *linearized);
 extern void linearized_clear(linearized_t *linearized);
-extern void linearized_run(linearized_t *linearized);
+extern void linearized_run(const linearized_t *linearized);
 extern void linearized_add_op(linearized_t *linearized, op_t op);
 extern void linearized_append(linearized_t *linearized1, linearized_t *linearized2);
-extern void linearized_print(linearized_t *linearized, int padding, int offset, const char *name);
+extern void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name);
 
 #define LINEARIZED_PRINT(linearized) (linearized_print(&(linearized), 4, 0, (#linearized)))
 #define LINEARIZED_PRINT_(linearized) (linearized_print((linearized), 4, 0, (#linearized)))
@@ -130,14 +130,15 @@ typedef struct {
     linearized_t *linearized;
 } tensor_t;
 
-extern tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
+extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x,
+                             const cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
-extern void tensor_unary_add(tensor_t *tensor, double value);
-extern void tensor_unary_subtract(tensor_t *tensor, double value);
-extern void tensor_unary_multiply(tensor_t *tensor, double value);
-extern void tensor_unary_divide(tensor_t *tensor, double value);
-extern void tensor_unary_set(tensor_t *tensor, double value);
+extern void tensor_unary_add(tensor_t *tensor, const double value);
+extern void tensor_unary_subtract(tensor_t *tensor, const double value);
+extern void tensor_unary_multiply(tensor_t *tensor, const double value);
+extern void tensor_unary_divide(tensor_t *tensor, const double value);
+extern void tensor_unary_set(tensor_t *tensor, const double value);
 extern void tensor_unary_exp(tensor_t *tensor);
 extern void tensor_unary_log(tensor_t *tensor);
 extern void tensor_unary_square(tensor_t *tensor);
@@ -145,8 +146,8 @@ extern void tensor_unary_sqrt(tensor_t *tensor);
 extern void tensor_unary_reciprocal(tensor_t *tensor);
 extern void tensor_unary_random(tensor_t *tensor);
 extern void tensor_unary_tanh(tensor_t *tensor);
-extern void tensor_unary_max(tensor_t *tensor, double value);
-extern void tensor_unary_min(tensor_t *tensor, double value);
+extern void tensor_unary_max(tensor_t *tensor, const double value);
+extern void tensor_unary_min(tensor_t *tensor, const double value);
 extern void tensor_unary_absolute(tensor_t *tensor);
 extern void tensor_unary_sign(tensor_t *tensor);
 
@@ -170,14 +171,14 @@ extern void tensor_reduce_max(tensor_t *out, tensor_t *in);
 extern void tensor_reduce_avg(tensor_t *out, tensor_t *in);
 extern void tensor_reduce_min(tensor_t *out, tensor_t *in);
 
-extern void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
-extern void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
-extern void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x);
+extern void tensor_move_reshape(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x);
+extern void tensor_move_resize(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x);
+extern void tensor_move_offset(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x);
 
 extern void tensor_realize(tensor_t *tensor);
 
-extern void tensor_print(tensor_t *tensor, int padding, int offset, const char *name);
-extern void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name);
+extern void tensor_print(const tensor_t *tensor, const int padding, const int offset, const char *name);
+extern void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name);
 
 #define TENSOR_PRINT(tensor) tensor_print(&(tensor), 4, 0, (#tensor))
 #define TENSOR_PRINT_(tensor) tensor_print((tensor), 4, 0, (#tensor))

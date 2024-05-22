@@ -23,7 +23,7 @@ void name_update(char *name) {
         }
     }
 }
-void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
+void buffer_sync_realize(buffer_t *buffer, const cl_command_queue command_queue) {
     assert(command_queue);
     assert(buffer);
     switch(buffer->sync) {
@@ -44,7 +44,7 @@ void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
         }
     }
 }
-void buffer_sync_update(buffer_t *buffer, sync_e sync) {
+void buffer_sync_update(buffer_t *buffer, const sync_e sync) {
     if(buffer->sync == sync_none) {
         assert(sync != sync_none);
         buffer->sync = sync;
@@ -53,7 +53,7 @@ void buffer_sync_update(buffer_t *buffer, sync_e sync) {
     }
 }
 
-buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
+buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, const cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -90,106 +90,97 @@ void buffer_free(buffer_t *buffer) {
     if(buffer->val_cl) { clReleaseMemObject(buffer->val_cl); }
 }
 
-void op_print(op_t *op, int padding, int offset, const char *name) {
+void op_print(const op_t *op, const int padding, const int offset, const char *name) {
     if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
     switch(op->type) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
-                    printf("U add {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U add {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_subtract: {
-                    printf("U sub {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U sub {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_multiply: {
-                    printf("U mul {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U mul {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_divide: {
-                    printf("U div {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U div {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_exp: {
                     printf("U exp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_log: {
                     printf("U log {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_square: {
                     printf("U sqr {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_sqrt: {
                     printf("U sqt {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_reciprocal: {
                     printf("U rcp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_max: {
-                    printf("U max {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U max {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_min: {
-                    printf("U min {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U min {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_set: {
-                    printf("U set {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_unary, op->buffer_out.name);
+                    printf("U set {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                           op->buffer_out.name);
                     break;
                 }
                 case unary_random: {
                     printf("U ran {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_tanh: {
                     printf("U tnh {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_absolute: {
                     printf("U abs {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_sign: {
                     printf("U sgn {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
             }
@@ -199,114 +190,100 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
             switch(op->type_binary) {
                 case binary_add: {
                     printf("B add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_subtract: {
                     printf("B add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_multiply: {
                     printf("B mul {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_divide: {
                     printf("B div {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_max: {
                     printf("B max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_min: {
                     printf("B min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_copy: {
                     printf("B cpy {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_add_like: {
                     printf("L add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_subtract_like: {
                     printf("L sub {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_multiply_like: {
                     printf("L mul {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_divide_like: {
                     printf("L div {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_max_like: {
                     printf("L max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_min_like: {
                     printf("L min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_copy_like: {
                     printf("L cpy {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
             }
@@ -316,34 +293,30 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
             switch(op->type_reduce) {
                 case reduce_sum: {
                     printf("R sum {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_avg: {
                     printf("R avg {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_max: {
                     printf("R max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_min: {
                     printf("R min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y,
-                           op->buffer_out.sze_x, op->buffer_out.off, op->buffer_in.sze_a,
-                           op->buffer_in.sze_z, op->buffer_in.sze_y, op->buffer_in.sze_x, op->buffer_in.off,
-                           op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
+                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
             }
@@ -353,23 +326,20 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
             switch(op->type_move) {
                 case move_reshape: {
                     printf("M rsp {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
+                           op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case move_resize: {
                     printf("M rsz {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off,
-                           op->buffer_out.name);
+                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
+                           op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case move_offset: {
                     printf("M off {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x,
+                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
+                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
                            op->buffer_out.str_a * op->var_a + op->buffer_out.str_z * op->var_z +
                                op->buffer_out.str_y * op->var_y + op->buffer_out.str_x * op->var_x,
                            op->buffer_out.name);
@@ -380,7 +350,7 @@ void op_print(op_t *op, int padding, int offset, const char *name) {
         }
     }
 }
-void op_realize(op_t *op) {
+void op_realize(const op_t *op) {
     switch(op->type) {
         case op_unary: {
             switch(op->type_unary) {
@@ -873,8 +843,8 @@ void op_realize(op_t *op) {
                             }
                         }
                     }
-                    BUFFER_AT(op->buffer_out, 0, 0, 0, 0) = temp / (op->buffer_in.sze_a * op->buffer_in.sze_z *
-                                                                    op->buffer_in.sze_y * op->buffer_in.sze_x);
+                    BUFFER_AT(op->buffer_out, 0, 0, 0, 0) =
+                        temp / (op->buffer_in.sze_a * op->buffer_in.sze_z * op->buffer_in.sze_y * op->buffer_in.sze_x);
                     break;
                 }
                 case reduce_min: {
@@ -926,11 +896,11 @@ void linearized_clear(linearized_t *linearized) {
     assert(linearized);
     linearized->op_len = 0;
 }
-void linearized_run(linearized_t *linearized) {
+void linearized_run(const linearized_t *linearized) {
     assert(linearized);
     for(int64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) { op_realize(&linearized->op[op_idx]); }
 }
-void linearized_add_op(linearized_t *linearized, op_t op) {
+void linearized_add_op(linearized_t *linearized, const op_t op) {
     linearized->op_len++;
     if(linearized->op_len >= linearized->op_cap) {
         linearized->op_cap *= 2;
@@ -950,7 +920,7 @@ void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
     linearized1->op_len += linearized2->op_len;
     linearized_clear(linearized2);
 }
-void linearized_print(linearized_t *linearized, int padding, int offset, const char *name) {
+void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name) {
     assert(linearized);
     if(!linearized) { return; }
     if(strncmp(name, "", 1)) {
@@ -972,7 +942,7 @@ void linearized_print(linearized_t *linearized, int padding, int offset, const c
     }
 }
 
-tensor_t tensor_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context) {
+tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, const cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -996,7 +966,7 @@ void tensor_free(tensor_t *tensor) {
     free(tensor->linearized);
 }
 
-void tensor_unary_add(tensor_t *tensor, double value) {
+void tensor_unary_add(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1007,7 +977,7 @@ void tensor_unary_add(tensor_t *tensor, double value) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_subtract(tensor_t *tensor, double value) {
+void tensor_unary_subtract(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1018,7 +988,7 @@ void tensor_unary_subtract(tensor_t *tensor, double value) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_multiply(tensor_t *tensor, double value) {
+void tensor_unary_multiply(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1029,7 +999,7 @@ void tensor_unary_multiply(tensor_t *tensor, double value) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_divide(tensor_t *tensor, double value) {
+void tensor_unary_divide(tensor_t *tensor, const double value) {
     assert(tensor);
     assert(value != 0);
     op_t new = {
@@ -1041,7 +1011,7 @@ void tensor_unary_divide(tensor_t *tensor, double value) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_set(tensor_t *tensor, double value) {
+void tensor_unary_set(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1122,7 +1092,7 @@ void tensor_unary_tanh(tensor_t *tensor) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_max(tensor_t *tensor, double value) {
+void tensor_unary_max(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1133,7 +1103,7 @@ void tensor_unary_max(tensor_t *tensor, double value) {
     linearized_add_op(tensor->linearized, new);
     if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
 }
-void tensor_unary_min(tensor_t *tensor, double value) {
+void tensor_unary_min(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
         .type = op_unary,
@@ -1401,7 +1371,7 @@ void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
 }
 
-void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+void tensor_move_resize(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
     assert(tensor);
     assert(a > 0);
     assert(z > 0);
@@ -1412,7 +1382,7 @@ void tensor_move_resize(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->buffer->sze_y = y;
     tensor->buffer->sze_x = x;
 }
-void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+void tensor_move_reshape(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
     assert(tensor);
     tensor->buffer->sze_a = a;
     tensor->buffer->sze_z = z;
@@ -1422,7 +1392,7 @@ void tensor_move_reshape(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int6
     tensor->buffer->str_z = y * x;
     tensor->buffer->str_y = x;
 }
-void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64_t x) {
+void tensor_move_offset(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
     assert(tensor);
     assert(a >= 0);
     assert(z >= 0);
@@ -1432,8 +1402,8 @@ void tensor_move_offset(tensor_t *tensor, int64_t a, int64_t z, int64_t y, int64
     tensor->buffer->off_z = z;
     tensor->buffer->off_y = y;
     tensor->buffer->off_x = x;
-    tensor->buffer->off = tensor->buffer->str_a * a + tensor->buffer->str_z * z +
-                              tensor->buffer->str_y * y + tensor->buffer->str_x * x;
+    tensor->buffer->off =
+        tensor->buffer->str_a * a + tensor->buffer->str_z * z + tensor->buffer->str_y * y + tensor->buffer->str_x * x;
 }
 
 void tensor_realize(tensor_t *tensor) {
@@ -1442,7 +1412,7 @@ void tensor_realize(tensor_t *tensor) {
     linearized_clear(tensor->linearized);
 }
 
-void tensor_print(tensor_t *tensor, int padding, int offset, const char *name) {
+void tensor_print(const tensor_t *tensor, const int padding,const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1)) {
         printf("%*s%s NAME: %s %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->sync);
@@ -1472,7 +1442,7 @@ const int64_t Y_MAX = 4;
 const int64_t X_MAX = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where
  * the name would have been */
-void tensor_preview(tensor_t *tensor, int padding, int offset, const char *name) {
+void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1)) {
         printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);

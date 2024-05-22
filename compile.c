@@ -25,7 +25,7 @@ static void simple_loop_free(simple_loop_t *simple) {
 }
 /* Has to have the same input and output tensors, with the same shape and be the same op type. Offsets however should be
  * irrelevant */
-static int64_t op_equal(op_t *starting, op_t *compared) {
+static int64_t op_equal(const op_t *starting, const op_t *compared) {
     assert(starting);
     assert(compared);
     if(starting->type != compared->type) { return 0; }
@@ -47,7 +47,8 @@ static int64_t op_equal(op_t *starting, op_t *compared) {
     }
     return 1;
 }
-static void simple_loop_configure(simple_loop_t *loop, op_t **op, int64_t loop_len, int64_t loop_num) {
+static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const int64_t loop_len,
+                                  const int64_t loop_num) {
     assert(loop);
     assert(op);
     assert(loop_len > 0);
@@ -75,7 +76,8 @@ static void simple_loop_configure(simple_loop_t *loop, op_t **op, int64_t loop_l
 }
 /* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf`
  * for format-string appending */
-static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, linearized_t *linearized, int64_t start_idx) {
+static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, const linearized_t *linearized,
+                                                 const int64_t start_idx) {
     assert(simple);
     assert(linearized);
     assert(start_idx >= 0 && start_idx < linearized->op_len);
@@ -109,7 +111,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
         loop_instances[0] = calloc(1, sizeof(op_t));
         assert(loop_instances[0]);
         loop_instances[0][0] = linearized->op[start_idx];
-        simple_loop_configure(simple, loop_instances, 1, 1);
+        simple_loop_configure(simple, (const op_t **) loop_instances, 1, 1);
         free(loop_instances[0]);
         free(loop_instances);
         return 1;
@@ -135,7 +137,7 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, lineariz
             loop_instances[i][j] = linearized->op[start_idx + (loop_length * i) + j];
         }
     }
-    simple_loop_configure(simple, loop_instances, loop_length, loop_number);
+    simple_loop_configure(simple, (const op_t **) loop_instances, loop_length, loop_number);
 
     for(int64_t i = 0; i < loop_number; i++) { free(loop_instances[i]); }
     free(loop_instances);
@@ -147,7 +149,7 @@ static const int64_t INITIAL_CAP = 4;
     ((op.type == op_unary && (op.type_unary == unary_set)) ||                                                          \
      (op.type == op_binary && (op.type_binary == binary_copy || op.type_binary == binary_copy_like)) ||                \
      (op.type == op_reduce))
-static void compile_loop_optimize(compile_loop_t *compile, uint64_t optim) {
+static void compile_loop_optimize(compile_loop_t *compile, const uint64_t optim) {
     assert(compile);
     assert(optim <= OPTIMIZE_ALL);
     if(optim & OPTIMIZE_INLINE) {
@@ -244,7 +246,7 @@ static void compile_loop_free(compile_loop_t *compile) {
     free(compile->op_cap);
     free(compile->dim_info);
 }
-static compile_loop_t compile_loop_alloc(simple_loop_t *simple, uint64_t optim) {
+static compile_loop_t compile_loop_alloc(const simple_loop_t *simple, const uint64_t optim) {
     assert(simple);
     assert(simple->loop_len > 0);
     assert(simple->loop_num > 0);
@@ -306,10 +308,9 @@ const int64_t MAX_OP_SIZE = 512;
       (op)->type_unary == unary_max || (op)->type_unary == unary_min)) ||                                              \
         ((op)->type == op_binary) && ((op)->type_binary == binary_min || (op)->type_binary == binary_max)
 
-/* Pointers for the last 3 cuz they need to be modified, which is kinda horrible but you can't have multiple return
- * types in C */
-static void compile_single_op_to_cl(op_t *op, dim_info_t *dim_info, int64_t op_num, int64_t compile_idx,
-                                    int64_t loop_idx, int64_t op_idx, char **source, char **curr, int64_t *source_cap) {
+static void compile_single_op_to_cl(const op_t *op, const dim_info_t *dim_info, const int64_t op_num,
+                                    const int64_t compile_idx, const int64_t loop_idx, const int64_t op_idx,
+                                    char **source, char **curr, int64_t *source_cap) {
     assert(op);
     assert(dim_info);
     assert(op_num > 0);
@@ -1317,8 +1318,8 @@ static void compile_single_op_to_cl(op_t *op, dim_info_t *dim_info, int64_t op_n
 
     free(temp);
 }
-static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int64_t global_size, int64_t local_size,
-                                int64_t compile_loops) {
+static void compile_loops_to_cl(program_t *program, const compile_loop_t *compile, const int64_t global_size,
+                                const int64_t local_size, const int64_t compile_loops) {
     assert(compile);
     assert(global_size);
     /* TODO: Support `local_size > 1`*/
@@ -1630,17 +1631,20 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
 
     free(source);
 }
-void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
-                     cl_command_queue *command_queue) {
+void program_compile(program_t *program, const linearized_t *linearized, const cl_device_id *device_id,
+                     const cl_context *context, const cl_command_queue *command_queue, const int64_t global_size,
+                     const int64_t local_size) {
     assert(program);
     assert(linearized);
     assert(device_id);
     assert(context);
     assert(command_queue);
+    /* Having a global or local size of 1 is really stupid but it should be supported. */
+    assert(global_size > 0);
+    assert(local_size > 0);
+    assert(global_size % local_size == 0);
     if(!linearized->op_len) { return; }
     simple_loop_t simple = {0};
-    int64_t global_size = 9;
-    int64_t local_size = 1;
     compile_loop_t *compile = calloc(INITIAL_CAP, sizeof(compile_loop_t));
     int64_t compile_num = 0;
     int64_t compile_cap = INITIAL_CAP;
@@ -1658,9 +1662,9 @@ void program_compile(program_t *program, linearized_t *linearized, cl_device_id 
     compile_loops_to_cl(program, compile, global_size, local_size, compile_num);
     simple_loop_free(&simple);
     for(int64_t i = 0; i < compile_num; i++) { compile_loop_free(&compile[i]); }
-    program->cl_device_id = device_id;
-    program->cl_context = context;
-    program->cl_command_queue = command_queue;
+    program->cl_device_id = (cl_device_id *) device_id;
+    program->cl_context = (cl_context *) context;
+    program->cl_command_queue = (cl_command_queue *) command_queue;
     free(compile);
 }
 void program_free(program_t *program) {

@@ -11,29 +11,20 @@
 #include "utils.h"
 
 /*
- *  TODO: Fix the tress changing the ops. This is a really weird buggg and might require a different data structure
- *  TODO: Rewrite the compiler simulator to be determistic
  *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
  * `global_size` is guaranteed to be a multiple of `local_size`)
  *  TODO: Add multi-thread c runtime
- *  TODO: Refactor op-trees to deep copy the op tree to make sure flipping tensors would work (think of the linearizer
- * simulator debacle and why that broke).
  *  TODO: Fix inlining ops that already have stuff inlined. (Might not be necessary when you think about it.)
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
  *  TODO: FLOP/S estimator.
- *  TODO: Support SYCL, that seems pretty neat.
  *  TODO: Update README with installation and usage guides.
- *
- *  TODO: Rewrite this to use Zig instead of C. Maybe after I writte Compyle in Zig.
- *
- *  Idea for chess engine: Train solely on chess960 self play.
- *                         Bunch of different heads with a core net.
- *
- *                         Piece placing chess is very interesting.
- *
- *
- * Also wanna make a go engine.
+ *  TODO: Investigate OpenCL apparent memory leaks. Valgrind does not find memory leaks in my code but still the memory
+ * usage is *super* high and seems to be rising. Also investige the OpenCL compiler being stupidly slow
+ *  TODO: Make OpenCL opt-out with a -U<macro> flag (Unsure about this one cuz it makes the code very ugly)
+ *  TODO: Train solely on chess960 self play. Bunch of different heads with a core net. Piece placing chess is very
+ * interesting.
+ *  TODO: Make a go engine.
  */
 
 void usage_print(const char *program_name) {
@@ -44,9 +35,9 @@ void usage_print(const char *program_name) {
 }
 
 int main(int argc, const char **argv) {
-    // const uint32_t RNG = time(NULL);
-    // printf("INFO: RNG Seed %u\n", RNG);
-    // srand(RNG);
+    const uint32_t RNG = time(NULL);
+    printf("INFO: RNG Seed %u\n", RNG);
+    srand(RNG);
     compile_e compile_type;
     if(argc != 2) {
         usage_print(argv[0]);
@@ -62,10 +53,20 @@ int main(int argc, const char **argv) {
         usage_print(argv[0]);
         ERROR("Invaling argument\n");
     }
-    INIT_TIMER();
+    cl_device_id device_id;
+    cl_context context;
+    if(compile_type == compile_cl) {
+        int err;
+        device_id = cl_device_get();
+        context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
+    } else {
+        context = NULL;
+    }
 
+    INIT_TIMER();
     START_TIME();
 
+    const int64_t SAMPLES = 1;
     const double LEARNING = 1e-2;
     const int64_t LAYERS = 2;
     const int64_t INPUT_Z = 2;
@@ -94,35 +95,24 @@ int main(int argc, const char **argv) {
     //     .split_filters = 2,
     //     .activation_function = activation_none,
     // };
-    layerconfig_t l3 = {
-        .layer_type = layer_reduce,
-        .reduce_type = layer_reduce_max,
-        .reduce_kernel_size = 2,
-        .reduce_kernel_stride = 1,
-    };
-    // layerconfig_t l4 = {
-    //     .layer_type = layer_dense,
-    //     .norm_type = norm_none,
-    //     .dense_output_size = 3,
-    //     .activation_function = activation_none,
+    // layerconfig_t l3 = {
+    //     .layer_type = layer_reduce,
+    //     .reduce_type = layer_reduce_max,
+    //     .reduce_kernel_size = 2,
+    //     .reduce_kernel_stride = 1,
     // };
+    layerconfig_t l4 = {
+        .layer_type = layer_dense,
+        .norm_type = norm_none,
+        .dense_output_size = 3,
+        .activation_function = activation_none,
+    };
     layerconfig[0] = l0;
-    layerconfig[1] = l3;
+    layerconfig[1] = l4;
     // layerconfig[1] = l1;
     // layerconfig[2] = l2;
     // layerconfig[3] = l3;
     // layerconfig[4] = l4;
-
-    const int64_t SAMPLES = 1;
-    cl_device_id device_id;
-    cl_context context;
-    if(compile_type == compile_cl) {
-        int err;
-        device_id = cl_device_get();
-        context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
-    } else {
-        context = NULL;
-    }
 
     neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
@@ -138,7 +128,6 @@ int main(int argc, const char **argv) {
     neuralnet_random(&neuralnet);
 
     neuralnet_forward(&neuralnet, &input);
-    LINEARIZED_PRINT_(neuralnet.forward);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
 

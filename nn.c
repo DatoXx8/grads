@@ -11,8 +11,8 @@
 #include "tensor.h"
 #include "utils.h"
 
-static activation_t _activation_alloc(activation_e activation_type, int64_t a, int64_t z, int64_t y, int64_t x,
-                                      cl_context context) {
+static activation_t _activation_alloc(const activation_e activation_type, const int64_t a, const int64_t z,
+                                      const int64_t y, const int64_t x, const cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -147,7 +147,7 @@ static void _activation_activate(tensor_t *tensor, activation_t *activation) {
         }
     }
 }
-static norm_t _norm_alloc(norm_e type, tensor_t *tensor, cl_context context) {
+static norm_t _norm_alloc(const norm_e type, const tensor_t *tensor, const cl_context context) {
     assert(tensor);
     norm_t norm = {
         .type = type,
@@ -272,7 +272,7 @@ static void _norm_apply(norm_t *norm, tensor_t *tensor) {
     }
 }
 
-dense_t dense_alloc(int64_t input_size, int64_t output_size, cl_context context) {
+dense_t dense_alloc(const int64_t input_size, const int64_t output_size, const cl_context context) {
     assert(input_size > 0);
     assert(output_size > 0);
     dense_t dense = {
@@ -400,7 +400,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
     tensor_move_resize(dense->weights, 1, 1, dense->_input_size, dense->output_size);
     tensor_move_offset(dense->weights, 0, 0, 0, 0);
 }
-void dense_print(dense_t *dense, int padding, int offset, const char *name) {
+void dense_print(const dense_t *dense, const int padding, const int offset, const char *name) {
     assert(dense);
     if(strncmp(name, "", 1)) {
         printf("%*s%s dense\n", offset, "", name);
@@ -412,7 +412,7 @@ void dense_print(dense_t *dense, int padding, int offset, const char *name) {
     tensor_print(dense->weights, padding, offset + padding, "weights");
     tensor_print(dense->weights_g, padding, offset + padding, "weights_g");
 }
-void dense_print_shape(dense_t *dense, int padding, int offset, const char *name) {
+void dense_print_shape(const dense_t *dense, const int padding, const int offset, const char *name) {
     assert(dense);
     if(strncmp(name, "", 1)) {
         printf("%*s%s dense shape\n", offset, "", name);
@@ -425,8 +425,9 @@ void dense_print_shape(dense_t *dense, int padding, int offset, const char *name
            dense->weights->buffer->sze_z, dense->weights->buffer->sze_y, dense->weights->buffer->sze_x);
 }
 
-convolution_t convolution_alloc(int64_t input_z, int64_t input_y, int64_t input_x, int64_t filters, int64_t kernel_size,
-                                int64_t kernel_stride, int64_t kernel_padding, cl_context context) {
+convolution_t convolution_alloc(const int64_t input_z, const int64_t input_y, const int64_t input_x,
+                                const int64_t filters, const int64_t kernel_size, const int64_t kernel_stride,
+                                const int64_t kernel_padding, const cl_context context) {
     assert(filters > 0);
     assert(kernel_size > 0);
     assert(kernel_stride > 0);
@@ -642,7 +643,7 @@ void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution
                        input_x + 2 * convolution->kernel_padding);
     tensor_move_offset(convolution->_padded_grad, 0, 0, 0, 0);
 }
-void convolution_print(convolution_t *convolution, int padding, int offset, const char *name) {
+void convolution_print(const convolution_t *convolution, const int padding, const int offset, const char *name) {
     assert(convolution);
     if(strncmp(name, "", 1)) {
         printf("%*s%s convolution\n", offset, "", name);
@@ -654,7 +655,7 @@ void convolution_print(convolution_t *convolution, int padding, int offset, cons
     tensor_print(convolution->weights, padding, offset + padding, "weights");
     tensor_print(convolution->weights_g, padding, offset + padding, "weights_g");
 }
-void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name) {
+void convolution_print_shape(const convolution_t *convolution, const int padding, const int offset, const char *name) {
     assert(convolution);
     if(strncmp(name, "", 1)) {
         printf("%*s%s convolution shape\n", offset, "", name);
@@ -670,8 +671,8 @@ void convolution_print_shape(convolution_t *convolution, int padding, int offset
 
 /* Kind of a misnomer as this doesn't allocate any dynamic memory, which is also why there is no reduce_free(). I
  * like the name continuity tho */
-reduce_t reduce_alloc(layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x, int64_t kernel_size,
-                      int64_t kernel_stride) {
+reduce_t reduce_alloc(const layer_reduce_e type, const int64_t input_z, const int64_t input_y, const int64_t input_x,
+                      const int64_t kernel_size, const int64_t kernel_stride) {
     assert(kernel_size > 0);
     assert(kernel_stride > 0);
     assert(input_z > 0);
@@ -688,7 +689,7 @@ reduce_t reduce_alloc(layer_reduce_e type, int64_t input_z, int64_t input_y, int
 
     return reduce;
 }
-void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
+void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output) {
     assert(input);
     assert(reduce);
     assert(output);
@@ -831,7 +832,7 @@ void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *outpu
     tensor_move_resize(output_gradient, 1, output_z, output_y, output_x);
     tensor_move_offset(output_gradient, 0, 0, 0, 0);
 }
-void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
+void reduce_print(const reduce_t *reduce, const int padding, const int offset, const char *name) {
     assert(reduce);
     if(strncmp(name, "", 1)) {
         printf("%*s%s convolution\n", offset, "", name);
@@ -842,7 +843,8 @@ void reduce_print(reduce_t *reduce, int padding, int offset, const char *name) {
            reduce->kernel_stride, reduce->_input_z, reduce->_input_y, reduce->_input_x);
 }
 
-split_t split_alloc(int64_t filters, int64_t input_z, int64_t input_y, int64_t input_x, cl_context context) {
+split_t split_alloc(const int64_t filters, const int64_t input_z, const int64_t input_y, const int64_t input_x,
+                    const cl_context context) {
     assert(filters > 0);
     assert(input_z > 0);
     assert(input_y > 0);
@@ -966,7 +968,7 @@ void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, t
     tensor_move_resize(output_gradient, 1, output_z, output_y, output_x);
     tensor_move_offset(output_gradient, 0, 0, 0, 0);
 }
-void split_print(split_t *split, int padding, int offset, const char *name) {
+void split_print(const split_t *split, const int padding, const int offset, const char *name) {
     assert(split);
     if(strncmp(name, "", 1)) {
         printf("%*s%s split\n", offset, "", name);
@@ -978,7 +980,7 @@ void split_print(split_t *split, int padding, int offset, const char *name) {
     tensor_print(split->weights, padding, offset + padding, "weights");
     tensor_print(split->weights_g, padding, offset + padding, "weights_g");
 }
-void split_print_shape(split_t *split, int padding, int offset, const char *name) {
+void split_print_shape(const split_t *split, const int padding, const int offset, const char *name) {
     assert(split);
     if(strncmp(name, "", 1)) {
         printf("%*s%s split shape\n", offset, "", name);
@@ -992,7 +994,7 @@ void split_print_shape(split_t *split, int padding, int offset, const char *name
 }
 
 /* TODO: Implement residual connections */
-layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context) {
+layer_t layer_alloc(const layerconfig_t *layerconfig, const cl_context context) {
     assert(layerconfig);
     layer_t layer = {0};
     switch(layerconfig->layer_type) {
@@ -1169,7 +1171,7 @@ void layer_free(layer_t *layer) {
         }
     }
 }
-void layer_sync(layer_t *layer, cl_command_queue command_queue) {
+void layer_sync(layer_t *layer, const cl_command_queue command_queue) {
     switch(layer->layer_type) {
         case layer_dense: {
             buffer_sync_realize(layer->activation->buffer, command_queue);
@@ -1213,7 +1215,8 @@ void layer_sync(layer_t *layer, cl_command_queue command_queue) {
 
 /* TODO: Make learning a parameter in `neuralnet_learn()` and not here. For this `learning` needs to be wrapped in a
  * tensor */
-neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning, compile_e compile_type) {
+neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, const double learning,
+                            const compile_e compile_type) {
     assert(layers > 1);
     assert(learning > 0);
     neuralnet_t neuralnet = {
@@ -1452,9 +1455,11 @@ neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double l
         }
     }
     if(neuralnet.compile_type == compile_cl) {
-        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue);
-        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue);
-        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue);
+        const int64_t LOCAL_SIZE = 3;
+        const int64_t GLOBAL_SIZE = LOCAL_SIZE * 3;
+        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE, 1);
+        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE, 1);
+        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE, 1);
     } else {
         free(device_id);
         free(context);
@@ -1490,7 +1495,7 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     }
 }
 /* TODO: Make this save the neuralnet structure and not only the weights and biases */
-void neuralnet_save(neuralnet_t *neuralnet, const char *filename) {
+void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
     assert(neuralnet);
     assert(filename);
     int err;
@@ -1710,7 +1715,7 @@ void neuralnet_learn(neuralnet_t *neuralnet) {
         }
     }
 }
-void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
+void neuralnet_print(const neuralnet_t *neuralnet, const int padding, const int offset, const char *name) {
     assert(neuralnet);
     if(strncmp(name, "", 1)) {
         printf("%*s%s\n", offset, "", name);
@@ -1748,7 +1753,7 @@ void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char
         }
     }
 }
-void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name) {
+void neuralnet_print_shape(const neuralnet_t *neuralnet, const int padding, const int offset, const char *name) {
     assert(neuralnet);
     if(strncmp(name, "", 1)) {
         printf("%*s%s shape\n", offset, "", name);

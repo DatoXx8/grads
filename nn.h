@@ -57,8 +57,8 @@ extern dense_t dense_alloc(int64_t input_size, int64_t output_size, cl_context c
 extern void dense_free(dense_t *dense);
 extern void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output);
 extern void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient);
-extern void dense_print(dense_t *dense, int padding, int offset, const char *name);
-extern void dense_print_shape(dense_t *dense, int padding, int offset, const char *name);
+extern void dense_print(const dense_t *dense, const int padding, const int offset, const char *name);
+extern void dense_print_shape(const dense_t *dense, const int padding, const int offset, const char *name);
 
 typedef struct {
     int64_t _input_z; /* Equivalent to input_z. Also not set directly. */
@@ -83,15 +83,16 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                \
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
-extern convolution_t convolution_alloc(int64_t input_z, int64_t input_y, int64_t input_x, int64_t filters,
-                                       int64_t kernel_size, int64_t kernel_stride, int64_t kernel_padding,
-                                       cl_context context);
+extern convolution_t convolution_alloc(const int64_t input_z, const int64_t input_y, const int64_t input_x,
+                                       const int64_t filters, const int64_t kernel_size, const int64_t kernel_stride,
+                                       const int64_t kernel_padding, const cl_context context);
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
 extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution,
                                  tensor_t *output, tensor_t *output_gradient);
-extern void convolution_print(convolution_t *convolution, int padding, int offset, const char *name);
-extern void convolution_print_shape(convolution_t *convolution, int padding, int offset, const char *name);
+extern void convolution_print(const convolution_t *convolution, const int padding, const int offset, const char *name);
+extern void convolution_print_shape(const convolution_t *convolution, const int padding, const int offset,
+                                    const char *name);
 
 /* Can rename this to reduce_e after unifying all the op types. */
 typedef enum { layer_reduce_max, layer_reduce_avg, layer_reduce_min } layer_reduce_e;
@@ -109,11 +110,11 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride)                                                     \
     ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
-extern reduce_t reduce_alloc(layer_reduce_e type, int64_t input_z, int64_t input_y, int64_t input_x,
-                             int64_t kernel_size, int64_t kernel_stride);
-extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
+extern reduce_t reduce_alloc(const layer_reduce_e type, const int64_t input_z, const int64_t input_y,
+                             const int64_t input_x, const int64_t kernel_size, const int64_t kernel_stride);
+extern void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
-extern void reduce_print(reduce_t *reduce, int padding, int offset, const char *name);
+extern void reduce_print(const reduce_t *reduce, const int padding, const int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
 typedef enum { residual_identity, residual_convolution, residual_dense, residual_reduce } residual_e;
@@ -142,13 +143,14 @@ typedef struct {
     tensor_t *_input_temp;
 } split_t;
 
-extern split_t split_alloc(int64_t filters, int64_t input_z, int64_t input_y, int64_t input_x, cl_context context);
+extern split_t split_alloc(const int64_t filters, const int64_t input_z, const int64_t input_y, const int64_t input_x,
+                           const cl_context context);
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
 extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output,
                            tensor_t *output_gradient);
-extern void split_print(split_t *split, int padding, int offset, const char *name);
-extern void split_print_shape(split_t *split, int padding, int offset, const char *name);
+extern void split_print(const split_t *split, const int padding, const int offset, const char *name);
+extern void split_print_shape(const split_t *split, const int padding, const int offset, const char *name);
 
 typedef enum { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split } layer_e;
 
@@ -217,7 +219,7 @@ typedef struct {
     tensor_t *activation_g;
 } layer_t;
 
-extern layer_t layer_alloc(layerconfig_t *layerconfig, cl_context context);
+extern layer_t layer_alloc(const layerconfig_t *layerconfig, const cl_context context);
 extern void layer_free(layer_t *layer);
 
 /* TODO: Add other languages. */
@@ -240,11 +242,11 @@ typedef struct {
 #define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
-extern neuralnet_t neuralnet_alloc(int64_t layers, layerconfig_t *layerconfig, double learning,
-                                   compile_e compilation_type);
+extern neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, const double learning,
+                                   const compile_e compilation_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* You have to keep track of the NN architecture yourself. I might add that in the future but it's not a thing yet. */
-extern void neuralnet_save(neuralnet_t *neuralnet, const char *filename);
+extern void neuralnet_save(const neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_load(neuralnet_t *neuralnet, const char *filename);
 extern void neuralnet_random(neuralnet_t *neuralnet);
 /* Used for linearizing all needed ops from the input to the output. Only need to be called once per neuralnet. */
@@ -252,7 +254,7 @@ extern void neuralnet_random(neuralnet_t *neuralnet);
 extern void neuralnet_forward(neuralnet_t *neuralnet, tensor_t *input);
 extern void neuralnet_backward(neuralnet_t *neuralnet, tensor_t *training_input, tensor_t *training_output);
 extern void neuralnet_learn(neuralnet_t *neuralnet);
-extern void neuralnet_print(neuralnet_t *neuralnet, int padding, int offset, const char *name);
-extern void neuralnet_print_shape(neuralnet_t *neuralnet, int padding, int offset, const char *name);
+extern void neuralnet_print(const neuralnet_t *neuralnet, const int padding, const int offset, const char *name);
+extern void neuralnet_print_shape(const neuralnet_t *neuralnet, const int padding, const int offset, const char *name);
 
 #endif
