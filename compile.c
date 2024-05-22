@@ -9,9 +9,9 @@
 #include "tensor.h"
 
 #define INDEX(buffer, a, z, y, x)                                                                                      \
-    ((buffer).str_a_sim * (a) + (buffer).str_z_sim * (z) + (buffer).str_y_sim * (y) + (buffer).str_x_sim * (x))
+    ((buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x))
 #define INDEX_(buffer, a, z, y, x)                                                                                     \
-    ((buffer)->str_a_sim * (a) + (buffer)->str_z_sim * (z) + (buffer)->str_y_sim * (y) + (buffer)->str_x_sim * (x))
+    ((buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x))
 static void simple_loop_free(simple_loop_t *simple) {
     assert(simple);
     assert(simple->op);
@@ -34,16 +34,16 @@ static int64_t op_equal(op_t *starting, op_t *compared) {
     if(starting->type_reduce != compared->type_reduce) { return 0; }
 
     if(strncmp(starting->buffer_out.name, compared->buffer_out.name, BUFFER_NAME_SIZE)) { return 0; }
-    if(starting->buffer_out.sze_a_sim != compared->buffer_out.sze_a_sim) { return 0; }
-    if(starting->buffer_out.sze_z_sim != compared->buffer_out.sze_z_sim) { return 0; }
-    if(starting->buffer_out.sze_y_sim != compared->buffer_out.sze_y_sim) { return 0; }
-    if(starting->buffer_out.sze_x_sim != compared->buffer_out.sze_x_sim) { return 0; }
+    if(starting->buffer_out.sze_a != compared->buffer_out.sze_a) { return 0; }
+    if(starting->buffer_out.sze_z != compared->buffer_out.sze_z) { return 0; }
+    if(starting->buffer_out.sze_y != compared->buffer_out.sze_y) { return 0; }
+    if(starting->buffer_out.sze_x != compared->buffer_out.sze_x) { return 0; }
     if(starting->type != op_unary) {
         if(strncmp(starting->buffer_in.name, compared->buffer_in.name, BUFFER_NAME_SIZE)) { return 0; }
-        if(starting->buffer_in.sze_a_sim != compared->buffer_in.sze_a_sim) { return 0; }
-        if(starting->buffer_in.sze_z_sim != compared->buffer_in.sze_z_sim) { return 0; }
-        if(starting->buffer_in.sze_y_sim != compared->buffer_in.sze_y_sim) { return 0; }
-        if(starting->buffer_in.sze_x_sim != compared->buffer_in.sze_x_sim) { return 0; }
+        if(starting->buffer_in.sze_a != compared->buffer_in.sze_a) { return 0; }
+        if(starting->buffer_in.sze_z != compared->buffer_in.sze_z) { return 0; }
+        if(starting->buffer_in.sze_y != compared->buffer_in.sze_y) { return 0; }
+        if(starting->buffer_in.sze_x != compared->buffer_in.sze_x) { return 0; }
     }
     return 1;
 }
@@ -68,8 +68,8 @@ static void simple_loop_configure(simple_loop_t *loop, op_t **op, int64_t loop_l
     }
     for(int64_t i = 0; i < loop_num; i++) {
         for(int64_t j = 0; j < loop_len; j++) {
-            loop->dim_info[j].off_out[i] = op[i][j].buffer_out.off_sim;
-            if(op[i][j].type != op_unary) { loop->dim_info[j].off_in[i] = op[i][j].buffer_in.off_sim; }
+            loop->dim_info[j].off_out[i] = op[i][j].buffer_out.off;
+            if(op[i][j].type != op_unary) { loop->dim_info[j].off_in[i] = op[i][j].buffer_in.off; }
         }
     }
 }
@@ -325,10 +325,10 @@ static void compile_single_op_to_cl(op_t *op, dim_info_t *dim_info, int64_t op_n
     int64_t temp_cap = INITIAL_SOURCE_SIZE;
     char *temp = calloc(INITIAL_SOURCE_SIZE, sizeof(char));
     char *temp_c = temp;
-    int64_t max_a = op[0].type == op_reduce ? op[0].buffer_in.sze_a_sim : op[0].buffer_out.sze_a_sim;
-    int64_t max_z = op[0].type == op_reduce ? op[0].buffer_in.sze_z_sim : op[0].buffer_out.sze_z_sim;
-    int64_t max_y = op[0].type == op_reduce ? op[0].buffer_in.sze_y_sim : op[0].buffer_out.sze_y_sim;
-    int64_t max_x = op[0].type == op_reduce ? op[0].buffer_in.sze_x_sim : op[0].buffer_out.sze_x_sim;
+    int64_t max_a = op[0].type == op_reduce ? op[0].buffer_in.sze_a : op[0].buffer_out.sze_a;
+    int64_t max_z = op[0].type == op_reduce ? op[0].buffer_in.sze_z : op[0].buffer_out.sze_z;
+    int64_t max_y = op[0].type == op_reduce ? op[0].buffer_in.sze_y : op[0].buffer_out.sze_y;
+    int64_t max_x = op[0].type == op_reduce ? op[0].buffer_in.sze_x : op[0].buffer_out.sze_x;
     /* TODO: This needs a really big refactor */
     /* This is very, very sus. A lot of things could go wrong just from thinking about it. I haven't found a case where
      * it breaks, but be cautious! */
@@ -1313,7 +1313,6 @@ static void compile_single_op_to_cl(op_t *op, dim_info_t *dim_info, int64_t op_n
         *curr += snprintf(*curr, temp_cap, "%s", temp);
         EXPAND_SOURCE_IF_NEEDED(*curr, *source, *source_cap, MAX_OP_SIZE);
         memset(temp, 0, temp_cap);
-        temp_c = temp;
     }
 
     free(temp);
@@ -1335,7 +1334,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
     int64_t offset;
 
     int64_t arg_num = 0;
-    char **arg = NULL;
+    char **arg_name = NULL;
     cl_mem *arg_cl = NULL;
     int64_t found;
     for(int64_t compile_idx = 0; compile_idx < compile_loops; compile_idx++) {
@@ -1343,7 +1342,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
             if(compile[compile_idx].op_num[loop_op_idx] == 1) {
                 found = 0;
                 for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                    if(!strncmp(compile[compile_idx].op[loop_op_idx][0].buffer_out.name, arg[arg_idx],
+                    if(!strncmp(compile[compile_idx].op[loop_op_idx][0].buffer_out.name, arg_name[arg_idx],
                                 BUFFER_NAME_SIZE)) {
                         found = 1;
                         break;
@@ -1351,33 +1350,34 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
                 }
                 if(!found) {
                     arg_num++;
-                    arg = reallocarray(arg, arg_num, sizeof(char *));
+                    arg_name = reallocarray(arg_name, arg_num, sizeof(char *));
                     arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
-                    assert(arg);
+                    assert(arg_name);
                     assert(arg_cl);
-                    arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                    assert(arg[arg_num - 1]);
-                    strncpy(arg[arg_num - 1], compile[compile_idx].op[loop_op_idx][0].buffer_out.name,
+                    arg_name[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                    assert(arg_name[arg_num - 1]);
+                    strncpy(arg_name[arg_num - 1], compile[compile_idx].op[loop_op_idx][0].buffer_out.name,
                             BUFFER_NAME_SIZE);
                     arg_cl[arg_num - 1] = compile[compile_idx].op[loop_op_idx][0].buffer_out.val_cl;
                 }
                 if(compile[compile_idx].op[loop_op_idx][0].type != op_unary) {
                     found = 0;
                     for(int64_t j = 0; j < arg_num; j++) {
-                        if(!strncmp(compile[compile_idx].op[loop_op_idx][0].buffer_in.name, arg[j], BUFFER_NAME_SIZE)) {
+                        if(!strncmp(compile[compile_idx].op[loop_op_idx][0].buffer_in.name, arg_name[j],
+                                    BUFFER_NAME_SIZE)) {
                             found = 1;
                             break;
                         }
                     }
                     if(!found) {
                         arg_num++;
-                        arg = reallocarray(arg, arg_num, sizeof(char *));
+                        arg_name = reallocarray(arg_name, arg_num, sizeof(char *));
                         arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
-                        assert(arg);
+                        assert(arg_name);
                         assert(arg_cl);
-                        arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                        assert(arg[arg_num - 1]);
-                        strncpy(arg[arg_num - 1], compile[compile_idx].op[loop_op_idx][0].buffer_in.name,
+                        arg_name[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                        assert(arg_name[arg_num - 1]);
+                        strncpy(arg_name[arg_num - 1], compile[compile_idx].op[loop_op_idx][0].buffer_in.name,
                                 BUFFER_NAME_SIZE);
                         arg_cl[arg_num - 1] = compile[compile_idx].op[loop_op_idx][0].buffer_in.val_cl;
                     }
@@ -1388,7 +1388,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
                         if(compile[compile_idx].op[loop_op_idx][op_idx].type != op_unary) {
                             found = 0;
                             for(int64_t k = 0; k < arg_num; k++) {
-                                if(!strncmp(compile[compile_idx].op[loop_op_idx][op_idx].buffer_in.name, arg[k],
+                                if(!strncmp(compile[compile_idx].op[loop_op_idx][op_idx].buffer_in.name, arg_name[k],
                                             BUFFER_NAME_SIZE)) {
                                     found = 1;
                                     break;
@@ -1396,21 +1396,21 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
                             }
                             if(!found) {
                                 arg_num++;
-                                arg = reallocarray(arg, arg_num, sizeof(char *));
+                                arg_name = reallocarray(arg_name, arg_num, sizeof(char *));
                                 arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
-                                assert(arg);
+                                assert(arg_name);
                                 assert(arg_cl);
-                                arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                                assert(arg[arg_num - 1]);
-                                strncpy(arg[arg_num - 1], compile[compile_idx].op[loop_op_idx][op_idx].buffer_in.name,
-                                        BUFFER_NAME_SIZE);
+                                arg_name[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                                assert(arg_name[arg_num - 1]);
+                                strncpy(arg_name[arg_num - 1],
+                                        compile[compile_idx].op[loop_op_idx][op_idx].buffer_in.name, BUFFER_NAME_SIZE);
                                 arg_cl[arg_num - 1] = compile[compile_idx].op[loop_op_idx][op_idx].buffer_in.val_cl;
                             }
                         }
                     } else {
                         found = 0;
                         for(int64_t k = 0; k < arg_num; k++) {
-                            if(!strncmp(compile[compile_idx].op[loop_op_idx][op_idx].buffer_out.name, arg[k],
+                            if(!strncmp(compile[compile_idx].op[loop_op_idx][op_idx].buffer_out.name, arg_name[k],
                                         BUFFER_NAME_SIZE)) {
                                 found = 1;
                                 break;
@@ -1418,13 +1418,13 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
                         }
                         if(!found) {
                             arg_num++;
-                            arg = reallocarray(arg, arg_num, sizeof(char *));
+                            arg_name = reallocarray(arg_name, arg_num, sizeof(char *));
                             arg_cl = reallocarray(arg_cl, arg_num, sizeof(cl_mem));
-                            assert(arg);
+                            assert(arg_name);
                             assert(arg_cl);
-                            arg[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
-                            assert(arg[arg_num - 1]);
-                            strncpy(arg[arg_num - 1], compile[compile_idx].op[loop_op_idx][op_idx].buffer_out.name,
+                            arg_name[arg_num - 1] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                            assert(arg_name[arg_num - 1]);
+                            strncpy(arg_name[arg_num - 1], compile[compile_idx].op[loop_op_idx][op_idx].buffer_out.name,
                                     BUFFER_NAME_SIZE);
                             arg_cl[arg_num - 1] = compile[compile_idx].op[loop_op_idx][op_idx].buffer_out.val_cl;
                         }
@@ -1607,10 +1607,10 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
         if(arg_idx != arg_num - 1) {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *, ", 20),
-                                 "__global double *%s, ", arg[arg_idx]);
+                                 "__global double *%s, ", arg_name[arg_idx]);
         } else {
             kernel_i += snprintf(kernel_i, 1 + BUFFER_NAME_SIZE + strnlen("__global double *) {\n", 22),
-                                 "__global double *%s) {\n", arg[arg_idx]);
+                                 "__global double *%s) {\n", arg_name[arg_idx]);
         }
     }
     /* This one is very sus. Extremely sus. Why in the world do I need to do the `+ 1` here? */
@@ -1621,7 +1621,7 @@ static void compile_loops_to_cl(program_t *program, compile_loop_t *compile, int
 
     program->arg_num = arg_num;
     program->arg_mem = arg_cl;
-    program->arg_name = arg;
+    program->arg_name = arg_name;
     program->local_size = local_size;
     program->global_size = global_size;
     program->source = kernel_source;

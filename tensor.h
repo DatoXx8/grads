@@ -31,19 +31,6 @@ typedef struct {
     cl_mem val_cl;
     sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
-    int64_t str_a_sim;
-    int64_t str_z_sim;
-    int64_t str_y_sim;
-    int64_t str_x_sim;
-    int64_t sze_a_sim;
-    int64_t sze_z_sim;
-    int64_t sze_y_sim;
-    int64_t sze_x_sim;
-    int64_t off_a_sim;
-    int64_t off_z_sim;
-    int64_t off_y_sim;
-    int64_t off_x_sim;
-    int64_t off_sim;
 } buffer_t;
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
@@ -51,11 +38,11 @@ extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue
 extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
-    ((buffer).val[(buffer).str_a_sim * (a) + (buffer).str_z_sim * (z) + (buffer).str_y_sim * (y) +                     \
-                  (buffer).str_x_sim * (x) + (buffer).off_sim])
+    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) +                     \
+                  (buffer).str_x * (x) + (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                 \
-    ((buffer)->val[(buffer)->str_a_sim * (a) + (buffer)->str_z_sim * (z) + (buffer)->str_y_sim * (y) +                 \
-                   (buffer)->str_x_sim * (x) + (buffer)->off_sim])
+    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) +                 \
+                   (buffer)->str_x * (x) + (buffer)->off])
 
 typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
 typedef enum {
