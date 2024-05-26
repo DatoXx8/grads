@@ -11,6 +11,7 @@
 #include "utils.h"
 
 /*
+ *  TODO: Finish postfix
  *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
  * `global_size` is guaranteed to be a multiple of `local_size`)
  *  TODO: Add multi-thread c runtime
@@ -29,13 +30,15 @@
 
 void usage_print(const char *program_name) {
     assert(program_name);
-    printf("USAGE:%s \n", program_name);
-    printf("    -cl   for using OpenCL\n");
-    printf("    -c    for using C\n");
+    printf("USAGE: %s [runtime]\n"
+           "    -cl   for using OpenCL\n"
+           "    -c    for using C\n",
+           program_name);
 }
 
 int main(int argc, const char **argv) {
-    const uint32_t RNG = time(NULL);
+    // const uint32_t RNG = time(NULL);
+    const uint32_t RNG = 1716482642;
     printf("INFO: RNG Seed %u\n", RNG);
     srand(RNG);
     compile_e compile_type;
@@ -43,10 +46,10 @@ int main(int argc, const char **argv) {
         usage_print(argv[0]);
         ERROR("Program expects an argument\n");
     }
-    if(!strncmp(argv[1], "-cl", 4)) {
+    if(!strncmp(argv[1], "-cl", 3)) {
         printf("INFO: Using OpenCL\n");
         compile_type = compile_cl;
-    } else if(!strncmp(argv[1], "-c", 3)) {
+    } else if(!strncmp(argv[1], "-c", 2)) {
         printf("INFO: Not using OpenCL\n");
         compile_type = compile_none;
     } else {
@@ -70,7 +73,7 @@ int main(int argc, const char **argv) {
     const double LEARNING = 1e-2;
     const int64_t LAYERS = 2;
     const int64_t INPUT_Z = 2;
-    const int64_t INPUT_Y = 4;
+    const int64_t INPUT_Y = 3;
     const int64_t INPUT_X = INPUT_Y;
     layerconfig_t *layerconfig = calloc(LAYERS, sizeof(layerconfig_t));
     assert(layerconfig);
@@ -80,27 +83,27 @@ int main(int argc, const char **argv) {
         .input_y = INPUT_Y,
         .input_x = INPUT_X,
     };
-    // layerconfig_t l1 = {
-    //     .layer_type = layer_convolution,
-    //     .norm_type = norm_none,
-    //     .convolution_filters = 2,
-    //     .convolution_kernel_size = 3,
-    //     .convolution_kernel_stride = 1,
-    //     .convolution_kernel_padding = 1,
-    //     .activation_function = activation_none,
-    // };
-    // layerconfig_t l2 = {
-    //     .layer_type = layer_split,
-    //     .norm_type = norm_none,
-    //     .split_filters = 2,
-    //     .activation_function = activation_none,
-    // };
-    // layerconfig_t l3 = {
-    //     .layer_type = layer_reduce,
-    //     .reduce_type = layer_reduce_max,
-    //     .reduce_kernel_size = 2,
-    //     .reduce_kernel_stride = 1,
-    // };
+    layerconfig_t l1 = {
+        .layer_type = layer_convolution,
+        .norm_type = norm_none,
+        .convolution_filters = 2,
+        .convolution_kernel_size = 2,
+        .convolution_kernel_stride = 1,
+        .convolution_kernel_padding = 0,
+        .activation_function = activation_none,
+    };
+    layerconfig_t l2 = {
+        .layer_type = layer_split,
+        .norm_type = norm_none,
+        .split_filters = 2,
+        .activation_function = activation_none,
+    };
+    layerconfig_t l3 = {
+        .layer_type = layer_reduce,
+        .reduce_type = layer_reduce_max,
+        .reduce_kernel_size = 2,
+        .reduce_kernel_stride = 1,
+    };
     layerconfig_t l4 = {
         .layer_type = layer_dense,
         .norm_type = norm_none,
@@ -108,7 +111,7 @@ int main(int argc, const char **argv) {
         .activation_function = activation_none,
     };
     layerconfig[0] = l0;
-    layerconfig[1] = l4;
+    layerconfig[1] = l1;
     // layerconfig[1] = l1;
     // layerconfig[2] = l2;
     // layerconfig[3] = l3;
@@ -130,6 +133,7 @@ int main(int argc, const char **argv) {
     neuralnet_forward(&neuralnet, &input);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
+    printf("%s\n", neuralnet.forward_cl.source);
 
     neuralnet_free(&neuralnet);
     tensor_free(&input);
@@ -137,7 +141,7 @@ int main(int argc, const char **argv) {
     free(layerconfig);
 
     STOP_TIME();
-    PRINT_TIME(main);
+    PRINT_TIME("main");
 
     return 0;
 }

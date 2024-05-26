@@ -131,7 +131,7 @@ typedef struct {
 } tensor_t;
 
 extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x,
-                             const cl_context context);
+                             cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_add(tensor_t *tensor, const double value);

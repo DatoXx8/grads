@@ -85,7 +85,7 @@ typedef struct {
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
 extern convolution_t convolution_alloc(const int64_t input_z, const int64_t input_y, const int64_t input_x,
                                        const int64_t filters, const int64_t kernel_size, const int64_t kernel_stride,
-                                       const int64_t kernel_padding, const cl_context context);
+                                       const int64_t kernel_padding, cl_context context);
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
 extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution,
@@ -144,7 +144,7 @@ typedef struct {
 } split_t;
 
 extern split_t split_alloc(const int64_t filters, const int64_t input_z, const int64_t input_y, const int64_t input_x,
-                           const cl_context context);
+                           cl_context context);
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
 extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output,
@@ -219,7 +219,7 @@ typedef struct {
     tensor_t *activation_g;
 } layer_t;
 
-extern layer_t layer_alloc(const layerconfig_t *layerconfig, const cl_context context);
+extern layer_t layer_alloc(const layerconfig_t *layerconfig, cl_context context);
 extern void layer_free(layer_t *layer);
 
 /* TODO: Add other languages. */
@@ -243,7 +243,7 @@ typedef struct {
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
 extern neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, const double learning,
-                                   const compile_e compilation_type);
+                                   const compile_e compile_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* You have to keep track of the NN architecture yourself. I might add that in the future but it's not a thing yet. */
 extern void neuralnet_save(const neuralnet_t *neuralnet, const char *filename);

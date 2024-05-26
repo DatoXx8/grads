@@ -23,7 +23,7 @@ void name_update(char *name) {
         }
     }
 }
-void buffer_sync_realize(buffer_t *buffer, const cl_command_queue command_queue) {
+void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
     assert(command_queue);
     assert(buffer);
     switch(buffer->sync) {
@@ -53,7 +53,7 @@ void buffer_sync_update(buffer_t *buffer, const sync_e sync) {
     }
 }
 
-buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, const cl_context context) {
+buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -91,7 +91,7 @@ void buffer_free(buffer_t *buffer) {
 }
 
 void op_print(const op_t *op, const int padding, const int offset, const char *name) {
-    if(strncmp(name, "", 1)) { printf("%*s%s\n", offset, "", name); }
+    if(strncmp(name, "", 1) != 0) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
     switch(op->type) {
         case op_unary: {
@@ -196,7 +196,7 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
                     break;
                 }
                 case binary_subtract: {
-                    printf("B add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
+                    printf("B sub {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
                            op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
                            op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
                            op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
@@ -923,7 +923,7 @@ void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
 void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name) {
     assert(linearized);
     if(!linearized) { return; }
-    if(strncmp(name, "", 1)) {
+    if(strncmp(name, "", 1) != 0) {
         printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_len, linearized->op_cap, name);
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
@@ -942,7 +942,7 @@ void linearized_print(const linearized_t *linearized, const int padding, const i
     }
 }
 
-tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, const cl_context context) {
+tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -1414,7 +1414,7 @@ void tensor_realize(tensor_t *tensor) {
 
 void tensor_print(const tensor_t *tensor, const int padding,const int offset, const char *name) {
     assert(tensor);
-    if(strncmp(name, "", 1)) {
+    if(strncmp(name, "", 1) != 0) {
         printf("%*s%s NAME: %s %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->sync);
     } else {
         printf("%*sNAME: %s sync status %u\n", offset, "", tensor->buffer->name, tensor->buffer->sync);
@@ -1444,7 +1444,7 @@ const int64_t X_MAX = 4;
  * the name would have been */
 void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
-    if(strncmp(name, "", 1)) {
+    if(strncmp(name, "", 1) != 0) {
         printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
     } else {
         printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);

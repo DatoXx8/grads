@@ -7,9 +7,9 @@
 
 #include "../tensor.h"
 
-#define DIM_SZE 3
-#define EPSILON 1e-3
-#define RANDOM_MAX_TRIES 10
+const int64_t DIM_SZE = 3;
+const double EPSILON = 1e-3;
+const int64_t RANDOM_MAX_TRIES = 10;
 static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, int64_t tensor_num) {
     assert(tensor1);
     assert(tensor2);
@@ -133,9 +133,9 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
                     }
                     case unary_random: {
                     }
-                    case unary_sign: {
-                    }
                     case unary_tanh: {
+                    }
+                    case unary_sign: {
                         tensor_unary_tanh(&tensor1[tensor_out]);
                         tensor_unary_tanh(&tensor2[tensor_out]);
                         tensor_realize(&tensor1[tensor_out]);
