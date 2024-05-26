@@ -1,6 +1,7 @@
 #include <CL/cl.h>
 #include <assert.h>
 #include <math.h>
+#include <opencl-c-base.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -368,10 +369,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
-        printf("%lf %lf\n", tensor1[tensor_out].buffer->val[val_idx], tensor2[tensor_out].buffer->val[val_idx]);
         if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
             margin_of_error)) {
-            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx]) - 1 >
+            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
                 margin_of_error)) {
                 printf("%lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
                        tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
