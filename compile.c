@@ -533,15 +533,15 @@ static void compile_append_assign_cl(const op_t *op, const int64_t off_out, cons
                     break;
                 }
                 case reduce_max: {
-                    *curr += snprintf(*curr, MAX_OP_SIZE,
-                                      "printf(\"%%d\\n\", gid0);%s[%s%lu_%luoff%lu]=", op->buffer_out.name,
-                                      op->buffer_out.name, compile_idx, op_idx, loop_idx);
+                    // *curr += snprintf(*curr, MAX_OP_SIZE,
+                    //                   "printf(\"%%d\\n\", gid0);%s[%s%lu_%luoff%lu]=", op->buffer_out.name,
+                    //                   op->buffer_out.name, compile_idx, op_idx, loop_idx);
                     // *curr += snprintf(*curr, MAX_OP_SIZE,
                     //                   "printf(\"%%d %%lf\\n\", gid0, %s[%s%lu_%luoff%lu]);%s[%s%lu_%luoff%lu]=",
                     //                   op->buffer_out.name, op->buffer_out.name, compile_idx, op_idx, loop_idx,
                     //                   op->buffer_out.name, op->buffer_out.name, compile_idx, op_idx, loop_idx);
-                    // *curr += snprintf(*curr, MAX_OP_SIZE, "%s[%s%lu_%luoff%lu]=", op->buffer_out.name,
-                    //                   op->buffer_out.name, compile_idx, op_idx, loop_idx);
+                    *curr += snprintf(*curr, MAX_OP_SIZE, "%s[%s%lu_%luoff%lu]=", op->buffer_out.name,
+                                      op->buffer_out.name, compile_idx, op_idx, loop_idx);
                     break;
                 }
                 case reduce_min: {
