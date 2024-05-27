@@ -1290,7 +1290,6 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
                                     neuralnet.layer[layer].activation);
                 activation_activate(neuralnet.layer[layer].activation, neuralnet.layer[layer].activation_function);
                 norm_apply(neuralnet.layer[layer].norm, neuralnet.layer[layer].activation);
-                linearized_print(neuralnet.layer[layer].activation->linearized, 4, 0, "");
                 break;
             }
             case layer_reduce: {
