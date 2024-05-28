@@ -28,12 +28,12 @@
  *  TODO: Make a go engine.
  */
 
-void usage_print(const char *program_name) {
-    assert(program_name);
+void usage_print(const char *program) {
+    assert(program);
     printf("USAGE: %s [runtime]\n"
            "    -cl   for using OpenCL\n"
            "    -c    for using C\n",
-           program_name);
+           program);
 }
 
 int main(int argc, const char **argv) {
