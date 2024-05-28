@@ -31,11 +31,11 @@ typedef struct {
 typedef struct {
     uint64_t optim;
     int64_t loop_num;
-    int64_t loop_len;
+    int64_t op_num;
     op_t **op;
     dim_info_t **dim_info;
-    int64_t *op_num;
-    int64_t *op_cap;
+    int64_t *inline_num;
+    int64_t *inline_cap;
 } compile_loop_t;
 
 #define KERNEL_NAME "k"
