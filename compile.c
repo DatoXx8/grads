@@ -153,6 +153,10 @@ int64_t INITIAL_CAP = 4;
     (((op).type == op_unary && ((op).type_unary == unary_set)) ||                                                      \
      ((op).type == op_binary && ((op).type_binary == binary_copy || (op).type_binary == binary_copy_like)) ||          \
      ((op).type == op_reduce))
+#define OVERRIDES_OUTPUT_(op)                                                                                          \
+    (((op)->type == op_unary && ((op)->type_unary == unary_set)) ||                                                    \
+     ((op)->type == op_binary && ((op)->type_binary == binary_copy || (op)->type_binary == binary_copy_like)) ||       \
+     ((op)->type == op_reduce))
 static void compile_loop_optimize(compile_loop_t *compile, const uint64_t optim) {
     assert(compile);
     assert(optim <= OPTIMIZE_ALL);
@@ -1477,6 +1481,8 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
         }
         /* TODO: Figure out a smarter way of doing this because it only needs to happen if the values are dependant
          * on eachother */
+        /* For some reason this doesn't prevent a race condition where the memory being read hasn't yet been written by
+         * another work group. This is so extremel so extremely */
         curr += snprintf(curr, MAX_OP_SIZE, "barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);\n");
         EXPAND_SOURCE_IF_NEEDED(curr, source, source_cap, MAX_OP_SIZE);
     }

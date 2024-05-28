@@ -11,7 +11,7 @@
 #include "utils.h"
 
 /*
- *  TODO: Finish postfix
+ *  TODO: Rewrite compiler from the ground up. That thing horrible
  *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
  * `global_size` is guaranteed to be a multiple of `local_size`)
  *  TODO: Add multi-thread c runtime
@@ -111,7 +111,7 @@ int main(int argc, const char **argv) {
         .activation_function = activation_none,
     };
     layerconfig[0] = l0;
-    layerconfig[1] = l1;
+    layerconfig[1] = l4;
     // layerconfig[1] = l1;
     // layerconfig[2] = l2;
     // layerconfig[3] = l3;
@@ -133,7 +133,6 @@ int main(int argc, const char **argv) {
     neuralnet_forward(&neuralnet, &input);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
-    printf("%s\n", neuralnet.forward_cl.source);
 
     neuralnet_free(&neuralnet);
     tensor_free(&input);
