@@ -1434,8 +1434,6 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
         const int64_t GLOBAL_SIZE = LOCAL_SIZE * 9;
         program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
                         LOCAL_SIZE);
-        printf("%s\n", neuralnet.forward_cl.source);
-        linearized_print(neuralnet.forward, 4, 0, "");
         program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE,
                         LOCAL_SIZE);
         program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE,
