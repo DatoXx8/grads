@@ -88,7 +88,7 @@ typedef enum { move_reshape, move_resize, move_offset } move_e;
 #define MAX_DEPTH (0x100000)
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
 typedef struct op {
-    op_e type;
+    op_e type_op;
     unary_e type_unary;
     binary_e type_binary;
     reduce_e type_reduce;

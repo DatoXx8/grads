@@ -93,7 +93,7 @@ void buffer_free(buffer_t *buffer) {
 void op_print(const op_t *op, const int padding, const int offset, const char *name) {
     if(strncmp(name, "", 1) != 0) { printf("%*s%s\n", offset, "", name); }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
-    switch(op->type) {
+    switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
@@ -351,7 +351,7 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
     }
 }
 void op_realize(const op_t *op) {
-    switch(op->type) {
+    switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
@@ -969,7 +969,7 @@ void tensor_free(tensor_t *tensor) {
 void tensor_unary_add(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_add,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -980,7 +980,7 @@ void tensor_unary_add(tensor_t *tensor, const double value) {
 void tensor_unary_subtract(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_subtract,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -991,7 +991,7 @@ void tensor_unary_subtract(tensor_t *tensor, const double value) {
 void tensor_unary_multiply(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_multiply,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -1003,7 +1003,7 @@ void tensor_unary_divide(tensor_t *tensor, const double value) {
     assert(tensor);
     assert(value != 0);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_divide,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -1014,7 +1014,7 @@ void tensor_unary_divide(tensor_t *tensor, const double value) {
 void tensor_unary_set(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_set,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -1025,7 +1025,7 @@ void tensor_unary_set(tensor_t *tensor, const double value) {
 void tensor_unary_exp(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_exp,
         .buffer_out = *tensor->buffer,
     };
@@ -1035,7 +1035,7 @@ void tensor_unary_exp(tensor_t *tensor) {
 void tensor_unary_log(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_log,
         .buffer_out = *tensor->buffer,
     };
@@ -1045,7 +1045,7 @@ void tensor_unary_log(tensor_t *tensor) {
 void tensor_unary_square(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_square,
         .buffer_out = *tensor->buffer,
     };
@@ -1055,7 +1055,7 @@ void tensor_unary_square(tensor_t *tensor) {
 void tensor_unary_sqrt(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_sqrt,
         .buffer_out = *tensor->buffer,
     };
@@ -1065,7 +1065,7 @@ void tensor_unary_sqrt(tensor_t *tensor) {
 void tensor_unary_reciprocal(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_reciprocal,
         .buffer_out = *tensor->buffer,
     };
@@ -1075,7 +1075,7 @@ void tensor_unary_reciprocal(tensor_t *tensor) {
 void tensor_unary_random(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_random,
         .buffer_out = *tensor->buffer,
     };
@@ -1085,7 +1085,7 @@ void tensor_unary_random(tensor_t *tensor) {
 void tensor_unary_tanh(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_tanh,
         .buffer_out = *tensor->buffer,
     };
@@ -1095,7 +1095,7 @@ void tensor_unary_tanh(tensor_t *tensor) {
 void tensor_unary_max(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_max,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -1106,7 +1106,7 @@ void tensor_unary_max(tensor_t *tensor, const double value) {
 void tensor_unary_min(tensor_t *tensor, const double value) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_min,
         .var_unary = value,
         .buffer_out = *tensor->buffer,
@@ -1117,7 +1117,7 @@ void tensor_unary_min(tensor_t *tensor, const double value) {
 void tensor_unary_absolute(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_absolute,
         .buffer_out = *tensor->buffer,
     };
@@ -1127,7 +1127,7 @@ void tensor_unary_absolute(tensor_t *tensor) {
 void tensor_unary_sign(tensor_t *tensor) {
     assert(tensor);
     op_t new = {
-        .type = op_unary,
+        .type_op = op_unary,
         .type_unary = unary_sign,
         .buffer_out = *tensor->buffer,
     };
@@ -1139,7 +1139,7 @@ void tensor_binary_add(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_add,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1152,7 +1152,7 @@ void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_subtract,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1165,7 +1165,7 @@ void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_multiply,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1178,7 +1178,7 @@ void tensor_binary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_divide,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1191,7 +1191,7 @@ void tensor_binary_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_max,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1204,7 +1204,7 @@ void tensor_binary_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_min,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1217,7 +1217,7 @@ void tensor_binary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_copy,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1230,7 +1230,7 @@ void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_add_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1243,7 +1243,7 @@ void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_subtract_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1256,7 +1256,7 @@ void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_multiply_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1269,7 +1269,7 @@ void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_divide_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1282,7 +1282,7 @@ void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_max_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1295,7 +1295,7 @@ void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_min_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1308,7 +1308,7 @@ void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_binary,
+        .type_op = op_binary,
         .type_binary = binary_copy_like,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1322,7 +1322,7 @@ void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_reduce,
+        .type_op = op_reduce,
         .type_reduce = reduce_sum,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1335,7 +1335,7 @@ void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_reduce,
+        .type_op = op_reduce,
         .type_reduce = reduce_avg,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1348,7 +1348,7 @@ void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_reduce,
+        .type_op = op_reduce,
         .type_reduce = reduce_min,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,
@@ -1361,7 +1361,7 @@ void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     assert(out);
     assert(in);
     op_t new = {
-        .type = op_reduce,
+        .type_op = op_reduce,
         .type_reduce = reduce_max,
         .buffer_out = *out->buffer,
         .buffer_in = *in->buffer,

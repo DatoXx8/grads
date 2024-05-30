@@ -5,9 +5,7 @@
 #include "cl.h"
 
 /*
- * A poem about OpenCL
- *
- *
+ * Nightmares - A poem about OpenCL
  *
  * In the dim lit room of coder’s plight,
  * OpenCL brings endless night.
@@ -23,11 +21,6 @@
  * Stories of torment, quietly told.
  * In this maze, hope’s thread is thin,
  * OpenCL, where battles begin.
- *
- *
- *
- * FUCK THIS LANGUAGE!!!!!!! PRINTF FUCKING FIXES ERRORS????????? WHATTTT ????????
- * THERE ARE MEMORY LEAKSS IN THE LANGUAGE??? THIS IS NVIDIA!! THEY ARE WORTH SO MUCH MONEY!!! WHAT IS THAT?????
  */
 
 cl_device_id cl_device_get(void) {
