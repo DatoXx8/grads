@@ -478,7 +478,8 @@ static void compile_append_header(char **source, char **source_curr, int64_t *so
     }
 }
 static void compile_append_footer(char **source, char **source_curr, int64_t *source_cap, const op_t *op,
-                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t loop_idx, double avg_divisor) {
+                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t loop_idx,
+                                  double avg_divisor) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -491,8 +492,9 @@ static void compile_append_footer(char **source, char **source_curr, int64_t *so
                 break;
             }
             case reduce_avg: {
-                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]/=%lf;\n", op->buffer_out.name,
-                                         op->buffer_out.name, compile_loop_idx, op_idx, 0LU, loop_idx, avg_divisor);
+                *source_curr +=
+                    snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]/=%lf;\n", op->buffer_out.name,
+                             op->buffer_out.name, compile_loop_idx, op_idx, 0LU, loop_idx, avg_divisor);
                 break;
             }
             case reduce_max: {
@@ -642,7 +644,8 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
                     break;
                 }
                 case binary_divide: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_max: {
@@ -674,7 +677,8 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
                     break;
                 }
                 case binary_divide_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_max_like: {
@@ -875,8 +879,11 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
                     break;
                 }
                 case binary_divide: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/%s[%s_%lu_%lu_%lu_%lu+%lu])",
+                    // op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx,
+                    //                        offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_max: {
@@ -907,8 +914,7 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
                     break;
                 }
                 case binary_divide_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_max_like: {
@@ -1013,7 +1019,8 @@ static void compile_append_single_op(char **source, char **source_curr, int64_t 
             }
         }
     }
-    compile_append_footer(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx, a_max * z_max * y_max * x_max);
+    compile_append_footer(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx,
+                          a_max * z_max * y_max * x_max);
 
     free(temp);
 }
