@@ -31,11 +31,11 @@ typedef struct {
 typedef struct {
     uint64_t optim;
     int64_t loop_num;
-    int64_t loop_len;
+    int64_t op_num;
     op_t **op;
     dim_info_t **dim_info;
-    int64_t *op_num;
-    int64_t *op_cap;
+    int64_t *inline_num;
+    int64_t *inline_cap;
 } compile_loop_t;
 
 #define KERNEL_NAME "k"
@@ -57,8 +57,9 @@ typedef struct {
 } program_t;
 
 /* Could also be called `program_alloc()` */
-extern void program_compile(program_t *program, linearized_t *linearized, cl_device_id *device_id, cl_context *context,
-                            cl_command_queue *command_queue);
+extern void program_compile(program_t *program, const linearized_t *linearized, const cl_device_id *device_id,
+                            const cl_context *context, const cl_command_queue *command_queue, const int64_t global_size,
+                            const int64_t local_size);
 extern void program_free(program_t *program);
 
 #endif /* COMPILE_H_ */

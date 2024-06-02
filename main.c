@@ -11,109 +11,51 @@
 #include "utils.h"
 
 /*
- *  TODO: Fix the tress changing the ops. This is a really weird buggg and might require a different data structure
- *  TODO: Rewrite the compiler simulator to be determistic
+ *  TODO: Rewrite compiler from the ground up. That thing horrible
  *  TODO: Support `local_size > 1` (Maybe do work-groups and work-items as parameters for `program_compile()` so that
  * `global_size` is guaranteed to be a multiple of `local_size`)
  *  TODO: Add multi-thread c runtime
- *  TODO: Refactor op-trees to deep copy the op tree to make sure flipping tensors would work (think of the linearizer
- * simulator debacle and why that broke).
  *  TODO: Fix inlining ops that already have stuff inlined. (Might not be necessary when you think about it.)
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
  *  TODO: FLOP/S estimator.
- *  TODO: Support SYCL, that seems pretty neat.
  *  TODO: Update README with installation and usage guides.
- *
- *  TODO: Rewrite this to use Zig instead of C. Maybe after I writte Compyle in Zig.
- *
- *  Idea for chess engine: Train solely on chess960 self play.
- *                         Bunch of different heads with a core net.
- *
- *                         Piece placing chess is very interesting.
- *
- *
- * Also wanna make a go engine.
+ *  TODO: Investigate OpenCL apparent memory leaks. Valgrind does not find memory leaks in my code but still the memory
+ * usage is *super* high and seems to be rising. Also investige the OpenCL compiler being stupidly slow
+ *  TODO: Make OpenCL opt-out with a -U<macro> flag (Unsure about this one cuz it makes the code very ugly)
+ *  TODO: Train solely on chess960 self play. Bunch of different heads with a core net. Piece placing chess is very
+ * interesting.
+ *  TODO: Make a go engine.
  */
 
-void usage_print(const char *program_name) {
-    assert(program_name);
-    printf("USAGE:%s \n", program_name);
-    printf("    -cl   for using OpenCL\n");
-    printf("    -c    for using C\n");
+void usage_print(const char *program) {
+    assert(program);
+    printf("USAGE: %s [runtime]\n"
+           "    -cl   for using OpenCL\n"
+           "    -c    for using C\n",
+           program);
 }
 
 int main(int argc, const char **argv) {
     // const uint32_t RNG = time(NULL);
-    // printf("INFO: RNG Seed %u\n", RNG);
-    // srand(RNG);
+    const uint32_t RNG = 1716482642;
+    printf("INFO: RNG Seed %u\n", RNG);
+    srand(RNG);
     compile_e compile_type;
     if(argc != 2) {
         usage_print(argv[0]);
         ERROR("Program expects an argument\n");
     }
-    if(!strncmp(argv[1], "-cl", 4)) {
+    if(!strncmp(argv[1], "-cl", 3)) {
         printf("INFO: Using OpenCL\n");
         compile_type = compile_cl;
-    } else if(!strncmp(argv[1], "-c", 3)) {
+    } else if(!strncmp(argv[1], "-c", 2)) {
         printf("INFO: Not using OpenCL\n");
         compile_type = compile_none;
     } else {
         usage_print(argv[0]);
         ERROR("Invaling argument\n");
     }
-    INIT_TIMER();
-
-    START_TIME();
-
-    const double LEARNING = 1e-2;
-    const int64_t LAYERS = 2;
-    const int64_t INPUT_Z = 2;
-    const int64_t INPUT_Y = 4;
-    const int64_t INPUT_X = INPUT_Y;
-    layerconfig_t *layerconfig = calloc(LAYERS, sizeof(layerconfig_t));
-    assert(layerconfig);
-    layerconfig_t l0 = {
-        .layer_type = layer_input,
-        .input_z = INPUT_Z,
-        .input_y = INPUT_Y,
-        .input_x = INPUT_X,
-    };
-    // layerconfig_t l1 = {
-    //     .layer_type = layer_convolution,
-    //     .norm_type = norm_none,
-    //     .convolution_filters = 2,
-    //     .convolution_kernel_size = 3,
-    //     .convolution_kernel_stride = 1,
-    //     .convolution_kernel_padding = 1,
-    //     .activation_function = activation_none,
-    // };
-    // layerconfig_t l2 = {
-    //     .layer_type = layer_split,
-    //     .norm_type = norm_none,
-    //     .split_filters = 2,
-    //     .activation_function = activation_none,
-    // };
-    layerconfig_t l3 = {
-        .layer_type = layer_reduce,
-        .reduce_type = layer_reduce_max,
-        .reduce_kernel_size = 2,
-        .reduce_kernel_stride = 1,
-    };
-    // layerconfig_t l4 = {
-    //     .layer_type = layer_dense,
-    //     .norm_type = norm_none,
-    //     .dense_output_size = 3,
-    //     .activation_function = activation_none,
-    // };
-    layerconfig[0] = l0;
-    layerconfig[1] = l3;
-    // layerconfig[1] = l1;
-    // layerconfig[2] = l2;
-    // layerconfig[3] = l3;
-    // layerconfig[4] = l4;
-
-    const int64_t SAMPLES = 1;
     cl_device_id device_id;
     cl_context context;
     if(compile_type == compile_cl) {
@@ -123,6 +65,57 @@ int main(int argc, const char **argv) {
     } else {
         context = NULL;
     }
+
+    INIT_TIMER();
+    START_TIME();
+
+    const int64_t SAMPLES = 1;
+    const double LEARNING = 1e-2;
+    const int64_t LAYERS = 2;
+    const int64_t INPUT_Z = 2;
+    const int64_t INPUT_Y = 3;
+    const int64_t INPUT_X = INPUT_Y;
+    layerconfig_t *layerconfig = calloc(LAYERS, sizeof(layerconfig_t));
+    assert(layerconfig);
+    layerconfig_t l0 = {
+        .layer_type = layer_input,
+        .input_z = INPUT_Z,
+        .input_y = INPUT_Y,
+        .input_x = INPUT_X,
+    };
+    layerconfig_t l1 = {
+        .layer_type = layer_convolution,
+        .norm_type = norm_none,
+        .convolution_filters = 2,
+        .convolution_kernel_size = 2,
+        .convolution_kernel_stride = 1,
+        .convolution_kernel_padding = 0,
+        .activation_function = activation_none,
+    };
+    layerconfig_t l2 = {
+        .layer_type = layer_split,
+        .norm_type = norm_none,
+        .split_filters = 2,
+        .activation_function = activation_none,
+    };
+    layerconfig_t l3 = {
+        .layer_type = layer_reduce,
+        .reduce_type = layer_reduce_max,
+        .reduce_kernel_size = 2,
+        .reduce_kernel_stride = 1,
+    };
+    layerconfig_t l4 = {
+        .layer_type = layer_dense,
+        .norm_type = norm_none,
+        .dense_output_size = 3,
+        .activation_function = activation_none,
+    };
+    layerconfig[0] = l0;
+    layerconfig[1] = l4;
+    // layerconfig[1] = l1;
+    // layerconfig[2] = l2;
+    // layerconfig[3] = l3;
+    // layerconfig[4] = l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
@@ -138,7 +131,6 @@ int main(int argc, const char **argv) {
     neuralnet_random(&neuralnet);
 
     neuralnet_forward(&neuralnet, &input);
-    LINEARIZED_PRINT_(neuralnet.forward);
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
     TENSOR_PRINT(input);
 
@@ -148,7 +140,7 @@ int main(int argc, const char **argv) {
     free(layerconfig);
 
     STOP_TIME();
-    PRINT_TIME(main);
+    PRINT_TIME("main");
 
     return 0;
 }

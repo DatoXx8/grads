@@ -4,6 +4,25 @@
 
 #include "cl.h"
 
+/*
+ * Nightmares - A poem about OpenCL
+ *
+ * In the dim lit room of coder’s plight,
+ * OpenCL brings endless night.
+ * Syntax snarls, errors rage,
+ * Trapping minds in frustration’s cage.
+ *
+ * Segfaults haunt the silent code,
+ * Memory leaks, burdens bestowed.
+ * Threads in chaos, race in flight,
+ * Cryptic messages, vague as night.
+ *
+ * Compiler's whispers, terse and cold,
+ * Stories of torment, quietly told.
+ * In this maze, hope’s thread is thin,
+ * OpenCL, where battles begin.
+ */
+
 cl_device_id cl_device_get(void) {
     cl_platform_id platform;
     cl_device_id dev;
@@ -51,9 +70,8 @@ void program_run(program_t *program) {
     for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
         clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem), &program->arg_mem[arg_idx]);
     }
-
+    clFinish(*program->cl_command_queue);
     clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL, (size_t *) &program->global_size,
                            (size_t *) &program->local_size, 0, NULL, NULL);
-
     clFinish(*program->cl_command_queue);
 }

@@ -1,6 +1,7 @@
 #include <CL/cl.h>
 #include <assert.h>
 #include <math.h>
+#include <opencl-c-base.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,9 +153,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                         tensor_unary_set(&tensor2[tensor_out], random_value);
                         break;
                     }
-                    case unary_random: {
-                    }
                     case unary_sign: {
+                    }
+                    case unary_random: {
                     }
                     case unary_tanh: {
                         tensor_unary_tanh(&tensor1[tensor_out]);
@@ -318,15 +319,23 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                 tensor_move_offset(&tensor2[tensor_in], a_off, z_off, y_off, x_off);
                 switch(type_reduce) {
                     case reduce_sum: {
+                        tensor_reduce_sum(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_sum(&tensor2[tensor_out], &tensor2[tensor_in]);
                         break;
                     }
                     case reduce_avg: {
+                        tensor_reduce_avg(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_avg(&tensor2[tensor_out], &tensor2[tensor_in]);
                         break;
                     }
                     case reduce_max: {
+                        tensor_reduce_max(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_max(&tensor2[tensor_out], &tensor2[tensor_in]);
                         break;
                     }
                     case reduce_min: {
+                        tensor_reduce_min(&tensor1[tensor_out], &tensor1[tensor_in]);
+                        tensor_reduce_min(&tensor2[tensor_out], &tensor2[tensor_in]);
                         break;
                     }
                 }
@@ -342,7 +351,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
 
     program_t program = {0};
 
-    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue);
+    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue, 9, 1);
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -362,7 +371,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
         if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
             margin_of_error)) {
-            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx]) - 1 >
+            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
                 margin_of_error)) {
                 printf("%lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
                        tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
@@ -384,8 +393,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     int err;
-    // const uint32_t seed = time(NULL);
-    const uint32_t seed = 1715950666;
+    const uint32_t seed = time(NULL);
     printf("RNG Seed %u\n", seed);
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);
