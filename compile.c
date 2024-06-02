@@ -441,6 +441,70 @@ static void compile_append_op_index(char **source, char **source_curr, int64_t *
         compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
     }
 }
+static void compile_append_header(char **source, char **source_curr, int64_t *source_cap, const op_t *op,
+                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t loop_idx) {
+    assert(source);
+    assert(*source);
+    assert(source_curr);
+    assert(*source_curr);
+    assert(source_cap);
+    assert(*source_cap >= INITIAL_SOURCE_SIZE);
+    if(op->type_op == op_reduce) {
+        switch(op->type_reduce) {
+            case reduce_sum: {
+                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]=0;\n", op->buffer_out.name,
+                                         op->buffer_out.name, compile_loop_idx, op_idx, 0LU, loop_idx);
+                break;
+            }
+            case reduce_avg: {
+                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]=0;\n", op->buffer_out.name,
+                                         op->buffer_out.name, compile_loop_idx, op_idx, 0LU, loop_idx);
+                break;
+            }
+            case reduce_max: {
+                *source_curr +=
+                    snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%d_%lu]=-INFINITY;\n", op->buffer_out.name,
+                             op->buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx);
+                break;
+            }
+            case reduce_min: {
+                *source_curr +=
+                    snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%d_%lu]=INFINITY;\n", op->buffer_out.name,
+                             op->buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx);
+                break;
+            }
+        }
+        compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
+    }
+}
+static void compile_append_footer(char **source, char **source_curr, int64_t *source_cap, const op_t *op,
+                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t loop_idx, double avg_divisor) {
+    assert(source);
+    assert(*source);
+    assert(source_curr);
+    assert(*source_curr);
+    assert(source_cap);
+    assert(*source_cap >= INITIAL_SOURCE_SIZE);
+    if(op->type_op == op_reduce) {
+        switch(op->type_reduce) {
+            case reduce_sum: {
+                break;
+            }
+            case reduce_avg: {
+                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]/=%lf;\n", op->buffer_out.name,
+                                         op->buffer_out.name, compile_loop_idx, op_idx, 0LU, loop_idx, avg_divisor);
+                break;
+            }
+            case reduce_max: {
+                break;
+            }
+            case reduce_min: {
+                break;
+            }
+        }
+        compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
+    }
+}
 static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
                                   const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
                                   const int64_t loop_idx, const int64_t offset) {
@@ -828,23 +892,23 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
                     break;
                 }
                 case binary_add_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_subtract_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_multiply_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_divide_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_max_like: {
@@ -865,11 +929,13 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
         case op_reduce: {
             switch(op->type_reduce) {
                 case reduce_sum: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
                     break;
                 }
                 case reduce_avg: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
                     break;
                 }
                 case reduce_max: {
@@ -913,6 +979,7 @@ static void compile_append_single_op(char **source, char **source_curr, int64_t 
     int64_t z_max = op->type_op == op_reduce ? op->buffer_in.sze_z : op->buffer_out.sze_z;
     int64_t y_max = op->type_op == op_reduce ? op->buffer_in.sze_y : op->buffer_out.sze_y;
     int64_t x_max = op->type_op == op_reduce ? op->buffer_in.sze_x : op->buffer_out.sze_x;
+    compile_append_header(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx);
     for(int64_t a_idx = 0; a_idx < a_max; a_idx++) {
         for(int64_t z_idx = 0; z_idx < z_max; z_idx++) {
             for(int64_t y_idx = 0; y_idx < y_max; y_idx++) {
@@ -946,6 +1013,7 @@ static void compile_append_single_op(char **source, char **source_curr, int64_t 
             }
         }
     }
+    compile_append_footer(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx, a_max * z_max * y_max * x_max);
 
     free(temp);
 }
@@ -1015,7 +1083,7 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     program->source = source;
-    printf("%s\n", program->source);
+    printf("%s\n", source);
     program->source_cap = source_cap;
     program->global_size = global_size;
     program->local_size = local_size;
