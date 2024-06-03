@@ -632,15 +632,18 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
         case op_binary: {
             switch(op->type_binary) {
                 case binary_add: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_subtract: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_multiply: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_divide: {
@@ -665,15 +668,18 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
                     break;
                 }
                 case binary_add_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_subtract_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_multiply_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
                     break;
                 }
                 case binary_divide_like: {
@@ -864,18 +870,21 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
         case op_binary: {
             switch(op->type_binary) {
                 case binary_add: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_subtract: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_multiply: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_divide: {
@@ -899,18 +908,21 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
                     break;
                 }
                 case binary_add_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_subtract_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_multiply_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    // *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*%s[%s_%lu_%lu_%lu_%lu+%lu])", op->buffer_out.name,
+                    //                        op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
                     break;
                 }
                 case binary_divide_like: {
@@ -1077,12 +1089,19 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
                                          compile_loop[compile_loop_idx].dim_info[op_idx],
                                          compile_loop[compile_loop_idx].op_num, compile_loop_idx, op_idx, loop_idx);
             }
-            if(loop_idx != loops_per_kernel - 1) {
-                source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
-                compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            } else if(loop_idx == loops_per_kernel - 1 && loops_left != 0) {
-                /* I know the first condition is redundant but it is better to make it explicit */
+            // if(loop_idx != loops_per_kernel - 1) {
+            //     source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
+            //     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
+            // } else if(loop_idx == loops_per_kernel - 1 && loops_left != 0) {
+            //     /* I know the first condition is redundant but it is better to make it explicit */
+            //     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
+            //     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
+            // }
+            if(loop_idx == loops_per_kernel - 1 && loops_left) {
                 source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
+                compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
+            } else if(loop_idx != loops_per_kernel - 1) {
+                source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
                 compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
             }
         }
@@ -1090,7 +1109,6 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     program->source = source;
-    printf("%s\n", source);
     program->source_cap = source_cap;
     program->global_size = global_size;
     program->local_size = local_size;
