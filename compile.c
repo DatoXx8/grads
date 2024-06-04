@@ -587,7 +587,9 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
                     break;
                 }
                 case unary_square: {
-                    TODO();
+                    /* TODO: Do this with `x*x` for less compilated x instead of `pow(x,2)` cuz that's prolly faster
+                     * than a universal `pow` algorithm */
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "pow(");
                     break;
                 }
                 case unary_sqrt: {
@@ -784,7 +786,7 @@ static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_ca
 }
 static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
                                    const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
-                                   const int64_t loop_idx, const int64_t offset) {
+                                   const int64_t loop_idx, const int64_t offset, const char *temp_assign) {
     assert(temp);
     assert(*temp);
     assert(temp_curr);
@@ -825,7 +827,9 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
                     break;
                 }
                 case unary_square: {
-                    TODO();
+                    /* TODO: Do this with `x*x` for less compilated x instead of `pow(x,2)` cuz that's prolly faster
+                     * than a universal `pow` algorithm */
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ",2)");
                     break;
                 }
                 case unary_sqrt: {
@@ -932,6 +936,7 @@ static void compile_append_single_op(char **source, char **source_curr, int64_t 
                     uint64_t offset = INDEX(op->buffer_out, a_idx, z_idx, y_idx, x_idx);
                     compile_append_assign(&temp, &temp_curr, &temp_cap, &op[0], compile_loop_idx, op_idx, 0, loop_idx,
                                           offset);
+                    char *temp_assign = temp_curr;
 
                     for(int64_t inline_op_idx = 0; inline_op_idx < op_num; inline_op_idx++) {
                         offset = INDEX(op->buffer_out, a_idx, z_idx, y_idx, x_idx);
@@ -947,7 +952,7 @@ static void compile_append_single_op(char **source, char **source_curr, int64_t 
                     for(int64_t inline_op_idx = op_num - 1; inline_op_idx >= 0; inline_op_idx--) {
                         offset = INDEX(op->buffer_out, a_idx, z_idx, y_idx, x_idx);
                         compile_append_postfix(&temp, &temp_curr, &temp_cap, &op[inline_op_idx], compile_loop_idx,
-                                               op_idx, inline_op_idx, loop_idx, offset);
+                                               op_idx, inline_op_idx, loop_idx, offset, temp_assign);
                     }
 
                     *source_curr += snprintf(*source_curr, temp_cap, "%s;\n", temp);
@@ -1016,14 +1021,6 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
                                          compile_loop[compile_loop_idx].dim_info[op_idx],
                                          compile_loop[compile_loop_idx].op_num, compile_loop_idx, op_idx, loop_idx);
             }
-            // if(loop_idx != loops_per_kernel - 1) {
-            //     source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
-            //     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            // } else if(loop_idx == loops_per_kernel - 1 && loops_left != 0) {
-            //     /* I know the first condition is redundant but it is better to make it explicit */
-            //     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
-            //     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            // }
             if(loop_idx == loops_per_kernel - 1 && loops_left) {
                 source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
                 compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
@@ -1031,6 +1028,7 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
                 source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
                 compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
             }
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, "barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);\n");
         }
     }
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
