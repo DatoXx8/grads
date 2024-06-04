@@ -303,9 +303,11 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
     assert(input);
     assert(dense);
     assert(output);
+    int64_t input_a = input->buffer->inh_a;
     int64_t input_z = input->buffer->inh_z;
     int64_t input_y = input->buffer->inh_y;
     int64_t input_x = input->buffer->inh_x;
+    int64_t output_a = output->buffer->inh_a;
     int64_t output_z = output->buffer->inh_z;
     int64_t output_y = output->buffer->inh_y;
     int64_t output_x = output->buffer->inh_x;
@@ -322,9 +324,9 @@ void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output) {
         tensor_reduce_sum(output, dense->_input_multiply_temp);
     }
 
-    tensor_move_reshape(input, 1, input_z, input_y, input_x);
+    tensor_move_reshape(input, input_a, input_z, input_y, input_x);
     tensor_move_offset(input, 0, 0, 0, 0);
-    tensor_move_resize(output, 1, output_z, output_y, output_x);
+    tensor_move_resize(output, output_a, output_z, output_y, output_x);
     tensor_move_offset(output, 0, 0, 0, 0);
     tensor_move_resize(dense->weights, 1, 1, dense->_input_size, dense->output_size);
     tensor_move_offset(dense->weights, 0, 0, 0, 0);
@@ -505,9 +507,10 @@ void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *
                 tensor_move_offset(output, 0, filter, output_y_i, output_x_i);
                 tensor_move_offset(convolution->_padded_input, 0, 0, input_y_i, input_x_i);
                 tensor_binary_copy(convolution->_kernel_temp, convolution->_padded_input);
-                // tensor_binary_multiply(convolution->_kernel_temp, convolution->weights);
-                tensor_reduce_max(output, convolution->_kernel_temp);
-                // tensor_binary_add(output, convolution->biases);
+                // tensor_reduce_max(output, convolution->_kernel_temp);
+                tensor_binary_multiply(convolution->_kernel_temp, convolution->weights);
+                tensor_reduce_sum(output, convolution->_kernel_temp);
+                tensor_binary_add(output, convolution->biases);
                 output_x_i++;
             }
             output_y_i++;
@@ -1431,7 +1434,7 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
     }
     if(neuralnet.compile_type == compile_cl) {
         const int64_t LOCAL_SIZE = 1;
-        const int64_t GLOBAL_SIZE = LOCAL_SIZE * 9;
+        const int64_t GLOBAL_SIZE = LOCAL_SIZE * 1;
         program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
                         LOCAL_SIZE);
         program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE,
