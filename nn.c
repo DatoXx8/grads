@@ -1130,7 +1130,6 @@ void layer_free(layer_t *layer) {
             free(layer->activation);
             tensor_free(layer->activation_g);
             free(layer->activation_g);
-            // reduce_free(layer->reduce);
             free(layer->reduce);
             break;
         }
@@ -1311,9 +1310,6 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
                 ERROR("Input layer at layer %lu\n", layer);
             }
         }
-    }
-    /* Has to be done like this to ensure that each activation tensor gets resized back to it's needed shape */
-    for(int64_t layer = neuralnet.layers - 1; layer >= 0; layer--) {
         linearized_append(neuralnet.forward, neuralnet.layer[layer].activation->linearized);
     }
     for(int64_t layer = 1; layer < neuralnet.layers; layer++) {
@@ -1433,7 +1429,7 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
         }
     }
     if(neuralnet.compile_type == compile_cl) {
-        const int64_t LOCAL_SIZE = 1;
+        const int64_t LOCAL_SIZE = 100;
         const int64_t GLOBAL_SIZE = LOCAL_SIZE * 1;
         program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
                         LOCAL_SIZE);
