@@ -373,14 +373,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
             margin_of_error)) {
             if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
                 margin_of_error)) {
-                printf("%lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
+                ERROR("Invalid values %lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
                        tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
                        tensor2[tensor_out].buffer->name);
-                ERROR("Invalid values\n");
             }
-            printf("%lf %lf in tensors %lu %s and %s. Not too big a diff tho.\n",
-                   tensor1[tensor_out].buffer->val[val_idx], tensor2[tensor_out].buffer->val[val_idx], tensor_out,
-                   tensor1[tensor_out].buffer->name, tensor2[tensor_out].buffer->name);
         }
     }
 
@@ -389,7 +385,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
 
 int main(int argc, char **argv) {
     if(argc != 4) {
-        printf("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
+        ERROR("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
         return 1;
     }
     int err;
@@ -412,8 +408,8 @@ int main(int argc, char **argv) {
     double *random_values = calloc(DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE, sizeof(double));
     assert(random_values);
     for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
-        // random_values[val_idx] = ((double) rand() / RAND_MAX) * 2 - 1;
-        random_values[val_idx] = 1;
+        random_values[val_idx] = ((double) rand() / RAND_MAX) * 2 - 1;
+        // random_values[val_idx] = 1;
     }
     tensor_t *tensor1 = calloc(tensor_num, sizeof(tensor_t));
     tensor_t *tensor2 = calloc(tensor_num, sizeof(tensor_t));
