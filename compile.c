@@ -169,6 +169,7 @@ static void compile_loop_optimize(compile_loop_t *compile) {
     assert(inlined);
     assert(inlined_dim_info);
 
+    int64_t changed = 0;
     for(int64_t i = 0; i < compile->op_num; i++) {
         if(compile->op[i][0].type_op == op_binary && compile->op[i][0].type_binary == binary_copy) {
             inline_num = 1;
@@ -195,6 +196,7 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                     }
                 } else if(!strncmp(compile->op[i][0].buffer_out.name, compile->op[i + j][0].buffer_in.name,
                                    BUFFER_NAME_SIZE)) {
+                    changed = 1;
                     compile->inline_num[i] = compile->inline_cap[i];
                     compile->inline_num[i + j] += inline_num;
                     if(compile->inline_num[i + j] >= compile->inline_cap[i + j]) {
@@ -209,29 +211,65 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                         compile->op[i + j][k + 1] = inlined[k];
                         compile->dim_info[i + j][k + 1] = inlined_dim_info[k];
                     }
+                } else {
+                    // compile->inline_num[i] = compile->inline_cap[i];
+                    // compile->inline_num[i + j] += inline_num;
+                    // if(compile->inline_num[i + j] >= compile->inline_cap[i + j]) {
+                    //     compile->inline_cap[i + j] *= 2;
+                    //     compile->op[i + j] = reallocarray(compile->op[i + j], compile->inline_cap[i + j],
+                    //     sizeof(op_t)); assert(compile->op[i + j]); compile->dim_info[i + j] =
+                    //         reallocarray(compile->dim_info[i + j], compile->inline_cap[i + j], sizeof(dim_info_t));
+                    //     assert(compile->dim_info[i + j]);
+                    // }
+                    // for(int64_t k = 0; k < inline_num; k++) {
+                    //     compile->op[i + j][k + 1] = inlined[k];
+                    //     compile->dim_info[i + j][k + 1] = inlined_dim_info[k];
+                    // }
                 }
             }
         }
     }
     free(inlined);
     free(inlined_dim_info);
-    int64_t count = 0;
-    int64_t new_len = compile->op_num;
-    for(int64_t i = 0; i < compile->op_num; i++) {
-        if(compile->inline_num[i] == compile->inline_cap[i]) {
-            free(compile->op[i]);
-            free(compile->dim_info[i]);
-            new_len--;
-        } else {
-            compile->inline_cap[count] = compile->inline_cap[i];
-            compile->inline_num[count] = compile->inline_num[i];
-            compile->op[count] = compile->op[i];
-            compile->dim_info[count] = compile->dim_info[i];
-            count++;
+    if(changed) {
+        int64_t count = 0;
+        int64_t new_len = compile->op_num;
+        for(int64_t i = 0; i < compile->op_num; i++) {
+            if(compile->inline_num[i] == compile->inline_cap[i]) {
+                free(compile->op[i]);
+                free(compile->dim_info[i]);
+                new_len--;
+            } else {
+                compile->inline_cap[count] = compile->inline_cap[i];
+                compile->inline_num[count] = compile->inline_num[i];
+                compile->op[count] = compile->op[i];
+                compile->dim_info[count] = compile->dim_info[i];
+                count++;
+            }
+        }
+        compile->op_num = new_len;
+    } else {
+        for(int64_t i = 0; i < compile->op_num; i++) {
+            if(compile->inline_num[i] == compile->inline_cap[i]) { compile->inline_num[i] = 1; }
         }
     }
-    compile->op_num = new_len;
     /* Fuse */
+}
+static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
+    assert(compile);
+    if(strncmp(name, "", 1) != 0) {
+        printf("%*s%s\n", offset, "", name);
+    } else {
+        printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
+    }
+    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+        printf("%*s", offset + padding, "");
+        op_print(&compile->op[op_idx][0], 4, 0, "");
+        for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+            printf("%*s", offset + 2 * padding, "");
+            op_print(&compile->op[op_idx][inline_idx], 4, 0, "");
+        }
+    }
 }
 static void compile_loop_free(compile_loop_t *compile) {
     assert(compile);
@@ -291,7 +329,10 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
             compile.dim_info[i][0].off_in[j] = simple->dim_info[i].off_in[j];
         }
     }
+    compile_loop_print(&compile, 4, 0, "");
     compile_loop_optimize(&compile);
+    compile_loop_print(&compile, 4, 0, "");
+    printf("\n\n");
     return compile;
 }
 const int64_t INITIAL_SOURCE_SIZE = 12500;
