@@ -23,13 +23,7 @@ typedef struct {
     op_t *op;
     dim_info_t *dim_info;
 } simple_loop_t;
-/* TODO: Maybe do this in an enum */
-#define OPTIMIZE_NONE (0UL)
-#define OPTIMIZE_INLINE (1UL)
-#define OPTIMIZE_FUSE (1UL << 1)
-#define OPTIMIZE_ALL (OPTIMIZE_INLINE | OPTIMIZE_FUSE)
 typedef struct {
-    uint64_t optim;
     int64_t loop_num;
     int64_t op_num;
     op_t **op;
