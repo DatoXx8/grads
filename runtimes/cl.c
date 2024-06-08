@@ -44,6 +44,7 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
      * fashion such that this builds faster */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if(err < 0) {
+        printf("%s\n", source);
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
         program_log = calloc(log_size + 1, sizeof(char));
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size + 1, program_log, NULL);
