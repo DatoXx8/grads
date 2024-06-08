@@ -316,10 +316,10 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
     assert(arg_name);
     cl_mem *arg_mem = calloc(INITIAL_CAP, sizeof(cl_mem));
     assert(arg_mem);
-    /* TODO: This is prolly big enough to extract it to a seperate function */
     for(int64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-        int64_t found;
         for(int64_t op_idx = 0; op_idx < compile[loop_idx].op_num; op_idx++) {
+            int64_t found;
+            /* Out */
             found = 0;
             for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
                 if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE) == 0) {
@@ -328,18 +328,20 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                 }
             }
             if(found == 0) {
-                arg_num++;
                 if(arg_num == arg_cap) {
                     arg_cap *= 2;
                     arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
                     assert(arg_name);
-                    arg_mem = reallocarray(arg_mem, arg_cap, sizeof(char *));
+                    arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
                     assert(arg_mem);
                 }
-                arg_name[arg_num - 1] = strndup(compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE + 1);
-                arg_mem[arg_num - 1] = compile[loop_idx].op[op_idx][0].buffer_out.val_cl;
+                arg_name[arg_num] = strndup(compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE + 1);
+                assert(arg_name[arg_num]);
+                arg_mem[arg_num] = compile[loop_idx].op[op_idx][0].buffer_out.val_cl;
+                arg_num++;
             }
             if(compile[loop_idx].op[op_idx][0].type_op != op_unary) {
+                /* In */
                 found = 0;
                 for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
                     if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE) ==
@@ -349,45 +351,46 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                     }
                 }
                 if(found == 0) {
-                    arg_num++;
                     if(arg_num == arg_cap) {
                         arg_cap *= 2;
                         arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
                         assert(arg_name);
-                        arg_mem = reallocarray(arg_mem, arg_cap, sizeof(char *));
+                        arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
                         assert(arg_mem);
                     }
-                    arg_name[arg_num - 1] =
-                        strndup(compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE + 1);
-                    assert(arg_name[arg_num - 1]);
-                    arg_mem[arg_num - 1] = compile[loop_idx].op[op_idx][0].buffer_in.val_cl;
+                    arg_name[arg_num] = strndup(compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE + 1);
+                    assert(arg_name[arg_num]);
+                    arg_mem[arg_num] = compile[loop_idx].op[op_idx][0].buffer_in.val_cl;
+                    arg_num++;
                 }
             }
-            for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+            for(int64_t inline_idx = 1; inline_idx < compile[loop_idx].inline_num[op_idx]; inline_idx++) {
                 if(compile[loop_idx].op[op_idx][inline_idx].type_op == op_unary) {
-                    //     found = 0;
-                    //     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                    //         if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_out.name,
-                    //                    BUFFER_NAME_SIZE) == 0) {
-                    //             found = 1;
-                    //             break;
-                    //         }
-                    //     }
-                    //     if(found == 0) {
-                    //         arg_num++;
-                    //         if(arg_num == arg_cap) {
-                    //             arg_cap *= 2;
-                    //             arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
-                    //             assert(arg_name);
-                    //             arg_mem = reallocarray(arg_mem, arg_cap, sizeof(char *));
-                    //             assert(arg_mem);
-                    //         }
-                    //         arg_name[arg_num - 1] =
-                    //             strndup(compile[loop_idx].op[op_idx][inline_idx].buffer_out.name, BUFFER_NAME_SIZE +
-                    //             1);
-                    //         arg_mem[arg_num - 1] = compile[loop_idx].op[op_idx][inline_idx].buffer_out.val_cl;
-                    //     }
+                    /* Out */
+                    found = 0;
+                    for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+                        if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_out.name,
+                                   BUFFER_NAME_SIZE) == 0) {
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if(found == 0) {
+                        if(arg_num == arg_cap) {
+                            arg_cap *= 2;
+                            arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
+                            assert(arg_name);
+                            arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
+                            assert(arg_mem);
+                        }
+                        arg_name[arg_num] =
+                            strndup(compile[loop_idx].op[op_idx][inline_idx].buffer_out.name, BUFFER_NAME_SIZE + 1);
+                        assert(arg_name[arg_num]);
+                        arg_mem[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_out.val_cl;
+                        arg_num++;
+                    }
                 } else {
+                    /* In */
                     found = 0;
                     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
                         if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_in.name,
@@ -397,18 +400,18 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                         }
                     }
                     if(found == 0) {
-                        arg_num++;
                         if(arg_num == arg_cap) {
                             arg_cap *= 2;
                             arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
                             assert(arg_name);
-                            arg_mem = reallocarray(arg_mem, arg_cap, sizeof(char *));
+                            arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
                             assert(arg_mem);
                         }
-                        arg_name[arg_num - 1] =
+                        arg_name[arg_num] =
                             strndup(compile[loop_idx].op[op_idx][inline_idx].buffer_in.name, BUFFER_NAME_SIZE + 1);
-                        assert(arg_name[arg_num - 1]);
-                        arg_mem[arg_num - 1] = compile[loop_idx].op[op_idx][inline_idx].buffer_in.val_cl;
+                        assert(arg_name[arg_num]);
+                        arg_mem[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_in.val_cl;
+                        arg_num++;
                     }
                 }
             }
