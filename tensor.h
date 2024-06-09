@@ -118,7 +118,7 @@ extern linearized_t linearized_alloc(void);
 extern void linearized_free(linearized_t *linearized);
 extern void linearized_clear(linearized_t *linearized);
 extern void linearized_run(const linearized_t *linearized);
-extern void linearized_add_op(linearized_t *linearized, op_t op);
+extern void linearized_add_op(linearized_t *linearized, const op_t *op);
 extern void linearized_append(linearized_t *linearized1, linearized_t *linearized2);
 extern void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name);
 
