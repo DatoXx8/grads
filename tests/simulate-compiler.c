@@ -11,30 +11,6 @@
 #include "../runtimes/cl.h"
 #include "../tensor.h"
 
-static void program_free_non_cl(program_t *program) {
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) { free(program->arg_name[arg_idx]); }
-    free(program->arg_name);
-    program->arg_name = NULL;
-    free(program->arg_mem);
-    program->arg_mem = NULL;
-    free(program->source);
-    program->source = NULL;
-    if(program->cl_kernel) {
-        clReleaseKernel(program->cl_kernel);
-        program->cl_kernel = NULL;
-    }
-    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
-    if(program->cl_program) {
-        if(*program->cl_program) {
-            clReleaseProgram(*program->cl_program);
-            *program->cl_program = NULL;
-            free(*program->cl_program);
-        }
-        free(program->cl_program);
-        program->cl_program = NULL;
-    }
-}
-
 const int64_t RANDOM_MAX_TRIES = 100;
 const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
@@ -351,7 +327,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
 
     program_t program = {0};
 
-    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue, 9, 1);
+    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue, 9, 9);
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -369,18 +345,26 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
+        printf("%lf %lf\n", tensor1[tensor_out].buffer->val[val_idx], tensor2[tensor_out].buffer->val[val_idx]);
         if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
             margin_of_error)) {
             if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
                 margin_of_error)) {
                 ERROR("Invalid values %lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
-                       tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
-                       tensor2[tensor_out].buffer->name);
+                      tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
+                      tensor2[tensor_out].buffer->name);
             }
         }
     }
 
-    program_free_non_cl(&program);
+    for(int64_t arg_idx = 0; arg_idx < program.arg_num; arg_idx++) { free(program.arg_name[arg_idx]); }
+    free(program.arg_name);
+    free(program.arg_mem);
+    free(program.source);
+    clReleaseKernel(program.cl_kernel);
+    clReleaseProgram(*program.cl_program);
+    free(*program.cl_program);
+    free(program.cl_program);
 }
 
 int main(int argc, char **argv) {
