@@ -150,7 +150,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                 // tensor_out = tensor_in;
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_binary = rand() % 14;
@@ -269,7 +271,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                 // tensor_out = tensor_in;
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_reduce = rand() % 4;
@@ -345,7 +349,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
-        printf("%lf %lf\n", tensor1[tensor_out].buffer->val[val_idx], tensor2[tensor_out].buffer->val[val_idx]);
         if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
             margin_of_error)) {
             if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
@@ -357,13 +360,14 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         }
     }
 
-    for(int64_t arg_idx = 0; arg_idx < program.arg_num; arg_idx++) { free(program.arg_name[arg_idx]); }
+    for(int64_t arg_idx = 0; arg_idx < program.arg_num; arg_idx++) {
+        free(program.arg_name[arg_idx]);
+    }
     free(program.arg_name);
     free(program.arg_mem);
     free(program.source);
     clReleaseKernel(program.cl_kernel);
     clReleaseProgram(*program.cl_program);
-    free(*program.cl_program);
     free(program.cl_program);
 }
 

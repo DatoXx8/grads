@@ -2,7 +2,11 @@
 #define TENSOR_H_
 
 #include <CL/cl.h>
-typedef enum { sync_none = 0, sync_to_host, sync_to_device } sync_e;
+typedef enum {
+    sync_none = 0,
+    sync_to_host,
+    sync_to_device
+} sync_e;
 
 #include <stdint.h>
 
@@ -44,7 +48,12 @@ extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
     ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
                    (buffer)->off])
 
-typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
+typedef enum {
+    op_unary,
+    op_binary,
+    op_reduce,
+    op_move
+} op_e;
 typedef enum {
     unary_add,
     unary_subtract,
@@ -82,8 +91,17 @@ typedef enum {
     binary_min_like,
     binary_copy_like
 } binary_e;
-typedef enum { reduce_sum, reduce_max, reduce_avg, reduce_min } reduce_e;
-typedef enum { move_reshape, move_resize, move_offset } move_e;
+typedef enum {
+    reduce_sum,
+    reduce_max,
+    reduce_avg,
+    reduce_min
+} reduce_e;
+typedef enum {
+    move_reshape,
+    move_resize,
+    move_offset
+} move_e;
 
 #define MAX_DEPTH (0x100000)
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
@@ -130,8 +148,7 @@ typedef struct {
     linearized_t *linearized;
 } tensor_t;
 
-extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x,
-                             cl_context context);
+extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_add(tensor_t *tensor, const double value);

@@ -31,22 +31,50 @@ static void simple_loop_free(simple_loop_t *simple) {
 static int64_t op_equal(const op_t *starting, const op_t *compared) {
     assert(starting);
     assert(compared);
-    if(starting->type_op != compared->type_op) { return 0; }
-    if(starting->type_unary != compared->type_unary) { return 0; }
-    if(starting->type_binary != compared->type_binary) { return 0; }
-    if(starting->type_reduce != compared->type_reduce) { return 0; }
+    if(starting->type_op != compared->type_op) {
+        return 0;
+    }
+    if(starting->type_unary != compared->type_unary) {
+        return 0;
+    }
+    if(starting->type_binary != compared->type_binary) {
+        return 0;
+    }
+    if(starting->type_reduce != compared->type_reduce) {
+        return 0;
+    }
 
-    if(strncmp(starting->buffer_out.name, compared->buffer_out.name, BUFFER_NAME_SIZE) != 0) { return 0; }
-    if(starting->buffer_out.sze_a != compared->buffer_out.sze_a) { return 0; }
-    if(starting->buffer_out.sze_z != compared->buffer_out.sze_z) { return 0; }
-    if(starting->buffer_out.sze_y != compared->buffer_out.sze_y) { return 0; }
-    if(starting->buffer_out.sze_x != compared->buffer_out.sze_x) { return 0; }
+    if(strncmp(starting->buffer_out.name, compared->buffer_out.name, BUFFER_NAME_SIZE) != 0) {
+        return 0;
+    }
+    if(starting->buffer_out.sze_a != compared->buffer_out.sze_a) {
+        return 0;
+    }
+    if(starting->buffer_out.sze_z != compared->buffer_out.sze_z) {
+        return 0;
+    }
+    if(starting->buffer_out.sze_y != compared->buffer_out.sze_y) {
+        return 0;
+    }
+    if(starting->buffer_out.sze_x != compared->buffer_out.sze_x) {
+        return 0;
+    }
     if(starting->type_op != op_unary) {
-        if(strncmp(starting->buffer_in.name, compared->buffer_in.name, BUFFER_NAME_SIZE) != 0) { return 0; }
-        if(starting->buffer_in.sze_a != compared->buffer_in.sze_a) { return 0; }
-        if(starting->buffer_in.sze_z != compared->buffer_in.sze_z) { return 0; }
-        if(starting->buffer_in.sze_y != compared->buffer_in.sze_y) { return 0; }
-        if(starting->buffer_in.sze_x != compared->buffer_in.sze_x) { return 0; }
+        if(strncmp(starting->buffer_in.name, compared->buffer_in.name, BUFFER_NAME_SIZE) != 0) {
+            return 0;
+        }
+        if(starting->buffer_in.sze_a != compared->buffer_in.sze_a) {
+            return 0;
+        }
+        if(starting->buffer_in.sze_z != compared->buffer_in.sze_z) {
+            return 0;
+        }
+        if(starting->buffer_in.sze_y != compared->buffer_in.sze_y) {
+            return 0;
+        }
+        if(starting->buffer_in.sze_x != compared->buffer_in.sze_x) {
+            return 0;
+        }
     }
     return 1;
 }
@@ -56,9 +84,13 @@ static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const in
     assert(op);
     assert(loop_len > 0);
     assert(loop_num > 0);
-    for(int64_t i = 0; i < loop_num; i++) { assert(op[i]); }
+    for(int64_t i = 0; i < loop_num; i++) {
+        assert(op[i]);
+    }
 
-    if(loop->op) { simple_loop_free(loop); }
+    if(loop->op) {
+        simple_loop_free(loop);
+    }
     loop->loop_num = loop_num;
     loop->loop_len = loop_len;
     loop->op = calloc(loop_len, sizeof(op_t));
@@ -73,7 +105,9 @@ static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const in
     for(int64_t i = 0; i < loop_num; i++) {
         for(int64_t j = 0; j < loop_len; j++) {
             loop->dim_info[j].off_out[i] = op[i][j].buffer_out.off;
-            if(op[i][j].type_op != op_unary) { loop->dim_info[j].off_in[i] = op[i][j].buffer_in.off; }
+            if(op[i][j].type_op != op_unary) {
+                loop->dim_info[j].off_in[i] = op[i][j].buffer_in.off;
+            }
         }
     }
 }
@@ -143,7 +177,9 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, const li
     }
     simple_loop_configure(simple, (const op_t **) loop_instances, loop_length, loop_number);
 
-    for(int64_t i = 0; i < loop_number; i++) { free(loop_instances[i]); }
+    for(int64_t i = 0; i < loop_number; i++) {
+        free(loop_instances[i]);
+    }
     free(loop_instances);
 
     return loop_length * loop_number;
@@ -196,6 +232,8 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                     }
                 } else if(!strncmp(compile->op[i][0].buffer_out.name, compile->op[i + j][0].buffer_in.name,
                                    BUFFER_NAME_SIZE)) {
+                    /* TODO: If we write ops in here and then add more that don't get saved anywhere those just get lost
+                     * in the ether */
                     changed = 1;
                     compile->inline_num[i] = compile->inline_cap[i];
                     compile->inline_num[i + j] += inline_num;
@@ -250,7 +288,9 @@ static void compile_loop_optimize(compile_loop_t *compile) {
         compile->op_num = new_len;
     } else {
         for(int64_t i = 0; i < compile->op_num; i++) {
-            if(compile->inline_num[i] == compile->inline_cap[i]) { compile->inline_num[i] = 1; }
+            if(compile->inline_num[i] == compile->inline_cap[i]) {
+                compile->inline_num[i] = 1;
+            }
         }
     }
     /* Fuse */
@@ -281,8 +321,12 @@ static void compile_loop_free(compile_loop_t *compile) {
         assert(compile->op[i]);
         assert(compile->dim_info[i]);
         for(int64_t j = 0; j < compile->inline_num[i]; j++) {
-            if(compile->dim_info[i][j].off_out) { free(compile->dim_info[i][j].off_out); }
-            if(compile->dim_info[i][j].off_in) { free(compile->dim_info[i][j].off_in); }
+            if(compile->dim_info[i][j].off_out) {
+                free(compile->dim_info[i][j].off_out);
+            }
+            if(compile->dim_info[i][j].off_in) {
+                free(compile->dim_info[i][j].off_in);
+            }
         }
         free(compile->op[i]);
         free(compile->dim_info[i]);
@@ -1185,7 +1229,9 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
     assert(global_size > 0);
     assert(local_size > 0);
     assert(global_size % local_size == 0);
-    if(!linearized->op_len) { return; }
+    if(!linearized->op_len) {
+        return;
+    }
     simple_loop_t simple = {0};
     compile_loop_t *compile = calloc(INITIAL_CAP, sizeof(compile_loop_t));
     assert(compile);
@@ -1204,14 +1250,18 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
     }
     compile_loops_to_cl(program, compile, global_size, local_size, compile_num);
     simple_loop_free(&simple);
-    for(int64_t i = 0; i < compile_num; i++) { compile_loop_free(&compile[i]); }
+    for(int64_t i = 0; i < compile_num; i++) {
+        compile_loop_free(&compile[i]);
+    }
     program->cl_device_id = (cl_device_id *) device_id;
     program->cl_context = (cl_context *) context;
     program->cl_command_queue = (cl_command_queue *) command_queue;
     free(compile);
 }
 void program_free(program_t *program) {
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) { free(program->arg_name[arg_idx]); }
+    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
+        free(program->arg_name[arg_idx]);
+    }
     free(program->arg_name);
     program->arg_name = NULL;
     free(program->arg_mem);

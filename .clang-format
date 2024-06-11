@@ -1,11 +1,11 @@
 IndentWidth: 4
 ColumnLimit: 120
-AllowShortCaseLabelsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Always
-AllowShortEnumsOnASingleLine: true
+AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: WithoutElse
-AllowShortLoopsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
 # ReflowComments: false
 RemoveBracesLLVM: false
 SpaceBeforeParens: Custom

@@ -1148,7 +1148,7 @@ void layer_free(layer_t *layer) {
         }
     }
 }
-void layer_sync(layer_t *layer, cl_command_queue command_queue) {
+static void layer_sync(layer_t *layer, cl_command_queue command_queue) {
     switch(layer->layer_type) {
         case layer_dense: {
             buffer_sync_realize(layer->activation->buffer, command_queue);
@@ -1451,7 +1451,9 @@ void neuralnet_free(neuralnet_t *neuralnet) {
     assert(neuralnet->forward);
     assert(neuralnet->backward);
     assert(neuralnet->learn);
-    for(int64_t i = 0; i < neuralnet->layers; i++) { layer_free(&neuralnet->layer[i]); }
+    for(int64_t i = 0; i < neuralnet->layers; i++) {
+        layer_free(&neuralnet->layer[i]);
+    }
     free(neuralnet->layer);
     linearized_free(neuralnet->forward);
     free(neuralnet->forward);
