@@ -205,6 +205,7 @@ static void compile_loop_optimize(compile_loop_t *compile) {
     assert(inlined);
     assert(inlined_dim_info);
 
+    /* TODO: Rewrite this whole sucker */
     int64_t changed = 0;
     for(int64_t i = 0; i < compile->op_num; i++) {
         if(compile->op[i][0].type_op == op_binary && compile->op[i][0].type_binary == binary_copy) {
@@ -249,20 +250,6 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                         compile->op[i + j][k + 1] = inlined[k];
                         compile->dim_info[i + j][k + 1] = inlined_dim_info[k];
                     }
-                } else {
-                    // compile->inline_num[i] = compile->inline_cap[i];
-                    // compile->inline_num[i + j] += inline_num;
-                    // if(compile->inline_num[i + j] >= compile->inline_cap[i + j]) {
-                    //     compile->inline_cap[i + j] *= 2;
-                    //     compile->op[i + j] = reallocarray(compile->op[i + j], compile->inline_cap[i + j],
-                    //     sizeof(op_t)); assert(compile->op[i + j]); compile->dim_info[i + j] =
-                    //         reallocarray(compile->dim_info[i + j], compile->inline_cap[i + j], sizeof(dim_info_t));
-                    //     assert(compile->dim_info[i + j]);
-                    // }
-                    // for(int64_t k = 0; k < inline_num; k++) {
-                    //     compile->op[i + j][k + 1] = inlined[k];
-                    //     compile->dim_info[i + j][k + 1] = inlined_dim_info[k];
-                    // }
                 }
             }
         }
@@ -404,12 +391,12 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
             /* Out */
             found = 0;
             for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE) == 0) {
+                if(!strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE)) {
                     found = 1;
                     break;
                 }
             }
-            if(found == 0) {
+            if(!found) {
                 if(arg_num == arg_cap) {
                     arg_cap *= 2;
                     arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
@@ -426,13 +413,12 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                 /* In */
                 found = 0;
                 for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                    if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE) ==
-                       0) {
+                    if(!strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE)) {
                         found = 1;
                         break;
                     }
                 }
-                if(found == 0) {
+                if(!found) {
                     if(arg_num == arg_cap) {
                         arg_cap *= 2;
                         arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
@@ -451,13 +437,13 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                     /* Out */
                     found = 0;
                     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                        if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_out.name,
-                                   BUFFER_NAME_SIZE) == 0) {
+                        if(!strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_out.name,
+                                    BUFFER_NAME_SIZE)) {
                             found = 1;
                             break;
                         }
                     }
-                    if(found == 0) {
+                    if(!found) {
                         if(arg_num == arg_cap) {
                             arg_cap *= 2;
                             arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
@@ -475,13 +461,13 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                     /* In */
                     found = 0;
                     for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                        if(strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_in.name,
-                                   BUFFER_NAME_SIZE) == 0) {
+                        if(!strncmp(arg_name[arg_idx], compile[loop_idx].op[op_idx][inline_idx].buffer_in.name,
+                                    BUFFER_NAME_SIZE)) {
                             found = 1;
                             break;
                         }
                     }
-                    if(found == 0) {
+                    if(!found) {
                         if(arg_num == arg_cap) {
                             arg_cap *= 2;
                             arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
@@ -521,7 +507,7 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, int
                              loop->op[op_idx][0].buffer_out.name, compile_loop_idx, op_idx, 0);
     compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
     for(int64_t loop_idx = 0; loop_idx < loop->loop_num; loop_idx++) {
-        if(loop_idx == 0) {
+        if(!loop_idx) {
             *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld", loop->dim_info[op_idx][0].off_out[loop_idx]);
         } else {
             *source_curr += snprintf(*source_curr, MAX_OP_SIZE, ",%ld", loop->dim_info[op_idx][0].off_out[loop_idx]);
@@ -535,7 +521,7 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, int
                                  loop->op[op_idx][0].buffer_in.name, compile_loop_idx, op_idx, 0);
         compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         for(int64_t loop_idx = 0; loop_idx < loop->loop_num; loop_idx++) {
-            if(loop_idx == 0) {
+            if(!loop_idx) {
                 *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld", loop->dim_info[op_idx][0].off_in[loop_idx]);
             } else {
                 *source_curr += snprintf(*source_curr, MAX_OP_SIZE, ",%ld", loop->dim_info[op_idx][0].off_in[loop_idx]);
@@ -552,7 +538,7 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, int
                          loop->op[op_idx][inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx);
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             for(int64_t loop_idx = 0; loop_idx < loop->loop_num; loop_idx++) {
-                if(loop_idx == 0) {
+                if(!loop_idx) {
                     *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld",
                                              loop->dim_info[op_idx][inline_idx].off_out[loop_idx]);
                 } else {
@@ -568,7 +554,7 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, int
                                      loop->op[op_idx][inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx);
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             for(int64_t loop_idx = 0; loop_idx < loop->loop_num; loop_idx++) {
-                if(loop_idx == 0) {
+                if(!loop_idx) {
                     *source_curr +=
                         snprintf(*source_curr, MAX_OP_SIZE, "%ld", loop->dim_info[op_idx][inline_idx].off_in[loop_idx]);
                 } else {
@@ -693,7 +679,7 @@ static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_c
     assert(compile_loop_idx >= 0);
     assert(op_idx >= 0);
     assert(loop_idx >= 0);
-    assert(inline_idx == 0);
+    assert(!inline_idx);
     assert(offset >= 0);
     switch(op->type_op) {
         case op_unary: {
@@ -805,7 +791,7 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
             break;
         }
         case op_binary: {
-            const char *name = inline_idx == 0 ? op->buffer_out.name : op->buffer_in.name;
+            const char *name = !inline_idx ? op->buffer_out.name : op->buffer_in.name;
             switch(op->type_binary) {
                 case binary_add: {
                     *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", name, name,
@@ -879,7 +865,7 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
             break;
         }
         case op_reduce: {
-            assert(inline_idx == 0);
+            assert(!inline_idx);
             switch(op->type_reduce) {
                 case reduce_sum: {
                     *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
@@ -945,7 +931,7 @@ static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_ca
             break;
         }
         case op_reduce: {
-            assert(inline_idx == 0);
+            assert(!inline_idx);
             *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_in.name,
                                    op->buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
             break;
@@ -1159,7 +1145,7 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "__kernel void " KERNEL_NAME "(");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
-        if(arg_idx == 0) {
+        if(!arg_idx) {
             source_curr += snprintf(source_curr, MAX_OP_SIZE, "__global double *%s", program->arg_name[arg_idx]);
         } else {
             source_curr += snprintf(source_curr, MAX_OP_SIZE, ",__global double *%s", program->arg_name[arg_idx]);
@@ -1178,8 +1164,8 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
                                           compile_loop_idx, op_idx, compile_loop[compile_loop_idx].inline_num[op_idx]);
         }
         int64_t loops_left = compile_loop[compile_loop_idx].loop_num % global_size;
-        int64_t loops_per_kernel = loops_left == 0 ? compile_loop[compile_loop_idx].loop_num / global_size
-                                                   : compile_loop[compile_loop_idx].loop_num / global_size + 1;
+        int64_t loops_per_kernel = !loops_left ? compile_loop[compile_loop_idx].loop_num / global_size
+                                               : compile_loop[compile_loop_idx].loop_num / global_size + 1;
         source_curr += snprintf(source_curr, MAX_OP_SIZE, "id = gid;\n");
         compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
         for(int64_t loop_idx = 0; loop_idx < loops_per_kernel; loop_idx++) {
@@ -1228,7 +1214,7 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
     /* Having a global or local size of 1 is really stupid but it should be supported. */
     assert(global_size > 0);
     assert(local_size > 0);
-    assert(global_size % local_size == 0);
+    assert(!(global_size % local_size));
     if(!linearized->op_len) {
         return;
     }

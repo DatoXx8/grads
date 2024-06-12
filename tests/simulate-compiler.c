@@ -389,9 +389,9 @@ int main(int argc, char **argv) {
 
     cl_device_id device_id = cl_device_get();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
-    assert(err == 0);
+    assert(!err);
     cl_command_queue command_queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
-    assert(err == 0);
+    assert(!err);
 
     double *random_values = calloc(DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE, sizeof(double));
     assert(random_values);

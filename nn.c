@@ -1223,9 +1223,9 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
             int err;
             *device_id = cl_device_get();
             *context = clCreateContext(NULL, 1, device_id, NULL, NULL, &err);
-            assert(err == 0);
+            assert(!err);
             *command_queue = clCreateCommandQueueWithProperties(*context, *device_id, NULL, &err);
-            assert(err == 0);
+            assert(!err);
             break;
         }
         case compile_none: {
@@ -1429,7 +1429,8 @@ neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, co
         }
     }
     if(neuralnet.compile_type == compile_cl) {
-        const int64_t LOCAL_SIZE = 100;
+        const int64_t LOCAL_SIZE;
+        clGetDeviceInfo(*device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(int64_t), (int64_t *) &LOCAL_SIZE, NULL);
         const int64_t GLOBAL_SIZE = LOCAL_SIZE * 1;
         program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
                         LOCAL_SIZE);
@@ -1489,7 +1490,7 @@ void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
                     neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->_input_size;
                 err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
                 err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_convolution: {
@@ -1501,7 +1502,7 @@ void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
                     fwrite(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, file);
                 err |= fwrite(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size,
                               file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_reduce: {
@@ -1514,7 +1515,7 @@ void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
                 int64_t weight_size = bias_size;
                 err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
                 err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_input: {
@@ -1523,7 +1524,7 @@ void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
         }
     }
     err = fclose(file);
-    assert(err == 0);
+    assert(!err);
 }
 void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
     assert(neuralnet);
@@ -1540,7 +1541,7 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                     neuralnet->layer[layer].dense->output_size * neuralnet->layer[layer].dense->_input_size;
                 err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
                 err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_convolution: {
@@ -1551,7 +1552,7 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                 err |= fread(neuralnet->layer[layer].convolution->biases->buffer->val, sizeof(double), bias_size, file);
                 err |=
                     fread(neuralnet->layer[layer].convolution->weights->buffer->val, sizeof(double), weight_size, file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_reduce: {
@@ -1563,9 +1564,9 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 int64_t weight_size = bias_size;
                 err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
-                assert(err == 0);
+                assert(!err);
                 err |= fread(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
-                assert(err == 0);
+                assert(!err);
                 break;
             }
             case layer_input: {
@@ -1574,7 +1575,7 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
         }
     }
     err = fclose(file);
-    assert(err == 0);
+    assert(!err);
 }
 void neuralnet_random(neuralnet_t *neuralnet) {
     assert(neuralnet);

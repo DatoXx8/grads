@@ -78,7 +78,7 @@ buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const i
     if(context) {
         int err;
         buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
-        assert(err == 0);
+        assert(! err);
     }
     assert(buffer.val);
     strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
@@ -930,7 +930,7 @@ void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
 }
 void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name) {
     assert(linearized);
-    if(!linearized) {
+    if(linearized == NULL) {
         return;
     }
     if(strncmp(name, "", 1) != 0) {
@@ -938,7 +938,7 @@ void linearized_print(const linearized_t *linearized, const int padding, const i
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
     }
-    if(linearized->op_len == 0) {
+    if(! linearized->op_len) {
         printf("%*sEmpty\n", padding + offset, "");
     }
     /* Kind of a nice allignment for printing */
