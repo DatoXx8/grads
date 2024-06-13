@@ -1,5 +1,5 @@
-#ifndef TENSOR_H_
-#define TENSOR_H_
+#ifndef CGRAD_TENSOR_H_
+#define CGRAD_TENSOR_H_
 
 typedef enum {
     sync_none = 0,

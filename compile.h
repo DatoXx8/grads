@@ -1,5 +1,5 @@
-#ifndef COMPILE_H_
-#define COMPILE_H_
+#ifndef CGRAD_COMPILE_H_
+#define CGRAD_COMPILE_H_
 
 /*
     1. Function recognizes loops in linearized_t (could also be of size 1, meaning a singular op)

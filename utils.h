@@ -1,6 +1,6 @@
 /* Bunch of small macros and the like */
-#ifndef UTILS_H_
-#define UTILS_H_
+#ifndef CGRAD_UTILS_H_
+#define CGRAD_UTILS_H_
 
 #include <math.h>
 #include <time.h>

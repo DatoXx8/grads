@@ -1,5 +1,5 @@
-#ifndef NN_H_
-#define NN_H_
+#ifndef CGRAD_NN_H_
+#define CGRAD_NN_H_
 
 #include "CL/cl.h"
 
