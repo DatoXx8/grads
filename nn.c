@@ -379,7 +379,7 @@ void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, t
 }
 void dense_print(const dense_t *dense, const int padding, const int offset, const char *name) {
     assert(dense);
-    if(strncmp(name, "", 1) != 0) {
+    if(!strncmp(name, "", 1)) {
         printf("%*s%s dense\n", offset, "", name);
     } else {
         printf("%*sdense\n", offset, "");
