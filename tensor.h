@@ -1,13 +1,13 @@
 #ifndef TENSOR_H_
 #define TENSOR_H_
 
-#include <CL/cl.h>
 typedef enum {
     sync_none = 0,
     sync_to_host,
     sync_to_device
 } sync_e;
 
+#include <CL/cl.h>
 #include <stdint.h>
 
 #include "utils.h"
@@ -35,6 +35,9 @@ typedef struct {
     cl_mem val_cl;
     sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
+    /* 0 for "aaa...", 1 for "baa..." etc. Used for avoiding a bunch of string comparisons. Could maybe refactor to
+     * generate the names based on these i.e. have `name_off == 12` generate the name `t0...012` */
+    int64_t name_off;
 } buffer_t;
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);

@@ -8,18 +8,21 @@
 
 #include "tensor.h"
 
-char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
-                                   'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
-void name_update(char *name) {
-    assert(name);
+static char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
+                                          'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
+static int64_t name_off = 0;
+static void name_update(void) {
     for(int64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
         assert(name[i] >= 'a' && name[i] <= 'z');
+        assert(name_off >= 0 && name_off <= INT64_MAX);
         if(name[i] != 'z') {
             name[i]++;
+            name_off++;
             return;
         } else {
             assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */
             name[i] = 'a';
+            name_off++;
         }
     }
 }
@@ -74,15 +77,16 @@ buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const i
         .val = calloc(a * z * y * x, sizeof(double)),
         .val_cl = NULL,
         .sync = sync_none,
+        .name_off = name_off,
     };
     if(context) {
         int err;
         buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
-        assert(! err);
+        assert(!err);
     }
     assert(buffer.val);
     strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
-    name_update(name);
+    name_update();
     return buffer;
 }
 void buffer_free(buffer_t *buffer) {
@@ -938,7 +942,7 @@ void linearized_print(const linearized_t *linearized, const int padding, const i
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
     }
-    if(! linearized->op_len) {
+    if(!linearized->op_len) {
         printf("%*sEmpty\n", padding + offset, "");
     }
     /* Kind of a nice allignment for printing */
@@ -1396,9 +1400,11 @@ void tensor_realize(tensor_t *tensor) {
 void tensor_print(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1) != 0) {
-        printf("%*s%s NAME: %s %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->sync);
+        printf("%*s%s NAME: %s %lu %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     } else {
-        printf("%*sNAME: %s sync status %u\n", offset, "", tensor->buffer->name, tensor->buffer->sync);
+        printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     }
     for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a) {
@@ -1428,9 +1434,11 @@ const int64_t X_MAX = 4;
 void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1) != 0) {
-        printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
+        printf("%*s%s NAME: %s %lu %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     } else {
-        printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);
+        printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     }
     for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a >= A_MAX) {
