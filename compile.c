@@ -184,6 +184,13 @@ static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, const li
     return loop_length * loop_number;
 }
 const int64_t INITIAL_CAP = 4;
+#define INLINABLE_OVERRIDE(op)                                                                                         \
+    ((op).type_op == op_unary && ((op).type_unary == unary_set)) ||                                                    \
+        ((op).type_op == op_binary && ((op).type_binary == binary_copy || (op).type_binary == binary_copy_like))
+#define INLINABLE_OVERRIDE_(op)                                                                                        \
+    ((op)->type_op == op_unary && ((op)->type_unary == unary_set)) ||                                                  \
+        ((op)->type_op == op_binary && ((op)->type_binary == binary_copy || (op)->type_binary == binary_copy_like))
+
 #define OVERRIDES_OUTPUT(op)                                                                                           \
     (((op).type_op == op_unary && ((op).type_unary == unary_set)) ||                                                   \
      ((op).type_op == op_binary && ((op).type_binary == binary_copy || (op).type_binary == binary_copy_like)) ||       \
@@ -196,126 +203,135 @@ const int64_t INITIAL_CAP = 4;
 static void compile_loop_optimize(compile_loop_t *compile) {
     assert(compile);
     /* Inline */
-    int64_t inline_cap = INITIAL_CAP;
-    int64_t inline_num = 0;
-    op_t *inline_op = calloc(INITIAL_CAP, sizeof(op_t));
-    dim_info_t *inline_dim_info = calloc(INITIAL_CAP, sizeof(dim_info_t));
-    inline_op_e *inline_info = calloc(INITIAL_CAP, sizeof(inline_op_e));
-    assert(inline_op);
-    assert(inline_dim_info);
-    assert(inline_info);
-
-    // for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
-    //     if(OVERRIDES_OUTPUT(compile->op[op_idx][0]) || !op_idx) {
-    //         inline_num = 0;
-    //         for(int64_t search_off = 1; search_off < compile->op_num - op_idx; search_off++) {}
-    //     }
-    // }
-
-    int64_t changed = 0;
+    int64_t *delete = calloc(compile->op_num, sizeof(int64_t));
+    assert(delete);
     for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
-        if(compile->op[op_idx][0].type_op == op_binary && compile->op[op_idx][0].type_binary == binary_copy) {
-            inline_num = 1;
-            inline_op[0] = compile->op[op_idx][0];
-            inline_dim_info[0] = compile->dim_info[op_idx][0];
-            for(int64_t search_idx = 1; search_idx < compile->op_num - op_idx; search_idx++) {
-                assert(compile->inline_num[op_idx + search_idx] == 1);
+        assert(compile->inline_num[op_idx] == 1);
+        if(delete[op_idx]) {
+            continue;
+        }
+        if(INLINABLE_OVERRIDE(compile->op[op_idx][0])) {
+            for(int64_t search_off = 1; search_off < compile->op_num - op_idx; search_off++) {
+                assert(compile->inline_num[op_idx + search_off] == 1);
                 if(compile->op[op_idx][0].buffer_out.name_off ==
-                   compile->op[op_idx + search_idx][0].buffer_out.name_off) {
-                    if(OVERRIDES_OUTPUT(compile->op[op_idx + search_idx][0])) {
+                   compile->op[op_idx + search_off][0].buffer_out.name_off) {
+                    if(OVERRIDES_OUTPUT(compile->op[op_idx + search_off][0])) {
                         break;
                     } else {
-                        compile->inline_num[op_idx + search_idx] = compile->inline_cap[op_idx + search_idx];
+                        int64_t inline_cap = compile->inline_cap[op_idx];
+                        int64_t inline_num = compile->inline_num[op_idx];
+                        compile->op[op_idx][inline_num] = compile->op[op_idx + search_off][0];
+                        compile->dim_info[op_idx][inline_num] = compile->dim_info[op_idx + search_off][0];
+                        compile->inline_type[op_idx][inline_num] = inline_op_out;
+                        delete[op_idx + search_off] = 1;
                         inline_num++;
                         if(inline_num == inline_cap) {
                             inline_cap *= 2;
-                            inline_op = reallocarray(inline_op, inline_cap, sizeof(op_t));
-                            assert(inline_op);
-                            inline_dim_info = reallocarray(inline_dim_info, inline_cap, sizeof(dim_info_t));
-                            assert(inline_dim_info);
+                            compile->op[op_idx] = reallocarray(compile->op[op_idx], inline_cap, sizeof(op_t));
+                            compile->dim_info[op_idx] =
+                                reallocarray(compile->dim_info[op_idx], inline_cap, sizeof(dim_info_t));
+                            compile->inline_type[op_idx] =
+                                reallocarray(compile->inline_type[op_idx], inline_cap, sizeof(inline_op_e));
+                            delete = reallocarray(delete, inline_cap, sizeof(int64_t));
+                            assert(compile->op[op_idx]);
+                            assert(compile->dim_info[op_idx]);
+                            assert(compile->inline_type[op_idx]);
+                            assert(delete);
                         }
-                        inline_op[inline_num - 1] = compile->op[op_idx + search_idx][0];
-                        inline_dim_info[inline_num - 1] = compile->dim_info[op_idx + search_idx][0];
+                        compile->inline_cap[op_idx] = inline_cap;
+                        compile->inline_num[op_idx] = inline_num;
                     }
-                } else if(compile->op[op_idx][0].buffer_out.name ==
-                          compile->op[op_idx + search_idx][0].buffer_in.name) {
-                    /* TODO: If we write ops in here and then add more that don't get saved anywhere those just get
-                    lost
-                     * in the ether */
-                    changed = 1;
-                    compile->inline_num[op_idx] = compile->inline_cap[op_idx];
-                    compile->inline_num[op_idx + search_idx] += inline_num;
-                    if(compile->inline_num[op_idx + search_idx] >= compile->inline_cap[op_idx + search_idx]) {
-                        compile->inline_cap[op_idx + search_idx] *= 2;
-                        compile->op[op_idx + search_idx] = reallocarray(
-                            compile->op[op_idx + search_idx], compile->inline_cap[op_idx + search_idx], sizeof(op_t));
-                        assert(compile->op[op_idx + search_idx]);
-                        compile->dim_info[op_idx + search_idx] =
-                            reallocarray(compile->dim_info[op_idx + search_idx],
-                                         compile->inline_cap[op_idx + search_idx], sizeof(dim_info_t));
-                        assert(compile->dim_info[op_idx + search_idx]);
+                } else if(compile->op[op_idx][0].buffer_out.name_off ==
+                          compile->op[op_idx + search_off][0].buffer_in.name_off) {
+                    int64_t inline_cap = compile->inline_cap[op_idx];
+                    int64_t inline_num = compile->inline_num[op_idx];
+                    compile->op[op_idx][inline_num] = compile->op[op_idx + search_off][0];
+                    compile->dim_info[op_idx][inline_num] = compile->dim_info[op_idx + search_off][0];
+                    compile->inline_type[op_idx][inline_num] = inline_op_in;
+                    delete[op_idx + search_off] = 1;
+                    inline_num++;
+                    if(inline_num == inline_cap) {
+                        inline_cap *= 2;
+                        compile->op[op_idx] = reallocarray(compile->op[op_idx], inline_cap, sizeof(op_t));
+                        compile->dim_info[op_idx] =
+                            reallocarray(compile->dim_info[op_idx], inline_cap, sizeof(dim_info_t));
+                        compile->inline_type[op_idx] =
+                            reallocarray(compile->inline_type[op_idx], inline_cap, sizeof(inline_op_e));
+                        delete = reallocarray(delete, inline_cap, sizeof(int64_t));
+                        assert(compile->op[op_idx]);
+                        assert(compile->dim_info[op_idx]);
+                        assert(compile->inline_type[op_idx]);
+                        assert(delete);
                     }
-                    for(int64_t k = 0; k < inline_num; k++) {
-                        compile->op[op_idx + search_idx][k + 1] = inline_op[k];
-                        compile->dim_info[op_idx + search_idx][k + 1] = inline_dim_info[k];
-                    }
+                    compile->inline_cap[op_idx] = inline_cap;
+                    compile->inline_num[op_idx] = inline_num;
                 }
             }
         }
     }
-    if(changed) {
-        int64_t count = 0;
-        int64_t new_len = compile->op_num;
-        for(int64_t i = 0; i < compile->op_num; i++) {
-            if(compile->inline_num[i] == compile->inline_cap[i]) {
-                free(compile->op[i]);
-                free(compile->dim_info[i]);
-                new_len--;
-            } else {
-                compile->inline_cap[count] = compile->inline_cap[i];
-                compile->inline_num[count] = compile->inline_num[i];
-                compile->op[count] = compile->op[i];
-                compile->dim_info[count] = compile->dim_info[i];
-                count++;
+    int64_t new_idx = 0;
+    int64_t new_num = compile->op_num;
+    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+        if(delete[op_idx]) {
+            free(compile->op[op_idx]);
+            free(compile->dim_info[op_idx]);
+            free(compile->inline_type[op_idx]);
+            new_num--;
+        } else {
+            compile->op[new_idx] = compile->op[op_idx];
+            compile->dim_info[new_idx] = compile->dim_info[op_idx];
+            compile->inline_type[new_idx] = compile->inline_type[op_idx];
+            compile->inline_num[new_idx] = compile->inline_num[op_idx];
+            compile->inline_cap[new_idx] = compile->inline_cap[op_idx];
+            op_t *op = calloc(compile->inline_num[new_idx], sizeof(op_t));
+            dim_info_t *dim_info = calloc(compile->inline_num[new_idx], sizeof(dim_info_t));
+            inline_op_e *inline_type = calloc(compile->inline_num[new_idx], sizeof(dim_info_t));
+            for(int64_t swap_idx = 0; swap_idx < compile->inline_num[new_idx]; swap_idx++) {
+                op[swap_idx] = compile->op[new_idx][swap_idx];
+                dim_info[swap_idx] = compile->dim_info[new_idx][swap_idx];
+                inline_type[swap_idx] = compile->inline_type[new_idx][swap_idx];
             }
-        }
-        compile->op_num = new_len;
-    } else {
-        for(int64_t i = 0; i < compile->op_num; i++) {
-            if(compile->inline_num[i] == compile->inline_cap[i]) {
-                compile->inline_num[i] = 1;
+            for(int64_t swap_idx = 0; swap_idx < compile->inline_num[new_idx]; swap_idx++) {
+                compile->op[new_idx][swap_idx] = op[compile->inline_num[new_idx] - swap_idx - 1];
+                compile->dim_info[new_idx][swap_idx] = dim_info[compile->inline_num[new_idx] - swap_idx - 1];
+                compile->inline_type[new_idx][swap_idx] = inline_type[compile->inline_num[new_idx] - swap_idx - 1];
             }
+            new_idx++;
+            free(op);
+            free(dim_info);
+            free(inline_type);
         }
     }
-    free(inline_op);
-    free(inline_dim_info);
-    free(inline_info);
+    compile->op_num = new_num;
+    free(delete);
     /* Fuse */
 }
-// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
-//     assert(compile);
-//     if(strncmp(name, "", 1) != 0) {
-//         printf("%*s%s\n", offset, "", name);
-//     } else {
-//         printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
-//     }
-//     for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
-//         printf("%*s", offset + padding, "");
-//         op_print(&compile->op[op_idx][0], 4, 0, "");
-//         for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
-//             printf("%*s", offset + 2 * padding, "");
-//             op_print(&compile->op[op_idx][inline_idx], 4, 0, "");
-//         }
-//     }
-// }
+static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
+    assert(compile);
+    if(strncmp(name, "", 1) != 0) {
+        printf("%*s%s\n", offset, "", name);
+    } else {
+        printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
+    }
+    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+        printf("%*s %d ", offset + padding, "",compile->inline_type[op_idx][0]);
+        op_print(&compile->op[op_idx][0], 0, 0, "");
+        for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+            printf("%*s %d ", offset + 2 * padding, "",compile->inline_type[op_idx][inline_idx]);
+            op_print(&compile->op[op_idx][inline_idx], 0, 0, "");
+        }
+    }
+}
 static void compile_loop_free(compile_loop_t *compile) {
     assert(compile);
     assert(compile->op);
     assert(compile->dim_info);
+    assert(compile->inline_type);
     assert(compile->inline_num);
     assert(compile->inline_cap);
     for(int64_t i = 0; i < compile->op_num; i++) {
         assert(compile->op[i]);
+        assert(compile->inline_type[i]);
         assert(compile->dim_info[i]);
         for(int64_t j = 0; j < compile->inline_num[i]; j++) {
             if(compile->dim_info[i][j].off_out) {
@@ -327,11 +343,13 @@ static void compile_loop_free(compile_loop_t *compile) {
         }
         free(compile->op[i]);
         free(compile->dim_info[i]);
+        free(compile->inline_type[i]);
     }
     free(compile->op);
     free(compile->inline_num);
     free(compile->inline_cap);
     free(compile->dim_info);
+    free(compile->inline_type);
 }
 static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
     assert(simple);
@@ -344,33 +362,39 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
         .inline_num = NULL,
     };
     compile.inline_num = calloc(compile.op_num, sizeof(int64_t));
-    assert(compile.inline_num);
     compile.inline_cap = calloc(compile.op_num, sizeof(int64_t));
-    assert(compile.inline_cap);
     compile.op = calloc(compile.op_num, sizeof(op_t *));
-    assert(compile.op);
     compile.dim_info = calloc(compile.op_num, sizeof(dim_info_t *));
+    compile.inline_type = calloc(compile.op_num, sizeof(inline_op_e *));
+    assert(compile.inline_num);
+    assert(compile.inline_cap);
+    assert(compile.op);
     assert(compile.dim_info);
-    for(int64_t i = 0; i < compile.op_num; i++) { /* This loops can be merged */
-        compile.dim_info[i] = calloc(INITIAL_CAP, sizeof(dim_info_t));
-        assert(compile.dim_info[i]);
-    }
+    assert(compile.inline_type);
     for(int64_t i = 0; i < compile.op_num; i++) {
         compile.inline_num[i] = 1;
         compile.inline_cap[i] = INITIAL_CAP;
         compile.op[i] = calloc(INITIAL_CAP, sizeof(op_t));
+        compile.dim_info[i] = calloc(INITIAL_CAP, sizeof(dim_info_t));
+        compile.inline_type[i] = calloc(INITIAL_CAP, sizeof(inline_op_e));
+        assert(compile.dim_info[i]);
         assert(compile.op[i]);
+        assert(compile.inline_type[i]);
         compile.op[i][0] = simple->op[i];
+        compile.inline_type[i][0] = inline_op_none;
         compile.dim_info[i][0].off_out = calloc(compile.loop_num, sizeof(int64_t));
-        assert(compile.dim_info[i][0].off_out);
         compile.dim_info[i][0].off_in = calloc(compile.loop_num, sizeof(int64_t));
         assert(compile.dim_info[i][0].off_in);
+        assert(compile.dim_info[i][0].off_out);
         for(int64_t j = 0; j < compile.loop_num; j++) {
             compile.dim_info[i][0].off_out[j] = simple->dim_info[i].off_out[j];
             compile.dim_info[i][0].off_in[j] = simple->dim_info[i].off_in[j];
         }
     }
+    compile_loop_print(&compile, 4, 0, "");
     compile_loop_optimize(&compile);
+    compile_loop_print(&compile, 4, 0, "");
+    printf("\n\n");
     return compile;
 }
 const int64_t INITIAL_SOURCE_SIZE = 12500;
@@ -511,6 +535,7 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
     program->arg_mem = arg_mem;
     program->arg_num = arg_num;
     program->arg_cap = arg_cap;
+    free(arg_name_off);
 }
 extern void compile_append_index_table_cl(char **source, char **source_curr, int64_t *source_cap,
                                           const compile_loop_t *loop, const int64_t compile_loop_idx,
@@ -1124,7 +1149,7 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
                                               inline_idx, loop_idx, offset);
                     }
 
-                    int64_t inner_idx = inline_num > 1 ? 1 : 0;
+                    int64_t inner_idx = inline_num - 1;
                     offset = op[inner_idx].type_op == op_unary
                                  ? INDEX(op[inner_idx].buffer_out, a_idx, z_idx, y_idx, x_idx)
                                  : INDEX(op[inner_idx].buffer_in, a_idx, z_idx, y_idx, x_idx);

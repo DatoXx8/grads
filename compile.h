@@ -37,7 +37,7 @@ typedef struct {
     dim_info_t **dim_info;
     /* TODO: Implement the thing below cuz that allows for more aggressive inlining which likely increases
      * performance significantly */
-    inline_op_e *inline_type;
+    inline_op_e **inline_type;
     int64_t *inline_num;
     int64_t *inline_cap;
 } compile_loop_t;
