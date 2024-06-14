@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../tensor.h"
 
@@ -134,11 +135,11 @@ int main(void) {
     tensor_realize(&in);
     for(int64_t element_idx = 0; element_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; element_idx++) {
         if(data_in[element_idx] < 0) {
-            assert(in.buffer->val[element_idx] == -1);
+            assert(in.buffer->val[element_idx] == -1.f);
         } else if(data_in[element_idx] > 0) {
-            assert(in.buffer->val[element_idx] == 1);
+            assert(in.buffer->val[element_idx] == 1.f);
         } else {
-            assert(in.buffer->val[element_idx] == 0);
+            assert(in.buffer->val[element_idx] == 0.f);
         }
     }
 

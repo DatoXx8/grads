@@ -10,8 +10,6 @@ typedef enum {
 #include <CL/cl.h>
 #include <stdint.h>
 
-#include "utils.h"
-
 #define BUFFER_NAME_SIZE 16
 typedef struct {
     int64_t inh_a;

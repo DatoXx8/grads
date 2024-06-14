@@ -6,10 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../compile.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
+#include "../utils.h"
 
 const int64_t RANDOM_MAX_TRIES = 100;
 const int64_t DIM_SZE = 3;

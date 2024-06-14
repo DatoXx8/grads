@@ -1,8 +1,11 @@
 #include <CL/cl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "cl.h"
+#include "../utils.h"
+#include "../compile.h"
 
 /*
  * Nightmares - A poem about OpenCL

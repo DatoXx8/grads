@@ -2,6 +2,7 @@
 #define CGRAD_RUNTIMES_CL_H_
 
 #include <CL/cl.h>
+#include <stdint.h>
 
 #include "../compile.h"
 

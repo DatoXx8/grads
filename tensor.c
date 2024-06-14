@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "tensor.h"
+#include "utils.h"
 
 static char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
                                           'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};

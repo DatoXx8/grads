@@ -2,8 +2,7 @@
 #ifndef CGRAD_UTILS_H_
 #define CGRAD_UTILS_H_
 
-#include <math.h>
-#include <time.h>
+#include "math.h"
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 

@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../tensor.h"
+#include "../utils.h"
 
 const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
