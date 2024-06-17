@@ -1,8 +1,11 @@
 #include <CL/cl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "cl.h"
+#include "../utils.h"
+#include "../compile.h"
 
 /*
  * Nightmares - A poem about OpenCL
@@ -25,13 +28,17 @@
 
 cl_device_id cl_device_get(void) {
     cl_platform_id platform;
-    cl_device_id dev;
+    cl_device_id device;
     int err = 0;
     err = clGetPlatformIDs(1, &platform, NULL);
-    if(err < 0) { ERROR("Couldn't identify a OpenCL platform!\nError %d\n", err); }
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &dev, NULL);
-    if(err < 0) { ERROR("Couldn't access any devices!\nError %d\n", err); }
-    return dev;
+    if(err < 0) {
+        ERROR("Couldn't identify a OpenCL platform!\nError %d\n", err);
+    }
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    if(err < 0) {
+        ERROR("Couldn't access any devices!\nError %d\n", err);
+    }
+    return device;
 }
 cl_program cl_program_build(cl_context context, cl_device_id device, const char *source, int64_t source_size) {
     uint64_t log_size;
@@ -39,7 +46,9 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
     char *program_log;
     cl_program program =
         clCreateProgramWithSource(context, 1, (const char **) &source, (const size_t *) &source_size, &err);
-    if(err < 0) { ERROR("Couldn't create the program!\nError %d\n", err); }
+    if(err < 0) {
+        ERROR("Couldn't create the program!\nError %d\n", err);
+    }
     /* TODO: This is really slow for large kernels. Maybe there is a way of splitting the kernels up in a smarter
      * fashion such that this builds faster */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
@@ -63,15 +72,17 @@ static void program_build(program_t *program) {
  * make sure they are up to date. */
 void program_run(program_t *program) {
     int err;
-    if(!program->cl_program) {
+    if(program->cl_program == NULL) {
         program_build(program);
         program->cl_kernel = clCreateKernel(*program->cl_program, KERNEL_NAME, &err);
-        if(err < 0) { ERROR("Could not create OpenCL kernel\nError %d\n", err); }
+        if(err < 0) {
+            ERROR("Could not create OpenCL kernel\nError %d\n", err);
+        }
+        for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
+            clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem), &program->arg_mem[arg_idx]);
+        }
+        clFinish(*program->cl_command_queue);
     }
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
-        clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem), &program->arg_mem[arg_idx]);
-    }
-    clFinish(*program->cl_command_queue);
     clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL, (size_t *) &program->global_size,
                            (size_t *) &program->local_size, 0, NULL, NULL);
     clFinish(*program->cl_command_queue);

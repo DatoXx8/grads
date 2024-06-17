@@ -1,12 +1,14 @@
-#ifndef TENSOR_H_
-#define TENSOR_H_
+#ifndef CGRAD_TENSOR_H_
+#define CGRAD_TENSOR_H_
+
+typedef enum {
+    sync_none = 0,
+    sync_to_host,
+    sync_to_device
+} sync_e;
 
 #include <CL/cl.h>
-typedef enum { sync_none = 0, sync_to_host, sync_to_device } sync_e;
-
 #include <stdint.h>
-
-#include "utils.h"
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
@@ -31,6 +33,9 @@ typedef struct {
     cl_mem val_cl;
     sync_e sync;
     char name[BUFFER_NAME_SIZE + 1];
+    /* 0 for "aaa...", 1 for "baa..." etc. Used for avoiding a bunch of string comparisons. Could maybe refactor to
+     * generate the names based on these i.e. have `name_off == 12` generate the name `t0...012` */
+    int64_t name_off;
 } buffer_t;
 
 extern buffer_t buffer_alloc(int64_t a, int64_t z, int64_t y, int64_t x, cl_context context);
@@ -44,7 +49,12 @@ extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
     ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
                    (buffer)->off])
 
-typedef enum { op_unary, op_binary, op_reduce, op_move } op_e;
+typedef enum {
+    op_unary,
+    op_binary,
+    op_reduce,
+    op_move
+} op_e;
 typedef enum {
     unary_add,
     unary_subtract,
@@ -82,8 +92,17 @@ typedef enum {
     binary_min_like,
     binary_copy_like
 } binary_e;
-typedef enum { reduce_sum, reduce_max, reduce_avg, reduce_min } reduce_e;
-typedef enum { move_reshape, move_resize, move_offset } move_e;
+typedef enum {
+    reduce_sum,
+    reduce_max,
+    reduce_avg,
+    reduce_min
+} reduce_e;
+typedef enum {
+    move_reshape,
+    move_resize,
+    move_offset
+} move_e;
 
 #define MAX_DEPTH (0x100000)
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
@@ -118,7 +137,7 @@ extern linearized_t linearized_alloc(void);
 extern void linearized_free(linearized_t *linearized);
 extern void linearized_clear(linearized_t *linearized);
 extern void linearized_run(const linearized_t *linearized);
-extern void linearized_add_op(linearized_t *linearized, op_t op);
+extern void linearized_add_op(linearized_t *linearized, const op_t *op);
 extern void linearized_append(linearized_t *linearized1, linearized_t *linearized2);
 extern void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name);
 
@@ -130,8 +149,7 @@ typedef struct {
     linearized_t *linearized;
 } tensor_t;
 
-extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x,
-                             cl_context context);
+extern tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_add(tensor_t *tensor, const double value);

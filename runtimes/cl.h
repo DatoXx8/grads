@@ -1,7 +1,8 @@
-#ifndef CL_H_
-#define CL_H_
+#ifndef CGRAD_RUNTIMES_CL_H_
+#define CGRAD_RUNTIMES_CL_H_
 
 #include <CL/cl.h>
+#include <stdint.h>
 
 #include "../compile.h"
 

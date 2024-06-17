@@ -6,34 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../compile.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
-
-static void program_free_non_cl(program_t *program) {
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) { free(program->arg_name[arg_idx]); }
-    free(program->arg_name);
-    program->arg_name = NULL;
-    free(program->arg_mem);
-    program->arg_mem = NULL;
-    free(program->source);
-    program->source = NULL;
-    if(program->cl_kernel) {
-        clReleaseKernel(program->cl_kernel);
-        program->cl_kernel = NULL;
-    }
-    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
-    if(program->cl_program) {
-        if(*program->cl_program) {
-            clReleaseProgram(*program->cl_program);
-            *program->cl_program = NULL;
-            free(*program->cl_program);
-        }
-        free(program->cl_program);
-        program->cl_program = NULL;
-    }
-}
+#include "../utils.h"
 
 const int64_t RANDOM_MAX_TRIES = 100;
 const int64_t DIM_SZE = 3;
@@ -174,7 +152,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                 // tensor_out = tensor_in;
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_binary = rand() % 14;
@@ -293,7 +273,9 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
                 // tensor_out = tensor_in;
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_reduce = rand() % 4;
@@ -351,7 +333,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
 
     program_t program = {0};
 
-    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue, 9, 1);
+    program_compile(&program, tensor2[tensor_out].linearized, device_id, context, command_queue, 9, 9);
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -374,13 +356,21 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
             if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
                 margin_of_error)) {
                 ERROR("Invalid values %lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
-                       tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
-                       tensor2[tensor_out].buffer->name);
+                      tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
+                      tensor2[tensor_out].buffer->name);
             }
         }
     }
 
-    program_free_non_cl(&program);
+    for(int64_t arg_idx = 0; arg_idx < program.arg_num; arg_idx++) {
+        free(program.arg_name[arg_idx]);
+    }
+    free(program.arg_name);
+    free(program.arg_mem);
+    free(program.source);
+    clReleaseKernel(program.cl_kernel);
+    clReleaseProgram(*program.cl_program);
+    free(program.cl_program);
 }
 
 int main(int argc, char **argv) {
@@ -401,9 +391,9 @@ int main(int argc, char **argv) {
 
     cl_device_id device_id = cl_device_get();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
-    assert(err == 0);
+    assert(!err);
     cl_command_queue command_queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
-    assert(err == 0);
+    assert(!err);
 
     double *random_values = calloc(DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE, sizeof(double));
     assert(random_values);

@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../tensor.h"
+#include "../utils.h"
 
 const int64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
@@ -153,7 +155,9 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
             case op_binary: {
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_binary = rand() % 14;
@@ -286,7 +290,9 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
             case op_reduce: {
                 for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
-                    if(tensor_out != tensor_in) { break; }
+                    if(tensor_out != tensor_in) {
+                        break;
+                    }
                 }
                 assert(tensor_in != tensor_out);
                 type_reduce = rand() % 4;

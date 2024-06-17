@@ -1,5 +1,5 @@
-#ifndef COMPILE_H_
-#define COMPILE_H_
+#ifndef CGRAD_COMPILE_H_
+#define CGRAD_COMPILE_H_
 
 /*
     1. Function recognizes loops in linearized_t (could also be of size 1, meaning a singular op)
@@ -23,11 +23,21 @@ typedef struct {
     op_t *op;
     dim_info_t *dim_info;
 } simple_loop_t;
+
+typedef enum {
+    inline_op_none = 0,
+    inline_op_in,
+    inline_op_out,
+} inline_op_e;
+
 typedef struct {
     int64_t loop_num;
     int64_t op_num;
     op_t **op;
     dim_info_t **dim_info;
+    /* TODO: Implement the thing below cuz that allows for more aggressive inlining which likely increases
+     * performance significantly */
+    inline_op_e **inline_type;
     int64_t *inline_num;
     int64_t *inline_cap;
 } compile_loop_t;

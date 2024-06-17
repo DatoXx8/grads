@@ -5,4 +5,3 @@ zig cc ./tensor.c ./tests/simulate-tree.c -o simulate-tree -lm -lOpenCL -Wall -W
 ./simulate-tree 1000 10 2
 zig cc ./tensor.c ./compile.c ./runtimes/cl.c ./tests/simulate-compiler.c -o simulate-compiler -lm -lOpenCL -Wall -Wextra -pedantic -ggdb
 ./simulate-compiler 1000 10 2
-# ./simulate-compiler 2 10 1

@@ -1,5 +1,5 @@
-#ifndef NN_H_
-#define NN_H_
+#ifndef CGRAD_NN_H_
+#define CGRAD_NN_H_
 
 #include "CL/cl.h"
 
@@ -25,7 +25,12 @@ typedef struct {
 } activation_t;
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */
-typedef enum { norm_none, norm_layer, norm_batch, norm_simple } norm_e;
+typedef enum {
+    norm_none,
+    norm_layer,
+    norm_batch,
+    norm_simple
+} norm_e;
 
 /* TODO: Add learnable parameters gamma and beta from https://en.wikipedia.org/wiki/Batch_normalization */
 typedef struct {
@@ -95,7 +100,11 @@ extern void convolution_print_shape(const convolution_t *convolution, const int 
                                     const char *name);
 
 /* Can rename this to reduce_e after unifying all the op types. */
-typedef enum { layer_reduce_max, layer_reduce_avg, layer_reduce_min } layer_reduce_e;
+typedef enum {
+    layer_reduce_max,
+    layer_reduce_avg,
+    layer_reduce_min
+} layer_reduce_e;
 
 typedef struct {
     layer_reduce_e type;
@@ -117,7 +126,12 @@ extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t
 extern void reduce_print(const reduce_t *reduce, const int padding, const int offset, const char *name);
 
 /* Trying some new types of residual connections beyond identity and conv. */
-typedef enum { residual_identity, residual_convolution, residual_dense, residual_reduce } residual_e;
+typedef enum {
+    residual_identity,
+    residual_convolution,
+    residual_dense,
+    residual_reduce
+} residual_e;
 
 /* Specifies a residual connection and not a residual block per se. Also only identity and convolutions are
  * supported right now. */
@@ -152,7 +166,13 @@ extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *s
 extern void split_print(const split_t *split, const int padding, const int offset, const char *name);
 extern void split_print_shape(const split_t *split, const int padding, const int offset, const char *name);
 
-typedef enum { layer_input, layer_dense, layer_convolution, layer_reduce, layer_split } layer_e;
+typedef enum {
+    layer_input,
+    layer_dense,
+    layer_convolution,
+    layer_reduce,
+    layer_split
+} layer_e;
 
 typedef struct {
     layer_e layer_type;
@@ -223,7 +243,10 @@ extern layer_t layer_alloc(const layerconfig_t *layerconfig, cl_context context)
 extern void layer_free(layer_t *layer);
 
 /* TODO: Add other languages. */
-typedef enum { compile_none, compile_cl } compile_e;
+typedef enum {
+    compile_none,
+    compile_cl
+} compile_e;
 
 typedef struct {
     int64_t layers;

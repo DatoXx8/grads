@@ -7,19 +7,23 @@
 #include <string.h>
 
 #include "tensor.h"
+#include "utils.h"
 
-char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
-                                   'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
-void name_update(char *name) {
-    assert(name);
+static char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
+                                          'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
+static int64_t name_off = 0;
+static void name_update(void) {
     for(int64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
         assert(name[i] >= 'a' && name[i] <= 'z');
+        assert(name_off >= 0 && name_off <= INT64_MAX);
         if(name[i] != 'z') {
             name[i]++;
+            name_off++;
             return;
         } else {
             assert(i < BUFFER_NAME_SIZE - 1); /* This would be a wrap around back to "aaa..." */
             name[i] = 'a';
+            name_off++;
         }
     }
 }
@@ -74,24 +78,29 @@ buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const i
         .val = calloc(a * z * y * x, sizeof(double)),
         .val_cl = NULL,
         .sync = sync_none,
+        .name_off = name_off,
     };
     if(context) {
         int err;
         buffer.val_cl = clCreateBuffer(context, CL_MEM_READ_WRITE, a * z * y * x * sizeof(double), NULL, &err);
-        assert(err == 0);
+        assert(!err);
     }
     assert(buffer.val);
     strncpy(buffer.name, name, BUFFER_NAME_SIZE + 1);
-    name_update(name);
+    name_update();
     return buffer;
 }
 void buffer_free(buffer_t *buffer) {
     free(buffer->val);
-    if(buffer->val_cl) { clReleaseMemObject(buffer->val_cl); }
+    if(buffer->val_cl) {
+        clReleaseMemObject(buffer->val_cl);
+    }
 }
 
 void op_print(const op_t *op, const int padding, const int offset, const char *name) {
-    if(strncmp(name, "", 1) != 0) { printf("%*s%s\n", offset, "", name); }
+    if(strncmp(name, "", 1) != 0) {
+        printf("%*s%s\n", offset, "", name);
+    }
     printf("%*s<%p> ", offset + padding, "", (void *) op);
     switch(op->type_op) {
         case op_unary: {
@@ -898,15 +907,19 @@ void linearized_clear(linearized_t *linearized) {
 }
 void linearized_run(const linearized_t *linearized) {
     assert(linearized);
-    for(int64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) { op_realize(&linearized->op[op_idx]); }
+    for(int64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) {
+        op_realize(&linearized->op[op_idx]);
+    }
 }
-void linearized_add_op(linearized_t *linearized, const op_t op) {
+void linearized_add_op(linearized_t *linearized, const op_t *op) {
+    assert(linearized);
+    assert(op);
     linearized->op_len++;
     if(linearized->op_len >= linearized->op_cap) {
         linearized->op_cap *= 2;
         linearized->op = reallocarray(linearized->op, linearized->op_cap, sizeof(op_t));
     }
-    linearized->op[linearized->op_len - 1] = op;
+    linearized->op[linearized->op_len - 1] = *op;
 }
 void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
     while(linearized1->op_len + linearized2->op_len >= linearized1->op_cap) {
@@ -922,13 +935,17 @@ void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
 }
 void linearized_print(const linearized_t *linearized, const int padding, const int offset, const char *name) {
     assert(linearized);
-    if(!linearized) { return; }
+    if(linearized == NULL) {
+        return;
+    }
     if(strncmp(name, "", 1) != 0) {
         printf("%*slen %lu, cap %lu %s\n", offset, "", linearized->op_len, linearized->op_cap, name);
     } else {
         printf("%*slen %lu, cap %lu\n", offset, "", linearized->op_len, linearized->op_cap);
     }
-    if(linearized->op_len == 0) { printf("%*sEmpty\n", padding + offset, ""); }
+    if(!linearized->op_len) {
+        printf("%*sEmpty\n", padding + offset, "");
+    }
     /* Kind of a nice allignment for printing */
     // int64_t max = log10(linearized->op_count);
     // for(int64_t i = 0; i < linearized->op_count; i++) {
@@ -974,8 +991,7 @@ void tensor_unary_add(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_subtract(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -985,8 +1001,7 @@ void tensor_unary_subtract(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_multiply(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -996,8 +1011,7 @@ void tensor_unary_multiply(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_divide(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -1008,8 +1022,7 @@ void tensor_unary_divide(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_set(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -1019,8 +1032,7 @@ void tensor_unary_set(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_exp(tensor_t *tensor) {
     assert(tensor);
@@ -1029,8 +1041,7 @@ void tensor_unary_exp(tensor_t *tensor) {
         .type_unary = unary_exp,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_log(tensor_t *tensor) {
     assert(tensor);
@@ -1039,8 +1050,7 @@ void tensor_unary_log(tensor_t *tensor) {
         .type_unary = unary_log,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_square(tensor_t *tensor) {
     assert(tensor);
@@ -1049,8 +1059,7 @@ void tensor_unary_square(tensor_t *tensor) {
         .type_unary = unary_square,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_sqrt(tensor_t *tensor) {
     assert(tensor);
@@ -1059,8 +1068,7 @@ void tensor_unary_sqrt(tensor_t *tensor) {
         .type_unary = unary_sqrt,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_reciprocal(tensor_t *tensor) {
     assert(tensor);
@@ -1069,8 +1077,7 @@ void tensor_unary_reciprocal(tensor_t *tensor) {
         .type_unary = unary_reciprocal,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_random(tensor_t *tensor) {
     assert(tensor);
@@ -1079,8 +1086,7 @@ void tensor_unary_random(tensor_t *tensor) {
         .type_unary = unary_random,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_tanh(tensor_t *tensor) {
     assert(tensor);
@@ -1089,8 +1095,7 @@ void tensor_unary_tanh(tensor_t *tensor) {
         .type_unary = unary_tanh,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_max(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -1100,8 +1105,7 @@ void tensor_unary_max(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_min(tensor_t *tensor, const double value) {
     assert(tensor);
@@ -1111,8 +1115,7 @@ void tensor_unary_min(tensor_t *tensor, const double value) {
         .var_unary = value,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_absolute(tensor_t *tensor) {
     assert(tensor);
@@ -1121,8 +1124,7 @@ void tensor_unary_absolute(tensor_t *tensor) {
         .type_unary = unary_absolute,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 void tensor_unary_sign(tensor_t *tensor) {
     assert(tensor);
@@ -1131,8 +1133,7 @@ void tensor_unary_sign(tensor_t *tensor) {
         .type_unary = unary_sign,
         .buffer_out = *tensor->buffer,
     };
-    linearized_add_op(tensor->linearized, new);
-    if(tensor->buffer->val_cl) { buffer_sync_update(tensor->buffer, sync_to_device); }
+    linearized_add_op(tensor->linearized, &new);
 }
 
 void tensor_binary_add(tensor_t *out, tensor_t *in) {
@@ -1145,8 +1146,7 @@ void tensor_binary_add(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1158,8 +1158,7 @@ void tensor_binary_subtract(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1171,8 +1170,7 @@ void tensor_binary_multiply(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1184,8 +1182,7 @@ void tensor_binary_divide(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1197,8 +1194,7 @@ void tensor_binary_max(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1210,8 +1206,7 @@ void tensor_binary_min(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_binary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1223,8 +1218,7 @@ void tensor_binary_copy(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1236,8 +1230,7 @@ void tensor_lbinary_add(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1249,8 +1242,7 @@ void tensor_lbinary_subtract(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1262,8 +1254,7 @@ void tensor_lbinary_multiply(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1275,8 +1266,7 @@ void tensor_lbinary_divide(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1288,8 +1278,7 @@ void tensor_lbinary_max(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1301,8 +1290,7 @@ void tensor_lbinary_min(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1314,8 +1302,7 @@ void tensor_lbinary_copy(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 
 void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
@@ -1328,8 +1315,7 @@ void tensor_reduce_sum(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1341,8 +1327,7 @@ void tensor_reduce_avg(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_reduce_min(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1354,8 +1339,7 @@ void tensor_reduce_min(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     assert(out);
@@ -1367,8 +1351,7 @@ void tensor_reduce_max(tensor_t *out, tensor_t *in) {
         .buffer_in = *in->buffer,
     };
     linearized_append(out->linearized, in->linearized);
-    linearized_add_op(out->linearized, new);
-    if(out->buffer->val_cl) { buffer_sync_update(out->buffer, sync_to_device); }
+    linearized_add_op(out->linearized, &new);
 }
 
 void tensor_move_resize(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
@@ -1408,16 +1391,21 @@ void tensor_move_offset(tensor_t *tensor, const int64_t a, const int64_t z, cons
 
 void tensor_realize(tensor_t *tensor) {
     assert(tensor);
+    if(tensor->buffer->val_cl) {
+        buffer_sync_update(tensor->buffer, sync_to_device);
+    }
     linearized_run(tensor->linearized);
     linearized_clear(tensor->linearized);
 }
 
-void tensor_print(const tensor_t *tensor, const int padding,const int offset, const char *name) {
+void tensor_print(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1) != 0) {
-        printf("%*s%s NAME: %s %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->sync);
+        printf("%*s%s NAME: %s %lu %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     } else {
-        printf("%*sNAME: %s sync status %u\n", offset, "", tensor->buffer->name, tensor->buffer->sync);
+        printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     }
     for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a) {
@@ -1425,7 +1413,9 @@ void tensor_print(const tensor_t *tensor, const int padding,const int offset, co
             printf("\n");
         }
         for(int64_t z = 0; z < tensor->buffer->sze_z; z++) {
-            if(z) { printf("\n"); }
+            if(z) {
+                printf("\n");
+            }
             for(int64_t y = 0; y < tensor->buffer->sze_y; y++) {
                 printf("%*s[ ", offset + padding, "");
                 for(int64_t x = 0; x < tensor->buffer->sze_x; x++) {
@@ -1445,22 +1435,28 @@ const int64_t X_MAX = 4;
 void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name) {
     assert(tensor);
     if(strncmp(name, "", 1) != 0) {
-        printf("%*s%s sim_NAME: %s\n", offset, "", name, tensor->buffer->name);
+        printf("%*s%s NAME: %s %lu %u\n", offset, "", name, tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     } else {
-        printf("%*ssim_NAME: %s\n", offset, "", tensor->buffer->name);
+        printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
+               tensor->buffer->sync);
     }
     for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a >= A_MAX) {
             printf("%*s...\n\n", offset, "");
             break;
         }
-        if(a) { printf("\n\n"); }
+        if(a) {
+            printf("\n\n");
+        }
         for(int64_t z = 0; z < tensor->buffer->sze_z; z++) {
             if(z >= Z_MAX) {
                 printf("%*s...\n", offset, "");
                 break;
             }
-            if(z) { printf("\n"); }
+            if(z) {
+                printf("\n");
+            }
             for(int64_t y = 0; y < tensor->buffer->sze_y; y++) {
                 if(y >= Y_MAX) {
                     printf("%*s...\n", offset + padding, "");
