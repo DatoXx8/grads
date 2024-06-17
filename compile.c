@@ -727,8 +727,8 @@ static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_c
     assert(loop_idx >= 0);
     assert(!inline_idx);
     assert(offset >= 0);
+    char *name = (char *) op->buffer_out.name;
     switch(op->type_op) {
-        char *name = (char *) op->buffer_out.name;
         case op_unary: {
             *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name, compile_loop_idx,
                                    op_idx, inline_idx, loop_idx, offset);
