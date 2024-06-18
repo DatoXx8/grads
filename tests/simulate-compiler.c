@@ -1,7 +1,6 @@
 #include <CL/cl.h>
 #include <assert.h>
 #include <math.h>
-#include <opencl-c-base.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -374,8 +373,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
 }
 
 int main(int argc, char **argv) {
-    if(argc != 4) {
-        ERROR("USAGE: %s [ops] [tensors] [iterations]\n", argv[0]);
+    if(argc != 3) {
+        ERROR("USAGE: %s [ops] [tensors]\n", argv[0]);
         return 1;
     }
     int err;
@@ -384,10 +383,8 @@ int main(int argc, char **argv) {
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);
     const int64_t tensor_num = strtoll(argv[2], NULL, 10);
-    const int64_t iter_num = strtoll(argv[3], NULL, 10);
     assert(op_num > 0);
     assert(tensor_num > 1);
-    assert(iter_num > 0);
 
     cl_device_id device_id = cl_device_get();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -410,15 +407,11 @@ int main(int argc, char **argv) {
         tensor2[tensor_idx] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, context);
     }
 
-    for(int64_t iter_idx = 0; iter_idx < iter_num; iter_idx++) {
-        for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
-            memcpy(tensor1[tensor_idx].buffer->val, random_values,
-                   DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
-            memcpy(tensor2[tensor_idx].buffer->val, random_values,
-                   DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
-        }
-        simulate_compiler(tensor1, tensor2, op_num, tensor_num, &device_id, &context, &command_queue);
+    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
+        memcpy(tensor1[tensor_idx].buffer->val, random_values, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
+        memcpy(tensor2[tensor_idx].buffer->val, random_values, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
     }
+    simulate_compiler(tensor1, tensor2, op_num, tensor_num, &device_id, &context, &command_queue);
 
     for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         tensor_free(&tensor1[tensor_idx]);
@@ -430,7 +423,6 @@ int main(int argc, char **argv) {
     free(tensor1);
     free(tensor2);
     free(random_values);
-    printf("Passed compiler simulation with %lu ops, %lu tensors, and %lu iteratations!\n", op_num, tensor_num,
-           iter_num);
+    printf("Passed compiler simulation with %lu ops and %lu tensors!\n", op_num, tensor_num);
     return 0;
 }
