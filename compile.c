@@ -306,22 +306,22 @@ static void compile_loop_optimize(compile_loop_t *compile) {
     free(delete);
     /* Fuse */
 }
-// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
-//     assert(compile);
-//     if(strncmp(name, "", 1) != 0) {
-//         printf("%*s%s\n", offset, "", name);
-//     } else {
-//         printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
-//     }
-//     for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
-//         printf("%*s %d ", offset + padding, "", compile->inline_type[op_idx][0]);
-//         op_print(&compile->op[op_idx][0], 0, 0, "");
-//         for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
-//             printf("%*s %d ", offset + 2 * padding, "", compile->inline_type[op_idx][inline_idx]);
-//             op_print(&compile->op[op_idx][inline_idx], 0, 0, "");
-//         }
-//     }
-// }
+static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
+    assert(compile);
+    if(strncmp(name, "", 1) != 0) {
+        printf("%*s%s\n", offset, "", name);
+    } else {
+        printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
+    }
+    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+        printf("%*s %d ", offset + padding, "", compile->inline_type[op_idx][0]);
+        op_print(&compile->op[op_idx][0], 0, 0, "");
+        for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+            printf("%*s %d ", offset + 2 * padding, "", compile->inline_type[op_idx][inline_idx]);
+            op_print(&compile->op[op_idx][inline_idx], 0, 0, "");
+        }
+    }
+}
 static void compile_loop_free(compile_loop_t *compile) {
     assert(compile);
     assert(compile->op);
@@ -406,10 +406,9 @@ static inline void compile_expand_source(char **source, char **source_curr, int6
     assert(*source);
     *source_curr = *source + source_off;
 }
-static void compile_loops_gather_args(program_t *program, const compile_loop_t *compile, const int64_t loop_num) {
-    assert(program);
+static void compile_loop_gather_args(kernel_t *kernel, const compile_loop_t *compile) {
+    assert(kernel);
     assert(compile);
-    assert(loop_num > 0);
     int64_t arg_num = 0;
     int64_t arg_cap = INITIAL_CAP;
     char **arg_name = calloc(INITIAL_CAP, sizeof(char *));
@@ -418,13 +417,37 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
     assert(arg_name);
     assert(arg_name_off);
     assert(arg_mem);
-    for(int64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-        for(int64_t op_idx = 0; op_idx < compile[loop_idx].op_num; op_idx++) {
-            int64_t found;
-            /* Out */
+    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+        int64_t found;
+        /* Out */
+        found = 0;
+        for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+            if(arg_name_off[arg_idx] == compile->op[op_idx][0].buffer_out.name_off) {
+                found = 1;
+                break;
+            }
+        }
+        if(!found) {
+            if(arg_num == arg_cap) {
+                arg_cap *= 2;
+                arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
+                arg_name_off = reallocarray(arg_name_off, arg_cap, sizeof(int64_t));
+                arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
+                assert(arg_name);
+                assert(arg_name_off);
+                assert(arg_mem);
+            }
+            arg_name[arg_num] = strndup(compile->op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE + 1);
+            arg_name_off[arg_num] = compile->op[op_idx][0].buffer_out.name_off;
+            assert(arg_name[arg_num]);
+            arg_mem[arg_num] = compile->op[op_idx][0].buffer_out.val_cl;
+            arg_num++;
+        }
+        if(compile->op[op_idx][0].type_op != op_unary) {
+            /* In */
             found = 0;
             for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                if(arg_name_off[arg_idx] == compile[loop_idx].op[op_idx][0].buffer_out.name_off) {
+                if(arg_name_off[arg_idx] == compile->op[op_idx][0].buffer_in.name_off) {
                     found = 1;
                     break;
                 }
@@ -439,17 +462,19 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                     assert(arg_name_off);
                     assert(arg_mem);
                 }
-                arg_name[arg_num] = strndup(compile[loop_idx].op[op_idx][0].buffer_out.name, BUFFER_NAME_SIZE + 1);
-                arg_name_off[arg_num] = compile[loop_idx].op[op_idx][0].buffer_out.name_off;
+                arg_name[arg_num] = strndup(compile->op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE + 1);
+                arg_name_off[arg_num] = compile->op[op_idx][0].buffer_in.name_off;
                 assert(arg_name[arg_num]);
-                arg_mem[arg_num] = compile[loop_idx].op[op_idx][0].buffer_out.val_cl;
+                arg_mem[arg_num] = compile->op[op_idx][0].buffer_in.val_cl;
                 arg_num++;
             }
-            if(compile[loop_idx].op[op_idx][0].type_op != op_unary) {
-                /* In */
+        }
+        for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+            if(compile->op[op_idx][inline_idx].type_op == op_unary) {
+                /* Out */
                 found = 0;
                 for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                    if(arg_name_off[arg_idx] == compile[loop_idx].op[op_idx][0].buffer_in.name_off) {
+                    if(arg_name_off[arg_idx] != compile->op[op_idx][inline_idx].buffer_out.name_off) {
                         found = 1;
                         break;
                     }
@@ -464,74 +489,44 @@ static void compile_loops_gather_args(program_t *program, const compile_loop_t *
                         assert(arg_name_off);
                         assert(arg_mem);
                     }
-                    arg_name[arg_num] = strndup(compile[loop_idx].op[op_idx][0].buffer_in.name, BUFFER_NAME_SIZE + 1);
-                    arg_name_off[arg_num] = compile[loop_idx].op[op_idx][0].buffer_in.name_off;
+                    arg_name[arg_num] = strndup(compile->op[op_idx][inline_idx].buffer_out.name, BUFFER_NAME_SIZE + 1);
+                    arg_name_off[arg_num] = compile->op[op_idx][inline_idx].buffer_out.name_off;
                     assert(arg_name[arg_num]);
-                    arg_mem[arg_num] = compile[loop_idx].op[op_idx][0].buffer_in.val_cl;
+                    arg_mem[arg_num] = compile->op[op_idx][inline_idx].buffer_out.val_cl;
                     arg_num++;
                 }
-            }
-            for(int64_t inline_idx = 1; inline_idx < compile[loop_idx].inline_num[op_idx]; inline_idx++) {
-                if(compile[loop_idx].op[op_idx][inline_idx].type_op == op_unary) {
-                    /* Out */
-                    found = 0;
-                    for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                        if(arg_name_off[arg_idx] != compile[loop_idx].op[op_idx][inline_idx].buffer_out.name_off) {
-                            found = 1;
-                            break;
-                        }
+            } else {
+                /* In */
+                found = 0;
+                for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+                    if(arg_name_off[arg_idx] == compile->op[op_idx][inline_idx].buffer_in.name_off) {
+                        found = 1;
+                        break;
                     }
-                    if(!found) {
-                        if(arg_num == arg_cap) {
-                            arg_cap *= 2;
-                            arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
-                            arg_name_off = reallocarray(arg_name_off, arg_cap, sizeof(int64_t));
-                            arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
-                            assert(arg_name);
-                            assert(arg_name_off);
-                            assert(arg_mem);
-                        }
-                        arg_name[arg_num] =
-                            strndup(compile[loop_idx].op[op_idx][inline_idx].buffer_out.name, BUFFER_NAME_SIZE + 1);
-                        arg_name_off[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_out.name_off;
-                        assert(arg_name[arg_num]);
-                        arg_mem[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_out.val_cl;
-                        arg_num++;
+                }
+                if(!found) {
+                    if(arg_num == arg_cap) {
+                        arg_cap *= 2;
+                        arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
+                        arg_name_off = reallocarray(arg_name_off, arg_cap, sizeof(int64_t));
+                        arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
+                        assert(arg_name);
+                        assert(arg_name_off);
+                        assert(arg_mem);
                     }
-                } else {
-                    /* In */
-                    found = 0;
-                    for(int64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                        if(arg_name_off[arg_idx] == compile[loop_idx].op[op_idx][inline_idx].buffer_in.name_off) {
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if(!found) {
-                        if(arg_num == arg_cap) {
-                            arg_cap *= 2;
-                            arg_name = reallocarray(arg_name, arg_cap, sizeof(char *));
-                            arg_name_off = reallocarray(arg_name_off, arg_cap, sizeof(int64_t));
-                            arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
-                            assert(arg_name);
-                            assert(arg_name_off);
-                            assert(arg_mem);
-                        }
-                        arg_name[arg_num] =
-                            strndup(compile[loop_idx].op[op_idx][inline_idx].buffer_in.name, BUFFER_NAME_SIZE + 1);
-                        arg_name_off[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_in.name_off;
-                        assert(arg_name[arg_num]);
-                        arg_mem[arg_num] = compile[loop_idx].op[op_idx][inline_idx].buffer_in.val_cl;
-                        arg_num++;
-                    }
+                    arg_name[arg_num] = strndup(compile->op[op_idx][inline_idx].buffer_in.name, BUFFER_NAME_SIZE + 1);
+                    arg_name_off[arg_num] = compile->op[op_idx][inline_idx].buffer_in.name_off;
+                    assert(arg_name[arg_num]);
+                    arg_mem[arg_num] = compile->op[op_idx][inline_idx].buffer_in.val_cl;
+                    arg_num++;
                 }
             }
         }
     }
-    program->arg_name = arg_name;
-    program->arg_mem = arg_mem;
-    program->arg_num = arg_num;
-    program->arg_cap = arg_cap;
+    kernel->arg_name = arg_name;
+    kernel->arg_mem = arg_mem;
+    kernel->arg_num = arg_num;
+    kernel->arg_cap = arg_cap;
     free(arg_name_off);
 }
 extern void compile_append_index_table_cl(char **source, char **source_curr, int64_t *source_cap,
@@ -1581,13 +1576,13 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
                           a_max * z_max * y_max * x_max);
     free(temp);
 }
-static void compile_loops_to_cl(program_t *program, const compile_loop_t *compile_loop, const int64_t global_size,
-                                const int64_t local_size, const int64_t compile_loop_num) {
+static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_loop, const int64_t global_size,
+                               const int64_t local_size) {
     assert(compile_loop);
     assert(global_size);
     /* TODO: Make this work with multiple work groups */
     assert(local_size == global_size);
-    compile_loops_gather_args(program, compile_loop, compile_loop_num);
+    compile_loop_gather_args(kernel, compile_loop);
 
     char *source = calloc(INITIAL_SOURCE_SIZE, sizeof(char));
     assert(source);
@@ -1597,11 +1592,11 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
      * don't want to drift into this clean code stuff and they are only ever used once */
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "__kernel void " KERNEL_NAME "(");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
+    for(int64_t arg_idx = 0; arg_idx < kernel->arg_num; arg_idx++) {
         if(!arg_idx) {
-            source_curr += snprintf(source_curr, MAX_OP_SIZE, "__global double *%s", program->arg_name[arg_idx]);
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, "__global double *%s", kernel->arg_name[arg_idx]);
         } else {
-            source_curr += snprintf(source_curr, MAX_OP_SIZE, ",__global double *%s", program->arg_name[arg_idx]);
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, ",__global double *%s", kernel->arg_name[arg_idx]);
         }
         compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     }
@@ -1611,47 +1606,40 @@ static void compile_loops_to_cl(program_t *program, const compile_loop_t *compil
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "int id;\n");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-    for(int64_t compile_loop_idx = 0; compile_loop_idx < compile_loop_num; compile_loop_idx++) {
-        for(int64_t op_idx = 0; op_idx < compile_loop[compile_loop_idx].op_num; op_idx++) {
-            compile_append_index_table_cl(&source, &source_curr, &source_cap, &compile_loop[compile_loop_idx],
-                                          compile_loop_idx, op_idx, compile_loop[compile_loop_idx].inline_num[op_idx]);
+    for(int64_t op_idx = 0; op_idx < compile_loop->op_num; op_idx++) {
+        compile_append_index_table_cl(&source, &source_curr, &source_cap, compile_loop, 0, op_idx,
+                                      compile_loop->inline_num[op_idx]);
+    }
+    int64_t loops_left = compile_loop->loop_num % global_size;
+    int64_t loops_per_kernel =
+        !loops_left ? compile_loop->loop_num / global_size : compile_loop->loop_num / global_size + 1;
+    source_curr += snprintf(source_curr, MAX_OP_SIZE, "id = gid;\n");
+    compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
+    for(int64_t loop_idx = 0; loop_idx < loops_per_kernel; loop_idx++) {
+        if(loop_idx) {
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
+            compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
         }
-        int64_t loops_left = compile_loop[compile_loop_idx].loop_num % global_size;
-        int64_t loops_per_kernel = !loops_left ? compile_loop[compile_loop_idx].loop_num / global_size
-                                               : compile_loop[compile_loop_idx].loop_num / global_size + 1;
-        source_curr += snprintf(source_curr, MAX_OP_SIZE, "id = gid;\n");
-        compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-        for(int64_t loop_idx = 0; loop_idx < loops_per_kernel; loop_idx++) {
-            if(loop_idx) {
-                source_curr += snprintf(source_curr, MAX_OP_SIZE, "id += %lu;\n", global_size);
-                compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            }
-            if(loop_idx == loops_per_kernel - 1 && loops_left) {
-                source_curr += snprintf(source_curr, MAX_OP_SIZE, "if(gid < %lu) {\n", loops_left);
-                compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            }
-            for(int64_t op_idx = 0; op_idx < compile_loop[compile_loop_idx].op_num; op_idx++) {
-                compile_append_op_index(&source, &source_curr, &source_cap, compile_loop[compile_loop_idx].op[op_idx],
-                                        compile_loop[compile_loop_idx].inline_num[op_idx], compile_loop_idx, op_idx,
-                                        loop_idx);
-                compile_append_op(
-                    &source, &source_curr, &source_cap, compile_loop[compile_loop_idx].op[op_idx],
-                    compile_loop[compile_loop_idx].dim_info[op_idx], compile_loop[compile_loop_idx].inline_type[op_idx],
-                    compile_loop[compile_loop_idx].inline_num[op_idx], compile_loop_idx, op_idx, loop_idx);
-            }
-            if(loop_idx == loops_per_kernel - 1 && loops_left) {
-                source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
-                compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-            }
+        if(loop_idx == loops_per_kernel - 1 && loops_left) {
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, "if(gid < %lu) {\n", loops_left);
+            compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
         }
-        source_curr += snprintf(source_curr, MAX_OP_SIZE, "barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);\n");
+        for(int64_t op_idx = 0; op_idx < compile_loop->op_num; op_idx++) {
+            compile_append_op_index(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
+                                    compile_loop->inline_num[op_idx], 0, op_idx, loop_idx);
+            compile_append_op(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
+                              compile_loop->dim_info[op_idx], compile_loop->inline_type[op_idx],
+                              compile_loop->inline_num[op_idx], 0, op_idx, loop_idx);
+        }
+        if(loop_idx == loops_per_kernel - 1 && loops_left) {
+            source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
+            compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
+        }
     }
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
-    program->source = source;
-    program->source_cap = source_cap;
-    program->global_size = global_size;
-    program->local_size = local_size;
+    kernel->source = source;
+    kernel->source_cap = source_cap;
 }
 void program_compile(program_t *program, const linearized_t *linearized, const cl_device_id *device_id,
                      const cl_context *context, const cl_command_queue *command_queue, const int64_t global_size,
@@ -1672,55 +1660,47 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
         return;
     }
     simple_loop_t simple = {0};
-    compile_loop_t *compile = calloc(INITIAL_CAP, sizeof(compile_loop_t));
-    assert(compile);
-    int64_t compile_num = 0;
-    int64_t compile_cap = INITIAL_CAP;
+    compile_loop_t compile = {0};
+    int64_t kernel_num = 0;
+    int64_t kernel_cap = INITIAL_CAP;
+    program->kernel = calloc(INITIAL_CAP, sizeof(kernel_t));
     int64_t op_idx = 0;
     while(op_idx < linearized->op_len) {
         op_idx += simple_loop_from_linearized_index(&simple, linearized, op_idx);
-        compile[compile_num] = compile_loop_alloc(&simple);
-        compile_num++;
-        if(compile_num == compile_cap) {
-            compile_cap *= 2;
-            compile = reallocarray(compile, compile_cap, sizeof(compile_loop_t));
-            assert(compile);
+        compile = compile_loop_alloc(&simple);
+        compile_loop_to_cl(&program->kernel[kernel_num], &compile, global_size, local_size);
+        kernel_num++;
+        if(kernel_num == kernel_cap) {
+            kernel_cap *= 2;
+            program->kernel = reallocarray(program->kernel, kernel_cap, sizeof(compile_loop_t));
+            assert(program->kernel);
         }
+        compile_loop_free(&compile);
     }
-    compile_loops_to_cl(program, compile, global_size, local_size, compile_num);
+    program->kernel_num = kernel_num;
+    program->kernel_cap = kernel_cap;
+    program->local_size = local_size;
+    program->global_size = global_size;
     simple_loop_free(&simple);
-    for(int64_t i = 0; i < compile_num; i++) {
-        compile_loop_free(&compile[i]);
-    }
     program->cl_device_id = (cl_device_id *) device_id;
     program->cl_context = (cl_context *) context;
     program->cl_command_queue = (cl_command_queue *) command_queue;
-    free(compile);
 }
 void program_free(program_t *program) {
-    for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
-        free(program->arg_name[arg_idx]);
-    }
-    free(program->arg_name);
-    program->arg_name = NULL;
-    free(program->arg_mem);
-    program->arg_mem = NULL;
-    free(program->source);
-    program->source = NULL;
-    if(program->cl_kernel) {
-        clReleaseKernel(program->cl_kernel);
-        program->cl_kernel = NULL;
-    }
-    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
-    if(program->cl_program) {
-        if(*program->cl_program) {
-            clReleaseProgram(*program->cl_program);
-            *program->cl_program = NULL;
-            free(*program->cl_program);
+    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+        for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
+            free(program->kernel[kernel_idx].arg_name[arg_idx]);
         }
-        free(program->cl_program);
-        program->cl_program = NULL;
+        free(program->kernel[kernel_idx].arg_name);
+        free(program->kernel[kernel_idx].arg_mem);
+        free(program->kernel[kernel_idx].source);
+        clReleaseKernel(program->kernel[kernel_idx].cl_kernel);
+        clReleaseProgram(program->kernel[kernel_idx].cl_program);
     }
+    free(program->kernel);
+    program->kernel = NULL;
+    program->kernel_num = 0;
+    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
     if(program->cl_device_id) {
         if(*program->cl_device_id) {
             clReleaseDevice(*program->cl_device_id);

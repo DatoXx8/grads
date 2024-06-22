@@ -1,12 +1,6 @@
 #ifndef CGRAD_COMPILE_H_
 #define CGRAD_COMPILE_H_
 
-/*
-    1. Function recognizes loops in linearized_t (could also be of size 1, meaning a singular op)
-    2. Function assigns loops to work groups
-    3. Each loop gets split up into multiple work items
- */
-
 #include <CL/cl.h>
 #include <stdint.h>
 
@@ -17,6 +11,7 @@ typedef struct {
     int64_t *off_out;
 } dim_info_t;
 
+/* TODO: Get rid off this and just have rename `compile_loop_t` to `op_loop_t` */
 typedef struct {
     int64_t loop_num;
     int64_t loop_len;
@@ -35,8 +30,6 @@ typedef struct {
     int64_t op_num;
     op_t **op;
     dim_info_t **dim_info;
-    /* TODO: Implement the thing below cuz that allows for more aggressive inlining which likely increases
-     * performance significantly */
     inline_op_e **inline_type;
     int64_t *inline_num;
     int64_t *inline_cap;
@@ -48,13 +41,18 @@ typedef struct {
     cl_mem *arg_mem;
     int64_t arg_num;
     int64_t arg_cap;
-    int64_t global_size;
-    int64_t local_size;
     char *source;
     int64_t source_len;
     int64_t source_cap;
     cl_kernel cl_kernel;
-    cl_program *cl_program;
+    cl_program cl_program;
+} kernel_t;
+typedef struct {
+    int64_t kernel_num;
+    int64_t kernel_cap;
+    kernel_t *kernel;
+    int64_t global_size;
+    int64_t local_size;
     cl_device_id *cl_device_id;
     cl_context *cl_context;
     cl_command_queue *cl_command_queue;

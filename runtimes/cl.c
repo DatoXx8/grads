@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cl.h"
-#include "../utils.h"
 #include "../compile.h"
+#include "../utils.h"
+#include "cl.h"
 
 /*
  * Nightmares - A poem about OpenCL
@@ -63,27 +63,28 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
     }
     return program;
 }
-static void program_build(program_t *program) {
-    program->cl_program = calloc(1, sizeof(cl_program));
-    *program->cl_program =
-        cl_program_build(*program->cl_context, *program->cl_device_id, program->source, program->source_len);
-}
 /* Compiles the program if it wasn't already. All `cl_mem` fields need to be synced before and after this function to
  * make sure they are up to date. */
 void program_run(program_t *program) {
     int err;
-    if(program->cl_program == NULL) {
-        program_build(program);
-        program->cl_kernel = clCreateKernel(*program->cl_program, KERNEL_NAME, &err);
-        if(err < 0) {
-            ERROR("Could not create OpenCL kernel\nError %d\n", err);
+    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+        if(program->kernel[kernel_idx].cl_program == NULL) {
+            program->kernel[kernel_idx].cl_program =
+                cl_program_build(*program->cl_context, *program->cl_device_id, program->kernel[kernel_idx].source,
+                                 program->kernel[kernel_idx].source_cap);
+            program->kernel[kernel_idx].cl_kernel =
+                clCreateKernel(program->kernel[kernel_idx].cl_program, KERNEL_NAME, &err);
+            if(err < 0) {
+                ERROR("Could not create OpenCL kernel\nError %d\n", err);
+            }
+            for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
+                clSetKernelArg(program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
+                               &program->kernel[kernel_idx].arg_mem[arg_idx]);
+            }
+            clFinish(*program->cl_command_queue);
         }
-        for(int64_t arg_idx = 0; arg_idx < program->arg_num; arg_idx++) {
-            clSetKernelArg(program->cl_kernel, arg_idx, sizeof(cl_mem), &program->arg_mem[arg_idx]);
-        }
+        clEnqueueNDRangeKernel(*program->cl_command_queue, program->kernel[kernel_idx].cl_kernel, 1, NULL,
+                               (size_t *) &program->global_size, (size_t *) &program->local_size, 0, NULL, NULL);
         clFinish(*program->cl_command_queue);
     }
-    clEnqueueNDRangeKernel(*program->cl_command_queue, program->cl_kernel, 1, NULL, (size_t *) &program->global_size,
-                           (size_t *) &program->local_size, 0, NULL, NULL);
-    clFinish(*program->cl_command_queue);
 }
