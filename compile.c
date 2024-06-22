@@ -111,7 +111,7 @@ static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const in
     }
 }
 /* Returns the amount of ops in all the iterations of the loop combined, which makes it possible to use like `snprintf`
- * for format-string appending */
+ * for format string appending */
 static int64_t simple_loop_from_linearized_index(simple_loop_t *simple, const linearized_t *linearized,
                                                  const int64_t start_idx) {
     assert(simple);
@@ -306,22 +306,22 @@ static void compile_loop_optimize(compile_loop_t *compile) {
     free(delete);
     /* Fuse */
 }
-static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
-    assert(compile);
-    if(strncmp(name, "", 1) != 0) {
-        printf("%*s%s\n", offset, "", name);
-    } else {
-        printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
-    }
-    for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
-        printf("%*s %d ", offset + padding, "", compile->inline_type[op_idx][0]);
-        op_print(&compile->op[op_idx][0], 0, 0, "");
-        for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
-            printf("%*s %d ", offset + 2 * padding, "", compile->inline_type[op_idx][inline_idx]);
-            op_print(&compile->op[op_idx][inline_idx], 0, 0, "");
-        }
-    }
-}
+// static void compile_loop_print(compile_loop_t *compile, int padding, int offset, const char *name) {
+//     assert(compile);
+//     if(strncmp(name, "", 1) != 0) {
+//         printf("%*s%s\n", offset, "", name);
+//     } else {
+//         printf("%*scompile loop with %lu iterations\n", offset, "", compile->loop_num);
+//     }
+//     for(int64_t op_idx = 0; op_idx < compile->op_num; op_idx++) {
+//         printf("%*s %d ", offset + padding, "", compile->inline_type[op_idx][0]);
+//         op_print(&compile->op[op_idx][0], 0, 0, "");
+//         for(int64_t inline_idx = 1; inline_idx < compile->inline_num[op_idx]; inline_idx++) {
+//             printf("%*s %d ", offset + 2 * padding, "", compile->inline_type[op_idx][inline_idx]);
+//             op_print(&compile->op[op_idx][inline_idx], 0, 0, "");
+//         }
+//     }
+// }
 static void compile_loop_free(compile_loop_t *compile) {
     assert(compile);
     assert(compile->op);
@@ -391,23 +391,20 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
             compile.dim_info[i][0].off_in[j] = simple->dim_info[i].off_in[j];
         }
     }
-    compile_loop_print(&compile, 4, 0, "");
     compile_loop_optimize(&compile);
-    compile_loop_print(&compile, 4, 0, "");
-    printf("\n\n");
     return compile;
 }
-const int64_t INITIAL_SOURCE_SIZE = 12500;
-const int64_t MAX_OP_SIZE = 1000;
-static void compile_expand_source(char **source, char **source_curr, int64_t *source_cap, const int64_t padding) {
-    int64_t source_off;
+static const int64_t INITIAL_SOURCE_SIZE = 12500;
+static const int64_t MAX_OP_SIZE = 1000;
+static inline void compile_expand_source(char **source, char **source_curr, int64_t *source_cap,
+                                         const int64_t padding) {
+    int64_t source_off = *source_curr - *source;
     while(*source_cap - (*source_curr - *source) <= padding) {
-        source_off = *source_curr - *source;
         *source_cap *= 2;
-        *source = reallocarray(*source, *source_cap, sizeof(char *));
-        assert(*source);
-        *source_curr = *source + source_off;
     }
+    *source = reallocarray(*source, *source_cap, sizeof(char *));
+    assert(*source);
+    *source_curr = *source + source_off;
 }
 static void compile_loops_gather_args(program_t *program, const compile_loop_t *compile, const int64_t loop_num) {
     assert(program);
@@ -549,7 +546,7 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, int
     assert(*source_cap >= INITIAL_SOURCE_SIZE);
     assert(loop);
     assert(op_idx >= 0);
-    assert(inline_num > 0); /* TODO: Remove when adding back inlining */
+    assert(inline_num > 0);
     *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%d[]={",
                              loop->op[op_idx][0].buffer_out.name, compile_loop_idx, op_idx, 0);
     compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
@@ -713,8 +710,8 @@ static void compile_append_footer(char **source, char **source_curr, int64_t *so
     }
 }
 static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
-                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
-                                  const int64_t loop_idx, const int64_t offset) {
+                                  const int64_t op_num, const int64_t compile_loop_idx, const int64_t op_idx,
+                                  const int64_t inline_idx, const int64_t loop_idx, const int64_t offset) {
     assert(temp);
     assert(*temp);
     assert(temp_curr);
@@ -730,18 +727,246 @@ static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_c
     char *name = (char *) op->buffer_out.name;
     switch(op->type_op) {
         case op_unary: {
-            *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name, compile_loop_idx,
-                                   op_idx, inline_idx, loop_idx, offset);
+            switch(op->type_unary) {
+                case unary_add: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]+=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_subtract: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]-=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_multiply: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]*=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_divide: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]/=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_exp: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_log: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_square: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_sqrt: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_reciprocal: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_max: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_min: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_set: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_random: {
+                    ERROR("Tried to compile unary_random");
+                    break;
+                }
+                case unary_tanh: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_sign: {
+                    TODO();
+                    break;
+                }
+                case unary_absolute: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+            }
             break;
         }
         case op_binary: {
-            *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name, compile_loop_idx,
-                                   op_idx, inline_idx, loop_idx, offset);
+            switch(op->type_binary) {
+                case binary_add: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]+=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_subtract: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]-=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_multiply: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]*=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_divide: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]/=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_max: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_min: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_copy: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_add_like: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]+=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_subtract_like: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]-=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_multiply_like: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]*=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_divide_like: {
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]/=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case binary_max_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_min_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_copy_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+            }
             break;
         }
         case op_reduce: {
-            *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]=", name, name, compile_loop_idx,
-                                   op_idx, inline_idx, loop_idx);
+            switch(op->type_reduce) {
+                case reduce_sum: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]+=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case reduce_avg: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]+=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case reduce_max: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case reduce_min: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]=", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+            }
             break;
         }
         case op_move: {
@@ -751,8 +976,9 @@ static void compile_append_assign(char **temp, char **temp_curr, int64_t *temp_c
     compile_expand_source(temp, temp_curr, temp_cap, MAX_OP_SIZE);
 }
 static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
-                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
-                                  const int64_t loop_idx, const int64_t offset, const inline_op_e inline_type) {
+                                  const int64_t op_num, const int64_t compile_loop_idx, const int64_t op_idx,
+                                  const int64_t inline_idx, const int64_t loop_idx, const int64_t offset,
+                                  const inline_op_e inline_type) {
     assert(temp);
     assert(*temp);
     assert(temp_curr);
@@ -848,23 +1074,39 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
             }
             switch(op->type_binary) {
                 case binary_add: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_subtract: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_multiply: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_divide: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_max: {
@@ -882,23 +1124,39 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
                     break;
                 }
                 case binary_add_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]+", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_subtract_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]-", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_multiply_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]*", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_divide_like: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", name, name,
-                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(");
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "(%s[%s_%lu_%lu_%lu_%lu+%lu]/", name, name,
+                                               compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
                     break;
                 }
                 case binary_max_like: {
@@ -949,7 +1207,7 @@ static void compile_append_prefix(char **temp, char **temp_curr, int64_t *temp_c
     }
     compile_expand_source(temp, temp_curr, temp_cap, MAX_OP_SIZE);
 }
-static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
+static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op, const int64_t op_num,
                                  const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
                                  const int64_t loop_idx, const int64_t offset) {
     assert(temp);
@@ -967,21 +1225,172 @@ static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_ca
     /* Do these change for inline ops? I don't think so? */
     switch(op->type_op) {
         case op_unary: {
-            if(op->type_unary == unary_set) {
-                *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf", op->var_unary);
-            } else {
-                *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
-                                       op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+            switch(op->type_unary) {
+                case unary_add: {
+                    if(op_num != 1) {
+                        *temp_curr +=
+                            snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                     op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_subtract: {
+                    if(op_num != 1) {
+                        *temp_curr +=
+                            snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                     op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_multiply: {
+                    if(op_num != 1) {
+                        *temp_curr +=
+                            snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                     op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_divide: {
+                    if(op_num != 1) {
+                        *temp_curr +=
+                            snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                     op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    }
+                    break;
+                }
+                case unary_exp: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_log: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_square: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_sqrt: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_reciprocal: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_max: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_min: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_set: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf", op->var_unary);
+                    break;
+                }
+                case unary_random: {
+                    ERROR("Tried to compile unary_random");
+                    break;
+                }
+                case unary_tanh: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case unary_sign: {
+                    TODO();
+                    break;
+                }
+                case unary_absolute: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_out.name,
+                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
             }
             break;
         }
         case op_binary: {
-            if(op->type_binary < binary_add_like) {
-                *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", op->buffer_in.name,
-                                       op->buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
-            } else {
-                *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", op->buffer_in.name,
-                                       op->buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
+            char *name = (char *) op->buffer_in.name;
+            switch(op->type_binary) {
+                case binary_add: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_subtract: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_multiply: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_divide: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_max: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_min: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_copy: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu+%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx, offset);
+                    break;
+                }
+                case binary_add_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_subtract_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_multiply_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_divide_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_max_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_min_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
+                case binary_copy_like: {
+                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%s[%s_%lu_%lu_%lu_%lu]", name, name,
+                                           compile_loop_idx, op_idx, inline_idx, loop_idx);
+                    break;
+                }
             }
             break;
         }
@@ -998,8 +1407,7 @@ static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_ca
     compile_expand_source(temp, temp_curr, temp_cap, MAX_OP_SIZE);
 }
 static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_cap, const op_t *op,
-                                   const int64_t compile_loop_idx, const int64_t op_idx, const int64_t inline_idx,
-                                   const int64_t loop_idx, const int64_t offset /* , const char *temp_square */) {
+                                   const int64_t op_num) {
     assert(temp);
     assert(*temp);
     assert(temp_curr);
@@ -1007,28 +1415,39 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
     assert(temp_cap);
     assert(*temp_cap);
     assert(op);
-    assert(compile_loop_idx >= 0);
-    assert(op_idx >= 0);
-    assert(inline_idx >= 0);
-    assert(loop_idx >= 0);
-    assert(offset >= 0);
     switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+(%lf))", op->var_unary);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf)", op->var_unary);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+(%lf))", op->var_unary);
+                    }
                     break;
                 }
                 case unary_subtract: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-(%lf))", op->var_unary);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf)", op->var_unary);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "-(%lf))", op->var_unary);
+                    }
                     break;
                 }
                 case unary_multiply: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*(%lf))", op->var_unary);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf)", op->var_unary);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "*(%lf))", op->var_unary);
+                    }
                     break;
                 }
                 case unary_divide: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/(%lf))", op->var_unary);
+                    if(op_num == 1) {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "%lf)", op->var_unary);
+                    } else {
+                        *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "/(%lf))", op->var_unary);
+                    }
                     break;
                 }
                 case unary_exp: {
@@ -1089,26 +1508,7 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
             break;
         }
         case op_reduce: {
-            switch(op->type_reduce) {
-                case reduce_sum: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
-                    break;
-                }
-                case reduce_avg: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, "+%s[%s_%lu_%lu_%lu_%lu])", op->buffer_out.name,
-                                           op->buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx);
-                    break;
-                }
-                case reduce_max: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
-                    break;
-                }
-                case reduce_min: {
-                    *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
-                    break;
-                }
-            }
+            *temp_curr += snprintf(*temp_curr, MAX_OP_SIZE, ")");
             break;
         }
         case op_move: {
@@ -1118,7 +1518,7 @@ static void compile_append_postfix(char **temp, char **temp_curr, int64_t *temp_
     compile_expand_source(temp, temp_curr, temp_cap, MAX_OP_SIZE);
 }
 static void compile_append_op(char **source, char **source_curr, int64_t *source_cap, const op_t *op,
-                              const dim_info_t *dim_info, const inline_op_e *inline_info, const int64_t inline_num,
+                              const dim_info_t *dim_info, const inline_op_e *inline_info, const int64_t op_num,
                               const int64_t compile_loop_idx, const int64_t op_idx, const int64_t loop_idx) {
     assert(source);
     assert(*source);
@@ -1128,7 +1528,7 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
     assert(*source_cap >= INITIAL_SOURCE_SIZE);
     assert(op);
     assert(dim_info);
-    assert(inline_num > 0);
+    assert(op_num > 0);
     assert(compile_loop_idx >= 0);
     assert(op_idx >= 0);
     assert(loop_idx >= 0);
@@ -1147,27 +1547,26 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
             for(int64_t y_idx = 0; y_idx < y_max; y_idx++) {
                 for(int64_t x_idx = 0; x_idx < x_max; x_idx++) {
                     int64_t offset = INDEX(op[0].buffer_out, a_idx, z_idx, y_idx, x_idx);
-                    compile_append_assign(&temp, &temp_curr, &temp_cap, op, compile_loop_idx, op_idx, 0, loop_idx,
-                                          offset);
+                    compile_append_assign(&temp, &temp_curr, &temp_cap, op, op_num, compile_loop_idx, op_idx, 0,
+                                          loop_idx, offset);
                     // char *temp_assign = temp_curr;
 
-                    for(int64_t inline_idx = 0; inline_idx < inline_num; inline_idx++) {
+                    for(int64_t inline_idx = 0; inline_idx < op_num; inline_idx++) {
                         offset = INDEX(op[inline_idx].buffer_out, a_idx, z_idx, y_idx, x_idx);
-                        compile_append_prefix(&temp, &temp_curr, &temp_cap, &op[inline_idx], compile_loop_idx, op_idx,
-                                              inline_idx, loop_idx, offset, inline_info[inline_idx]);
+                        compile_append_prefix(&temp, &temp_curr, &temp_cap, &op[inline_idx], op_num, compile_loop_idx,
+                                              op_idx, inline_idx, loop_idx, offset, inline_info[inline_idx]);
                     }
 
-                    int64_t inner_idx = inline_num - 1;
+                    int64_t inner_idx = op_num - 1;
                     offset = op[inner_idx].type_op == op_unary
                                  ? INDEX(op[inner_idx].buffer_out, a_idx, z_idx, y_idx, x_idx)
                                  : INDEX(op[inner_idx].buffer_in, a_idx, z_idx, y_idx, x_idx);
-                    compile_append_inner(&temp, &temp_curr, &temp_cap, &op[inner_idx], compile_loop_idx, op_idx,
+                    compile_append_inner(&temp, &temp_curr, &temp_cap, &op[inner_idx], op_num, compile_loop_idx, op_idx,
                                          inner_idx, loop_idx, offset);
 
-                    for(int64_t inline_idx = inline_num - 1; inline_idx >= 0; inline_idx--) {
+                    for(int64_t inline_idx = op_num - 1; inline_idx >= 0; inline_idx--) {
                         offset = INDEX(op[inner_idx].buffer_out, a_idx, z_idx, y_idx, x_idx);
-                        compile_append_postfix(&temp, &temp_curr, &temp_cap, &op[inline_idx], compile_loop_idx, op_idx,
-                                               inline_idx, loop_idx, offset /* , temp_assign */);
+                        compile_append_postfix(&temp, &temp_curr, &temp_cap, &op[inline_idx], op_num);
                     }
 
                     *source_curr += snprintf(*source_curr, temp_cap, "%s;\n", temp);
