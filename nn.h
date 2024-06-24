@@ -113,7 +113,6 @@ typedef struct {
     int64_t _input_x; /* Not set directly. */
     int64_t kernel_size;
     int64_t kernel_stride;
-    // int64_t kernel_padding;
 } reduce_t;
 
 /* Calculates output size per dimension. */
@@ -200,7 +199,6 @@ typedef struct {
     int64_t _reduce_input_x; /* Not set directly */
     int64_t reduce_kernel_size;
     int64_t reduce_kernel_stride;
-    // int64_t reduce_kernel_padding;
 
     int64_t _split_input_z; /* Not set directly */
     int64_t _split_input_y; /* Not set directly */
