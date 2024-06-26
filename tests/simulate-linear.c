@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     const uint32_t seed = time(NULL);
-    printf("RNG Seed %u\n", seed);
+    printf("Linear simulation with %u...\n", seed);
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);
     const int64_t tensor_num = strtoll(argv[2], NULL, 10);
@@ -401,6 +401,6 @@ int main(int argc, char **argv) {
     free(tensor1);
     free(tensor2);
     free(random_values);
-    printf("Passed tree simulation with %lu ops and %lu tensors!\n", op_num, tensor_num);
+    printf("Passed\n");
     return 0;
 }
