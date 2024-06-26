@@ -1667,6 +1667,7 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
         compile = compile_loop_alloc(&simple);
         compile_loop_to_cl(&program->kernel[kernel_num], &compile, global_size, local_size);
         program->kernel[kernel_num].cl_program = NULL;
+        program->kernel[kernel_num].cl_kernel = NULL;
         kernel_num++;
         if(kernel_num == kernel_cap) {
             kernel_cap *= 2;
@@ -1692,8 +1693,12 @@ void program_free(program_t *program) {
         free(program->kernel[kernel_idx].arg_name);
         free(program->kernel[kernel_idx].arg_mem);
         free(program->kernel[kernel_idx].source);
-        clReleaseKernel(program->kernel[kernel_idx].cl_kernel);
-        clReleaseProgram(program->kernel[kernel_idx].cl_program);
+        if(program->kernel[kernel_idx].cl_kernel) {
+            clReleaseKernel(program->kernel[kernel_idx].cl_kernel);
+        }
+        if(program->kernel[kernel_idx].cl_program) {
+            clReleaseProgram(program->kernel[kernel_idx].cl_program);
+        }
     }
     free(program->kernel);
     program->kernel = NULL;
