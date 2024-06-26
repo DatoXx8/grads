@@ -528,6 +528,7 @@ static void compile_loop_gather_args(kernel_t *kernel, const compile_loop_t *com
     kernel->arg_num = arg_num;
     kernel->arg_cap = arg_cap;
     free(arg_name_off);
+    assert(kernel->arg_num > 0);
 }
 extern void compile_append_index_table_cl(char **source, char **source_curr, int64_t *source_cap,
                                           const compile_loop_t *loop, const int64_t compile_loop_idx,
@@ -1217,7 +1218,6 @@ static void compile_append_inner(char **temp, char **temp_curr, int64_t *temp_ca
     assert(loop_idx >= 0);
     assert(inline_idx >= 0);
     assert(offset >= 0);
-    /* Do these change for inline ops? I don't think so? */
     switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
@@ -1544,8 +1544,6 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
                     int64_t offset = INDEX(op[0].buffer_out, a_idx, z_idx, y_idx, x_idx);
                     compile_append_assign(&temp, &temp_curr, &temp_cap, op, op_num, compile_loop_idx, op_idx, 0,
                                           loop_idx, offset);
-                    // char *temp_assign = temp_curr;
-
                     for(int64_t inline_idx = 0; inline_idx < op_num; inline_idx++) {
                         offset = INDEX(op[inline_idx].buffer_out, a_idx, z_idx, y_idx, x_idx);
                         compile_append_prefix(&temp, &temp_curr, &temp_cap, &op[inline_idx], op_num, compile_loop_idx,
@@ -1578,18 +1576,17 @@ static void compile_append_op(char **source, char **source_curr, int64_t *source
 }
 static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_loop, const int64_t global_size,
                                const int64_t local_size) {
+    assert(kernel);
     assert(compile_loop);
-    assert(global_size);
-    /* TODO: Make this work with multiple work groups */
-    assert(local_size == global_size);
+    assert(global_size > 0);
+    assert(local_size > 0);
+    assert(global_size % local_size == 0);
     compile_loop_gather_args(kernel, compile_loop);
 
     char *source = calloc(INITIAL_SOURCE_SIZE, sizeof(char));
     assert(source);
     char *source_curr = source;
     int64_t source_cap = INITIAL_SOURCE_SIZE;
-    /* Unsure if I should extract these into their own smaller functions. On the one hand it looks much nicer but I
-     * don't want to drift into this clean code stuff and they are only ever used once */
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "__kernel void " KERNEL_NAME "(");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     for(int64_t arg_idx = 0; arg_idx < kernel->arg_num; arg_idx++) {
@@ -1669,19 +1666,20 @@ void program_compile(program_t *program, const linearized_t *linearized, const c
         op_idx += simple_loop_from_linearized_index(&simple, linearized, op_idx);
         compile = compile_loop_alloc(&simple);
         compile_loop_to_cl(&program->kernel[kernel_num], &compile, global_size, local_size);
+        program->kernel[kernel_num].cl_program = NULL;
         kernel_num++;
         if(kernel_num == kernel_cap) {
             kernel_cap *= 2;
-            program->kernel = reallocarray(program->kernel, kernel_cap, sizeof(compile_loop_t));
+            program->kernel = reallocarray(program->kernel, kernel_cap, sizeof(kernel_t));
             assert(program->kernel);
         }
         compile_loop_free(&compile);
     }
+    simple_loop_free(&simple);
     program->kernel_num = kernel_num;
     program->kernel_cap = kernel_cap;
     program->local_size = local_size;
     program->global_size = global_size;
-    simple_loop_free(&simple);
     program->cl_device_id = (cl_device_id *) device_id;
     program->cl_context = (cl_context *) context;
     program->cl_command_queue = (cl_command_queue *) command_queue;
@@ -1700,7 +1698,6 @@ void program_free(program_t *program) {
     free(program->kernel);
     program->kernel = NULL;
     program->kernel_num = 0;
-    /* This is a very disgusting fix, but I suppose it works for now. TODO: Make this nicer */
     if(program->cl_device_id) {
         if(*program->cl_device_id) {
             clReleaseDevice(*program->cl_device_id);
