@@ -12,7 +12,7 @@ const int64_t DIM_SZE = 10;
 const double MARGIN_OF_ERROR = 1e-5;
 int main(void) {
     const uint32_t seed = time(NULL);
-    printf("RNG Seed %u\n", seed);
+    printf("Unit tests with %u...\n", seed);
     srand(seed);
 
     double *data_in = calloc(DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE, sizeof(double));
@@ -342,7 +342,7 @@ int main(void) {
     }
     assert(in.buffer->val[0] == temp);
 
-    printf("Passed all unit tests for the elementary operations!\n");
+    printf("Passed\n");
     free(data_in);
     free(data_out);
     tensor_free(&in);

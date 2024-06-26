@@ -350,10 +350,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isinf(tensor2[tensor_out].buffer->val[val_idx]));
-        if((fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
-            margin_of_error)) {
-            if((fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
-                margin_of_error)) {
+        if(fabs(tensor1[tensor_out].buffer->val[val_idx] - tensor2[tensor_out].buffer->val[val_idx]) >
+           margin_of_error) {
+            if(fabs(tensor1[tensor_out].buffer->val[val_idx] / tensor2[tensor_out].buffer->val[val_idx] - 1) >
+               margin_of_error) {
                 ERROR("Invalid values %lf %lf in tensors %lu %s and %s\n", tensor1[tensor_out].buffer->val[val_idx],
                       tensor2[tensor_out].buffer->val[val_idx], tensor_out, tensor1[tensor_out].buffer->name,
                       tensor2[tensor_out].buffer->name);
@@ -381,12 +381,13 @@ int main(int argc, char **argv) {
     }
     int32_t err;
     const uint32_t seed = time(NULL);
-    printf("RNG Seed %u\n", seed);
+    /* Not using `INFO()` here since this should always be printed */
     srand(seed);
     const int64_t op_num = strtoll(argv[1], NULL, 10);
     const int64_t tensor_num = strtoll(argv[2], NULL, 10);
     assert(op_num > 0);
     assert(tensor_num > 1);
+    printf("Compiler simulation with %u, %lu tensors and %lu ops...\n", seed, tensor_num, op_num);
 
     cl_device_id device_id = cl_device_get();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -425,6 +426,6 @@ int main(int argc, char **argv) {
     free(tensor1);
     free(tensor2);
     free(random_values);
-    printf("Passed compiler simulation with %lu ops and %lu tensors!\n", op_num, tensor_num);
+    printf("Passed\n");
     return 0;
 }
