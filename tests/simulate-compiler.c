@@ -360,16 +360,18 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, int64_t op_n
             }
         }
     }
-
-    for(int64_t arg_idx = 0; arg_idx < program.arg_num; arg_idx++) {
-        free(program.arg_name[arg_idx]);
+    for(int64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
+        for(int64_t arg_idx = 0; arg_idx < program.kernel[kernel_idx].arg_num; arg_idx++) {
+            free(program.kernel[kernel_idx].arg_name[arg_idx]);
+        }
+        free(program.kernel[kernel_idx].arg_name);
+        free(program.kernel[kernel_idx].arg_mem);
+        free(program.kernel[kernel_idx].source);
+        clReleaseKernel(program.kernel[kernel_idx].cl_kernel);
+        clReleaseProgram(program.kernel[kernel_idx].cl_program);
     }
-    free(program.arg_name);
-    free(program.arg_mem);
-    free(program.source);
-    clReleaseKernel(program.cl_kernel);
-    clReleaseProgram(*program.cl_program);
-    free(program.cl_program);
+    free(program.kernel);
+    program.kernel = NULL;
 }
 
 int main(int argc, char **argv) {
@@ -377,7 +379,7 @@ int main(int argc, char **argv) {
         ERROR("USAGE: %s [ops] [tensors]\n", argv[0]);
         return 1;
     }
-    int err;
+    int32_t err;
     const uint32_t seed = time(NULL);
     printf("RNG Seed %u\n", seed);
     srand(seed);
