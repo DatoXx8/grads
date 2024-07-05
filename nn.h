@@ -45,8 +45,8 @@ typedef struct {
 } norm_t;
 
 typedef struct {
-    int64_t _input_size; /* Not set directly. */
-    int64_t output_size;
+    uint64_t _input_size; /* Not set directly. */
+    uint64_t output_size;
 
     tensor_t *weights;
     tensor_t *weights_g;
@@ -58,7 +58,7 @@ typedef struct {
     tensor_t *_full_temp;
 } dense_t;
 
-extern dense_t dense_alloc(int64_t input_size, int64_t output_size, cl_context context);
+extern dense_t dense_alloc(uint64_t input_size, uint64_t output_size, cl_context context);
 extern void dense_free(dense_t *dense);
 extern void dense_forward(tensor_t *input, dense_t *dense, tensor_t *output);
 extern void dense_backward(tensor_t *input, tensor_t *input_gradient, dense_t *dense, tensor_t *output_gradient);
@@ -66,13 +66,13 @@ extern void dense_print(const dense_t *dense, const int padding, const int offse
 extern void dense_print_shape(const dense_t *dense, const int padding, const int offset, const char *name);
 
 typedef struct {
-    int64_t _input_z; /* Equivalent to input_z. Also not set directly. */
-    int64_t _input_y; /* Not set directly. */
-    int64_t _input_x; /* Not set directly. */
-    int64_t filters;
-    int64_t kernel_size;
-    int64_t kernel_stride;
-    int64_t kernel_padding;
+    uint64_t _input_z; /* Equivalent to input_z. Also not set directly. */
+    uint64_t _input_y; /* Not set directly. */
+    uint64_t _input_x; /* Not set directly. */
+    uint64_t filters;
+    uint64_t kernel_size;
+    uint64_t kernel_stride;
+    uint64_t kernel_padding;
 
     tensor_t *weights;
     tensor_t *weights_g;
@@ -88,9 +88,9 @@ typedef struct {
 /* Calculates output size per dimension. */
 #define CONVOLUTION_OUTPUT_SIZE(input_size, kernel_size, kernel_stride, kernel_padding)                                \
     ((((input_size) + 2 * (kernel_padding) - (kernel_size)) / (kernel_stride)) + 1)
-extern convolution_t convolution_alloc(const int64_t input_z, const int64_t input_y, const int64_t input_x,
-                                       const int64_t filters, const int64_t kernel_size, const int64_t kernel_stride,
-                                       const int64_t kernel_padding, cl_context context);
+extern convolution_t convolution_alloc(const uint64_t input_z, const uint64_t input_y, const uint64_t input_x,
+                                       const uint64_t filters, const uint64_t kernel_size, const uint64_t kernel_stride,
+                                       const uint64_t kernel_padding, cl_context context);
 extern void convolution_free(convolution_t *convolution);
 extern void convolution_forward(tensor_t *input, convolution_t *convolution, tensor_t *output);
 extern void convolution_backward(tensor_t *input, tensor_t *input_gradient, convolution_t *convolution,
@@ -108,18 +108,18 @@ typedef enum {
 
 typedef struct {
     layer_reduce_e type;
-    int64_t _input_z; /* Equivalent to input_z. */
-    int64_t _input_y; /* Not set directly. */
-    int64_t _input_x; /* Not set directly. */
-    int64_t kernel_size;
-    int64_t kernel_stride;
+    uint64_t _input_z; /* Equivalent to input_z. */
+    uint64_t _input_y; /* Not set directly. */
+    uint64_t _input_x; /* Not set directly. */
+    uint64_t kernel_size;
+    uint64_t kernel_stride;
 } reduce_t;
 
 /* Calculates output size per dimension. */
 #define REDUCE_OUTPUT_SIZE(input_size, kernel_size, kernel_stride)                                                     \
     ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
-extern reduce_t reduce_alloc(const layer_reduce_e type, const int64_t input_z, const int64_t input_y,
-                             const int64_t input_x, const int64_t kernel_size, const int64_t kernel_stride);
+extern reduce_t reduce_alloc(const layer_reduce_e type, const uint64_t input_z, const uint64_t input_y,
+                             const uint64_t input_x, const uint64_t kernel_size, const uint64_t kernel_stride);
 extern void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(const reduce_t *reduce, const int padding, const int offset, const char *name);
@@ -138,15 +138,15 @@ typedef enum {
  * reuse the same layerconf and it is more similar to the standard residual block. */
 typedef struct {
     residual_e type;
-    int64_t connection_from_layer;
+    uint64_t connection_from_layer;
     convolution_t *convolution; /* Optional. */
 } residual_t;
 
 typedef struct {
-    int64_t filters;
-    int64_t input_z;
-    int64_t input_y;
-    int64_t input_x;
+    uint64_t filters;
+    uint64_t input_z;
+    uint64_t input_y;
+    uint64_t input_x;
 
     tensor_t *weights;
     tensor_t *weights_g;
@@ -156,7 +156,7 @@ typedef struct {
     tensor_t *_input_temp;
 } split_t;
 
-extern split_t split_alloc(const int64_t filters, const int64_t input_z, const int64_t input_y, const int64_t input_x,
+extern split_t split_alloc(const uint64_t filters, const uint64_t input_z, const uint64_t input_y, const uint64_t input_x,
                            cl_context context);
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
@@ -176,44 +176,44 @@ typedef enum {
 typedef struct {
     layer_e layer_type;
 
-    int64_t input_z;
-    int64_t input_y;
-    int64_t input_x;
+    uint64_t input_z;
+    uint64_t input_y;
+    uint64_t input_x;
 
-    int64_t _dense_input_z; /* Not set directly */
-    int64_t _dense_input_y; /* Not set directly */
-    int64_t _dense_input_x; /* Not set directly */
-    int64_t dense_output_size;
+    uint64_t _dense_input_z; /* Not set directly */
+    uint64_t _dense_input_y; /* Not set directly */
+    uint64_t _dense_input_x; /* Not set directly */
+    uint64_t dense_output_size;
 
-    int64_t _convolution_input_z; /* Not set directly */
-    int64_t _convolution_input_y; /* Not set directly */
-    int64_t _convolution_input_x; /* Not set directly */
-    int64_t convolution_filters;
-    int64_t convolution_kernel_size;
-    int64_t convolution_kernel_stride;
-    int64_t convolution_kernel_padding;
+    uint64_t _convolution_input_z; /* Not set directly */
+    uint64_t _convolution_input_y; /* Not set directly */
+    uint64_t _convolution_input_x; /* Not set directly */
+    uint64_t convolution_filters;
+    uint64_t convolution_kernel_size;
+    uint64_t convolution_kernel_stride;
+    uint64_t convolution_kernel_padding;
 
     layer_reduce_e reduce_type;
-    int64_t _reduce_input_z; /* Not set directly */
-    int64_t _reduce_input_y; /* Not set directly */
-    int64_t _reduce_input_x; /* Not set directly */
-    int64_t reduce_kernel_size;
-    int64_t reduce_kernel_stride;
+    uint64_t _reduce_input_z; /* Not set directly */
+    uint64_t _reduce_input_y; /* Not set directly */
+    uint64_t _reduce_input_x; /* Not set directly */
+    uint64_t reduce_kernel_size;
+    uint64_t reduce_kernel_stride;
 
-    int64_t _split_input_z; /* Not set directly */
-    int64_t _split_input_y; /* Not set directly */
-    int64_t _split_input_x; /* Not set directly */
-    int64_t split_filters;
+    uint64_t _split_input_z; /* Not set directly */
+    uint64_t _split_input_y; /* Not set directly */
+    uint64_t _split_input_x; /* Not set directly */
+    uint64_t split_filters;
 
     residual_e residual_type;
-    int64_t residual_connection_from_layer;
-    int64_t _residual_convolution_input_z; /* Not set directly */
-    int64_t _residual_convolution_input_y; /* Not set directly */
-    int64_t _residual_convolution_input_x; /* Not set directly */
-    int64_t residual_convolution_filters;
-    int64_t residual_convolution_kernel_size;
-    int64_t residual_convolution_kernel_stride;
-    int64_t residual_convolution_kernel_padding;
+    uint64_t residual_connection_from_layer;
+    uint64_t _residual_convolution_input_z; /* Not set directly */
+    uint64_t _residual_convolution_input_y; /* Not set directly */
+    uint64_t _residual_convolution_input_x; /* Not set directly */
+    uint64_t residual_convolution_filters;
+    uint64_t residual_convolution_kernel_size;
+    uint64_t residual_convolution_kernel_stride;
+    uint64_t residual_convolution_kernel_padding;
 
     /* NOT APPLICABLE FOR REDUCE LAYERS. */
     activation_e activation_function;
@@ -247,7 +247,7 @@ typedef enum {
 } compile_e;
 
 typedef struct {
-    int64_t layers;
+    uint64_t layers;
     layer_t *layer;
     compile_e compile_type;
     linearized_t *forward;
@@ -263,7 +263,7 @@ typedef struct {
 #define NEURALNET_OUTPUT(neuralnet) ((neuralnet).layer[(neuralnet).layers - 1])
 #define NEURALNET_OUTPUT_(neuralnet) ((neuralnet)->layer[(neuralnet)->layers - 1])
 
-extern neuralnet_t neuralnet_alloc(const int64_t layers, layerconfig_t *layerconfig, const double learning,
+extern neuralnet_t neuralnet_alloc(const uint64_t layers, layerconfig_t *layerconfig, const double learning,
                                    const compile_e compile_type);
 extern void neuralnet_free(neuralnet_t *neuralnet);
 /* You have to keep track of the NN architecture yourself. I might add that in the future but it's not a thing yet. */

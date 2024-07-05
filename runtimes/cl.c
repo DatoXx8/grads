@@ -40,7 +40,7 @@ cl_device_id cl_device_get(void) {
     }
     return device;
 }
-cl_program cl_program_build(cl_context context, cl_device_id device, const char *source, int64_t source_size) {
+cl_program cl_program_build(cl_context context, cl_device_id device, const char *source, uint64_t source_size) {
     uint64_t log_size;
     int err = 0;
     char *program_log;
@@ -67,7 +67,7 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
  * make sure they are up to date. */
 void program_run(program_t *program) {
     int err;
-    for(int64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
+    for(uint64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
         if(program->kernel[kernel_idx].cl_program == NULL) {
             program->kernel[kernel_idx].cl_program =
                 cl_program_build(*program->cl_context, *program->cl_device_id, program->kernel[kernel_idx].source,
@@ -77,7 +77,7 @@ void program_run(program_t *program) {
             if(err < 0) {
                 ERROR("Could not create OpenCL kernel\nError %d\n", err);
             }
-            for(int64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
+            for(uint64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
                 clSetKernelArg(program->kernel[kernel_idx].cl_kernel, arg_idx, sizeof(cl_mem),
                                &program->kernel[kernel_idx].arg_mem[arg_idx]);
             }
