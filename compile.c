@@ -200,9 +200,6 @@ const uint64_t INITIAL_CAP = 4;
      ((op)->op_type == op_binary && ((op)->type_binary == binary_copy || (op)->type_binary == binary_copy_like)) ||    \
      ((op)->op_type == op_reduce))
 
-#define SPLITTABLE(op) ((op).type_op != op_reduce)
-#define SPLITTABLE_(op) ((op)->type_op != op_reduce)
-
 static void compile_loop_optimize(compile_loop_t *compile) {
     assert(compile);
     /* Inline */
@@ -535,8 +532,7 @@ static void compile_loop_gather_args(kernel_t *kernel, const compile_loop_t *com
 }
 extern void compile_append_index_table_cl(char **source, char **source_curr, uint64_t *source_cap,
                                           const compile_loop_t *loop, const uint64_t compile_loop_idx,
-                                          const uint64_t op_idx, const uint64_t inline_num,
-                                          const uint64_t global_size) {
+                                          const uint64_t op_idx, const uint64_t inline_num) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -547,111 +543,6 @@ extern void compile_append_index_table_cl(char **source, char **source_curr, uin
     assert(loop);
     assert(op_idx >= 0);
     assert(inline_num > 0);
-    if(SPLITTABLE(loop->op[op_idx][0])) {
-        assert(global_size > 0);
-        uint64_t total_op_num = loop->op[op_idx][0].buffer_out.sze_a * loop->op[op_idx][0].buffer_out.sze_z *
-                                loop->op[op_idx][0].buffer_out.sze_y * loop->op[op_idx][0].buffer_out.sze_x;
-        uint64_t kernel_op_num =
-            total_op_num % global_size ? total_op_num / global_size + 1 : total_op_num / global_size;
-        *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%d_off[]={",
-                                 loop->op[op_idx][0].buffer_out.name, compile_loop_idx, op_idx, 0);
-        compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-        uint64_t a_max = loop->op[op_idx][0].buffer_out.sze_a;
-        uint64_t z_max = loop->op[op_idx][0].buffer_out.sze_z;
-        uint64_t y_max = loop->op[op_idx][0].buffer_out.sze_y;
-        uint64_t x_max = loop->op[op_idx][0].buffer_out.sze_x;
-        for(uint64_t a = 0; a < a_max; a++) {
-            for(uint64_t z = 0; z < z_max; z++) {
-                for(uint64_t y = 0; y < y_max; y++) {
-                    for(uint64_t x = 0; x < x_max; x++) {
-                        if(a || z || y || x) {
-                            *source_curr += snprintf(*source_curr, MAX_OP_SIZE, ",%ld",
-                                                     INDEX(loop->op[op_idx][0].buffer_out, a, z, y, x));
-                        } else {
-                            *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld",
-                                                     INDEX(loop->op[op_idx][0].buffer_out, a, z, y, x));
-                        }
-                        compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                    }
-                }
-            }
-        }
-        *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "};\n");
-        compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-        if(loop->op[op_idx][0].type_op != op_unary) {
-            *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%d_off[]={",
-                                     loop->op[op_idx][0].buffer_in.name, compile_loop_idx, op_idx, 0);
-            for(uint64_t a = 0; a < a_max; a++) {
-                for(uint64_t z = 0; z < z_max; z++) {
-                    for(uint64_t y = 0; y < y_max; y++) {
-                        for(uint64_t x = 0; x < x_max; x++) {
-                            if(a || z || y || x) {
-                                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, ",%ld",
-                                                         INDEX(loop->op[op_idx][0].buffer_in, a, z, y, x));
-                            } else {
-                                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld",
-                                                         INDEX(loop->op[op_idx][0].buffer_in, a, z, y, x));
-                            }
-                            compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                        }
-                    }
-                }
-            }
-            *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "};\n");
-            compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-        }
-        for(uint64_t inline_idx = 1; inline_idx < inline_num; inline_idx++) {
-            if(loop->op[op_idx][inline_idx].type_op == op_unary) {
-                *source_curr +=
-                    snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%lu_off[]={",
-                             loop->op[op_idx][inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx);
-                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                for(uint64_t a = 0; a < a_max; a++) {
-                    for(uint64_t z = 0; z < z_max; z++) {
-                        for(uint64_t y = 0; y < y_max; y++) {
-                            for(uint64_t x = 0; x < x_max; x++) {
-                                if(a || z || y || x) {
-                                    *source_curr +=
-                                        snprintf(*source_curr, MAX_OP_SIZE, ",%ld",
-                                                 INDEX(loop->op[op_idx][inline_idx].buffer_out, a, z, y, x));
-                                } else {
-                                    *source_curr +=
-                                        snprintf(*source_curr, MAX_OP_SIZE, "%ld",
-                                                 INDEX(loop->op[op_idx][inline_idx].buffer_out, a, z, y, x));
-                                }
-                                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                            }
-                        }
-                    }
-                }
-                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "};\n");
-                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-            } else {
-                *source_curr +=
-                    snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%lu_off[]={",
-                             loop->op[op_idx][inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx);
-                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                for(uint64_t a = 0; a < a_max; a++) {
-                    for(uint64_t z = 0; z < z_max; z++) {
-                        for(uint64_t y = 0; y < y_max; y++) {
-                            for(uint64_t x = 0; x < x_max; x++) {
-                                if(a || z || y || x) {
-                                    *source_curr += snprintf(*source_curr, MAX_OP_SIZE, ",%ld",
-                                                             INDEX(loop->op[op_idx][inline_idx].buffer_in, a, z, y, x));
-                                } else {
-                                    *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld",
-                                                             INDEX(loop->op[op_idx][inline_idx].buffer_in, a, z, y, x));
-                                }
-                                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                            }
-                        }
-                    }
-                }
-                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "};\n");
-                compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-            }
-        }
-    }
     *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "__const int %s_%lu_%lu_%d[]={",
                              loop->op[op_idx][0].buffer_out.name, compile_loop_idx, op_idx, 0);
     compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
@@ -828,7 +719,6 @@ static void compile_append_assign(char **temp, char **temp_curr, uint64_t *temp_
     assert(op_idx >= 0);
     assert(loop_idx >= 0);
     assert(!inline_idx);
-    assert(offset >= 0);
     char *name = (char *) op->buffer_out.name;
     switch(op->type_op) {
         case op_unary: {
@@ -1082,8 +972,8 @@ static void compile_append_assign(char **temp, char **temp_curr, uint64_t *temp_
 }
 static void compile_append_prefix(char **temp, char **temp_curr, uint64_t *temp_cap, const op_t *op,
                                   const uint64_t op_num, const uint64_t compile_loop_idx, const uint64_t op_idx,
-                                  const uint64_t inline_idx, const uint64_t loop_idx, const uint64_t offset,
-                                  const inline_op_e inline_type) {
+                                  const uint64_t inline_idx, const uint64_t loop_idx, const inline_op_e inline_type,
+                                  const uint64_t offset) {
     assert(temp);
     assert(*temp);
     assert(temp_curr);
@@ -1095,7 +985,6 @@ static void compile_append_prefix(char **temp, char **temp_curr, uint64_t *temp_
     assert(op_idx >= 0);
     assert(inline_idx >= 0);
     assert(loop_idx >= 0);
-    assert(offset >= 0);
     switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
@@ -1326,7 +1215,6 @@ static void compile_append_inner(char **temp, char **temp_curr, uint64_t *temp_c
     assert(op_idx >= 0);
     assert(loop_idx >= 0);
     assert(inline_idx >= 0);
-    assert(offset >= 0);
     switch(op->type_op) {
         case op_unary: {
             switch(op->type_unary) {
@@ -1623,7 +1511,8 @@ static void compile_append_postfix(char **temp, char **temp_curr, uint64_t *temp
 }
 static void compile_append_op(char **source, char **source_curr, uint64_t *source_cap, const op_t *op,
                               const dim_info_t *dim_info, const inline_op_e *inline_info, const uint64_t op_num,
-                              const uint64_t compile_loop_idx, const uint64_t op_idx, const uint64_t loop_idx) {
+                              const uint64_t compile_loop_idx, const uint64_t op_idx, const uint64_t loop_idx,
+                              const uint64_t global_size) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -1641,37 +1530,45 @@ static void compile_append_op(char **source, char **source_curr, uint64_t *sourc
     assert(temp);
     char *temp_curr = temp;
 
-    compile_append_header(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx);
     uint64_t a_max = op->type_op == op_reduce ? op->buffer_in.sze_a : op->buffer_out.sze_a;
     uint64_t z_max = op->type_op == op_reduce ? op->buffer_in.sze_z : op->buffer_out.sze_z;
     uint64_t y_max = op->type_op == op_reduce ? op->buffer_in.sze_y : op->buffer_out.sze_y;
     uint64_t x_max = op->type_op == op_reduce ? op->buffer_in.sze_x : op->buffer_out.sze_x;
-    for(uint64_t a = 0; a < a_max; a++) {
-        for(uint64_t z = 0; z < z_max; z++) {
-            for(uint64_t y = 0; y < y_max; y++) {
-                for(uint64_t x = 0; x < x_max; x++) {
-                    uint64_t offset = INDEX(op[0].buffer_out, a, z, y, x);
+    uint64_t total_op_num = a_max * z_max * y_max * x_max;
+    uint64_t leftover_op = total_op_num % global_size;
+    uint64_t kernel_op_num = leftover_op ? total_op_num / global_size + 1 : total_op_num / global_size;
+    /* TODO: Maybe make functions like `compile_append_op_splittable()` instead of having all these if statements */
+    compile_append_header(source, source_curr, source_cap, op, compile_loop_idx, op_idx, loop_idx);
+    for(uint64_t a_idx = 0; a_idx < a_max; a_idx++) {
+        for(uint64_t z_idx = 0; z_idx < z_max; z_idx++) {
+            for(uint64_t y_idx = 0; y_idx < y_max; y_idx++) {
+                for(uint64_t x_idx = 0; x_idx < x_max; x_idx++) {
+                    int64_t offset;
+                    offset = INDEX(op[0].buffer_out, a_idx, z_idx, y_idx, x_idx);
                     compile_append_assign(&temp, &temp_curr, &temp_cap, op, op_num, compile_loop_idx, op_idx, 0,
                                           loop_idx, offset);
                     for(uint64_t inline_idx = 0; inline_idx < op_num; inline_idx++) {
-                        offset = INDEX(op[inline_idx].buffer_out, a, z, y, x);
+                        offset = op[inline_idx].type_op == op_unary
+                                     ? INDEX(op[inline_idx].buffer_out, a_idx, z_idx, y_idx, x_idx)
+                                     : INDEX(op[inline_idx].buffer_in, a_idx, z_idx, y_idx, x_idx);
                         compile_append_prefix(&temp, &temp_curr, &temp_cap, &op[inline_idx], op_num, compile_loop_idx,
-                                              op_idx, inline_idx, loop_idx, offset, inline_info[inline_idx]);
+                                              op_idx, inline_idx, loop_idx, inline_info[inline_idx], offset);
                     }
 
                     uint64_t inner_idx = op_num - 1;
-                    offset = op[inner_idx].type_op == op_unary ? INDEX(op[inner_idx].buffer_out, a, z, y, x)
-                                                               : INDEX(op[inner_idx].buffer_in, a, z, y, x);
+                    offset = op[inner_idx].type_op == op_unary
+                                 ? INDEX(op[inner_idx].buffer_out, a_idx, z_idx, y_idx, x_idx)
+                                 : INDEX(op[inner_idx].buffer_in, a_idx, z_idx, y_idx, x_idx);
                     compile_append_inner(&temp, &temp_curr, &temp_cap, &op[inner_idx], op_num, compile_loop_idx, op_idx,
                                          inner_idx, loop_idx, offset);
 
                     for(int64_t inline_idx = op_num - 1; inline_idx >= 0; inline_idx--) {
-                        offset = INDEX(op[inner_idx].buffer_out, a, z, y, x);
                         compile_append_postfix(&temp, &temp_curr, &temp_cap, &op[inline_idx], op_num);
                     }
 
                     *source_curr += snprintf(*source_curr, temp_cap, "%s;\n", temp);
                     compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
+
                     temp_curr = temp;
                     memset(temp, '\0', temp_cap);
                 }
@@ -1713,11 +1610,11 @@ static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_l
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     for(uint64_t op_idx = 0; op_idx < compile_loop->op_num; op_idx++) {
         compile_append_index_table_cl(&source, &source_curr, &source_cap, compile_loop, 0, op_idx,
-                                      compile_loop->inline_num[op_idx], global_size);
+                                      compile_loop->inline_num[op_idx]);
     }
     uint64_t loops_left = compile_loop->loop_num % global_size;
     uint64_t loops_per_kernel =
-        !loops_left ? compile_loop->loop_num / global_size : compile_loop->loop_num / global_size + 1;
+        loops_left ? compile_loop->loop_num / global_size + 1 : compile_loop->loop_num / global_size;
     source_curr += snprintf(source_curr, MAX_OP_SIZE, "id = gid;\n");
     compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
     for(uint64_t loop_idx = 0; loop_idx < loops_per_kernel; loop_idx++) {
@@ -1730,11 +1627,24 @@ static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_l
             compile_expand_source(&source, &source_curr, &source_cap, MAX_OP_SIZE);
         }
         for(uint64_t op_idx = 0; op_idx < compile_loop->op_num; op_idx++) {
+            uint64_t a_max = compile_loop->op[op_idx][0].type_op == op_reduce
+                                 ? compile_loop->op[op_idx][0].buffer_in.sze_a
+                                 : compile_loop->op[op_idx][0].buffer_out.sze_a;
+            uint64_t z_max = compile_loop->op[op_idx][0].type_op == op_reduce
+                                 ? compile_loop->op[op_idx][0].buffer_in.sze_z
+                                 : compile_loop->op[op_idx][0].buffer_out.sze_z;
+            uint64_t y_max = compile_loop->op[op_idx][0].type_op == op_reduce
+                                 ? compile_loop->op[op_idx][0].buffer_in.sze_y
+                                 : compile_loop->op[op_idx][0].buffer_out.sze_y;
+            uint64_t x_max = compile_loop->op[op_idx][0].type_op == op_reduce
+                                 ? compile_loop->op[op_idx][0].buffer_in.sze_x
+                                 : compile_loop->op[op_idx][0].buffer_out.sze_x;
+            uint64_t total_op_num = a_max * z_max * y_max * x_max;
             compile_append_op_index(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
                                     compile_loop->inline_num[op_idx], 0, op_idx, loop_idx);
             compile_append_op(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
                               compile_loop->dim_info[op_idx], compile_loop->inline_type[op_idx],
-                              compile_loop->inline_num[op_idx], 0, op_idx, loop_idx);
+                              compile_loop->inline_num[op_idx], 0, op_idx, loop_idx, global_size);
         }
         if(loop_idx == loops_per_kernel - 1 && loops_left) {
             source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
