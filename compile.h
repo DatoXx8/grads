@@ -6,9 +6,36 @@
 
 #include "tensor.h"
 
+/* Stride offset wait reset */
 typedef struct {
-    uint64_t *off_in;
-    uint64_t *off_out;
+    // uint64_t *off_in;
+    // uint64_t *off_out;
+    uint64_t off_in;
+    uint64_t off_out;
+    uint64_t str_a_in;
+    uint64_t str_z_in;
+    uint64_t str_y_in;
+    uint64_t str_x_in;
+    uint64_t str_a_out;
+    uint64_t str_z_out;
+    uint64_t str_y_out;
+    uint64_t str_x_out;
+    uint64_t wai_a_in;
+    uint64_t wai_z_in;
+    uint64_t wai_y_in;
+    uint64_t wai_x_in;
+    uint64_t wai_a_out;
+    uint64_t wai_z_out;
+    uint64_t wai_y_out;
+    uint64_t wai_x_out;
+    uint64_t res_a_in;
+    uint64_t res_z_in;
+    uint64_t res_y_in;
+    uint64_t res_x_in;
+    uint64_t res_a_out;
+    uint64_t res_z_out;
+    uint64_t res_y_out;
+    uint64_t res_x_out;
 } dim_info_t;
 
 /* TODO: Get rid off this and just have rename `compile_loop_t` to `op_loop_t` */
