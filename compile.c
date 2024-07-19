@@ -663,9 +663,7 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
         assert(compile.inline_type[op_idx]);
         compile.inline_type[op_idx][0] = inline_op_none;
     }
-    // compile_loop_print(&compile, 4, 0, "");
     compile_loop_optimize(&compile);
-    // compile_loop_print(&compile, 4, 0, "");
     return compile;
 }
 static const uint64_t INITIAL_SOURCE_SIZE = 12500;
@@ -2529,8 +2527,8 @@ static void compile_append_postfix(char **temp, char **temp_curr, uint64_t *temp
 }
 static void compile_append_op(char **source, char **source_curr, uint64_t *source_cap, const op_t *op,
                               const dim_info_t *dim_info, const inline_op_e *inline_info, const uint64_t op_num,
-                              const uint64_t compile_loop_idx, const uint64_t op_idx, const uint64_t loop_idx,
-                              const uint64_t global_size, const uint64_t splittable) {
+                              const uint64_t compile_loop_num, const uint64_t compile_loop_idx, const uint64_t op_idx,
+                              const uint64_t loop_idx, const uint64_t global_size, const uint64_t splittable) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -2552,17 +2550,14 @@ static void compile_append_op(char **source, char **source_curr, uint64_t *sourc
     uint64_t z_max = op->type_op == op_reduce ? op->buffer_in.sze_z : op->buffer_out.sze_z;
     uint64_t y_max = op->type_op == op_reduce ? op->buffer_in.sze_y : op->buffer_out.sze_y;
     uint64_t x_max = op->type_op == op_reduce ? op->buffer_in.sze_x : op->buffer_out.sze_x;
-    uint64_t total_op_num = a_max * z_max * y_max * x_max;
+    uint64_t total_op_num = a_max * z_max * y_max * x_max * compile_loop_num;
     uint64_t leftover_op = total_op_num % global_size;
     uint64_t kernel_op_num = leftover_op ? total_op_num / global_size + 1 : total_op_num / global_size;
-    /* Offset is modulus by the op size and "normal" index is division by the op size */
-    /* TODO: Maybe make functions like `compile_append_op_splittable()` instead of having all these if statements */
     if(splittable) {
         const uint64_t no_offset = 0;
         for(uint64_t kernel_op_idx = 0; kernel_op_idx < kernel_op_num; kernel_op_idx++) {
             if(leftover_op && kernel_op_idx == kernel_op_num - 1) {
-                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "if(gid < %lu) {\n",
-                                         leftover_op); /* Don't think this condition is sufficient */
+                *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "if(gid < %lu) {\n", leftover_op);
                 compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             }
 
@@ -2700,7 +2695,8 @@ static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_l
                                     loop_idx, splittable);
             compile_append_op(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
                               compile_loop->dim_info[op_idx], compile_loop->inline_type[op_idx],
-                              compile_loop->inline_num[op_idx], 0, op_idx, loop_idx, global_size, splittable);
+                              compile_loop->inline_num[op_idx], compile_loop->loop_num, 0, op_idx, loop_idx,
+                              global_size, splittable);
         }
         if(!splittable && loop_idx == loops_per_kernel - 1 && loops_left) {
             source_curr += snprintf(source_curr, MAX_OP_SIZE, "}\n");
