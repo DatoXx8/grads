@@ -228,7 +228,7 @@ static void norm_apply(norm_t *norm, tensor_t *tensor) {
         }
         case norm_batch: {
             norm_calculate_batch();
-            assert(0);
+            TODO();
             break;
         }
         case norm_layer: {
@@ -1044,9 +1044,9 @@ layer_t layer_alloc(const layerconfig_t *layerconfig, cl_context context) {
         case layer_reduce: {
             layer.layer_type = layer_reduce;
             uint64_t new_size_y = REDUCE_OUTPUT_SIZE(layerconfig->_reduce_input_y, layerconfig->reduce_kernel_size,
-                                                    layerconfig->reduce_kernel_stride);
+                                                     layerconfig->reduce_kernel_stride);
             uint64_t new_size_x = REDUCE_OUTPUT_SIZE(layerconfig->_reduce_input_x, layerconfig->reduce_kernel_size,
-                                                    layerconfig->reduce_kernel_stride);
+                                                     layerconfig->reduce_kernel_stride);
             layer.activation = calloc(1, sizeof(tensor_t));
             layer.activation_g = calloc(1, sizeof(tensor_t));
             layer.reduce = calloc(1, sizeof(reduce_t));
@@ -1511,7 +1511,7 @@ void neuralnet_save(const neuralnet_t *neuralnet, const char *filename) {
             }
             case layer_split: {
                 uint64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
-                                    neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 uint64_t weight_size = bias_size;
                 err |= fwrite(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
                 err |= fwrite(neuralnet->layer[layer].dense->weights->buffer->val, sizeof(double), weight_size, file);
@@ -1561,7 +1561,7 @@ void neuralnet_load(neuralnet_t *neuralnet, const char *filename) {
             }
             case layer_split: {
                 uint64_t bias_size = neuralnet->layer[layer].split->filters * neuralnet->layer[layer].split->input_z *
-                                    neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
+                                     neuralnet->layer[layer].split->input_y * neuralnet->layer[layer].split->input_x;
                 uint64_t weight_size = bias_size;
                 err |= fread(neuralnet->layer[layer].dense->biases->buffer->val, sizeof(double), bias_size, file);
                 assert(!err);
