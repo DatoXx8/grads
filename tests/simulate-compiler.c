@@ -391,9 +391,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     program_t program = {0};
     program_compile(&program, tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
-    for(uint64_t i = 0; i < program.kernel_num; i++) {
-        printf("%s\n", program.kernel[i].source);
-    }
     for(uint64_t tensor_idx = 0; tensor_idx < TENSOR_NUM; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -409,8 +406,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     tensor_move_resize(&tensor2[bp_out_idx[OP_NUM - 1]], DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_move_offset(&tensor1[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
     tensor_move_offset(&tensor2[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
-    TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
-    TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
     double margin_of_error = pow(1 + MARGIN_OF_ERROR, OP_NUM) - 1;
     for(uint64_t a = 0; a < DIM_SZE; a++) {
         for(uint64_t z = 0; z < DIM_SZE; z++) {
