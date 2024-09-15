@@ -1,6 +1,5 @@
 #include <CL/cl.h>
 #include <assert.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,243 +102,190 @@ static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const ui
     }
 
     for(uint64_t op_idx = 0; op_idx < loop_len; op_idx++) {
-        uint64_t found_a_out = 0;
-        uint64_t found_z_out = 0;
-        uint64_t found_y_out = 0;
-        uint64_t found_x_out = 0;
-        const uint64_t off_a_out = loop->op[op_idx].buffer_out.off_a;
-        const uint64_t off_z_out = loop->op[op_idx].buffer_out.off_z;
-        const uint64_t off_y_out = loop->op[op_idx].buffer_out.off_y;
-        const uint64_t off_x_out = loop->op[op_idx].buffer_out.off_x;
+        loop->dim_info[op_idx].str_a_out = 0;
+        loop->dim_info[op_idx].str_z_out = 0;
+        loop->dim_info[op_idx].str_y_out = 0;
+        loop->dim_info[op_idx].str_x_out = 0;
+        loop->dim_info[op_idx].wai_a_out = loop_len;
+        loop->dim_info[op_idx].wai_z_out = loop_len;
+        loop->dim_info[op_idx].wai_y_out = loop_len;
+        loop->dim_info[op_idx].wai_x_out = loop_len;
+        uint64_t a_offset_base = op[0][op_idx].buffer_out.off_a;
+        uint64_t z_offset_base = op[0][op_idx].buffer_out.off_z;
+        uint64_t y_offset_base = op[0][op_idx].buffer_out.off_y;
+        uint64_t x_offset_base = op[0][op_idx].buffer_out.off_x;
+        uint64_t a_offset_found = 0;
+        uint64_t z_offset_found = 0;
+        uint64_t y_offset_found = 0;
+        uint64_t x_offset_found = 0;
+        /* Currently assuming all strides are positive */
         for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-            if(!found_a_out && off_a_out != op[loop_idx][op_idx].buffer_out.off_a) {
-                loop->dim_info[op_idx].str_a_out =
-                    op[loop_idx][op_idx].buffer_out.str_a * (op[loop_idx][op_idx].buffer_out.off_a - off_a_out);
+            if(!a_offset_found && op[loop_idx][op_idx].buffer_out.off_a > a_offset_base) {
+                a_offset_found = 1;
+                loop->dim_info[op_idx].str_a_out = op[loop_idx][op_idx].buffer_out.off_a - a_offset_base;
                 loop->dim_info[op_idx].wai_a_out = loop_idx;
-                found_a_out = 1;
             }
-            if(!found_z_out && off_z_out != op[loop_idx][op_idx].buffer_out.off_z) {
-                loop->dim_info[op_idx].str_z_out =
-                    op[loop_idx][op_idx].buffer_out.str_z * (op[loop_idx][op_idx].buffer_out.off_z - off_z_out);
+            if(!z_offset_found && op[loop_idx][op_idx].buffer_out.off_z > z_offset_base) {
+                z_offset_found = 1;
+                loop->dim_info[op_idx].str_z_out = op[loop_idx][op_idx].buffer_out.off_z - z_offset_base;
                 loop->dim_info[op_idx].wai_z_out = loop_idx;
-                found_z_out = 1;
             }
-            if(!found_y_out && off_y_out != op[loop_idx][op_idx].buffer_out.off_y) {
-                loop->dim_info[op_idx].str_y_out =
-                    op[loop_idx][op_idx].buffer_out.str_y * (op[loop_idx][op_idx].buffer_out.off_y - off_y_out);
+            if(!y_offset_found && op[loop_idx][op_idx].buffer_out.off_y > y_offset_base) {
+                y_offset_found = 1;
+                loop->dim_info[op_idx].str_y_out = op[loop_idx][op_idx].buffer_out.off_y - y_offset_base;
                 loop->dim_info[op_idx].wai_y_out = loop_idx;
-                found_y_out = 1;
             }
-            if(!found_x_out && off_x_out != op[loop_idx][op_idx].buffer_out.off_x) {
-                loop->dim_info[op_idx].str_x_out =
-                    op[loop_idx][op_idx].buffer_out.str_x * (op[loop_idx][op_idx].buffer_out.off_x - off_x_out);
+            if(!x_offset_found && op[loop_idx][op_idx].buffer_out.off_x > x_offset_base) {
+                x_offset_found = 1;
+                loop->dim_info[op_idx].str_x_out = op[loop_idx][op_idx].buffer_out.off_x - x_offset_base;
                 loop->dim_info[op_idx].wai_x_out = loop_idx;
-                found_x_out = 1;
             }
         }
-        if(!found_a_out) {
-            loop->dim_info[op_idx].str_a_out = loop_num;
-            loop->dim_info[op_idx].wai_a_out = loop_num;
-        }
-        if(!found_z_out) {
-            loop->dim_info[op_idx].str_z_out = loop_num;
-            loop->dim_info[op_idx].wai_z_out = loop_num;
-        }
-        if(!found_y_out) {
-            loop->dim_info[op_idx].str_y_out = loop_num;
-            loop->dim_info[op_idx].wai_y_out = loop_num;
-        }
-        if(!found_x_out) {
-            loop->dim_info[op_idx].str_x_out = loop_num;
-            loop->dim_info[op_idx].wai_x_out = loop_num;
-        }
+
+        loop->dim_info[op_idx].str_a_in = 0;
+        loop->dim_info[op_idx].str_z_in = 0;
+        loop->dim_info[op_idx].str_y_in = 0;
+        loop->dim_info[op_idx].str_x_in = 0;
+        loop->dim_info[op_idx].wai_a_in = loop_len;
+        loop->dim_info[op_idx].wai_z_in = loop_len;
+        loop->dim_info[op_idx].wai_y_in = loop_len;
+        loop->dim_info[op_idx].wai_x_in = loop_len;
         if(op[0][op_idx].type_op != op_unary) {
-            uint64_t found_a_in = 0;
-            uint64_t found_z_in = 0;
-            uint64_t found_y_in = 0;
-            uint64_t found_x_in = 0;
-            const uint64_t off_a_in = loop->op[op_idx].buffer_in.off_a;
-            const uint64_t off_z_in = loop->op[op_idx].buffer_in.off_z;
-            const uint64_t off_y_in = loop->op[op_idx].buffer_in.off_y;
-            const uint64_t off_x_in = loop->op[op_idx].buffer_in.off_x;
+            a_offset_base = op[0][op_idx].buffer_in.off_a;
+            z_offset_base = op[0][op_idx].buffer_in.off_z;
+            y_offset_base = op[0][op_idx].buffer_in.off_y;
+            x_offset_base = op[0][op_idx].buffer_in.off_x;
+            a_offset_found = 0;
+            z_offset_found = 0;
+            y_offset_found = 0;
+            x_offset_found = 0;
             for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-                if(!found_a_in && off_a_in != op[loop_idx][op_idx].buffer_in.off_a) {
-                    /* Assert stride is > 0? */
-                    loop->dim_info[op_idx].str_a_in =
-                        op[loop_idx][op_idx].buffer_in.str_a * (op[loop_idx][op_idx].buffer_in.off_a - off_a_in);
+                if(!a_offset_found && op[loop_idx][op_idx].buffer_in.off_a > a_offset_base) {
+                    a_offset_found = 1;
+                    loop->dim_info[op_idx].str_a_in = op[loop_idx][op_idx].buffer_in.off_a - a_offset_base;
                     loop->dim_info[op_idx].wai_a_in = loop_idx;
-                    found_a_in = 1;
                 }
-                if(!found_z_in && off_z_in != op[loop_idx][op_idx].buffer_in.off_z) {
-                    loop->dim_info[op_idx].str_z_in =
-                        op[loop_idx][op_idx].buffer_in.str_z * (op[loop_idx][op_idx].buffer_in.off_z - off_z_in);
+                if(!z_offset_found && op[loop_idx][op_idx].buffer_in.off_z > z_offset_base) {
+                    z_offset_found = 1;
+                    loop->dim_info[op_idx].str_z_in = op[loop_idx][op_idx].buffer_in.off_z - z_offset_base;
                     loop->dim_info[op_idx].wai_z_in = loop_idx;
-                    found_z_in = 1;
                 }
-                if(!found_y_in && off_y_in != op[loop_idx][op_idx].buffer_in.off_y) {
-                    loop->dim_info[op_idx].str_y_in =
-                        op[loop_idx][op_idx].buffer_in.str_y * (op[loop_idx][op_idx].buffer_in.off_y - off_y_in);
+                if(!y_offset_found && op[loop_idx][op_idx].buffer_in.off_y > y_offset_base) {
+                    y_offset_found = 1;
+                    loop->dim_info[op_idx].str_y_in = op[loop_idx][op_idx].buffer_in.off_y - y_offset_base;
                     loop->dim_info[op_idx].wai_y_in = loop_idx;
-                    found_y_in = 1;
                 }
-                if(!found_x_in && off_x_in != op[loop_idx][op_idx].buffer_in.off_x) {
-                    loop->dim_info[op_idx].str_x_in =
-                        op[loop_idx][op_idx].buffer_in.str_x * (op[loop_idx][op_idx].buffer_in.off_x - off_x_in);
+                if(!x_offset_found && op[loop_idx][op_idx].buffer_in.off_x > x_offset_base) {
+                    x_offset_found = 1;
+                    loop->dim_info[op_idx].str_x_in = op[loop_idx][op_idx].buffer_in.off_x - x_offset_base;
                     loop->dim_info[op_idx].wai_x_in = loop_idx;
-                    found_x_in = 1;
                 }
-            }
-            if(!found_a_in) {
-                loop->dim_info[op_idx].str_a_in = loop_num;
-                loop->dim_info[op_idx].wai_a_in = loop_num;
-            }
-            if(!found_z_in) {
-                loop->dim_info[op_idx].str_z_in = loop_num;
-                loop->dim_info[op_idx].wai_z_in = loop_num;
-            }
-            if(!found_y_in) {
-                loop->dim_info[op_idx].str_y_in = loop_num;
-                loop->dim_info[op_idx].wai_y_in = loop_num;
-            }
-            if(!found_x_in) {
-                loop->dim_info[op_idx].str_x_in = loop_num;
-                loop->dim_info[op_idx].wai_x_in = loop_num;
             }
         }
     }
     for(uint64_t op_idx = 0; op_idx < loop_len; op_idx++) {
-        uint64_t left_a_out = 0;
-        uint64_t left_z_out = 0;
-        uint64_t left_y_out = 0;
-        uint64_t left_x_out = 0;
-        uint64_t found_a_out = 0;
-        uint64_t found_z_out = 0;
-        uint64_t found_y_out = 0;
-        uint64_t found_x_out = 0;
-        const uint64_t off_a_out = loop->op[op_idx].buffer_out.off_a;
-        const uint64_t off_z_out = loop->op[op_idx].buffer_out.off_z;
-        const uint64_t off_y_out = loop->op[op_idx].buffer_out.off_y;
-        const uint64_t off_x_out = loop->op[op_idx].buffer_out.off_x;
+        // loop->dim_info[op_idx].res_a_out = loop_len;
+        // loop->dim_info[op_idx].res_z_out = loop_len;
+        // loop->dim_info[op_idx].res_y_out = loop_len;
+        // loop->dim_info[op_idx].res_x_out = loop_len;
+        loop->dim_info[op_idx].res_a_out = 1 << 24;
+        loop->dim_info[op_idx].res_z_out = 1 << 24;
+        loop->dim_info[op_idx].res_y_out = 1 << 24;
+        loop->dim_info[op_idx].res_x_out = 1 << 24;
+        uint64_t a_offset_base = op[0][op_idx].buffer_out.off_a;
+        uint64_t z_offset_base = op[0][op_idx].buffer_out.off_z;
+        uint64_t y_offset_base = op[0][op_idx].buffer_out.off_y;
+        uint64_t x_offset_base = op[0][op_idx].buffer_out.off_x;
+        uint64_t a_offset_left = 0;
+        uint64_t z_offset_left = 0;
+        uint64_t y_offset_left = 0;
+        uint64_t x_offset_left = 0;
+        uint64_t a_offset_found = 0;
+        uint64_t z_offset_found = 0;
+        uint64_t y_offset_found = 0;
+        uint64_t x_offset_found = 0;
         for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-            if(left_a_out) {
-                if(!found_a_out && op[loop_idx][op_idx].buffer_out.off_a == off_a_out) {
-                    loop->dim_info[op_idx].res_a_out = loop_idx;
-                    found_a_out = 1;
-                }
-            } else {
-                if(op[loop_idx][op_idx].buffer_out.off_a != off_a_out) {
-                    left_a_out = 1;
-                }
+            /* Don't know if the +1 is right here */
+            if(!a_offset_found && a_offset_left && op[loop_idx][op_idx].buffer_out.off_a == a_offset_base) {
+                a_offset_found = 1;
+                loop->dim_info[op_idx].res_a_out = loop_idx;
             }
-            if(left_z_out) {
-                if(!found_z_out && op[loop_idx][op_idx].buffer_out.off_z == off_z_out) {
-                    loop->dim_info[op_idx].res_z_out = loop_idx;
-                    found_z_out = 1;
-                }
-            } else {
-                if(op[loop_idx][op_idx].buffer_out.off_z != off_z_out) {
-                    left_z_out = 1;
-                }
+            if(!a_offset_left && op[loop_idx][op_idx].buffer_out.off_a > a_offset_base) {
+                a_offset_left = 1;
             }
-            if(left_y_out) {
-                if(!found_y_out && op[loop_idx][op_idx].buffer_out.off_y == off_y_out) {
-                    loop->dim_info[op_idx].res_y_out = loop_idx;
-                    found_y_out = 1;
-                }
-            } else {
-                if(op[loop_idx][op_idx].buffer_out.off_y != off_y_out) {
-                    left_y_out = 1;
-                }
+            if(!z_offset_found && z_offset_left && op[loop_idx][op_idx].buffer_out.off_z == z_offset_base) {
+                z_offset_found = 1;
+                loop->dim_info[op_idx].res_z_out = loop_idx;
             }
-            if(left_x_out) {
-                if(!found_x_out && op[loop_idx][op_idx].buffer_out.off_x == off_x_out) {
-                    loop->dim_info[op_idx].res_x_out = loop_idx;
-                    found_x_out = 1;
-                }
-            } else {
-                if(op[loop_idx][op_idx].buffer_out.off_x != off_x_out) {
-                    left_x_out = 1;
-                }
+            if(!z_offset_left && op[loop_idx][op_idx].buffer_out.off_z > z_offset_base) {
+                z_offset_left = 1;
+            }
+            if(!y_offset_found && y_offset_left && op[loop_idx][op_idx].buffer_out.off_y == y_offset_base) {
+                y_offset_found = 1;
+                loop->dim_info[op_idx].res_y_out = loop_idx;
+            }
+            if(!y_offset_left && op[loop_idx][op_idx].buffer_out.off_y > y_offset_base) {
+                y_offset_left = 1;
+            }
+            if(!x_offset_found && x_offset_left && op[loop_idx][op_idx].buffer_out.off_x == x_offset_base) {
+                x_offset_found = 1;
+                loop->dim_info[op_idx].res_x_out = loop_idx;
+            }
+            if(!x_offset_left && op[loop_idx][op_idx].buffer_out.off_x > x_offset_base) {
+                x_offset_left = 1;
             }
         }
-        if(!found_a_out) {
-            loop->dim_info[op_idx].res_a_out = loop_num;
-        }
-        if(!found_z_out) {
-            loop->dim_info[op_idx].res_z_out = loop_num;
-        }
-        if(!found_y_out) {
-            loop->dim_info[op_idx].res_y_out = loop_num;
-        }
-        if(!found_x_out) {
-            loop->dim_info[op_idx].res_x_out = loop_num;
-        }
+
+        // loop->dim_info[op_idx].res_a_in = loop_len;
+        // loop->dim_info[op_idx].res_z_in = loop_len;
+        // loop->dim_info[op_idx].res_y_in = loop_len;
+        // loop->dim_info[op_idx].res_x_in = loop_len;
+        loop->dim_info[op_idx].res_a_in = 1 << 24;
+        loop->dim_info[op_idx].res_z_in = 1 << 24;
+        loop->dim_info[op_idx].res_y_in = 1 << 24;
+        loop->dim_info[op_idx].res_x_in = 1 << 24;
         if(op[0][op_idx].type_op != op_unary) {
-            uint64_t left_a_in = 0;
-            uint64_t left_z_in = 0;
-            uint64_t left_y_in = 0;
-            uint64_t left_x_in = 0;
-            uint64_t found_a_in = 0;
-            uint64_t found_z_in = 0;
-            uint64_t found_y_in = 0;
-            uint64_t found_x_in = 0;
-            const uint64_t off_a_in = loop->op[op_idx].buffer_in.off_a;
-            const uint64_t off_z_in = loop->op[op_idx].buffer_in.off_z;
-            const uint64_t off_y_in = loop->op[op_idx].buffer_in.off_y;
-            const uint64_t off_x_in = loop->op[op_idx].buffer_in.off_x;
+            a_offset_base = op[0][op_idx].buffer_in.off_a;
+            z_offset_base = op[0][op_idx].buffer_in.off_z;
+            y_offset_base = op[0][op_idx].buffer_in.off_y;
+            x_offset_base = op[0][op_idx].buffer_in.off_x;
+            a_offset_left = 0;
+            z_offset_left = 0;
+            y_offset_left = 0;
+            x_offset_left = 0;
+            a_offset_found = 0;
+            z_offset_found = 0;
+            y_offset_found = 0;
+            x_offset_found = 0;
             for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
-                if(left_a_in) {
-                    if(!found_a_in && op[loop_idx][op_idx].buffer_in.off_a == off_a_in) {
-                        loop->dim_info[op_idx].res_a_in = loop_idx;
-                        found_a_in = 1;
-                    }
-                } else {
-                    if(op[loop_idx][op_idx].buffer_in.off_a != off_a_in) {
-                        left_a_in = 1;
-                    }
+                if(!a_offset_found && a_offset_left && op[loop_idx][op_idx].buffer_in.off_a == a_offset_base) {
+                    a_offset_found = 1;
+                    loop->dim_info[op_idx].res_a_in = loop_idx;
                 }
-                if(left_z_in) {
-                    if(!found_z_in && op[loop_idx][op_idx].buffer_in.off_z == off_z_in) {
-                        loop->dim_info[op_idx].res_z_in = loop_idx;
-                        found_z_in = 1;
-                    }
-                } else {
-                    if(op[loop_idx][op_idx].buffer_in.off_z != off_z_in) {
-                        left_z_in = 1;
-                    }
+                if(!a_offset_left && op[loop_idx][op_idx].buffer_in.off_a > a_offset_base) {
+                    a_offset_left = 1;
                 }
-                if(left_y_in) {
-                    if(!found_y_in && op[loop_idx][op_idx].buffer_in.off_y == off_y_in) {
-                        loop->dim_info[op_idx].res_y_in = loop_idx;
-                        found_y_in = 1;
-                    }
-                } else {
-                    if(op[loop_idx][op_idx].buffer_in.off_y != off_y_in) {
-                        left_y_in = 1;
-                    }
+                if(!z_offset_found && z_offset_left && op[loop_idx][op_idx].buffer_in.off_z == z_offset_base) {
+                    z_offset_found = 1;
+                    loop->dim_info[op_idx].res_z_in = loop_idx;
                 }
-                if(left_x_in) {
-                    if(!found_x_in && op[loop_idx][op_idx].buffer_in.off_x == off_x_in) {
-                        loop->dim_info[op_idx].res_x_in = loop_idx;
-                        found_x_in = 1;
-                    }
-                } else {
-                    if(op[loop_idx][op_idx].buffer_in.off_x != off_x_in) {
-                        left_x_in = 1;
-                    }
+                if(!z_offset_left && op[loop_idx][op_idx].buffer_in.off_z > z_offset_base) {
+                    z_offset_left = 1;
                 }
-            }
-            if(!found_a_in) {
-                loop->dim_info[op_idx].res_a_in = loop_num;
-            }
-            if(!found_z_in) {
-                loop->dim_info[op_idx].res_z_in = loop_num;
-            }
-            if(!found_y_in) {
-                loop->dim_info[op_idx].res_y_in = loop_num;
-            }
-            if(!found_x_in) {
-                loop->dim_info[op_idx].res_x_in = loop_num;
+                if(!y_offset_found && y_offset_left && op[loop_idx][op_idx].buffer_in.off_y == y_offset_base) {
+                    y_offset_found = 1;
+                    loop->dim_info[op_idx].res_y_in = loop_idx;
+                }
+                if(!y_offset_left && op[loop_idx][op_idx].buffer_in.off_y > y_offset_base) {
+                    y_offset_left = 1;
+                }
+                if(!x_offset_found && x_offset_left && op[loop_idx][op_idx].buffer_in.off_x == x_offset_base) {
+                    x_offset_found = 1;
+                    loop->dim_info[op_idx].res_x_in = loop_idx;
+                }
+                if(!x_offset_left && op[loop_idx][op_idx].buffer_in.off_x > x_offset_base) {
+                    x_offset_left = 1;
+                }
             }
         }
     }
@@ -470,11 +416,9 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                                 reallocarray(compile->dim_info[op_idx], inline_cap, sizeof(dim_info_t));
                             compile->inline_type[op_idx] =
                                 reallocarray(compile->inline_type[op_idx], inline_cap, sizeof(inline_op_e));
-                            delete = reallocarray(delete, inline_cap, sizeof(uint64_t));
                             assert(compile->op[op_idx]);
                             assert(compile->dim_info[op_idx]);
                             assert(compile->inline_type[op_idx]);
-                            assert(delete);
                         }
                         compile->inline_cap[op_idx] = inline_cap;
                         compile->inline_num[op_idx] = inline_num;
@@ -495,11 +439,9 @@ static void compile_loop_optimize(compile_loop_t *compile) {
                             reallocarray(compile->dim_info[op_idx], inline_cap, sizeof(dim_info_t));
                         compile->inline_type[op_idx] =
                             reallocarray(compile->inline_type[op_idx], inline_cap, sizeof(inline_op_e));
-                        delete = reallocarray(delete, inline_cap, sizeof(uint64_t));
                         assert(compile->op[op_idx]);
                         assert(compile->dim_info[op_idx]);
                         assert(compile->inline_type[op_idx]);
-                        assert(delete);
                     }
                     compile->inline_cap[op_idx] = inline_cap;
                     compile->inline_num[op_idx] = inline_num;
@@ -659,7 +601,9 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
         assert(compile.inline_type[op_idx]);
         compile.inline_type[op_idx][0] = inline_op_none;
     }
-    compile_loop_optimize(&compile);
+    // compile_loop_print(&compile, 4, 0, "");
+    /* TODO: Optimizer breaks it sometimes. THIS ONE IS REALLY IMPORTANT */
+    // compile_loop_optimize(&compile);
     return compile;
 }
 static const uint64_t INITIAL_SOURCE_SIZE = 12500;
@@ -798,10 +742,12 @@ static void compile_loop_gather_args(kernel_t *kernel, const compile_loop_t *com
     free(arg_name_off);
     assert(kernel->arg_num > 0);
 }
+/* TODO: Maybe inline checks aren't the fixes and they are more complicated?? rework this completely probably */
 static void compile_append_op_index(char **source, char **source_curr, uint64_t *source_cap, const op_t *op,
-                                    const dim_info_t *dim_info, const uint64_t inline_num, const uint64_t loop_num,
-                                    const uint64_t compile_loop_idx, const uint64_t op_idx, const uint64_t loop_idx,
-                                    const uint64_t splittable, const uint64_t global_size) {
+                                    const dim_info_t *dim_info, const inline_op_e *inline_type,
+                                    const uint64_t inline_num, const uint64_t loop_num, const uint64_t compile_loop_idx,
+                                    const uint64_t op_idx, const uint64_t loop_idx, const uint64_t splittable,
+                                    const uint64_t global_size) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -816,102 +762,158 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
         uint64_t op_size = a_max * z_max * y_max * x_max;
         uint64_t op_iters = op_size * loop_num;
         uint64_t op_unique_offsets = op_iters % global_size ? op_iters / global_size + 1 : op_iters / global_size;
-        /* TODO: Increment the id after each loop and afterward reset back to the gid */
         for(uint64_t op_unique_idx = 0; op_unique_idx < op_unique_offsets; op_unique_idx++) {
             if(op_unique_idx) {
                 *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "id+=%lu;\n", global_size);
             }
+            // out 0
             *source_curr += snprintf(
                 *source_curr, MAX_OP_SIZE,
                 "__const int "
-                "%s_%lu_%lu_%d_%lu_%lu=%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/"
-                "%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
-                "%lu*%lu;\n",
+                "%s_%lu_%lu_%d_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
                 op[0].buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx, op_unique_idx, dim_info[0].off_out,
-                op_size, dim_info[0].res_a_out, dim_info[0].wai_a_out, dim_info[0].str_a_out, op_size,
-                dim_info[0].res_z_out, dim_info[0].wai_z_out, dim_info[0].str_z_out, op_size, dim_info[0].res_y_out,
-                dim_info[0].wai_y_out, dim_info[0].str_y_out, op_size, dim_info[0].res_x_out, dim_info[0].wai_x_out,
-                dim_info[0].str_x_out,
-                op[0].buffer_out.sze_x * op[0].buffer_out.sze_y * op[0].buffer_out.sze_z * op[0].buffer_out.sze_a,
-                op[0].buffer_out.sze_x * op[0].buffer_out.sze_y * op[0].buffer_out.sze_z, op[0].buffer_out.str_a,
-                op[0].buffer_out.sze_x * op[0].buffer_out.sze_y * op[0].buffer_out.sze_z,
-                op[0].buffer_out.sze_x * op[0].buffer_out.sze_y, op[0].buffer_out.str_z,
-                op[0].buffer_out.sze_x * op[0].buffer_out.sze_y, op[0].buffer_out.sze_x, op[0].buffer_out.str_y,
-                op[0].buffer_out.sze_x, 1lu, op[0].buffer_out.str_x);
+                op_size, dim_info[0].res_a_out, dim_info[0].wai_a_out, dim_info[0].str_a_out,
+                op[0].buffer_out.sze_a * op[0].buffer_out.sze_z * op[0].buffer_out.sze_y * op[0].buffer_out.sze_x,
+                op[0].buffer_out.sze_z * op[0].buffer_out.sze_y * op[0].buffer_out.sze_x, op[0].buffer_out.str_a,
+                op_size, dim_info[0].res_z_out, dim_info[0].wai_z_out, dim_info[0].str_z_out,
+                op[0].buffer_out.sze_z * op[0].buffer_out.sze_y * op[0].buffer_out.sze_x,
+                op[0].buffer_out.sze_y * op[0].buffer_out.sze_x, op[0].buffer_out.str_z, op_size, dim_info[0].res_y_out,
+                dim_info[0].wai_y_out, dim_info[0].str_y_out, op[0].buffer_out.sze_y * op[0].buffer_out.sze_x,
+                op[0].buffer_out.sze_x, op[0].buffer_out.str_y, op_size, dim_info[0].res_x_out, dim_info[0].wai_x_out,
+                dim_info[0].str_x_out, op[0].buffer_out.sze_x, 1LU, op[0].buffer_out.str_x);
+            /* (id/op_size % reset / wait * stride + id/prev buff stride % next buff stride) * buff stride */
+            /* THIS SHIT DOESN'T MAKE SENSE!!!!! WHY IS OPSIZE 6?????? TRASY!!!! FIX IT! FIX IT! FIX IT! FIX IT!*/
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             if(op[0].type_op != op_unary) {
+                // in 0
                 *source_curr += snprintf(
                     *source_curr, MAX_OP_SIZE,
                     "__const int "
-                    "%s_%lu_%lu_%d_%lu_%lu=%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/"
-                    "%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
-                    "%lu*%lu;\n",
+                    "%s_%lu_%lu_%d_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                    "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                    "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
                     op[0].buffer_in.name, compile_loop_idx, op_idx, 0, loop_idx, op_unique_idx, dim_info[0].off_in,
-                    op_size, dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in, op_size,
-                    dim_info[0].res_z_in, dim_info[0].wai_z_in, dim_info[0].str_z_in, op_size, dim_info[0].res_y_in,
-                    dim_info[0].wai_y_in, dim_info[0].str_y_in, op_size, dim_info[0].res_x_in, dim_info[0].wai_x_in,
-                    dim_info[0].str_x_in,
-                    op[0].buffer_in.sze_x * op[0].buffer_in.sze_y * op[0].buffer_in.sze_z * op[0].buffer_in.sze_a,
-                    op[0].buffer_in.sze_x * op[0].buffer_in.sze_y * op[0].buffer_in.sze_z, op[0].buffer_in.str_a,
-                    op[0].buffer_in.sze_x * op[0].buffer_in.sze_y * op[0].buffer_in.sze_z,
-                    op[0].buffer_in.sze_x * op[0].buffer_in.sze_y, op[0].buffer_in.str_z,
-                    op[0].buffer_in.sze_x * op[0].buffer_in.sze_y, op[0].buffer_in.sze_x, op[0].buffer_in.str_y,
-                    op[0].buffer_in.sze_x, 1lu, op[0].buffer_in.str_x);
+                    op_size, dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in,
+                    op[0].buffer_in.sze_a * op[0].buffer_in.sze_z * op[0].buffer_in.sze_y * op[0].buffer_in.sze_x,
+                    op[0].buffer_in.sze_z * op[0].buffer_in.sze_y * op[0].buffer_in.sze_x, op[0].buffer_in.str_a,
+                    op_size, dim_info[0].res_z_in, dim_info[0].wai_z_in, dim_info[0].str_z_in,
+                    op[0].buffer_in.sze_z * op[0].buffer_in.sze_y * op[0].buffer_in.sze_x,
+                    op[0].buffer_in.sze_y * op[0].buffer_in.sze_x, op[0].buffer_in.str_z, op_size, dim_info[0].res_y_in,
+                    dim_info[0].wai_y_in, dim_info[0].str_y_in, op[0].buffer_in.sze_y * op[0].buffer_in.sze_x,
+                    op[0].buffer_in.sze_x, op[0].buffer_in.str_y, op_size, dim_info[0].res_x_in, dim_info[0].wai_x_in,
+                    dim_info[0].str_x_in, op[0].buffer_in.sze_x, 1LU, op[0].buffer_in.str_x);
                 compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             }
             for(uint64_t inline_idx = 1; inline_idx < inline_num; inline_idx++) {
                 if(op[inline_idx].type_op == op_unary) {
-                    *source_curr += snprintf(*source_curr, MAX_OP_SIZE,
-                                             "__const int "
-                                             "%s_%lu_%lu_%lu_%lu_%lu=%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/"
-                                             "%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/"
-                                             "%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;\n",
-                                             op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx,
-                                             loop_idx, op_unique_idx, dim_info[inline_idx].off_out, op_size,
-                                             dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
-                                             dim_info[inline_idx].str_a_out, op_size, dim_info[inline_idx].res_z_out,
-                                             dim_info[inline_idx].wai_z_out, dim_info[inline_idx].str_z_out, op_size,
-                                             dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
-                                             dim_info[inline_idx].str_y_out, op_size, dim_info[inline_idx].res_x_out,
-                                             dim_info[inline_idx].wai_x_out, dim_info[inline_idx].str_x_out,
-                                             op[inline_idx].buffer_out.sze_x * op[inline_idx].buffer_out.sze_y *
-                                                 op[inline_idx].buffer_out.sze_z * op[inline_idx].buffer_out.sze_a,
-                                             op[inline_idx].buffer_out.sze_x * op[inline_idx].buffer_out.sze_y *
-                                                 op[inline_idx].buffer_out.sze_z,
-                                             op[inline_idx].buffer_out.str_a,
-                                             op[inline_idx].buffer_out.sze_x * op[inline_idx].buffer_out.sze_y *
-                                                 op[inline_idx].buffer_out.sze_z,
-                                             op[inline_idx].buffer_out.sze_x * op[inline_idx].buffer_out.sze_y,
-                                             op[inline_idx].buffer_out.str_z,
-                                             op[inline_idx].buffer_out.sze_x * op[inline_idx].buffer_out.sze_y,
-                                             op[inline_idx].buffer_out.sze_x, op[inline_idx].buffer_out.str_y,
-                                             op[inline_idx].buffer_out.sze_x, 1lu, op[inline_idx].buffer_out.str_x);
-                    compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
-                } else {
+                    // out
                     *source_curr += snprintf(
                         *source_curr, MAX_OP_SIZE,
                         "__const int "
-                        "%s_%lu_%lu_%lu_%lu_%lu=%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/"
-                        "%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
-                        "%lu*%lu+(id%%%lu)/%lu*%lu;\n",
-                        op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, op_unique_idx,
-                        dim_info[inline_idx].off_in, op_size, dim_info[inline_idx].res_a_in,
-                        dim_info[inline_idx].wai_a_in, dim_info[inline_idx].str_a_in, op_size,
-                        dim_info[inline_idx].res_z_in, dim_info[inline_idx].wai_z_in, dim_info[inline_idx].str_z_in,
-                        op_size, dim_info[inline_idx].res_y_in, dim_info[inline_idx].wai_y_in,
-                        dim_info[inline_idx].str_y_in, op_size, dim_info[inline_idx].res_x_in,
-                        dim_info[inline_idx].wai_x_in, dim_info[inline_idx].str_x_in,
-                        op[inline_idx].buffer_in.sze_x * op[inline_idx].buffer_in.sze_y *
-                            op[inline_idx].buffer_in.sze_z * op[inline_idx].buffer_in.sze_a,
-                        op[inline_idx].buffer_in.sze_x * op[inline_idx].buffer_in.sze_y *
-                            op[inline_idx].buffer_in.sze_z,
-                        op[inline_idx].buffer_in.str_a,
-                        op[inline_idx].buffer_in.sze_x * op[inline_idx].buffer_in.sze_y *
-                            op[inline_idx].buffer_in.sze_z,
-                        op[inline_idx].buffer_in.sze_x * op[inline_idx].buffer_in.sze_y, op[inline_idx].buffer_in.str_z,
-                        op[inline_idx].buffer_in.sze_x * op[inline_idx].buffer_in.sze_y, op[inline_idx].buffer_in.sze_x,
-                        op[inline_idx].buffer_in.str_y, op[inline_idx].buffer_in.sze_x, 1lu,
-                        op[inline_idx].buffer_in.str_x);
+                        "%s_%lu_%lu_%lu_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                        "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                        "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
+                        op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, op_unique_idx,
+                        dim_info[inline_idx].off_out, op_size, dim_info[inline_idx].res_a_out,
+                        dim_info[inline_idx].wai_a_out, dim_info[inline_idx].str_a_out,
+                        op[inline_idx].buffer_out.sze_a * op[inline_idx].buffer_out.sze_z *
+                            op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                        op[inline_idx].buffer_out.sze_z * op[inline_idx].buffer_out.sze_y *
+                            op[inline_idx].buffer_out.sze_x,
+                        op[inline_idx].buffer_out.str_a, op_size, dim_info[inline_idx].res_z_out,
+                        dim_info[inline_idx].wai_z_out, dim_info[inline_idx].str_z_out,
+                        op[inline_idx].buffer_out.sze_z * op[inline_idx].buffer_out.sze_y *
+                            op[inline_idx].buffer_out.sze_x,
+                        op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                        op[inline_idx].buffer_out.str_z, op_size, dim_info[inline_idx].res_y_out,
+                        dim_info[inline_idx].wai_y_out, dim_info[inline_idx].str_y_out,
+                        op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                        op[inline_idx].buffer_out.sze_x, op[inline_idx].buffer_out.str_y, op_size,
+                        dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out, dim_info[inline_idx].str_x_out,
+                        op[inline_idx].buffer_out.sze_x, 1LU, op[inline_idx].buffer_out.str_x);
+                    compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
+                } else {
+                    if(inline_type[inline_idx] == inline_op_out) {
+                        // in
+                        *source_curr += snprintf(
+                            *source_curr, MAX_OP_SIZE,
+                            "__const int "
+                            "%s_%lu_%lu_%lu_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
+                            op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx,
+                            op_unique_idx, dim_info[inline_idx].off_in, op_size, dim_info[inline_idx].res_a_in,
+                            dim_info[inline_idx].wai_a_in, dim_info[inline_idx].str_a_in,
+                            op[inline_idx].buffer_in.sze_a * op[inline_idx].buffer_in.sze_z *
+                                op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_z * op[inline_idx].buffer_in.sze_y *
+                                op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.str_a, op_size, dim_info[inline_idx].res_z_in,
+                            dim_info[inline_idx].wai_z_in, dim_info[inline_idx].str_z_in,
+                            op[inline_idx].buffer_in.sze_z * op[inline_idx].buffer_in.sze_y *
+                                op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.str_z, op_size, dim_info[inline_idx].res_y_in,
+                            dim_info[inline_idx].wai_y_in, dim_info[inline_idx].str_y_in,
+                            op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_x, op[inline_idx].buffer_in.str_y, op_size,
+                            dim_info[inline_idx].res_x_in, dim_info[inline_idx].wai_x_in, dim_info[inline_idx].str_x_in,
+                            op[inline_idx].buffer_in.sze_x, 1LU, op[inline_idx].buffer_in.str_x);
+                    } else {
+                        /* Doing both indices here is a hack fix. TODO: Figure out when to use which one!!! */
+                        // out & in
+                        *source_curr += snprintf(
+                            *source_curr, MAX_OP_SIZE,
+                            "__const int "
+                            "%s_%lu_%lu_%lu_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
+                            op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx,
+                            op_unique_idx, dim_info[inline_idx].off_out, op_size, dim_info[inline_idx].res_a_out,
+                            dim_info[inline_idx].wai_a_out, dim_info[inline_idx].str_a_out,
+                            op[inline_idx].buffer_out.sze_a * op[inline_idx].buffer_out.sze_z *
+                                op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                            op[inline_idx].buffer_out.sze_z * op[inline_idx].buffer_out.sze_y *
+                                op[inline_idx].buffer_out.sze_x,
+                            op[inline_idx].buffer_out.str_a, op_size, dim_info[inline_idx].res_z_out,
+                            dim_info[inline_idx].wai_z_out, dim_info[inline_idx].str_z_out,
+                            op[inline_idx].buffer_out.sze_z * op[inline_idx].buffer_out.sze_y *
+                                op[inline_idx].buffer_out.sze_x,
+                            op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                            op[inline_idx].buffer_out.str_z, op_size, dim_info[inline_idx].res_y_out,
+                            dim_info[inline_idx].wai_y_out, dim_info[inline_idx].str_y_out,
+                            op[inline_idx].buffer_out.sze_y * op[inline_idx].buffer_out.sze_x,
+                            op[inline_idx].buffer_out.sze_x, op[inline_idx].buffer_out.str_y, op_size,
+                            dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out,
+                            dim_info[inline_idx].str_x_out, op[inline_idx].buffer_out.sze_x, 1LU,
+                            op[inline_idx].buffer_out.str_x);
+                        *source_curr += snprintf(
+                            *source_curr, MAX_OP_SIZE,
+                            "__const int "
+                            "%s_%lu_%lu_%lu_%lu_%lu=%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu)*%lu+(((id/%lu)%%%lu)/"
+                            "%lu*%lu+(id%%%lu)/%lu)*%lu;/*1*/\n",
+                            op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx,
+                            op_unique_idx, dim_info[inline_idx].off_in, op_size, dim_info[inline_idx].res_a_in,
+                            dim_info[inline_idx].wai_a_in, dim_info[inline_idx].str_a_in,
+                            op[inline_idx].buffer_in.sze_a * op[inline_idx].buffer_in.sze_z *
+                                op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_z * op[inline_idx].buffer_in.sze_y *
+                                op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.str_a, op_size, dim_info[inline_idx].res_z_in,
+                            dim_info[inline_idx].wai_z_in, dim_info[inline_idx].str_z_in,
+                            op[inline_idx].buffer_in.sze_z * op[inline_idx].buffer_in.sze_y *
+                                op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.str_z, op_size, dim_info[inline_idx].res_y_in,
+                            dim_info[inline_idx].wai_y_in, dim_info[inline_idx].str_y_in,
+                            op[inline_idx].buffer_in.sze_y * op[inline_idx].buffer_in.sze_x,
+                            op[inline_idx].buffer_in.sze_x, op[inline_idx].buffer_in.str_y, op_size,
+                            dim_info[inline_idx].res_x_in, dim_info[inline_idx].wai_x_in, dim_info[inline_idx].str_x_in,
+                            op[inline_idx].buffer_in.sze_x, 1LU, op[inline_idx].buffer_in.str_x);
+                    }
                     compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
                 }
             }
@@ -920,21 +922,22 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
         *source_curr += snprintf(
             *source_curr, MAX_OP_SIZE,
             "__const int "
-            "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;\n",
+            "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;/*5*/\n",
             op[0].buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx, 0, dim_info[0].off_out, dim_info[0].res_a_out,
             dim_info[0].wai_a_out, dim_info[0].str_a_out, dim_info[0].res_z_out, dim_info[0].wai_z_out,
             dim_info[0].str_z_out, dim_info[0].res_y_out, dim_info[0].wai_y_out, dim_info[0].str_y_out,
             dim_info[0].res_x_out, dim_info[0].wai_x_out, dim_info[0].str_x_out);
         compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         if(op[0].type_op != op_unary) {
-            *source_curr += snprintf(
-                *source_curr, MAX_OP_SIZE,
-                "__const int "
-                "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;\n",
-                op[0].buffer_in.name, compile_loop_idx, op_idx, 0, loop_idx, 0, dim_info[0].off_in,
-                dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in, dim_info[0].res_z_in,
-                dim_info[0].wai_z_in, dim_info[0].str_z_in, dim_info[0].res_y_in, dim_info[0].wai_y_in,
-                dim_info[0].str_y_in, dim_info[0].res_x_in, dim_info[0].wai_x_in, dim_info[0].str_x_in);
+            *source_curr +=
+                snprintf(*source_curr, MAX_OP_SIZE,
+                         "__const int "
+                         "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
+                         "%lu*%lu;/*6*/\n",
+                         op[0].buffer_in.name, compile_loop_idx, op_idx, 0, loop_idx, 0, dim_info[0].off_in,
+                         dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in, dim_info[0].res_z_in,
+                         dim_info[0].wai_z_in, dim_info[0].str_z_in, dim_info[0].res_y_in, dim_info[0].wai_y_in,
+                         dim_info[0].str_y_in, dim_info[0].res_x_in, dim_info[0].wai_x_in, dim_info[0].str_x_in);
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         }
         for(uint64_t inline_idx = 1; inline_idx < inline_num; inline_idx++) {
@@ -943,7 +946,7 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
                     *source_curr, MAX_OP_SIZE,
                     "__const int "
                     "%s_%lu_%lu_%lu_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
-                    "%lu*%lu;\n",
+                    "%lu*%lu;/*7*/\n",
                     op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
                     dim_info[inline_idx].off_out, dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
                     dim_info[inline_idx].str_a_out, dim_info[inline_idx].res_z_out, dim_info[inline_idx].wai_z_out,
@@ -951,17 +954,29 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
                     dim_info[inline_idx].str_y_out, dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out,
                     dim_info[inline_idx].str_x_out);
             } else {
+                /* Doing both indices here is a hack fix. TODO: Figure out when to use which one!!! */
                 *source_curr += snprintf(
                     *source_curr, MAX_OP_SIZE,
                     "__const int "
                     "%s_%lu_%lu_%lu_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
-                    "%lu*%lu;\n",
+                    "%lu*%lu;/*8.1*/\n",
                     op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
                     dim_info[inline_idx].off_in, dim_info[inline_idx].res_a_in, dim_info[inline_idx].wai_a_in,
                     dim_info[inline_idx].str_a_in, dim_info[inline_idx].res_z_in, dim_info[inline_idx].wai_z_in,
                     dim_info[inline_idx].str_z_in, dim_info[inline_idx].res_y_in, dim_info[inline_idx].wai_y_in,
                     dim_info[inline_idx].str_y_in, dim_info[inline_idx].res_x_in, dim_info[inline_idx].wai_x_in,
                     dim_info[inline_idx].str_x_in);
+                *source_curr += snprintf(
+                    *source_curr, MAX_OP_SIZE,
+                    "__const int "
+                    "%s_%lu_%lu_%lu_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
+                    "%lu*%lu;/*8.2*/\n",
+                    op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
+                    dim_info[inline_idx].off_out, dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
+                    dim_info[inline_idx].str_a_out, dim_info[inline_idx].res_z_out, dim_info[inline_idx].wai_z_out,
+                    dim_info[inline_idx].str_z_out, dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
+                    dim_info[inline_idx].str_y_out, dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out,
+                    dim_info[inline_idx].str_x_out);
             }
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         }
@@ -2545,7 +2560,6 @@ static void compile_append_op(char **source, char **source_curr, uint64_t *sourc
                 compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
             }
 
-            /* TODO: Op unique idx */
             /* TODO: Make better idx names than op_unique_idx */
 
             compile_append_assign(&temp, &temp_curr, &temp_cap, op, op_num, compile_loop_idx, op_idx, 0, loop_idx,
@@ -2677,8 +2691,9 @@ static void compile_loop_to_cl(kernel_t *kernel, const compile_loop_t *compile_l
                                  : compile_loop->op[op_idx][0].buffer_out.sze_x;
             uint64_t total_op_num = a_max * z_max * y_max * x_max;
             compile_append_op_index(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
-                                    compile_loop->dim_info[op_idx], compile_loop->inline_num[op_idx],
-                                    compile_loop->loop_num, 0, op_idx, loop_idx, splittable, global_size);
+                                    compile_loop->dim_info[op_idx], compile_loop->inline_type[op_idx],
+                                    compile_loop->inline_num[op_idx], compile_loop->loop_num, 0, op_idx, loop_idx,
+                                    splittable, global_size);
             compile_append_op(&source, &source_curr, &source_cap, compile_loop->op[op_idx],
                               compile_loop->dim_info[op_idx], compile_loop->inline_type[op_idx],
                               compile_loop->inline_num[op_idx], compile_loop->loop_num, 0, op_idx, loop_idx,

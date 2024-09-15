@@ -28,6 +28,10 @@
         printf("TIME:   mmmµµµnnn\n");                                                                                 \
     }
 
+#define UNREACHABLE()                                                                                                  \
+    fprintf(stderr, "ERROR: Reached `UNREACHABLE()` in %s at line %d at %s %s\n", __FILE__, __LINE__, __DATE__,        \
+            __TIME__);                                                                                                 \
+    exit(1);
 #define TODO()                                                                                                         \
     fprintf(stderr, "ERROR: Tried to execute not implemented feature at line %d in file %s\n", __LINE__, __FILE__);    \
     exit(1);
