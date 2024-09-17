@@ -959,9 +959,10 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
             "__const int "
             "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;/*5*/\n",
             op[0].buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx, 0, dim_info[0].off_out, dim_info[0].res_a_out,
-            dim_info[0].wai_a_out, dim_info[0].str_a_out, dim_info[0].res_z_out, dim_info[0].wai_z_out,
-            dim_info[0].str_z_out, dim_info[0].res_y_out, dim_info[0].wai_y_out, dim_info[0].str_y_out,
-            dim_info[0].res_x_out, dim_info[0].wai_x_out, dim_info[0].str_x_out);
+            dim_info[0].wai_a_out, dim_info[0].str_a_out * op[0].buffer_out.str_a, dim_info[0].res_z_out,
+            dim_info[0].wai_z_out, dim_info[0].str_z_out * op[0].buffer_out.str_z, dim_info[0].res_y_out,
+            dim_info[0].wai_y_out, dim_info[0].str_y_out * op[0].buffer_out.str_y, dim_info[0].res_x_out,
+            dim_info[0].wai_x_out, dim_info[0].str_x_out * op[0].buffer_out.str_x);
         compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         if(op[0].type_op != op_unary) {
             *source_curr +=
@@ -970,9 +971,10 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
                          "%s_%lu_%lu_%d_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
                          "%lu*%lu;/*6*/\n",
                          op[0].buffer_in.name, compile_loop_idx, op_idx, 0, loop_idx, 0, dim_info[0].off_in,
-                         dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in, dim_info[0].res_z_in,
-                         dim_info[0].wai_z_in, dim_info[0].str_z_in, dim_info[0].res_y_in, dim_info[0].wai_y_in,
-                         dim_info[0].str_y_in, dim_info[0].res_x_in, dim_info[0].wai_x_in, dim_info[0].str_x_in);
+                         dim_info[0].res_a_in, dim_info[0].wai_a_in, dim_info[0].str_a_in * op[0].buffer_in.str_a,
+                         dim_info[0].res_z_in, dim_info[0].wai_z_in, dim_info[0].str_z_in * op[0].buffer_in.str_z,
+                         dim_info[0].res_y_in, dim_info[0].wai_y_in, dim_info[0].str_y_in * op[0].buffer_in.str_y,
+                         dim_info[0].res_x_in, dim_info[0].wai_x_in, dim_info[0].str_x_in * op[0].buffer_in.str_x);
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         }
         for(uint64_t inline_idx = 1; inline_idx < inline_num; inline_idx++) {
@@ -984,10 +986,11 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
                     "%lu*%lu;/*7*/\n",
                     op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
                     dim_info[inline_idx].off_out, dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
-                    dim_info[inline_idx].str_a_out, dim_info[inline_idx].res_z_out, dim_info[inline_idx].wai_z_out,
-                    dim_info[inline_idx].str_z_out, dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
-                    dim_info[inline_idx].str_y_out, dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out,
-                    dim_info[inline_idx].str_x_out);
+                    dim_info[inline_idx].str_a_out * op[inline_idx].buffer_out.str_a, dim_info[inline_idx].res_z_out,
+                    dim_info[inline_idx].wai_z_out, dim_info[inline_idx].str_z_out * op[inline_idx].buffer_out.str_z,
+                    dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
+                    dim_info[inline_idx].str_y_out * op[inline_idx].buffer_out.str_y, dim_info[inline_idx].res_x_out,
+                    dim_info[inline_idx].wai_x_out, dim_info[inline_idx].str_x_out * op[inline_idx].buffer_out.str_x);
             } else {
                 /* Doing both indices here is a hack fix. TODO: Figure out when to use which one!!! */
                 *source_curr += snprintf(
@@ -995,23 +998,25 @@ static void compile_append_op_index(char **source, char **source_curr, uint64_t 
                     "__const int "
                     "%s_%lu_%lu_%lu_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
                     "%lu*%lu;/*8.1*/\n",
-                    op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
-                    dim_info[inline_idx].off_in, dim_info[inline_idx].res_a_in, dim_info[inline_idx].wai_a_in,
-                    dim_info[inline_idx].str_a_in, dim_info[inline_idx].res_z_in, dim_info[inline_idx].wai_z_in,
-                    dim_info[inline_idx].str_z_in, dim_info[inline_idx].res_y_in, dim_info[inline_idx].wai_y_in,
-                    dim_info[inline_idx].str_y_in, dim_info[inline_idx].res_x_in, dim_info[inline_idx].wai_x_in,
-                    dim_info[inline_idx].str_x_in);
+                    op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
+                    dim_info[inline_idx].off_out, dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
+                    dim_info[inline_idx].str_a_out * op[inline_idx].buffer_out.str_a, dim_info[inline_idx].res_z_out,
+                    dim_info[inline_idx].wai_z_out, dim_info[inline_idx].str_z_out * op[inline_idx].buffer_out.str_z,
+                    dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
+                    dim_info[inline_idx].str_y_out * op[inline_idx].buffer_out.str_y, dim_info[inline_idx].res_x_out,
+                    dim_info[inline_idx].wai_x_out, dim_info[inline_idx].str_x_out * op[inline_idx].buffer_out.str_x);
                 *source_curr += snprintf(
                     *source_curr, MAX_OP_SIZE,
                     "__const int "
                     "%s_%lu_%lu_%lu_%lu_%d=%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/"
                     "%lu*%lu;/*8.2*/\n",
-                    op[inline_idx].buffer_out.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
-                    dim_info[inline_idx].off_out, dim_info[inline_idx].res_a_out, dim_info[inline_idx].wai_a_out,
-                    dim_info[inline_idx].str_a_out, dim_info[inline_idx].res_z_out, dim_info[inline_idx].wai_z_out,
-                    dim_info[inline_idx].str_z_out, dim_info[inline_idx].res_y_out, dim_info[inline_idx].wai_y_out,
-                    dim_info[inline_idx].str_y_out, dim_info[inline_idx].res_x_out, dim_info[inline_idx].wai_x_out,
-                    dim_info[inline_idx].str_x_out);
+                    op[inline_idx].buffer_in.name, compile_loop_idx, op_idx, inline_idx, loop_idx, 0,
+                    dim_info[inline_idx].off_in, dim_info[inline_idx].res_a_in, dim_info[inline_idx].wai_a_in,
+                    dim_info[inline_idx].str_a_in * op[inline_idx].buffer_in.str_a, dim_info[inline_idx].res_z_in,
+                    dim_info[inline_idx].wai_z_in, dim_info[inline_idx].str_z_in * op[inline_idx].buffer_in.str_z,
+                    dim_info[inline_idx].res_y_in, dim_info[inline_idx].wai_y_in,
+                    dim_info[inline_idx].str_y_in * op[inline_idx].buffer_in.str_y, dim_info[inline_idx].res_x_in,
+                    dim_info[inline_idx].wai_x_in, dim_info[inline_idx].str_x_in * op[inline_idx].buffer_in.str_x);
             }
             compile_expand_source(source, source_curr, source_cap, MAX_OP_SIZE);
         }
