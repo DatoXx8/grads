@@ -20,7 +20,6 @@ const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 #define MAX_LOOPS 4096ul
 #define OP_NUM 6ul
 #define SWITCH_ODS ((double) 1 / (double) 16)
-/* TODO: Fix rng 1724871548 */
 static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id *device_id, cl_context *context,
                               cl_command_queue *command_queue) {
     assert(tensor1);
@@ -411,6 +410,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         for(uint64_t z = 0; z < DIM_SZE; z++) {
             for(uint64_t y = 0; y < DIM_SZE; y++) {
                 for(uint64_t x = 0; x < DIM_SZE; x++) {
+                    /* Both isnan and isinf should be xnor I guess */
                     assert(!isnan(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
                     assert(!isnan(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
                     assert(!isinf(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
