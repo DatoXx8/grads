@@ -71,6 +71,21 @@ static uint64_t op_equal(const op_t *starting, const op_t *compared) {
             return 0;
         }
     }
+    if(starting->var_unary != compared->var_unary) {
+        return 0;
+    }
+    if(starting->var_a != compared->var_a) {
+        return 0;
+    }
+    if(starting->var_z != compared->var_z) {
+        return 0;
+    }
+    if(starting->var_y != compared->var_y) {
+        return 0;
+    }
+    if(starting->var_x != compared->var_x) {
+        return 0;
+    }
     return 1;
 }
 static void simple_loop_configure(simple_loop_t *loop, const op_t **op, const uint64_t loop_len,
