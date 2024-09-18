@@ -11,9 +11,9 @@
 
 static char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
                                           'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
-static int64_t name_off = 0;
+static uint64_t name_off = 0;
 static void name_update(void) {
-    for(int64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
+    for(uint64_t i = 0; i < BUFFER_NAME_SIZE; i++) {
         assert(name[i] >= 'a' && name[i] <= 'z');
         assert(name_off >= 0 && name_off <= INT64_MAX);
         if(name[i] != 'z') {
@@ -35,13 +35,13 @@ void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
             break;
         }
         case sync_to_device: {
-            int64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
+            uint64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
             clEnqueueWriteBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
             buffer->sync = sync_none;
             break;
         }
         case sync_to_host: {
-            int64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
+            uint64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
             clEnqueueReadBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
             buffer->sync = sync_none;
             break;
@@ -57,7 +57,7 @@ void buffer_sync_update(buffer_t *buffer, const sync_e sync) {
     }
 }
 
-buffer_t buffer_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context) {
+buffer_t buffer_alloc(const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x, cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -364,10 +364,10 @@ void op_realize(const op_t *op) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) += op->var_unary;
                                 }
                             }
@@ -376,10 +376,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_subtract: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) -= op->var_unary;
                                 }
                             }
@@ -388,10 +388,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_multiply: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= op->var_unary;
                                 }
                             }
@@ -400,10 +400,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_divide: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) /= op->var_unary;
                                 }
                             }
@@ -412,10 +412,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_exp: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = exp(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -424,10 +424,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_log: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = log(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -436,10 +436,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_square: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_out, a, z, y, x);
                                 }
                             }
@@ -448,10 +448,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_sqrt: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = sqrt(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -460,10 +460,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_reciprocal: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = 1 / BUFFER_AT(op->buffer_out, a, z, y, x);
                                 }
                             }
@@ -472,10 +472,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_max: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) =
                                         fmax(BUFFER_AT(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
@@ -485,10 +485,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_min: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) =
                                         fmin(BUFFER_AT(op->buffer_out, a, z, y, x), op->var_unary);
                                 }
@@ -498,10 +498,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_set: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = op->var_unary;
                                 }
                             }
@@ -510,10 +510,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_random: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
                                 }
                             }
@@ -522,10 +522,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_tanh: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = tanh(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -534,10 +534,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_absolute: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fabs(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -546,10 +546,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_sign: {
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     if(BUFFER_AT(op->buffer_out, a, z, y, x) < 0) {
                                         BUFFER_AT(op->buffer_out, a, z, y, x) = -1;
                                     } else if(BUFFER_AT(op->buffer_out, a, z, y, x) == 0) {
@@ -573,10 +573,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -589,10 +589,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) -= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -605,10 +605,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -621,10 +621,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) /= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -637,10 +637,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmax(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
@@ -654,10 +654,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmin(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
@@ -671,10 +671,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
                     assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
                     assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -687,10 +687,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) += BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -703,10 +703,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) -= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -719,10 +719,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -735,10 +735,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) /= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -751,10 +751,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmax(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, 0, 0, 0, 0));
                                 }
@@ -768,10 +768,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmin(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, 0, 0, 0, 0));
                                 }
@@ -785,10 +785,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_in.sze_z == 1);
                     assert(op->buffer_in.sze_y == 1);
                     assert(op->buffer_in.sze_x == 1);
-                    for(int64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -807,10 +807,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_y == 1);
                     assert(op->buffer_out.sze_x == 1);
                     double temp = 0;
-                    for(int64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
                                     temp += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -825,10 +825,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_y == 1);
                     assert(op->buffer_out.sze_x == 1);
                     double temp = -INFINITY;
-                    for(int64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
                                     temp = fmax(temp, BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
                             }
@@ -843,10 +843,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_y == 1);
                     assert(op->buffer_out.sze_x == 1);
                     double temp = 0;
-                    for(int64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
                                     temp += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -862,10 +862,10 @@ void op_realize(const op_t *op) {
                     assert(op->buffer_out.sze_y == 1);
                     assert(op->buffer_out.sze_x == 1);
                     double temp = INFINITY;
-                    for(int64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(int64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(int64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(int64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
                                     temp = fmin(temp, BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
                             }
@@ -884,7 +884,7 @@ void op_realize(const op_t *op) {
 }
 
 /* Completely made up value. No reasoning behind it at all */
-const int64_t INITIAL_OP_CAP = 25;
+const uint64_t INITIAL_OP_CAP = 25;
 linearized_t linearized_alloc(void) {
     linearized_t linearized = {
         .op_len = 0,
@@ -907,7 +907,7 @@ void linearized_clear(linearized_t *linearized) {
 }
 void linearized_run(const linearized_t *linearized) {
     assert(linearized);
-    for(int64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) {
+    for(uint64_t op_idx = 0; op_idx < linearized->op_len; op_idx++) {
         op_realize(&linearized->op[op_idx]);
     }
 }
@@ -927,7 +927,7 @@ void linearized_append(linearized_t *linearized1, linearized_t *linearized2) {
         linearized1->op = reallocarray(linearized1->op, linearized1->op_cap, sizeof(op_t));
         assert(linearized1->op);
     }
-    for(int64_t op_idx = 0; op_idx < linearized2->op_len; op_idx++) {
+    for(uint64_t op_idx = 0; op_idx < linearized2->op_len; op_idx++) {
         linearized1->op[linearized1->op_len + op_idx] = linearized2->op[op_idx];
     }
     linearized1->op_len += linearized2->op_len;
@@ -947,19 +947,19 @@ void linearized_print(const linearized_t *linearized, const int padding, const i
         printf("%*sEmpty\n", padding + offset, "");
     }
     /* Kind of a nice allignment for printing */
-    // int64_t max = log10(linearized->op_count);
-    // for(int64_t i = 0; i < linearized->op_count; i++) {
-    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (int64_t) log10(i)), "", i);
+    // uint64_t max = log10(linearized->op_count);
+    // for(uint64_t i = 0; i < linearized->op_count; i++) {
+    //     printf("%*s[%*s%lu] ", padding + offset, "", (int) (max - (uint64_t) log10(i)), "", i);
     //     op_print(linearized->simple + i, 0, 0, "");
     // }
     /* This one is not alligned */
-    for(int64_t i = 0; i < linearized->op_len; i++) {
+    for(uint64_t i = 0; i < linearized->op_len; i++) {
         printf("%*s[%lu] ", padding + offset, "", i);
         op_print(&linearized->op[i], 0, 0, "");
     }
 }
 
-tensor_t tensor_alloc(const int64_t a, const int64_t z, const int64_t y, const int64_t x, cl_context context) {
+tensor_t tensor_alloc(const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x, cl_context context) {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -1354,7 +1354,7 @@ void tensor_reduce_max(tensor_t *out, tensor_t *in) {
     linearized_add_op(out->linearized, &new);
 }
 
-void tensor_move_resize(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
+void tensor_move_resize(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x) {
     assert(tensor);
     assert(a > 0);
     assert(z > 0);
@@ -1365,7 +1365,7 @@ void tensor_move_resize(tensor_t *tensor, const int64_t a, const int64_t z, cons
     tensor->buffer->sze_y = y;
     tensor->buffer->sze_x = x;
 }
-void tensor_move_reshape(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
+void tensor_move_reshape(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x) {
     assert(tensor);
     tensor->buffer->sze_a = a;
     tensor->buffer->sze_z = z;
@@ -1375,7 +1375,7 @@ void tensor_move_reshape(tensor_t *tensor, const int64_t a, const int64_t z, con
     tensor->buffer->str_z = y * x;
     tensor->buffer->str_y = x;
 }
-void tensor_move_offset(tensor_t *tensor, const int64_t a, const int64_t z, const int64_t y, const int64_t x) {
+void tensor_move_offset(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x) {
     assert(tensor);
     assert(a >= 0);
     assert(z >= 0);
@@ -1407,18 +1407,18 @@ void tensor_print(const tensor_t *tensor, const int padding, const int offset, c
         printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
                tensor->buffer->sync);
     }
-    for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
+    for(uint64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a) {
             printf("\n");
             printf("\n");
         }
-        for(int64_t z = 0; z < tensor->buffer->sze_z; z++) {
+        for(uint64_t z = 0; z < tensor->buffer->sze_z; z++) {
             if(z) {
                 printf("\n");
             }
-            for(int64_t y = 0; y < tensor->buffer->sze_y; y++) {
+            for(uint64_t y = 0; y < tensor->buffer->sze_y; y++) {
                 printf("%*s[ ", offset + padding, "");
-                for(int64_t x = 0; x < tensor->buffer->sze_x; x++) {
+                for(uint64_t x = 0; x < tensor->buffer->sze_x; x++) {
                     printf("% lf ", BUFFER_AT_(tensor->buffer, a, z, y, x));
                 }
                 printf("]\n");
@@ -1426,10 +1426,10 @@ void tensor_print(const tensor_t *tensor, const int padding, const int offset, c
         }
     }
 }
-const int64_t A_MAX = 2;
-const int64_t Z_MAX = 2;
-const int64_t Y_MAX = 4;
-const int64_t X_MAX = 4;
+const uint64_t A_MAX = 2;
+const uint64_t Z_MAX = 2;
+const uint64_t Y_MAX = 4;
+const uint64_t X_MAX = 4;
 /* Just prints a `{2, 2, 4, 4}` subsection of the tensor. If name is `""` it doesn't print a new empty line where
  * the name would have been */
 void tensor_preview(const tensor_t *tensor, const int padding, const int offset, const char *name) {
@@ -1441,7 +1441,7 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
         printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
                tensor->buffer->sync);
     }
-    for(int64_t a = 0; a < tensor->buffer->sze_a; a++) {
+    for(uint64_t a = 0; a < tensor->buffer->sze_a; a++) {
         if(a >= A_MAX) {
             printf("%*s...\n\n", offset, "");
             break;
@@ -1449,7 +1449,7 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
         if(a) {
             printf("\n\n");
         }
-        for(int64_t z = 0; z < tensor->buffer->sze_z; z++) {
+        for(uint64_t z = 0; z < tensor->buffer->sze_z; z++) {
             if(z >= Z_MAX) {
                 printf("%*s...\n", offset, "");
                 break;
@@ -1457,13 +1457,13 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
             if(z) {
                 printf("\n");
             }
-            for(int64_t y = 0; y < tensor->buffer->sze_y; y++) {
+            for(uint64_t y = 0; y < tensor->buffer->sze_y; y++) {
                 if(y >= Y_MAX) {
                     printf("%*s...\n", offset + padding, "");
                     break;
                 }
                 printf("%*s[ ", offset + padding, "");
-                for(int64_t x = 0; x < tensor->buffer->sze_x; x++) {
+                for(uint64_t x = 0; x < tensor->buffer->sze_x; x++) {
                     if(x >= X_MAX) {
                         printf("...");
                         break;

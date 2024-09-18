@@ -1,4 +1,3 @@
-#include <CL/cl.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,23 +8,23 @@
 #include "../tensor.h"
 #include "../utils.h"
 
-const int64_t DIM_SZE = 3;
+const uint64_t DIM_SZE = 3;
 const double EPSILON = 1e-3;
-const int64_t RANDOM_MAX_TRIES = 10;
-static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, int64_t tensor_num) {
+const uint64_t RANDOM_MAX_TRIES = 10;
+static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, uint64_t op_num, uint64_t tensor_num) {
     assert(tensor1);
     assert(tensor2);
     assert(op_num > 0);
     assert(tensor_num > 1);
 
-    int64_t tensor_out = rand() % tensor_num, tensor_in;
-    int64_t a_off, z_off, y_off, x_off;
-    int64_t a_sze, z_sze, y_sze, x_sze;
+    uint64_t tensor_out = rand() % tensor_num, tensor_in;
+    uint64_t a_off, z_off, y_off, x_off;
+    uint64_t a_sze, z_sze, y_sze, x_sze;
     op_e type;
     unary_e type_unary;
     binary_e type_binary;
     reduce_e type_reduce;
-    for(int64_t op_idx = 0; op_idx < op_num; op_idx++) {
+    for(uint64_t op_idx = 0; op_idx < op_num; op_idx++) {
         type = rand() % 3;
         /* TODO: Randomise in and out tensors */
         switch(type) {
@@ -153,7 +152,7 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
                 break;
             }
             case op_binary: {
-                for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
+                for(uint64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
                     if(tensor_out != tensor_in) {
                         break;
@@ -288,7 +287,7 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
                 break;
             }
             case op_reduce: {
-                for(int64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
+                for(uint64_t ran_try = 0; ran_try < RANDOM_MAX_TRIES; ran_try++) {
                     tensor_in = rand() % tensor_num;
                     if(tensor_out != tensor_in) {
                         break;
@@ -351,12 +350,12 @@ static void simulate_tree(tensor_t *tensor1, tensor_t *tensor2, int64_t op_num, 
     }
     tensor_realize(&tensor2[tensor_out]);
 
-    for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
+    for(uint64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
         assert(!isnan(tensor1[tensor_out].buffer->val[val_idx]));
         assert(!isnan(tensor2[tensor_out].buffer->val[val_idx]));
         assert(tensor1[tensor_out].buffer->val[val_idx] == tensor2[tensor_out].buffer->val[val_idx]);
     }
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
+    for(uint64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         linearized_clear(tensor1[tensor_idx].linearized);
         linearized_clear(tensor2[tensor_idx].linearized);
     }
@@ -367,16 +366,16 @@ int main(int argc, char **argv) {
         return 1;
     }
     const uint32_t seed = time(NULL);
-    printf("RNG Seed %u\n", seed);
+    printf("Linear simulation with %u...\n", seed);
     srand(seed);
-    const int64_t op_num = strtoll(argv[1], NULL, 10);
-    const int64_t tensor_num = strtoll(argv[2], NULL, 10);
+    const uint64_t op_num = strtoll(argv[1], NULL, 10);
+    const uint64_t tensor_num = strtoll(argv[2], NULL, 10);
     assert(op_num > 0);
     assert(tensor_num > 1);
 
     double *random_values = calloc(DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE, sizeof(double));
     assert(random_values);
-    for(int64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
+    for(uint64_t val_idx = 0; val_idx < DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE; val_idx++) {
         // random_values[val_idx] = ((double) rand() / RAND_MAX) * 2 - 1;
         random_values[val_idx] = 1;
     }
@@ -384,23 +383,23 @@ int main(int argc, char **argv) {
     tensor_t *tensor2 = calloc(tensor_num, sizeof(tensor_t));
     assert(tensor1);
     assert(tensor2);
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
+    for(uint64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         tensor1[tensor_idx] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
         tensor2[tensor_idx] = tensor_alloc(DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE, NULL);
     }
 
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
+    for(uint64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         memcpy(tensor1[tensor_idx].buffer->val, random_values, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
         memcpy(tensor2[tensor_idx].buffer->val, random_values, DIM_SZE * DIM_SZE * DIM_SZE * DIM_SZE * sizeof(double));
     }
     simulate_tree(tensor1, tensor2, op_num, tensor_num);
-    for(int64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
+    for(uint64_t tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++) {
         tensor_free(&tensor1[tensor_idx]);
         tensor_free(&tensor2[tensor_idx]);
     }
     free(tensor1);
     free(tensor2);
     free(random_values);
-    printf("Passed tree simulation with %lu ops and %lu tensors!\n", op_num, tensor_num);
+    printf("Passed\n");
     return 0;
 }

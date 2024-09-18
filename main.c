@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "nn.h"
 #include "runtimes/cl.h"
@@ -11,7 +12,13 @@
 #include "utils.h"
 
 /*
- *  TODO: Support `global_size > 1`. surprisingly not trivial cuz of race conditions
+ *  TODO: Make loops more abundant in the compiler simulator
+ *  TODO: Support `global_size > 1`. surprisingly not trivial cuz of race conditions. I kinda think this has to be done
+ * by splitting it up through multiple kernels such that I can control the snyc up. Auto detect when ops depend on each
+ * other (Also make use of splitting ops up instead of doing stuff like `if(gid < x)` whenever possible)
+ *  -> For now 1 kernel per loop. This could probably be optimised
+ *  TODO: Make multiple cases for when `+=` can be used (if inline_num is == 1 I think it can be used otherwise I don't
+ * think so)
  *  TODO: Add multi-thread c runtime
  *  TODO: Make reduce backprop real and not fake.
  *  TODO: Maybe remove explicit backprop and make autograd things.
@@ -28,25 +35,26 @@
  *  TODO: Make a go engine.
  *  TODO: Make string helper functions in a string.c and string.h (Should probably do this first to avoid a bunch of
  * string weirdnes when I forget to remove a `*` somewhere and have another debugging nightmare)
+ *
+ * perf for 1e6 (cl, c unoptimized, c optimized):
+ * (37s,128s,5s) baseline
+ * (37s,128s,5s) use `+=` and stuff (I think this is optimized by the compiler anyway)
+ * (48s,128s,5s) split up to multiple kernels (Slow at first but allows for more work-groups -> more work-items)
  */
 
-void usage_print(const char *program) {
-    assert(program);
-    printf("USAGE: %s <c|cl>\n", program);
-}
-
 int main(int argc, const char **argv) {
+
+    INIT_TIMER();
+    START_TIME();
+
     // const uint32_t RNG = time(NULL);
     const uint32_t RNG = 0;
     printf("INFO: RNG Seed %u\n", RNG);
     srand(RNG);
     compile_e compile_type;
-    if(argc < 2) {
-        usage_print(argv[0]);
-        ERROR("Program expects an argument\n");
-    } else if(argc > 2) {
-        usage_print(argv[0]);
-        ERROR("Program expects less arguments\n");
+    if(argc != 2) {
+        printf("USAGE: %s [c|cl]\n", argv[0]);
+        ERROR("Program expects 2 arguments\n");
     }
     if(!strncmp(argv[1], "-cl", 3)) {
         printf("INFO: Using OpenCL\n");
@@ -55,7 +63,7 @@ int main(int argc, const char **argv) {
         printf("INFO: Not using OpenCL\n");
         compile_type = compile_none;
     } else {
-        usage_print(argv[0]);
+        printf("USAGE: %s [c|cl]\n", argv[0]);
         ERROR("Invaling argument\n");
     }
     cl_device_id device_id;
@@ -68,15 +76,12 @@ int main(int argc, const char **argv) {
         context = NULL;
     }
 
-    INIT_TIMER();
-    START_TIME();
-
     const double LEARNING = 1e-2;
-    const int64_t SAMPLES = 1;
-    const int64_t LAYERS = 5;
-    const int64_t INPUT_Z = 2;
-    const int64_t INPUT_Y = 4;
-    const int64_t INPUT_X = INPUT_Y;
+    const uint64_t SAMPLES = 1;
+    const uint64_t LAYERS = 4;
+    const uint64_t INPUT_Z = 2;
+    const uint64_t INPUT_Y = 4;
+    const uint64_t INPUT_X = INPUT_Y;
     layerconfig_t *layerconfig = calloc(LAYERS, sizeof(layerconfig_t));
     assert(layerconfig);
     layerconfig_t l0 = {
@@ -116,7 +121,7 @@ int main(int argc, const char **argv) {
     layerconfig[1] = l1;
     layerconfig[2] = l2;
     layerconfig[3] = l3;
-    layerconfig[4] = l4;
+    // layerconfig[4] = l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
     tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
@@ -131,8 +136,13 @@ int main(int argc, const char **argv) {
     tensor_realize(&input);
     neuralnet_random(&neuralnet);
 
+    // for(uint64_t i = 0; i < 1e6; i++) {
     neuralnet_forward(&neuralnet, &input);
+    // }
     TENSOR_PRINT_(NEURALNET_OUTPUT(neuralnet).activation);
+    for(uint64_t kernel_idx = 0; kernel_idx < neuralnet.forward_cl.kernel_num; kernel_idx++) {
+        printf("%s\n", neuralnet.forward_cl.kernel[kernel_idx].source);
+    }
 
     neuralnet_free(&neuralnet);
     tensor_free(&input);
