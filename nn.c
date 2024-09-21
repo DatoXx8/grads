@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "compile.h"
+#include "compiler/compile.h"
 #include "nn.h"
 #include "runtimes/cl.h"
 #include "tensor.h"

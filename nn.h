@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#include "compile.h"
+#include "compiler/compile.h"
 #include "tensor.h"
 
 /* NOT APPLICABLE FOR REDUCE LAYERS. */

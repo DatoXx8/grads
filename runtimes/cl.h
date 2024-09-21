@@ -4,7 +4,7 @@
 #include <CL/cl.h>
 #include <stdint.h>
 
-#include "../compile.h"
+#include "../compiler/compile.h"
 
 extern cl_device_id cl_device_get(void);
 extern cl_program cl_program_build(cl_context context, cl_device_id device, const char *source, uint64_t source_size);

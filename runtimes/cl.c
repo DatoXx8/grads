@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../compile.h"
+#include "../compiler/compile.h"
 #include "../utils.h"
 #include "cl.h"
 
