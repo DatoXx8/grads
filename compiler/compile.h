@@ -4,7 +4,7 @@
 #include <CL/cl.h>
 #include <stdint.h>
 
-#include "tensor.h"
+#include "../tensor.h"
 
 /* Stride offset wait reset */
 typedef struct {

@@ -6,8 +6,8 @@
 #include <string.h>
 
 #include "compile.h"
-#include "tensor.h"
-#include "utils.h"
+#include "../tensor.h"
+#include "../utils.h"
 
 #define INDEX(buffer, a, z, y, x)                                                                                      \
     ((buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x))
@@ -617,7 +617,7 @@ static compile_loop_t compile_loop_alloc(const simple_loop_t *simple) {
         assert(compile.inline_type[op_idx]);
         compile.inline_type[op_idx][0] = inline_op_none;
     }
-    // compile_loop_print(&compile, 4, 0, "");
+    compile_loop_print(&compile, 4, 0, "");
     /* TODO: Optimizer breaks it sometimes. THIS ONE IS REALLY IMPORTANT */
     // compile_loop_optimize(&compile);
     return compile;
@@ -2851,144 +2851,3 @@ void program_free(program_t *program) {
         program->cl_command_queue = NULL;
     }
 }
-// if(compile->dim_info[i][j].off_a_in) {
-//     free(compile->dim_info[i][j].off_a_in);
-// }
-// if(compile->dim_info[i][j].off_z_in) {
-//     free(compile->dim_info[i][j].off_z_in);
-// }
-// if(compile->dim_info[i][j].off_y_in) {
-//     free(compile->dim_info[i][j].off_y_in);
-// }
-// if(compile->dim_info[i][j].off_x_in) {
-//     free(compile->dim_info[i][j].off_x_in);
-// }
-// if(compile->dim_info[i][j].off_a_out) {
-//     free(compile->dim_info[i][j].off_a_out);
-// }
-// if(compile->dim_info[i][j].off_z_out) {
-//     free(compile->dim_info[i][j].off_z_out);
-// }
-// if(compile->dim_info[i][j].off_y_out) {
-//     free(compile->dim_info[i][j].off_y_out);
-// }
-// if(compile->dim_info[i][j].off_x_out) {
-//     free(compile->dim_info[i][j].off_x_out);
-// }
-// if(compile->dim_info[i][j].str_a_in) {
-//     free(compile->dim_info[i][j].str_a_in);
-// }
-// if(compile->dim_info[i][j].str_z_in) {
-//     free(compile->dim_info[i][j].str_z_in);
-// }
-// if(compile->dim_info[i][j].str_y_in) {
-//     free(compile->dim_info[i][j].str_y_in);
-// }
-// if(compile->dim_info[i][j].str_x_in) {
-//     free(compile->dim_info[i][j].str_x_in);
-// }
-// if(compile->dim_info[i][j].str_a_out) {
-//     free(compile->dim_info[i][j].str_a_out);
-// }
-// if(compile->dim_info[i][j].str_z_out) {
-//     free(compile->dim_info[i][j].str_z_out);
-// }
-// if(compile->dim_info[i][j].str_y_out) {
-//     free(compile->dim_info[i][j].str_y_out);
-// }
-// if(compile->dim_info[i][j].str_x_out) {
-//     free(compile->dim_info[i][j].str_x_out);
-// }
-// if(compile->dim_info[i][j].wait_a_in) {
-//     free(compile->dim_info[i][j].wait_a_in);
-// }
-// if(compile->dim_info[i][j].wait_z_in) {
-//     free(compile->dim_info[i][j].wait_z_in);
-// }
-// if(compile->dim_info[i][j].wait_y_in) {
-//     free(compile->dim_info[i][j].wait_y_in);
-// }
-// if(compile->dim_info[i][j].wait_x_in) {
-//     free(compile->dim_info[i][j].wait_x_in);
-// }
-// if(compile->dim_info[i][j].wai_a_out) {
-//     free(compile->dim_info[i][j].wai_a_out);
-// }
-// if(compile->dim_info[i][j].wai_z_out) {
-//     free(compile->dim_info[i][j].wai_z_out);
-// }
-// if(compile->dim_info[i][j].wai_y_out) {
-//     free(compile->dim_info[i][j].wai_y_out);
-// }
-// if(compile->dim_info[i][j].wai_x_out) {
-//     free(compile->dim_info[i][j].wai_x_out);
-// }
-// if(compile->dim_info[i][j].res_a_in) {
-//     free(compile->dim_info[i][j].res_a_in);
-// }
-// if(compile->dim_info[i][j].res_z_in) {
-//     free(compile->dim_info[i][j].res_z_in);
-// }
-// if(compile->dim_info[i][j].res_y_in) {
-//     free(compile->dim_info[i][j].res_y_in);
-// }
-// if(compile->dim_info[i][j].res_x_in) {
-//     free(compile->dim_info[i][j].res_x_in);
-// }
-// if(compile->dim_info[i][j].res_a_out) {
-//     free(compile->dim_info[i][j].res_a_out);
-// }
-// if(compile->dim_info[i][j].res_z_out) {
-//     free(compile->dim_info[i][j].res_z_out);
-// }
-// if(compile->dim_info[i][j].res_y_out) {
-//     free(compile->dim_info[i][j].res_y_out);
-// }
-// if(compile->dim_info[i][j].res_x_out) {
-//     free(compile->dim_info[i][j].res_x_out);
-// }
-//
-//
-//
-// return starting->type_op == compared->type_op && starting->type_unary == compared->type_unary &&
-//        starting->type_binary == compared->type_binary && starting->type_reduce == compared->type_reduce &&
-//        starting->buffer_out.name_off == compared->buffer_out.name_off &&
-//        starting->buffer_out.sze_a == compared->buffer_out.sze_a &&
-//        starting->buffer_out.sze_z == compared->buffer_out.sze_z &&
-//        starting->buffer_out.sze_y == compared->buffer_out.sze_y &&
-//        starting->buffer_out.sze_x == compared->buffer_out.sze_x &&
-//        (starting->type_op == op_unary || (starting->buffer_in.name_off == compared->buffer_in.name_off &&
-//                                           starting->buffer_in.sze_a == compared->buffer_in.sze_a &&
-//                                           starting->buffer_in.sze_z == compared->buffer_in.sze_z &&
-//                                           starting->buffer_in.sze_y == compared->buffer_in.sze_y &&
-//                                           starting->buffer_in.sze_x == compared->buffer_in.sze_x));
-//
-//
-// *source_curr += snprintf(*source_curr, MAX_OP_SIZE, "%ld",
-//                          loop->dim_info[op_idx][0].off_out +
-//                              (loop_idx % loop->dim_info[op_idx][0].res_a_out /
-//                               loop->dim_info[op_idx][0].wai_a_out * loop->dim_info[op_idx][0].str_a_out) +
-//                              (loop_idx % loop->dim_info[op_idx][0].res_z_out /
-//                               loop->dim_info[op_idx][0].wai_z_out * loop->dim_info[op_idx][0].str_z_out) +
-//                              (loop_idx % loop->dim_info[op_idx][0].res_y_out /
-//                               loop->dim_info[op_idx][0].wai_y_out * loop->dim_info[op_idx][0].str_y_out) +
-//                              (loop_idx % loop->dim_info[op_idx][0].res_x_out /
-//                               loop->dim_info[op_idx][0].wai_x_out * loop->dim_info[op_idx][0].str_x_out));
-//
-//
-//
-// *source_curr += snprintf(
-//     *source_curr, MAX_OP_SIZE,
-//     "__const int "
-//     "%s_%lu_%lu_%d_%lu_%lu=%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+((id/%lu)%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu+(id%%%lu)/%lu*%lu;/*1*/\n",
-//     op[0].buffer_out.name, compile_loop_idx, op_idx, 0, loop_idx, op_unique_idx, dim_info[0].off_out,
-//     op_size, dim_info[0].res_a_out, dim_info[0].wai_a_out, dim_info[0].str_a_out * op[0].buffer_out.str_a,
-//     op_size, dim_info[0].res_z_out, dim_info[0].wai_z_out, dim_info[0].str_z_out * op[0].buffer_out.str_z,
-//     op_size, dim_info[0].res_y_out, dim_info[0].wai_y_out, dim_info[0].str_y_out * op[0].buffer_out.str_y,
-//     op_size, dim_info[0].res_x_out, dim_info[0].wai_x_out, dim_info[0].str_x_out * op[0].buffer_out.str_x,
-//     op[0].buffer_out.str_a * op[0].buffer_out.sze_a, op[0].buffer_out.sze_z * op[0].buffer_out.sze_y *
-//     op[0].buffer_out.sze_x, op[0].buffer_out.str_a, op[0].buffer_out.str_a                         ,
-//     op[0].buffer_out.sze_y * op[0].buffer_out.sze_x                         , op[0].buffer_out.str_z,
-//     op[0].buffer_out.str_z                         , op[0].buffer_out.sze_x , op[0].buffer_out.str_y,
-//     op[0].buffer_out.str_y                         , 1LU , op[0].buffer_out.str_x
-// );
