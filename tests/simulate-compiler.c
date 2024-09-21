@@ -18,8 +18,9 @@ const double EPSILON = 1e-3;
 const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 #define TENSOR_NUM 16ul
 #define MAX_LOOPS 4096ul
-#define OP_NUM 6ul
+#define OP_NUM 9ul
 #define SWITCH_ODS ((double) 1 / (double) 16)
+/* FIX: 1726683714 */
 static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id *device_id, cl_context *context,
                               cl_command_queue *command_queue) {
     assert(tensor1);
@@ -54,15 +55,15 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     bp_in_idx[0] = bp_base_in;
 
     /* This is up here to make sure that I can reduce the number of ops and that is the only thing that changes */
-    const uint64_t size_a = rand() % DIM_SZE + 1;
-    const uint64_t size_z = rand() % DIM_SZE + 1;
-    const uint64_t size_y = rand() % DIM_SZE + 1;
-    const uint64_t size_x = rand() % DIM_SZE + 1;
+    const uint64_t a_size = rand() % DIM_SZE + 1;
+    const uint64_t z_size = rand() % DIM_SZE + 1;
+    const uint64_t y_size = rand() % DIM_SZE + 1;
+    const uint64_t x_size = rand() % DIM_SZE + 1;
 
-    const uint64_t a_loop = size_a == DIM_SZE ? 1 : rand() % (DIM_SZE - size_a) + 1;
-    const uint64_t z_loop = size_z == DIM_SZE ? 1 : rand() % (DIM_SZE - size_z) + 1;
-    const uint64_t y_loop = size_y == DIM_SZE ? 1 : rand() % (DIM_SZE - size_y) + 1;
-    const uint64_t x_loop = size_x == DIM_SZE ? 1 : rand() % (DIM_SZE - size_x) + 1;
+    const uint64_t a_loop = a_size == DIM_SZE ? 1 : rand() % (DIM_SZE - a_size) + 1;
+    const uint64_t z_loop = z_size == DIM_SZE ? 1 : rand() % (DIM_SZE - z_size) + 1;
+    const uint64_t y_loop = y_size == DIM_SZE ? 1 : rand() % (DIM_SZE - y_size) + 1;
+    const uint64_t x_loop = x_size == DIM_SZE ? 1 : rand() % (DIM_SZE - x_size) + 1;
 
     for(uint64_t op_idx = 0; op_idx < OP_NUM; op_idx++) {
         if(op_idx) {
@@ -131,8 +132,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                 for(uint64_t x_idx = 0; x_idx < x_loop; x_idx++) {
                     for(uint64_t op_idx = 0; op_idx < OP_NUM - 4; op_idx++) {
                         if(bp_type[op_idx] == op_binary && bp_binary[op_idx] < binary_add_like) {
-                            tensor_move_resize(&tensor1[bp_in_idx[op_idx]], size_a, size_z, size_y, size_x);
-                            tensor_move_resize(&tensor2[bp_in_idx[op_idx]], size_a, size_z, size_y, size_x);
+                            tensor_move_resize(&tensor1[bp_in_idx[op_idx]], a_size, z_size, y_size, x_size);
+                            tensor_move_resize(&tensor2[bp_in_idx[op_idx]], a_size, z_size, y_size, x_size);
                         } else {
                             tensor_move_resize(&tensor1[bp_in_idx[op_idx]], 1, 1, 1, 1);
                             tensor_move_resize(&tensor2[bp_in_idx[op_idx]], 1, 1, 1, 1);
@@ -142,8 +143,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                             tensor_move_resize(&tensor1[bp_out_idx[op_idx]], 1, 1, 1, 1);
                             tensor_move_resize(&tensor2[bp_out_idx[op_idx]], 1, 1, 1, 1);
                         } else {
-                            tensor_move_resize(&tensor1[bp_out_idx[op_idx]], size_a, size_z, size_y, size_x);
-                            tensor_move_resize(&tensor2[bp_out_idx[op_idx]], size_a, size_z, size_y, size_x);
+                            tensor_move_resize(&tensor1[bp_out_idx[op_idx]], a_size, z_size, y_size, x_size);
+                            tensor_move_resize(&tensor2[bp_out_idx[op_idx]], a_size, z_size, y_size, x_size);
                         }
 
                         tensor_move_offset(&tensor1[bp_out_idx[op_idx]], a_idx, z_idx, y_idx, x_idx);
@@ -387,14 +388,14 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         }
     }
 
-    // LINEARIZED_PRINT_(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
-    // LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
+    LINEARIZED_PRINT_(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
+    LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     program_t program = {0};
     program_compile(&program, tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
-    // for(uint64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
-    //     printf("%s\n", program.kernel[kernel_idx].source);
-    // }
+    for(uint64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
+        printf("%s\n", program.kernel[kernel_idx].source);
+    }
     for(uint64_t tensor_idx = 0; tensor_idx < TENSOR_NUM; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -410,8 +411,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     tensor_move_resize(&tensor2[bp_out_idx[OP_NUM - 1]], DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_move_offset(&tensor1[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
     tensor_move_offset(&tensor2[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
-    // TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
-    // TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
+    TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
+    TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
     double margin_of_error = pow(1 + MARGIN_OF_ERROR, OP_NUM) - 1;
     for(uint64_t a = 0; a < DIM_SZE; a++) {
         for(uint64_t z = 0; z < DIM_SZE; z++) {
