@@ -7,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "../compile.h"
+#include "../compiler/compile.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
 #include "../utils.h"
