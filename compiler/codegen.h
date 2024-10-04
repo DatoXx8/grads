@@ -17,7 +17,7 @@ const uint64_t optimization_fuse_x = (1 << 6); /* Aggregate along axis x using s
 const uint64_t optimization_memory = (1 << 7); /* Try to optimize memory accesses and cache. May be slow initially */
 const uint64_t optimization_kernel = (1 << 8); /* Reduce number of kernels being sent to the GPU */
 const uint64_t optimization_all =
-    UINT64_MAX; /* All bits set to 1 -> All optimizations on. Significantly icreases compile times */
+    UINT64_MAX; /* All bits set to 1 -> All optimizations on. May significantly icreases compile times */
 extern char *compile_op_group(op_group_t *group, uint64_t optimization);
 
 #endif
