@@ -1432,12 +1432,12 @@ neuralnet_t neuralnet_alloc(const uint64_t layers, layerconfig_t *layerconfig, c
         const uint64_t LOCAL_SIZE;
         clGetDeviceInfo(*device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(uint64_t), (uint64_t *) &LOCAL_SIZE, NULL);
         const uint64_t GLOBAL_SIZE = LOCAL_SIZE * 1;
-        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
-        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
-        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
+        neuralnet.forward_cl =
+            program_compile(neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
+        neuralnet.backward_cl =
+            program_compile(neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
+        neuralnet.learn_cl =
+            program_compile(neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
     } else {
         free(device_id);
         free(context);

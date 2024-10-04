@@ -7,6 +7,9 @@
 #include <string.h>
 #include <time.h>
 
+/* TODO: Seed PCG128->64 on platform that support it (otherwise do PCG64->32 twice) with data from /dev/urandom and use
+ * that instead of glibc rand() for more possible test cases */
+
 #include "../compiler/compile.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
@@ -18,9 +21,8 @@ const double EPSILON = 1e-3;
 const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 #define TENSOR_NUM 16ul
 #define MAX_LOOPS 4096ul
-#define OP_NUM 9ul
+#define OP_NUM 50ul
 #define SWITCH_ODS ((double) 1 / (double) 16)
-/* FIX: 1726683714 */
 static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id *device_id, cl_context *context,
                               cl_command_queue *command_queue) {
     assert(tensor1);
@@ -32,8 +34,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     assert(command_queue);
     assert(*command_queue);
 
-    uint64_t a_off, z_off, y_off, x_off;
-    uint64_t a_sze, z_sze, y_sze, x_sze;
     op_e bp_type[OP_NUM];
     unary_e bp_unary[OP_NUM];
     double bp_val[OP_NUM];
@@ -389,13 +389,13 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     }
 
     LINEARIZED_PRINT_(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
-    LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
+    // LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
-    program_t program = {0};
-    program_compile(&program, tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
-    for(uint64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
-        printf("%s\n", program.kernel[kernel_idx].source);
-    }
+    program_t program =
+        program_compile(tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
+    // for(uint64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
+    //     printf("%s\n", program.kernel[kernel_idx].source);
+    // }
     for(uint64_t tensor_idx = 0; tensor_idx < TENSOR_NUM; tensor_idx++) {
         buffer_sync_update(tensor2[tensor_idx].buffer, sync_to_device);
         buffer_sync_realize(tensor2[tensor_idx].buffer, *command_queue);
@@ -411,8 +411,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     tensor_move_resize(&tensor2[bp_out_idx[OP_NUM - 1]], DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_move_offset(&tensor1[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
     tensor_move_offset(&tensor2[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
-    TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
-    TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
+    // TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
+    // TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
     double margin_of_error = pow(1 + MARGIN_OF_ERROR, OP_NUM) - 1;
     for(uint64_t a = 0; a < DIM_SZE; a++) {
         for(uint64_t z = 0; z < DIM_SZE; z++) {
