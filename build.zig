@@ -13,6 +13,8 @@ pub fn build(b: *std.Build) void {
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
+    //
+    // TODO: Disallow ReleaseFast because it removes assertions. Alternatively do an assert that still works
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
