@@ -6,6 +6,7 @@
 
 #include "../tensor.h"
 #include "CL/cl.h"
+#include "codegen.h"
 #include "compile.h"
 
 /* TODO: Clear up this group_len vs op_num thing. The same thing should only be refered to by the same name */
@@ -64,7 +65,6 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
         group.repeat_num = group_num;
         group.group_len = op_num;
         group.op = calloc(group.group_len, sizeof(op_t));
-        /* TODO: memcpy()? */
         for(uint64_t op_off = 0; op_off < op_num; op_off++) {
             group.op[op_off] = linearized->op[start_idx + op_off];
         }
@@ -302,15 +302,54 @@ void op_group_print(op_group_t *group, int padding, int offset, const char *name
     }
 }
 
-kernel_t kernel_alloc(op_group_t *group) {
-    (void) group;
+/* TODO: Also pass in optimization options? */
+kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
     kernel_t kernel = {0};
+
+    /* TODO: Gather args for kernel */
+
+    kernel.source = compile_op_group(group, optimizations);
+    /* TODO: Maybe pass this as a reference to the compile function? I don't really want to do that because it is not
+     * beatiful and I want to get rid of source_len anyways when I write my own complete compiler. */
+    kernel.source_len = strlen(kernel.source) + 1; /* ' + 1' for '\0' */
+
+    /* TODO: Compile kernel and create program from generated source */
+
     return kernel;
 }
 void kernel_free(kernel_t *kernel) {
-    (void) kernel;
+    assert(kernel);
+    if(kernel->source) {
+        free(kernel->source);
+        kernel->source = NULL;
+    }
+    if(kernel->arg_name) {
+        for(uint64_t arg_idx = 0; arg_idx < kernel->arg_num; arg_idx++) {
+            if(kernel->arg_name[arg_idx]) {
+                free(kernel->arg_name[arg_idx]);
+                kernel->arg_name[arg_idx] = NULL;
+            }
+        }
+        free(kernel->arg_name);
+        kernel->arg_name = NULL;
+    }
+    if(kernel->arg_mem) {
+        free(kernel->arg_mem);
+        kernel->arg_mem = NULL;
+    }
+    kernel->arg_num = 0;
+    kernel->arg_cap = 0;
+    if(kernel->cl_kernel) {
+        clReleaseKernel(kernel->cl_kernel);
+        kernel->cl_kernel = NULL;
+    }
+    if(kernel->cl_program) {
+        clReleaseProgram(kernel->cl_program);
+        kernel->cl_program = NULL;
+    }
 }
 
+/* TODO: Also pass allowed optimization options and then figure out which ones are good based on the kernel */
 program_t program_compile(const linearized_t *linearized, const cl_device_id *device_id, const cl_context *context,
                           const cl_command_queue *command_queue, const uint64_t global_size,
                           const uint64_t local_size) {
@@ -372,21 +411,7 @@ void program_free(program_t *program) {
         program->cl_command_queue = NULL;
     }
     for(uint64_t kernel_idx = 0; kernel_idx < program->kernel_num; kernel_idx++) {
-        free(program->kernel[kernel_idx].source);
-        program->kernel[kernel_idx].source = NULL;
-        for(uint64_t arg_idx = 0; arg_idx < program->kernel[kernel_idx].arg_num; arg_idx++) {
-            free(program->kernel[kernel_idx].arg_name);
-        }
-        free(program->kernel[kernel_idx].arg_name);
-        free(program->kernel[kernel_idx].arg_mem);
-        program->kernel[kernel_idx].arg_name = NULL;
-        program->kernel[kernel_idx].arg_mem = NULL;
-        program->kernel[kernel_idx].arg_cap = 0;
-        program->kernel[kernel_idx].arg_num = 0;
-        clReleaseKernel(program->kernel[kernel_idx].cl_kernel);
-        clReleaseProgram(program->kernel[kernel_idx].cl_program);
-        program->kernel[kernel_idx].source_cap = 0;
-        program->kernel[kernel_idx].source_len = 0;
+        kernel_free(&program->kernel[kernel_idx]);
     }
     free(program->kernel);
     program->kernel = NULL;

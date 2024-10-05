@@ -5,8 +5,11 @@
 /* I guess gathering all the information for the codegen / optimizations should happen in here */
 /* Hmmm... Not sure though */
 
+/* TODO: Choose a more descriptive name for this */
+
 #include "../tensor.h"
 #include "CL/cl.h"
+#include <stdint.h>
 
 typedef struct {
     uint64_t off_in;
@@ -51,8 +54,7 @@ typedef struct {
     uint64_t arg_num;
     uint64_t arg_cap;
     char *source;
-    uint64_t source_len;
-    uint64_t source_cap;
+    uint64_t source_len; /* Only necessary for OpenCL compiler. Could knock that out when I write my own */
     cl_kernel cl_kernel;
     cl_program cl_program;
 } kernel_t;
