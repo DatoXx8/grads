@@ -388,7 +388,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         }
     }
 
-    LINEARIZED_PRINT_(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     // LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     program_t program =
