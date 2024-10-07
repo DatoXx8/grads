@@ -9,7 +9,6 @@
 #include "codegen.h"
 #include "compile.h"
 
-/* TODO: Clear up this group_len vs op_num thing. The same thing should only be refered to by the same name */
 /* TODO: str_a -> a_str */
 
 static inline _Bool op_equal(const op_t *op1, const op_t *op2) {
@@ -63,8 +62,8 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
             }
         }
         group.repeat_num = group_num;
-        group.group_len = op_num;
-        group.op = calloc(group.group_len, sizeof(op_t));
+        group.op_num = op_num;
+        group.op = calloc(group.op_num, sizeof(op_t));
         for(uint64_t op_off = 0; op_off < op_num; op_off++) {
             group.op[op_off] = linearized->op[start_idx + op_off];
         }
@@ -72,16 +71,16 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
     } else {
         /* Chop 1 op because no repeat was found. Could maybe match more ops but that is bug prone if done naively */
         group.repeat_num = 1;
-        group.group_len = 1;
-        group.op = calloc(group.group_len, sizeof(op_t));
+        group.op_num = 1;
+        group.op = calloc(group.op_num, sizeof(op_t));
         group.op[0] = linearized->op[start_idx];
         *op_used += 1;
     }
 
     /* TODO: Sort this and error or split up til it is possible to map all indices accurately */
     /* TODO: Merge these loops */
-    group.dim_info = calloc(group.group_len, sizeof(dim_info_t));
-    for(uint64_t op_idx = 0; op_idx < group.group_len; op_idx++) {
+    group.dim_info = calloc(group.op_num, sizeof(dim_info_t));
+    for(uint64_t op_idx = 0; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_out = linearized->op[start_idx + op_idx].buffer_out.off;
         const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_out.off_a;
         const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_out.off_z;
@@ -98,71 +97,67 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
         for(uint64_t repeat_idx = 0; repeat_idx < group.repeat_num; repeat_idx++) {
             if(a_left) {
                 if(!a_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_a ==
-                       a_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a == a_initial) {
                         group.dim_info[op_idx].res_a_out = repeat_idx;
                         a_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_a != a_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a != a_initial) {
                     group.dim_info[op_idx].wai_a_out = repeat_idx;
                     group.dim_info[op_idx].str_a_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_a - a_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a - a_initial;
                     a_left = 1;
                 }
             }
             if(z_left) {
                 if(!z_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_z ==
-                       z_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z == z_initial) {
                         group.dim_info[op_idx].res_z_out = repeat_idx;
                         z_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_z != z_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z != z_initial) {
                     group.dim_info[op_idx].wai_z_out = repeat_idx;
                     group.dim_info[op_idx].str_z_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_z - z_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z - z_initial;
                     z_left = 1;
                 }
             }
             if(y_left) {
                 if(!y_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_y ==
-                       y_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y == y_initial) {
                         group.dim_info[op_idx].res_y_out = repeat_idx;
                         y_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_y != y_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y != y_initial) {
                     group.dim_info[op_idx].wai_y_out = repeat_idx;
                     group.dim_info[op_idx].str_y_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_y - y_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y - y_initial;
                     y_left = 1;
                 }
             }
             if(x_left) {
                 if(!x_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_x ==
-                       x_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x == x_initial) {
                         group.dim_info[op_idx].res_x_out = repeat_idx;
                         x_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_x != x_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x != x_initial) {
                     group.dim_info[op_idx].wai_x_out = repeat_idx;
                     group.dim_info[op_idx].str_x_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_out.off_x - x_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x - x_initial;
                     x_left = 1;
                 }
             }
         }
     }
-    for(uint64_t op_idx = 1; op_idx < group.group_len; op_idx++) {
+    for(uint64_t op_idx = 1; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_in = linearized->op[start_idx + op_idx].buffer_in.off;
         const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_in.off_a;
         const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_in.off_z;
@@ -179,61 +174,61 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
         for(uint64_t repeat_idx = 0; repeat_idx < group.repeat_num; repeat_idx++) {
             if(a_left) {
                 if(!a_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_a == a_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a == a_initial) {
                         group.dim_info[op_idx].res_a_in = repeat_idx;
                         a_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_a != a_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a != a_initial) {
                     group.dim_info[op_idx].wai_a_in = repeat_idx;
                     group.dim_info[op_idx].str_a_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_a - a_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a - a_initial;
                     a_left = 1;
                 }
             }
             if(z_left) {
                 if(!z_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_z == z_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z == z_initial) {
                         group.dim_info[op_idx].res_z_in = repeat_idx;
                         z_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_z != z_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z != z_initial) {
                     group.dim_info[op_idx].wai_z_in = repeat_idx;
                     group.dim_info[op_idx].str_z_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_z - z_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z - z_initial;
                     z_left = 1;
                 }
             }
             if(y_left) {
                 if(!y_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_y == y_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y == y_initial) {
                         group.dim_info[op_idx].res_y_in = repeat_idx;
                         y_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_y != y_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y != y_initial) {
                     group.dim_info[op_idx].wai_y_in = repeat_idx;
                     group.dim_info[op_idx].str_y_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_y - y_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y - y_initial;
                     y_left = 1;
                 }
             }
             if(x_left) {
                 if(!x_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_x == x_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x == x_initial) {
                         group.dim_info[op_idx].res_x_in = repeat_idx;
                         x_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_x != x_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x != x_initial) {
                     group.dim_info[op_idx].wai_x_in = repeat_idx;
                     group.dim_info[op_idx].str_x_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.group_len].buffer_in.off_x - x_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x - x_initial;
                     x_left = 1;
                 }
             }
@@ -252,66 +247,96 @@ void op_group_free(op_group_t *group) {
         free(group->dim_info);
         group->dim_info = NULL;
     }
-    group->group_len = 0;
+    group->op_num = 0;
     group->repeat_num = 0;
 }
 void op_group_print(op_group_t *group, int padding, int offset, const char *name) {
     if(!strncmp(name, "", 1)) {
-        printf("%*s%s len: %lu, repeats: %lu, ops:\n", offset, "", name, group->group_len, group->repeat_num);
+        printf("%*s%s len: %lu, repeats: %lu, ops:\n", offset, "", name, group->op_num, group->repeat_num);
     } else {
-        printf("%*sop group len: %lu, repeats: %lu, ops:\n", offset, "", group->group_len, group->repeat_num);
+        printf("%*sop group len: %lu, repeats: %lu, ops:\n", offset, "", group->op_num, group->repeat_num);
     }
-    for(uint64_t op_idx = 0; op_idx < group->group_len; op_idx++) {
+    for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
         printf("%*s[%lu] - ", offset + padding, "", op_idx);
         op_print(&group->op[op_idx], 0, 0, "");
+        const dim_info_t dim_info = group->dim_info[op_idx];
         if(group->op[op_idx].type_op == op_unary) {
-            printf("%*sa {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", group->dim_info[op_idx].off_out,
-                   group->dim_info[op_idx].str_a_out, group->dim_info[op_idx].wai_a_out,
-                   group->dim_info[op_idx].res_a_out);
-            printf("%*sz {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", group->dim_info[op_idx].off_out,
-                   group->dim_info[op_idx].str_z_out, group->dim_info[op_idx].wai_z_out,
-                   group->dim_info[op_idx].res_z_out);
-            printf("%*sy {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", group->dim_info[op_idx].off_out,
-                   group->dim_info[op_idx].str_y_out, group->dim_info[op_idx].wai_y_out,
-                   group->dim_info[op_idx].res_y_out);
-            printf("%*sx {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", group->dim_info[op_idx].off_out,
-                   group->dim_info[op_idx].str_x_out, group->dim_info[op_idx].wai_x_out,
-                   group->dim_info[op_idx].res_x_out);
+            printf("%*sa {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out, dim_info.str_a_out,
+                   dim_info.wai_a_out, dim_info.res_a_out);
+            printf("%*sz {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out, dim_info.str_z_out,
+                   dim_info.wai_z_out, dim_info.res_z_out);
+            printf("%*sy {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out, dim_info.str_y_out,
+                   dim_info.wai_y_out, dim_info.res_y_out);
+            printf("%*sx {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out, dim_info.str_x_out,
+                   dim_info.wai_x_out, dim_info.res_x_out);
         } else {
-            printf("%*sa {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "",
-                   group->dim_info[op_idx].off_out, group->dim_info[op_idx].str_a_out,
-                   group->dim_info[op_idx].wai_a_out, group->dim_info[op_idx].res_a_out, group->dim_info[op_idx].off_in,
-                   group->dim_info[op_idx].str_a_in, group->dim_info[op_idx].wai_a_in,
-                   group->dim_info[op_idx].res_a_in);
-            printf("%*sz {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "",
-                   group->dim_info[op_idx].off_out, group->dim_info[op_idx].str_z_out,
-                   group->dim_info[op_idx].wai_z_out, group->dim_info[op_idx].res_z_out, group->dim_info[op_idx].off_in,
-                   group->dim_info[op_idx].str_z_in, group->dim_info[op_idx].wai_z_in,
-                   group->dim_info[op_idx].res_z_in);
-            printf("%*sy {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "",
-                   group->dim_info[op_idx].off_out, group->dim_info[op_idx].str_y_out,
-                   group->dim_info[op_idx].wai_y_out, group->dim_info[op_idx].res_y_out, group->dim_info[op_idx].off_in,
-                   group->dim_info[op_idx].str_y_in, group->dim_info[op_idx].wai_y_in,
-                   group->dim_info[op_idx].res_y_in);
-            printf("%*sx {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "",
-                   group->dim_info[op_idx].off_out, group->dim_info[op_idx].str_x_out,
-                   group->dim_info[op_idx].wai_x_out, group->dim_info[op_idx].res_x_out, group->dim_info[op_idx].off_in,
-                   group->dim_info[op_idx].str_x_in, group->dim_info[op_idx].wai_x_in,
-                   group->dim_info[op_idx].res_x_in);
+            printf("%*sa {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out,
+                   dim_info.str_a_out, dim_info.wai_a_out, dim_info.res_a_out, dim_info.off_in, dim_info.str_a_in,
+                   dim_info.wai_a_in, dim_info.res_a_in);
+            printf("%*sz {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out,
+                   dim_info.str_z_out, dim_info.wai_z_out, dim_info.res_z_out, dim_info.off_in, dim_info.str_z_in,
+                   dim_info.wai_z_in, dim_info.res_z_in);
+            printf("%*sy {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out,
+                   dim_info.str_y_out, dim_info.wai_y_out, dim_info.res_y_out, dim_info.off_in, dim_info.str_y_in,
+                   dim_info.wai_y_in, dim_info.res_y_in);
+            printf("%*sx {%lu, %lu, %lu, %lu} {%lu, %lu, %lu, %lu}\n", offset + 2 * padding, "", dim_info.off_out,
+                   dim_info.str_x_out, dim_info.wai_x_out, dim_info.res_x_out, dim_info.off_in, dim_info.str_x_in,
+                   dim_info.wai_x_in, dim_info.res_x_in);
         }
     }
 }
 
-/* TODO: Also pass in optimization options? */
+const uint64_t arg_cap_min = 1;
 kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
     kernel_t kernel = {0};
 
-    /* TODO: Gather args for kernel */
+    uint64_t *arg = calloc(arg_cap_min, sizeof(uint64_t));
+    uint64_t arg_cap = arg_cap_min;
+    uint64_t arg_num = 0;
+    const uint64_t inlined = optimizations & optimization_inline;
+    if(inlined) {
+        TODO();
+    } else {
+        /* Only storing the name offsets is more efficient */
+        /* MAYBE: Could make a binary search type thing here */
+        for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
+            uint64_t found_out = 0;
+            for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+                if(arg[arg_idx] == group->op[op_idx].buffer_out.name_off) {
+                    found_out = 1;
+                    break;
+                }
+            }
+            if(!found_out) {
+                arg[arg_num] = group->op[op_idx].buffer_out.name_off;
+                arg_num++;
+                if(arg_num == arg_cap) {
+                    arg_cap *= 2;
+                    arg = reallocarray(arg, arg_cap, sizeof(uint64_t));
+                }
+            }
+            /* MAYBE: There might be some trickery to avoid having to run the arg search loop twice */
+            if(group->op[op_idx].type_op != op_unary) {
+                uint64_t found_in = 0;
+                for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
+                    if(arg[arg_idx] == group->op[op_idx].buffer_in.name_off) {
+                        found_in = 1;
+                        break;
+                    }
+                }
+                if(!found_in) {
+                    arg[arg_num] = group->op[op_idx].buffer_in.name_off;
+                    arg_num++;
+                    if(arg_num == arg_cap) {
+                        arg_cap *= 2;
+                        arg = reallocarray(arg, arg_cap, sizeof(uint64_t));
+                    }
+                }
+            }
+        }
+    }
 
-    kernel.source = compile_op_group(group, optimizations);
-    /* TODO: Maybe pass this as a reference to the compile function? I don't really want to do that because it is not
-     * beatiful and I want to get rid of source_len anyways when I write my own complete compiler. */
-    kernel.source_len = strlen(kernel.source) + 1; /* ' + 1' for '\0' */
+    compile_op_group(&kernel, group, optimizations);
 
     /* TODO: Compile kernel and create program from generated source */
 
@@ -383,8 +408,9 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
     while(op_used < linearized->op_len) {
         op_group_t group = op_group_alloc(linearized, op_used, &op_used);
         op_group_print(&group, 4, 0, "");
+        kernel_t kernel = kernel_alloc(&group, optimization_none);
+        kernel_free(&kernel);
         op_group_free(&group);
-        printf("Used: %lu\n", op_used);
     }
     return program;
 }

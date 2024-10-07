@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
     uint64_t repeat_num;
-    uint64_t group_len;
+    uint64_t op_num;
     op_t *op;
     dim_info_t *dim_info;
 } op_group_t;
