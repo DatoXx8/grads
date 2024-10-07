@@ -120,7 +120,7 @@ typedef struct {
     ((((input_size) - (kernel_size)) / (kernel_stride)) + 1)
 extern reduce_t reduce_alloc(const layer_reduce_e type, const uint64_t input_z, const uint64_t input_y,
                              const uint64_t input_x, const uint64_t kernel_size, const uint64_t kernel_stride);
-extern void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output);
+extern void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output);
 extern void reduce_backward(tensor_t *input_gradient, reduce_t *reduce, tensor_t *output_gradient);
 extern void reduce_print(const reduce_t *reduce, const int padding, const int offset, const char *name);
 
@@ -156,8 +156,8 @@ typedef struct {
     tensor_t *_input_temp;
 } split_t;
 
-extern split_t split_alloc(const uint64_t filters, const uint64_t input_z, const uint64_t input_y, const uint64_t input_x,
-                           cl_context context);
+extern split_t split_alloc(const uint64_t filters, const uint64_t input_z, const uint64_t input_y,
+                           const uint64_t input_x, cl_context context);
 extern void split_free(split_t *split);
 extern void split_forward(tensor_t *input, split_t *split, tensor_t *output);
 extern void split_backward(tensor_t *input, tensor_t *input_gradient, split_t *split, tensor_t *output,

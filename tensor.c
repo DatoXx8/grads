@@ -92,8 +92,10 @@ buffer_t buffer_alloc(const uint64_t a, const uint64_t z, const uint64_t y, cons
 }
 void buffer_free(buffer_t *buffer) {
     free(buffer->val);
+    buffer->val = NULL;
     if(buffer->val_cl) {
         clReleaseMemObject(buffer->val_cl);
+        buffer->val_cl = NULL;
     }
 }
 
@@ -359,6 +361,7 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
         }
     }
 }
+/* TODO: Not sure this should be const since we are modifying the state of the buffers in the op */
 void op_realize(const op_t *op) {
     switch(op->type_op) {
         case op_unary: {
@@ -900,6 +903,7 @@ void linearized_free(linearized_t *linearized) {
     free(linearized->op);
     linearized->op = NULL;
     linearized->op_len = 0;
+    linearized->op_cap = 0;
 }
 void linearized_clear(linearized_t *linearized) {
     assert(linearized);
@@ -977,10 +981,16 @@ tensor_t tensor_alloc(const uint64_t a, const uint64_t z, const uint64_t y, cons
 void tensor_free(tensor_t *tensor) {
     assert(tensor);
     assert(tensor->buffer);
-    buffer_free(tensor->buffer);
-    free(tensor->buffer);
-    linearized_free(tensor->linearized);
-    free(tensor->linearized);
+    if(tensor->buffer) {
+        buffer_free(tensor->buffer);
+        free(tensor->buffer);
+        tensor->buffer = NULL;
+    }
+    if(tensor->linearized) {
+        linearized_free(tensor->linearized);
+        free(tensor->linearized);
+        tensor->linearized = NULL;
+    }
 }
 
 void tensor_unary_add(tensor_t *tensor, const double value) {

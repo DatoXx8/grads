@@ -12,6 +12,7 @@
 #include "utils.h"
 
 /*
+ *  TODO: Decide wether all the free functions should check for NULL
  *  TODO: Rewrite the compiler entirely and move that into a compiler/ directory instead of those two files
  *  TODO: Rewrite test infrastructure to automatically minify the tests (fewest ops, cut from beginning if possible etc), produce logs
  *  TODO: Make nicer logging with things like %04lu and things like that
@@ -36,8 +37,7 @@
 
 int main(int argc, const char **argv) {
 
-    INIT_TIMER();
-    START_TIME();
+    time_ns_store(0);
 
     // const uint32_t RNG = time(NULL);
     const uint32_t RNG = 0;
@@ -149,8 +149,7 @@ int main(int argc, const char **argv) {
         clReleaseContext(context);
     }
 
-    STOP_TIME();
-    PRINT_TIME("main");
+    PRINT_TIME(0, time_ns_load(0));
 
     return 0;
 }

@@ -11,6 +11,8 @@
 #include "tensor.h"
 #include "utils.h"
 
+/* TODO: For things like dense_forward I think the dense_t thing should be const */
+
 static activation_t activation_alloc(const activation_e activation_type, const uint64_t a, const uint64_t z,
                                      const uint64_t y, const uint64_t x, cl_context context) {
     assert(a > 0);
@@ -217,7 +219,7 @@ static void norm_calculate_layer(norm_t *norm, tensor_t *tensor) {
     tensor_unary_add(norm->layer_variance, EPSILON);
     tensor_unary_sqrt(norm->layer_variance);
 }
-/* This ones tricky. Even the function signature isn't obvious */
+/* TODO: This ones tricky. Even the function signature isn't obvious */
 static void norm_calculate_batch(void) {}
 static void norm_apply(norm_t *norm, tensor_t *tensor) {
     assert(norm);
@@ -667,7 +669,7 @@ reduce_t reduce_alloc(const layer_reduce_e type, const uint64_t input_z, const u
 
     return reduce;
 }
-void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output) {
+void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     assert(input);
     assert(reduce);
     assert(output);

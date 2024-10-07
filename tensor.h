@@ -1,6 +1,7 @@
 #ifndef CGRAD_TENSOR_H_
 #define CGRAD_TENSOR_H_
 
+#include "utils.h"
 typedef enum {
     sync_none = 0,
     sync_to_host,
@@ -104,7 +105,6 @@ typedef enum {
     move_offset
 } move_e;
 
-#define MAX_DEPTH (0x100000)
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
 typedef struct op {
     op_e type_op;
@@ -149,7 +149,8 @@ typedef struct {
     linearized_t *linearized;
 } tensor_t;
 
-extern tensor_t tensor_alloc(const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x, cl_context context);
+extern tensor_t tensor_alloc(const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x,
+                             cl_context context);
 extern void tensor_free(tensor_t *tensor);
 
 extern void tensor_unary_add(tensor_t *tensor, const double value);
@@ -189,9 +190,12 @@ extern void tensor_reduce_max(tensor_t *out, tensor_t *in);
 extern void tensor_reduce_avg(tensor_t *out, tensor_t *in);
 extern void tensor_reduce_min(tensor_t *out, tensor_t *in);
 
-extern void tensor_move_reshape(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x);
-extern void tensor_move_resize(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x);
-extern void tensor_move_offset(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x);
+extern void tensor_move_reshape(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y,
+                                const uint64_t x);
+extern void tensor_move_resize(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y,
+                               const uint64_t x);
+extern void tensor_move_offset(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y,
+                               const uint64_t x);
 
 extern void tensor_realize(tensor_t *tensor);
 

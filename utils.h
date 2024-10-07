@@ -5,23 +5,15 @@
 #include "math.h"
 #include <stdint.h>
 
-#define output /* Macro to mark output parameters */
-
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
 extern void time_ns_store(const uint64_t id);
 extern uint64_t time_ns_load(const uint64_t id);
 
-#define PRINT_TIME(name)                                                                                               \
-    printf("TIME: %.9lfs for " name "\n",                                                                              \
-           ((double) stop.tv_sec + 1.0e-9 * stop.tv_nsec) - ((double) start.tv_sec + 1.0e-9 * start.tv_nsec));         \
-    if((int) (((double) stop.tv_sec + 1.0e-9 * stop.tv_nsec) - ((double) start.tv_sec + 1.0e-9 * start.tv_nsec)) &&    \
-       ((int) log10(((double) stop.tv_sec + 1.0e-9 * stop.tv_nsec) -                                                   \
-                    ((double) start.tv_sec + 1.0e-9 * start.tv_nsec)))) {                                              \
-        printf("TIME:   %*smmmµµµnnn\n",                                                                               \
-               (int) log10(((double) stop.tv_sec + 1.0e-9 * stop.tv_nsec) -                                            \
-                           ((double) start.tv_sec + 1.0e-9 * start.tv_nsec)),                                          \
-               "");                                                                                                    \
+#define PRINT_TIME(id, time_ns)                                                                                        \
+    printf("TIME: %.9lus for " #id "\n", (time_ns));                                                                   \
+    if((time_ns) && (int) log10(time_ns)) {                                                                            \
+        printf("TIME:   %*smmmµµµnnn\n", (int) log10(time_ns), "");                                                    \
     } else {                                                                                                           \
         printf("TIME:   mmmµµµnnn\n");                                                                                 \
     }
