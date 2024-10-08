@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "tensor.h"
-#include "utils.h"
 
 static char name[BUFFER_NAME_SIZE + 1] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
                                           'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
@@ -35,13 +34,13 @@ void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue) {
             break;
         }
         case sync_to_device: {
-            uint64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
+            uint64_t size = buffer->a_inh * buffer->z_inh * buffer->y_inh * buffer->x_inh * sizeof(double);
             clEnqueueWriteBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
             buffer->sync = sync_none;
             break;
         }
         case sync_to_host: {
-            uint64_t size = buffer->inh_a * buffer->inh_z * buffer->inh_y * buffer->inh_x * sizeof(double);
+            uint64_t size = buffer->a_inh * buffer->z_inh * buffer->y_inh * buffer->x_inh * sizeof(double);
             clEnqueueReadBuffer(command_queue, buffer->val_cl, CL_TRUE, 0, size, buffer->val, 0, NULL, NULL);
             buffer->sync = sync_none;
             break;
@@ -63,18 +62,18 @@ buffer_t buffer_alloc(const uint64_t a, const uint64_t z, const uint64_t y, cons
     assert(y > 0);
     assert(x > 0);
     buffer_t buffer = {
-        .inh_a = a,
-        .inh_z = z,
-        .inh_y = y,
-        .inh_x = x,
-        .sze_a = a,
-        .sze_z = z,
-        .sze_y = y,
-        .sze_x = x,
-        .str_a = z * y * x,
-        .str_z = y * x,
-        .str_y = x,
-        .str_x = 1,
+        .a_inh = a,
+        .z_inh = z,
+        .y_inh = y,
+        .x_inh = x,
+        .a_sze = a,
+        .z_sze = z,
+        .y_sze = y,
+        .x_sze = x,
+        .a_str = z * y * x,
+        .z_str = y * x,
+        .y_str = x,
+        .x_str = 1,
         .val = calloc(a * z * y * x, sizeof(double)),
         .val_cl = NULL,
         .sync = sync_none,
@@ -108,90 +107,90 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
-                    printf("U add {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U add {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_subtract: {
-                    printf("U sub {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U sub {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_multiply: {
-                    printf("U mul {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U mul {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_divide: {
-                    printf("U div {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U div {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_exp: {
-                    printf("U exp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U exp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_log: {
-                    printf("U log {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U log {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_square: {
-                    printf("U sqr {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U sqr {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_sqrt: {
-                    printf("U sqt {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U sqt {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_reciprocal: {
-                    printf("U rcp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U rcp {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_max: {
-                    printf("U max {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U max {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_min: {
-                    printf("U min {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U min {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_set: {
-                    printf("U set {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->var_unary,
+                    printf("U set {%lu, %lu, %lu, %lu} %lu %lf [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->u_var,
                            op->buffer_out.name);
                     break;
                 }
                 case unary_random: {
-                    printf("U ran {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U ran {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_tanh: {
-                    printf("U tnh {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U tnh {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_absolute: {
-                    printf("U abs {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U abs {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
                 case unary_sign: {
-                    printf("U sgn {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a, op->buffer_out.sze_z,
-                           op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off, op->buffer_out.name);
+                    printf("U sgn {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.a_sze, op->buffer_out.z_sze,
+                           op->buffer_out.y_sze, op->buffer_out.x_sze, op->buffer_out.off, op->buffer_out.name);
                     break;
                 }
             }
@@ -201,100 +200,100 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
             switch(op->type_binary) {
                 case binary_add: {
                     printf("B add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_subtract: {
                     printf("B sub {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_multiply: {
                     printf("B mul {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_divide: {
                     printf("B div {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_max: {
                     printf("B max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_min: {
                     printf("B min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_copy: {
                     printf("B cpy {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_add_like: {
                     printf("L add {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_subtract_like: {
                     printf("L sub {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_multiply_like: {
                     printf("L mul {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_divide_like: {
                     printf("L div {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_max_like: {
                     printf("L max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_min_like: {
                     printf("L min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case binary_copy_like: {
                     printf("L cpy {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
             }
@@ -304,56 +303,30 @@ void op_print(const op_t *op, const int padding, const int offset, const char *n
             switch(op->type_reduce) {
                 case reduce_sum: {
                     printf("R sum {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_avg: {
                     printf("R avg {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_max: {
                     printf("R max {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
                 case reduce_min: {
                     printf("R min {%lu, %lu, %lu, %lu} %lu < {%lu, %lu, %lu, %lu} %lu [%s] [%s]\n",
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.off, op->buffer_in.sze_a, op->buffer_in.sze_z, op->buffer_in.sze_y,
-                           op->buffer_in.sze_x, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
-                    break;
-                }
-            }
-            break;
-        }
-        case op_move: {
-            switch(op->type_move) {
-                case move_reshape: {
-                    printf("M rsp {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off, op->buffer_out.name);
-                    break;
-                }
-                case move_resize: {
-                    printf("M rsz {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->var_a, op->var_z, op->var_y, op->var_x, op->buffer_out.off, op->buffer_out.name);
-                    break;
-                }
-                case move_offset: {
-                    printf("M off {%lu, %lu, %lu, %lu} %lu > {%lu, %lu, %lu, %lu} %lu [%s]\n", op->buffer_out.sze_a,
-                           op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x, op->buffer_out.off,
-                           op->buffer_out.sze_a, op->buffer_out.sze_z, op->buffer_out.sze_y, op->buffer_out.sze_x,
-                           op->buffer_out.str_a * op->var_a + op->buffer_out.str_z * op->var_z +
-                               op->buffer_out.str_y * op->var_y + op->buffer_out.str_x * op->var_x,
-                           op->buffer_out.name);
+                           op->buffer_out.a_sze, op->buffer_out.z_sze, op->buffer_out.y_sze, op->buffer_out.x_sze,
+                           op->buffer_out.off, op->buffer_in.a_sze, op->buffer_in.z_sze, op->buffer_in.y_sze,
+                           op->buffer_in.x_sze, op->buffer_in.off, op->buffer_out.name, op->buffer_in.name);
                     break;
                 }
             }
@@ -367,11 +340,11 @@ void op_realize(const op_t *op) {
         case op_unary: {
             switch(op->type_unary) {
                 case unary_add: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
-                                    BUFFER_AT(op->buffer_out, a, z, y, x) += op->var_unary;
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
+                                    BUFFER_AT(op->buffer_out, a, z, y, x) += op->u_var;
                                 }
                             }
                         }
@@ -379,11 +352,11 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_subtract: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
-                                    BUFFER_AT(op->buffer_out, a, z, y, x) -= op->var_unary;
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
+                                    BUFFER_AT(op->buffer_out, a, z, y, x) -= op->u_var;
                                 }
                             }
                         }
@@ -391,11 +364,11 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_multiply: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
-                                    BUFFER_AT(op->buffer_out, a, z, y, x) *= op->var_unary;
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
+                                    BUFFER_AT(op->buffer_out, a, z, y, x) *= op->u_var;
                                 }
                             }
                         }
@@ -403,11 +376,11 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_divide: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
-                                    BUFFER_AT(op->buffer_out, a, z, y, x) /= op->var_unary;
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
+                                    BUFFER_AT(op->buffer_out, a, z, y, x) /= op->u_var;
                                 }
                             }
                         }
@@ -415,10 +388,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_exp: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = exp(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -427,10 +400,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_log: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = log(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -439,10 +412,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_square: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_out, a, z, y, x);
                                 }
                             }
@@ -451,10 +424,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_sqrt: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = sqrt(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -463,10 +436,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_reciprocal: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = 1 / BUFFER_AT(op->buffer_out, a, z, y, x);
                                 }
                             }
@@ -475,12 +448,12 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_max: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) =
-                                        fmax(BUFFER_AT(op->buffer_out, a, z, y, x), op->var_unary);
+                                        fmax(BUFFER_AT(op->buffer_out, a, z, y, x), op->u_var);
                                 }
                             }
                         }
@@ -488,12 +461,12 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_min: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) =
-                                        fmin(BUFFER_AT(op->buffer_out, a, z, y, x), op->var_unary);
+                                        fmin(BUFFER_AT(op->buffer_out, a, z, y, x), op->u_var);
                                 }
                             }
                         }
@@ -501,11 +474,11 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_set: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
-                                    BUFFER_AT(op->buffer_out, a, z, y, x) = op->var_unary;
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
+                                    BUFFER_AT(op->buffer_out, a, z, y, x) = op->u_var;
                                 }
                             }
                         }
@@ -513,10 +486,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_random: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = ((double) rand() / RAND_MAX) * 2 - 1;
                                 }
                             }
@@ -525,10 +498,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_tanh: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = tanh(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -537,10 +510,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_absolute: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fabs(BUFFER_AT(op->buffer_out, a, z, y, x));
                                 }
                             }
@@ -549,10 +522,10 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case unary_sign: {
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     if(BUFFER_AT(op->buffer_out, a, z, y, x) < 0) {
                                         BUFFER_AT(op->buffer_out, a, z, y, x) = -1;
                                     } else if(BUFFER_AT(op->buffer_out, a, z, y, x) == 0) {
@@ -572,14 +545,14 @@ void op_realize(const op_t *op) {
         case op_binary: {
             switch(op->type_binary) {
                 case binary_add: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -588,14 +561,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_subtract: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) -= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -604,14 +577,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_multiply: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -620,14 +593,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_divide: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) /= BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -636,14 +609,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_max: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmax(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
@@ -653,14 +626,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_min: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmin(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
@@ -670,14 +643,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_copy: {
-                    assert(op->buffer_out.sze_a == op->buffer_in.sze_a);
-                    assert(op->buffer_out.sze_z == op->buffer_in.sze_z);
-                    assert(op->buffer_out.sze_y == op->buffer_in.sze_y);
-                    assert(op->buffer_out.sze_x == op->buffer_in.sze_x);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_out.a_sze == op->buffer_in.a_sze);
+                    assert(op->buffer_out.z_sze == op->buffer_in.z_sze);
+                    assert(op->buffer_out.y_sze == op->buffer_in.y_sze);
+                    assert(op->buffer_out.x_sze == op->buffer_in.x_sze);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -686,14 +659,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_add_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) += BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -702,14 +675,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_subtract_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) -= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -718,14 +691,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_multiply_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) *= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -734,14 +707,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_divide_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) /= BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -750,14 +723,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_max_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmax(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, 0, 0, 0, 0));
                                 }
@@ -767,14 +740,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_min_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = fmin(BUFFER_AT(op->buffer_out, a, z, y, x),
                                                                                  BUFFER_AT(op->buffer_in, 0, 0, 0, 0));
                                 }
@@ -784,14 +757,14 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case binary_copy_like: {
-                    assert(op->buffer_in.sze_a == 1);
-                    assert(op->buffer_in.sze_z == 1);
-                    assert(op->buffer_in.sze_y == 1);
-                    assert(op->buffer_in.sze_x == 1);
-                    for(uint64_t a = 0; a < op->buffer_out.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_out.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_out.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_out.sze_x; x++) {
+                    assert(op->buffer_in.a_sze == 1);
+                    assert(op->buffer_in.z_sze == 1);
+                    assert(op->buffer_in.y_sze == 1);
+                    assert(op->buffer_in.x_sze == 1);
+                    for(uint64_t a = 0; a < op->buffer_out.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_out.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_out.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_out.x_sze; x++) {
                                     BUFFER_AT(op->buffer_out, a, z, y, x) = BUFFER_AT(op->buffer_in, 0, 0, 0, 0);
                                 }
                             }
@@ -805,15 +778,15 @@ void op_realize(const op_t *op) {
         case op_reduce: {
             switch(op->type_reduce) {
                 case reduce_sum: {
-                    assert(op->buffer_out.sze_a == 1);
-                    assert(op->buffer_out.sze_z == 1);
-                    assert(op->buffer_out.sze_y == 1);
-                    assert(op->buffer_out.sze_x == 1);
+                    assert(op->buffer_out.a_sze == 1);
+                    assert(op->buffer_out.z_sze == 1);
+                    assert(op->buffer_out.y_sze == 1);
+                    assert(op->buffer_out.x_sze == 1);
                     double temp = 0;
-                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.x_sze; x++) {
                                     temp += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
@@ -823,15 +796,15 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case reduce_max: {
-                    assert(op->buffer_out.sze_a == 1);
-                    assert(op->buffer_out.sze_z == 1);
-                    assert(op->buffer_out.sze_y == 1);
-                    assert(op->buffer_out.sze_x == 1);
+                    assert(op->buffer_out.a_sze == 1);
+                    assert(op->buffer_out.z_sze == 1);
+                    assert(op->buffer_out.y_sze == 1);
+                    assert(op->buffer_out.x_sze == 1);
                     double temp = -INFINITY;
-                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.x_sze; x++) {
                                     temp = fmax(temp, BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
                             }
@@ -841,34 +814,34 @@ void op_realize(const op_t *op) {
                     break;
                 }
                 case reduce_avg: {
-                    assert(op->buffer_out.sze_a == 1);
-                    assert(op->buffer_out.sze_z == 1);
-                    assert(op->buffer_out.sze_y == 1);
-                    assert(op->buffer_out.sze_x == 1);
+                    assert(op->buffer_out.a_sze == 1);
+                    assert(op->buffer_out.z_sze == 1);
+                    assert(op->buffer_out.y_sze == 1);
+                    assert(op->buffer_out.x_sze == 1);
                     double temp = 0;
-                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.x_sze; x++) {
                                     temp += BUFFER_AT(op->buffer_in, a, z, y, x);
                                 }
                             }
                         }
                     }
                     BUFFER_AT(op->buffer_out, 0, 0, 0, 0) =
-                        temp / (op->buffer_in.sze_a * op->buffer_in.sze_z * op->buffer_in.sze_y * op->buffer_in.sze_x);
+                        temp / (op->buffer_in.a_sze * op->buffer_in.z_sze * op->buffer_in.y_sze * op->buffer_in.x_sze);
                     break;
                 }
                 case reduce_min: {
-                    assert(op->buffer_out.sze_a == 1);
-                    assert(op->buffer_out.sze_z == 1);
-                    assert(op->buffer_out.sze_y == 1);
-                    assert(op->buffer_out.sze_x == 1);
+                    assert(op->buffer_out.a_sze == 1);
+                    assert(op->buffer_out.z_sze == 1);
+                    assert(op->buffer_out.y_sze == 1);
+                    assert(op->buffer_out.x_sze == 1);
                     double temp = INFINITY;
-                    for(uint64_t a = 0; a < op->buffer_in.sze_a; a++) {
-                        for(uint64_t z = 0; z < op->buffer_in.sze_z; z++) {
-                            for(uint64_t y = 0; y < op->buffer_in.sze_y; y++) {
-                                for(uint64_t x = 0; x < op->buffer_in.sze_x; x++) {
+                    for(uint64_t a = 0; a < op->buffer_in.a_sze; a++) {
+                        for(uint64_t z = 0; z < op->buffer_in.z_sze; z++) {
+                            for(uint64_t y = 0; y < op->buffer_in.y_sze; y++) {
+                                for(uint64_t x = 0; x < op->buffer_in.x_sze; x++) {
                                     temp = fmin(temp, BUFFER_AT(op->buffer_in, a, z, y, x));
                                 }
                             }
@@ -879,9 +852,6 @@ void op_realize(const op_t *op) {
                 }
             }
             break;
-        }
-        case op_move: {
-            ERROR("Tried to execute move op at runtime\n");
         }
     }
 }
@@ -998,7 +968,7 @@ void tensor_unary_add(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_add,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1008,7 +978,7 @@ void tensor_unary_subtract(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_subtract,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1018,7 +988,7 @@ void tensor_unary_multiply(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_multiply,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1029,7 +999,7 @@ void tensor_unary_divide(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_divide,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1039,7 +1009,7 @@ void tensor_unary_set(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_set,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1112,7 +1082,7 @@ void tensor_unary_max(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_max,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1122,7 +1092,7 @@ void tensor_unary_min(tensor_t *tensor, const double value) {
     op_t new = {
         .type_op = op_unary,
         .type_unary = unary_min,
-        .var_unary = value,
+        .u_var = value,
         .buffer_out = *tensor->buffer,
     };
     linearized_add_op(tensor->linearized, &new);
@@ -1370,20 +1340,20 @@ void tensor_move_resize(tensor_t *tensor, const uint64_t a, const uint64_t z, co
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
-    tensor->buffer->sze_a = a;
-    tensor->buffer->sze_z = z;
-    tensor->buffer->sze_y = y;
-    tensor->buffer->sze_x = x;
+    tensor->buffer->a_sze = a;
+    tensor->buffer->z_sze = z;
+    tensor->buffer->y_sze = y;
+    tensor->buffer->x_sze = x;
 }
 void tensor_move_reshape(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x) {
     assert(tensor);
-    tensor->buffer->sze_a = a;
-    tensor->buffer->sze_z = z;
-    tensor->buffer->sze_y = y;
-    tensor->buffer->sze_x = x;
-    tensor->buffer->str_a = z * y * x;
-    tensor->buffer->str_z = y * x;
-    tensor->buffer->str_y = x;
+    tensor->buffer->a_sze = a;
+    tensor->buffer->z_sze = z;
+    tensor->buffer->y_sze = y;
+    tensor->buffer->x_sze = x;
+    tensor->buffer->a_str = z * y * x;
+    tensor->buffer->z_str = y * x;
+    tensor->buffer->y_str = x;
 }
 void tensor_move_offset(tensor_t *tensor, const uint64_t a, const uint64_t z, const uint64_t y, const uint64_t x) {
     assert(tensor);
@@ -1391,12 +1361,12 @@ void tensor_move_offset(tensor_t *tensor, const uint64_t a, const uint64_t z, co
     assert(z >= 0);
     assert(y >= 0);
     assert(x >= 0);
-    tensor->buffer->off_a = a;
-    tensor->buffer->off_z = z;
-    tensor->buffer->off_y = y;
-    tensor->buffer->off_x = x;
+    tensor->buffer->a_off = a;
+    tensor->buffer->z_off = z;
+    tensor->buffer->y_off = y;
+    tensor->buffer->x_off = x;
     tensor->buffer->off =
-        tensor->buffer->str_a * a + tensor->buffer->str_z * z + tensor->buffer->str_y * y + tensor->buffer->str_x * x;
+        tensor->buffer->a_str * a + tensor->buffer->z_str * z + tensor->buffer->y_str * y + tensor->buffer->x_str * x;
 }
 
 void tensor_realize(tensor_t *tensor) {
@@ -1417,18 +1387,18 @@ void tensor_print(const tensor_t *tensor, const int padding, const int offset, c
         printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
                tensor->buffer->sync);
     }
-    for(uint64_t a = 0; a < tensor->buffer->sze_a; a++) {
+    for(uint64_t a = 0; a < tensor->buffer->a_sze; a++) {
         if(a) {
             printf("\n");
             printf("\n");
         }
-        for(uint64_t z = 0; z < tensor->buffer->sze_z; z++) {
+        for(uint64_t z = 0; z < tensor->buffer->z_sze; z++) {
             if(z) {
                 printf("\n");
             }
-            for(uint64_t y = 0; y < tensor->buffer->sze_y; y++) {
+            for(uint64_t y = 0; y < tensor->buffer->y_sze; y++) {
                 printf("%*s[ ", offset + padding, "");
-                for(uint64_t x = 0; x < tensor->buffer->sze_x; x++) {
+                for(uint64_t x = 0; x < tensor->buffer->x_sze; x++) {
                     printf("% lf ", BUFFER_AT_(tensor->buffer, a, z, y, x));
                 }
                 printf("]\n");
@@ -1451,7 +1421,7 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
         printf("%*sNAME: %s %lu %u\n", offset, "", tensor->buffer->name, tensor->buffer->name_off,
                tensor->buffer->sync);
     }
-    for(uint64_t a = 0; a < tensor->buffer->sze_a; a++) {
+    for(uint64_t a = 0; a < tensor->buffer->a_sze; a++) {
         if(a >= A_MAX) {
             printf("%*s...\n\n", offset, "");
             break;
@@ -1459,7 +1429,7 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
         if(a) {
             printf("\n\n");
         }
-        for(uint64_t z = 0; z < tensor->buffer->sze_z; z++) {
+        for(uint64_t z = 0; z < tensor->buffer->z_sze; z++) {
             if(z >= Z_MAX) {
                 printf("%*s...\n", offset, "");
                 break;
@@ -1467,13 +1437,13 @@ void tensor_preview(const tensor_t *tensor, const int padding, const int offset,
             if(z) {
                 printf("\n");
             }
-            for(uint64_t y = 0; y < tensor->buffer->sze_y; y++) {
+            for(uint64_t y = 0; y < tensor->buffer->y_sze; y++) {
                 if(y >= Y_MAX) {
                     printf("%*s...\n", offset + padding, "");
                     break;
                 }
                 printf("%*s[ ", offset + padding, "");
-                for(uint64_t x = 0; x < tensor->buffer->sze_x; x++) {
+                for(uint64_t x = 0; x < tensor->buffer->x_sze; x++) {
                     if(x >= X_MAX) {
                         printf("...");
                         break;

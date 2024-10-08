@@ -100,9 +100,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                 case op_reduce: {
                     ERROR("Op move is invalid for ops other than the first in `simulate_compiler()`\n");
                 }
-                case op_move: {
-                    ERROR("Op move is invalid in `simulate_compiler()`\n");
-                }
             }
         } else {
             bp_type[0] = rand() % 3;
@@ -119,9 +116,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                 case op_reduce: {
                     bp_reduce[0] = rand() % 4;
                     break;
-                }
-                case op_move: {
-                    ERROR("Op move is invalid in `simulate_compiler()`\n");
                 }
             }
         }
@@ -377,9 +371,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                                     }
                                 }
                                 break;
-                            }
-                            case op_move: {
-                                UNREACHABLE();
                             }
                         }
                     }

@@ -13,22 +13,22 @@ typedef enum {
 
 #define BUFFER_NAME_SIZE 16
 typedef struct {
-    uint64_t inh_a;
-    uint64_t inh_z;
-    uint64_t inh_y;
-    uint64_t inh_x;
-    uint64_t str_a;
-    uint64_t str_z;
-    uint64_t str_y;
-    uint64_t str_x;
-    uint64_t sze_a;
-    uint64_t sze_z;
-    uint64_t sze_y;
-    uint64_t sze_x;
-    uint64_t off_a;
-    uint64_t off_z;
-    uint64_t off_y;
-    uint64_t off_x;
+    uint64_t a_inh;
+    uint64_t a_str;
+    uint64_t a_sze;
+    uint64_t a_off;
+    uint64_t z_inh;
+    uint64_t z_str;
+    uint64_t z_sze;
+    uint64_t z_off;
+    uint64_t y_inh;
+    uint64_t y_str;
+    uint64_t y_sze;
+    uint64_t y_off;
+    uint64_t x_inh;
+    uint64_t x_str;
+    uint64_t x_sze;
+    uint64_t x_off;
     uint64_t off;
     double *val;
     cl_mem val_cl;
@@ -44,17 +44,17 @@ extern void buffer_sync_realize(buffer_t *buffer, cl_command_queue command_queue
 extern void buffer_sync_update(buffer_t *buffer, sync_e sync);
 
 #define BUFFER_AT(buffer, a, z, y, x)                                                                                  \
-    ((buffer).val[(buffer).str_a * (a) + (buffer).str_z * (z) + (buffer).str_y * (y) + (buffer).str_x * (x) +          \
+    ((buffer).val[(buffer).a_str * (a) + (buffer).z_str * (z) + (buffer).y_str * (y) + (buffer).x_str * (x) +          \
                   (buffer).off])
 #define BUFFER_AT_(buffer, a, z, y, x)                                                                                 \
-    ((buffer)->val[(buffer)->str_a * (a) + (buffer)->str_z * (z) + (buffer)->str_y * (y) + (buffer)->str_x * (x) +     \
+    ((buffer)->val[(buffer)->a_str * (a) + (buffer)->z_str * (z) + (buffer)->y_str * (y) + (buffer)->x_str * (x) +     \
                    (buffer)->off])
 
 typedef enum {
     op_unary,
     op_binary,
     op_reduce,
-    op_move
+    // op_move
 } op_e;
 typedef enum {
     unary_add,
@@ -99,11 +99,12 @@ typedef enum {
     reduce_avg,
     reduce_min
 } reduce_e;
-typedef enum {
-    move_reshape,
-    move_resize,
-    move_offset
-} move_e;
+/* Unused because of implementation details */
+// typedef enum {
+//     move_reshape,
+//     move_resize,
+//     move_offset
+// } move_e;
 
 /* TODO: Could maybe merge all the enums for a smaller op_t struct */
 typedef struct op {
@@ -111,12 +112,12 @@ typedef struct op {
     unary_e type_unary;
     binary_e type_binary;
     reduce_e type_reduce;
-    move_e type_move;
-    double var_unary;
-    uint64_t var_a;
-    uint64_t var_z;
-    uint64_t var_y;
-    uint64_t var_x;
+    // move_e type_move;
+    double u_var;
+    // uint64_t a_var;
+    // uint64_t z_var;
+    // uint64_t y_var;
+    // uint64_t x_var;
     buffer_t buffer_out;
     buffer_t buffer_in;
 } op_t;
