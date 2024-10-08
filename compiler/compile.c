@@ -22,7 +22,7 @@ static inline _Bool op_equal(const op_t *op1, const op_t *op2) {
            op1->buffer_in.y_sze == op2->buffer_in.y_sze && op1->buffer_in.x_sze == op2->buffer_in.x_sze;
 }
 
-op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_idx, uint64_t *op_used) {
+static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_idx, uint64_t *op_used) {
     assert(linearized);
     assert(start_idx < linearized->op_len);
     assert(op_used);
@@ -233,7 +233,7 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
 
     return group;
 }
-void op_group_free(op_group_t *group) {
+static void op_group_free(op_group_t *group) {
     assert(group);
     if(group->op) {
         free(group->op);
@@ -246,7 +246,7 @@ void op_group_free(op_group_t *group) {
     group->op_num = 0;
     group->repeat_num = 0;
 }
-void op_group_print(op_group_t *group, int padding, int offset, const char *name) {
+static void op_group_print(op_group_t *group, int padding, int offset, const char *name) {
     if(!strncmp(name, "", 1)) {
         printf("%*s%s len: %lu, repeats: %lu, ops:\n", offset, "", name, group->op_num, group->repeat_num);
     } else {
@@ -283,7 +283,7 @@ void op_group_print(op_group_t *group, int padding, int offset, const char *name
 }
 
 const uint64_t arg_cap_min = 1;
-kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
+static kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
     kernel_t kernel = {0};
 
     uint64_t *arg = calloc(arg_cap_min, sizeof(uint64_t));
@@ -340,7 +340,7 @@ kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
 
     return kernel;
 }
-void kernel_free(kernel_t *kernel) {
+static void kernel_free(kernel_t *kernel) {
     assert(kernel);
     if(kernel->source) {
         free(kernel->source);
