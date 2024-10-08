@@ -5,7 +5,7 @@
 /* I guess gathering all the information for the codegen / optimizations should happen in here */
 /* Hmmm... Not sure though */
 
-/* TODO: Choose a more descriptive name for this */
+/* TODO: Choose a more descriptive name for this file */
 
 #include "../tensor.h"
 #include "CL/cl.h"

@@ -9,21 +9,17 @@
 #include "codegen.h"
 #include "compile.h"
 
-/* TODO: str_a -> a_str */
-
 static inline _Bool op_equal(const op_t *op1, const op_t *op2) {
     /* I don't think memcmp works here because I think the offsets being irrelevant would mess that up */
     /* Strictly speaking I could modify the struct layout so that I could cast the pointer to uint8_t[something] and
      * just compare the stuff we want to compare but that is straight up horrible and wayyyy to bug prone */
     return op1->type_op == op2->type_op && op1->type_unary == op2->type_unary && op1->type_binary == op2->type_binary &&
-           op1->type_reduce == op2->type_reduce && op1->type_move == op2->type_move && op1->var_a == op2->var_a &&
-           op1->var_z == op2->var_z && op1->var_y == op2->var_y && op1->var_x == op2->var_x &&
-           op1->var_unary == op2->var_unary && op1->buffer_out.name_off == op2->buffer_out.name_off &&
-           op1->buffer_out.sze_a == op2->buffer_out.sze_a && op1->buffer_out.sze_z == op2->buffer_out.sze_z &&
-           op1->buffer_out.sze_y == op2->buffer_out.sze_y && op1->buffer_out.sze_x == op2->buffer_out.sze_x &&
-           op1->buffer_in.name_off == op2->buffer_in.name_off && op1->buffer_in.sze_a == op2->buffer_in.sze_a &&
-           op1->buffer_in.sze_z == op2->buffer_in.sze_z && op1->buffer_in.sze_y == op2->buffer_in.sze_y &&
-           op1->buffer_in.sze_x == op2->buffer_in.sze_x;
+           op1->type_reduce == op2->type_reduce && op1->u_var == op2->u_var &&
+           op1->buffer_out.name_off == op2->buffer_out.name_off && op1->buffer_out.a_sze == op2->buffer_out.a_sze &&
+           op1->buffer_out.z_sze == op2->buffer_out.z_sze && op1->buffer_out.y_sze == op2->buffer_out.y_sze &&
+           op1->buffer_out.x_sze == op2->buffer_out.x_sze && op1->buffer_in.name_off == op2->buffer_in.name_off &&
+           op1->buffer_in.a_sze == op2->buffer_in.a_sze && op1->buffer_in.z_sze == op2->buffer_in.z_sze &&
+           op1->buffer_in.y_sze == op2->buffer_in.y_sze && op1->buffer_in.x_sze == op2->buffer_in.x_sze;
 }
 
 op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_idx, uint64_t *op_used) {
@@ -82,10 +78,10 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
     group.dim_info = calloc(group.op_num, sizeof(dim_info_t));
     for(uint64_t op_idx = 0; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_out = linearized->op[start_idx + op_idx].buffer_out.off;
-        const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_out.off_a;
-        const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_out.off_z;
-        const uint64_t y_initial = linearized->op[start_idx + op_idx].buffer_out.off_y;
-        const uint64_t x_initial = linearized->op[start_idx + op_idx].buffer_out.off_x;
+        const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_out.a_off;
+        const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_out.z_off;
+        const uint64_t y_initial = linearized->op[start_idx + op_idx].buffer_out.y_off;
+        const uint64_t x_initial = linearized->op[start_idx + op_idx].buffer_out.x_off;
         uint64_t a_left = 0;
         uint64_t z_left = 0;
         uint64_t y_left = 0;
@@ -97,61 +93,61 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
         for(uint64_t repeat_idx = 0; repeat_idx < group.repeat_num; repeat_idx++) {
             if(a_left) {
                 if(!a_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a == a_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.a_off == a_initial) {
                         group.dim_info[op_idx].res_a_out = repeat_idx;
                         a_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a != a_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.a_off != a_initial) {
                     group.dim_info[op_idx].wai_a_out = repeat_idx;
                     group.dim_info[op_idx].str_a_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_a - a_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.a_off - a_initial;
                     a_left = 1;
                 }
             }
             if(z_left) {
                 if(!z_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z == z_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.z_off == z_initial) {
                         group.dim_info[op_idx].res_z_out = repeat_idx;
                         z_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z != z_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.z_off != z_initial) {
                     group.dim_info[op_idx].wai_z_out = repeat_idx;
                     group.dim_info[op_idx].str_z_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_z - z_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.z_off - z_initial;
                     z_left = 1;
                 }
             }
             if(y_left) {
                 if(!y_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y == y_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.y_off == y_initial) {
                         group.dim_info[op_idx].res_y_out = repeat_idx;
                         y_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y != y_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.y_off != y_initial) {
                     group.dim_info[op_idx].wai_y_out = repeat_idx;
                     group.dim_info[op_idx].str_y_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_y - y_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.y_off - y_initial;
                     y_left = 1;
                 }
             }
             if(x_left) {
                 if(!x_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x == x_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.x_off == x_initial) {
                         group.dim_info[op_idx].res_x_out = repeat_idx;
                         x_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x != x_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.x_off != x_initial) {
                     group.dim_info[op_idx].wai_x_out = repeat_idx;
                     group.dim_info[op_idx].str_x_out =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.off_x - x_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_out.x_off - x_initial;
                     x_left = 1;
                 }
             }
@@ -159,10 +155,10 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
     }
     for(uint64_t op_idx = 1; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_in = linearized->op[start_idx + op_idx].buffer_in.off;
-        const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_in.off_a;
-        const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_in.off_z;
-        const uint64_t y_initial = linearized->op[start_idx + op_idx].buffer_in.off_y;
-        const uint64_t x_initial = linearized->op[start_idx + op_idx].buffer_in.off_x;
+        const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_in.a_off;
+        const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_in.z_off;
+        const uint64_t y_initial = linearized->op[start_idx + op_idx].buffer_in.y_off;
+        const uint64_t x_initial = linearized->op[start_idx + op_idx].buffer_in.x_off;
         uint64_t a_left = 0;
         uint64_t z_left = 0;
         uint64_t y_left = 0;
@@ -174,61 +170,61 @@ op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_i
         for(uint64_t repeat_idx = 0; repeat_idx < group.repeat_num; repeat_idx++) {
             if(a_left) {
                 if(!a_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a == a_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.a_off == a_initial) {
                         group.dim_info[op_idx].res_a_in = repeat_idx;
                         a_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a != a_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.a_off != a_initial) {
                     group.dim_info[op_idx].wai_a_in = repeat_idx;
                     group.dim_info[op_idx].str_a_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_a - a_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.a_off - a_initial;
                     a_left = 1;
                 }
             }
             if(z_left) {
                 if(!z_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z == z_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.z_off == z_initial) {
                         group.dim_info[op_idx].res_z_in = repeat_idx;
                         z_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z != z_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.z_off != z_initial) {
                     group.dim_info[op_idx].wai_z_in = repeat_idx;
                     group.dim_info[op_idx].str_z_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_z - z_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.z_off - z_initial;
                     z_left = 1;
                 }
             }
             if(y_left) {
                 if(!y_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y == y_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.y_off == y_initial) {
                         group.dim_info[op_idx].res_y_in = repeat_idx;
                         y_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y != y_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.y_off != y_initial) {
                     group.dim_info[op_idx].wai_y_in = repeat_idx;
                     group.dim_info[op_idx].str_y_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_y - y_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.y_off - y_initial;
                     y_left = 1;
                 }
             }
             if(x_left) {
                 if(!x_reenter) {
-                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x == x_initial) {
+                    if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.x_off == x_initial) {
                         group.dim_info[op_idx].res_x_in = repeat_idx;
                         x_reenter = 1;
                     }
                 }
             } else {
-                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x != x_initial) {
+                if(linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.x_off != x_initial) {
                     group.dim_info[op_idx].wai_x_in = repeat_idx;
                     group.dim_info[op_idx].str_x_in =
-                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.off_x - x_initial;
+                        linearized->op[start_idx + op_idx + repeat_idx * group.op_num].buffer_in.x_off - x_initial;
                     x_left = 1;
                 }
             }
@@ -300,14 +296,14 @@ kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
         /* Only storing the name offsets is more efficient */
         /* MAYBE: Could make a binary search type thing here */
         for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
-            uint64_t found_out = 0;
+            uint64_t op_found_out = 0;
             for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
                 if(arg[arg_idx] == group->op[op_idx].buffer_out.name_off) {
-                    found_out = 1;
+                    op_found_out = 1;
                     break;
                 }
             }
-            if(!found_out) {
+            if(!op_found_out) {
                 arg[arg_num] = group->op[op_idx].buffer_out.name_off;
                 arg_num++;
                 if(arg_num == arg_cap) {
@@ -317,14 +313,14 @@ kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
             }
             /* MAYBE: There might be some trickery to avoid having to run the arg search loop twice */
             if(group->op[op_idx].type_op != op_unary) {
-                uint64_t found_in = 0;
+                uint64_t op_found_in = 0;
                 for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
                     if(arg[arg_idx] == group->op[op_idx].buffer_in.name_off) {
-                        found_in = 1;
+                        op_found_in = 1;
                         break;
                     }
                 }
-                if(!found_in) {
+                if(!op_found_in) {
                     arg[arg_num] = group->op[op_idx].buffer_in.name_off;
                     arg_num++;
                     if(arg_num == arg_cap) {
@@ -336,9 +332,11 @@ kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
         }
     }
 
+    /* TODO: Choose a more accurate name because this just creates the source. The compilation happens when program_run
+     * first gets called */
+    /* TODO: Maybe make a function in `../runtimes/cl.c` and `../runtimes/cl.h` that just compile the kernel so that it
+     * is more clear when what happens? */
     compile_op_group(&kernel, group, optimizations);
-
-    /* TODO: Compile kernel and create program from generated source */
 
     return kernel;
 }
@@ -374,7 +372,7 @@ void kernel_free(kernel_t *kernel) {
     }
 }
 
-/* TODO: Also pass allowed optimization options and then figure out which ones are good based on the kernel */
+/* TODO: Also pass optimization options */
 program_t program_compile(const linearized_t *linearized, const cl_device_id *device_id, const cl_context *context,
                           const cl_command_queue *command_queue, const uint64_t global_size,
                           const uint64_t local_size) {
@@ -405,13 +403,24 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
     }
 
     uint64_t op_used = 0;
-    while(op_used < linearized->op_len) {
+    const uint64_t kernel_max = 10000;
+    for(uint64_t kernel_idx = 0; kernel_idx < kernel_max; kernel_idx++) {
         op_group_t group = op_group_alloc(linearized, op_used, &op_used);
         op_group_print(&group, 4, 0, "");
         kernel_t kernel = kernel_alloc(&group, optimization_none);
         kernel_free(&kernel);
         op_group_free(&group);
+        if(op_used < linearized->op_len) {
+            continue;
+        } else if(op_used == linearized->op_len) {
+            break;
+        } else {
+            ERROR("Error in kernel extraction in `program_compile()`. Used more ops than there are.\n");
+        }
     }
+    /* If you are sure there is no problem here then you can raise the `kernel_max` variable */
+    assert(op_used == linearized->op_len);
+
     return program;
 }
 void program_free(program_t *program) {
