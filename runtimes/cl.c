@@ -71,7 +71,7 @@ void program_run(program_t *program) {
         if(program->kernel[kernel_idx].cl_program == NULL) {
             program->kernel[kernel_idx].cl_program =
                 cl_program_build(*program->cl_context, *program->cl_device_id, program->kernel[kernel_idx].source,
-                                 program->kernel[kernel_idx].source_len);
+                                 program->kernel[kernel_idx].source_cap);
             program->kernel[kernel_idx].cl_kernel =
                 clCreateKernel(program->kernel[kernel_idx].cl_program, KERNEL_NAME, &err);
             if(err < 0) {

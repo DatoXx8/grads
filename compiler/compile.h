@@ -54,7 +54,7 @@ typedef struct {
     uint64_t arg_num;
     uint64_t arg_cap;
     char *source;
-    uint64_t source_len; /* Only necessary for OpenCL compiler. Could knock that out when I write my own */
+    uint64_t source_cap; /* Only necessary for OpenCL compiler. Could knock that out when I write my own */
     cl_kernel cl_kernel;
     cl_program cl_program;
 } kernel_t;

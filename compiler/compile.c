@@ -10,6 +10,8 @@
 #include "compile.h"
 
 static inline _Bool op_equal(const op_t *op1, const op_t *op2) {
+    assert(op1);
+    assert(op2);
     /* I don't think memcmp works here because I think the offsets being irrelevant would mess that up */
     /* Strictly speaking I could modify the struct layout so that I could cast the pointer to uint8_t[something] and
      * just compare the stuff we want to compare but that is straight up horrible and wayyyy to bug prone */
