@@ -285,10 +285,12 @@ static void op_group_print(op_group_t *group, int padding, int offset, const cha
 }
 
 const uint64_t arg_cap_min = 1;
-static kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizations) {
+static kernel_t kernel_alloc(const op_group_t *group, const uint64_t size_global, const uint64_t size_local, const uint64_t optimizations) {
     kernel_t kernel = {0};
 
-    uint64_t *arg = calloc(arg_cap_min, sizeof(uint64_t));
+    /* TODO: Measure if using name offsets is faster despite having to generate the strings from the offsets again */
+    char **arg_name = calloc(arg_cap_min, sizeof(char *));
+    cl_mem *arg_mem = calloc(arg_cap_min, sizeof(cl_mem));
     uint64_t arg_cap = arg_cap_min;
     uint64_t arg_num = 0;
     const uint64_t inlined = optimizations & optimization_inline;
@@ -300,45 +302,56 @@ static kernel_t kernel_alloc(const op_group_t *group, const uint64_t optimizatio
         for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
             uint64_t op_found_out = 0;
             for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                if(arg[arg_idx] == group->op[op_idx].buffer_out.name_off) {
+                if(!memcmp(arg_name[arg_idx], group->op[op_idx].buffer_out.name, BUFFER_NAME_SIZE)) {
                     op_found_out = 1;
                     break;
                 }
             }
             if(!op_found_out) {
-                arg[arg_num] = group->op[op_idx].buffer_out.name_off;
+                arg_name[arg_num] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                memcpy(arg_name[arg_num], group->op[op_idx].buffer_out.name, BUFFER_NAME_SIZE);
+                arg_mem[arg_num] = group->op[op_idx].buffer_out.val_cl;
                 arg_num++;
                 if(arg_num == arg_cap) {
                     arg_cap *= 2;
-                    arg = reallocarray(arg, arg_cap, sizeof(uint64_t));
+                    arg_name = reallocarray(arg_name, arg_cap, sizeof(uint64_t));
+                    arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
                 }
             }
             /* MAYBE: There might be some trickery to avoid having to run the arg search loop twice */
             if(group->op[op_idx].type_op != op_unary) {
                 uint64_t op_found_in = 0;
                 for(uint64_t arg_idx = 0; arg_idx < arg_num; arg_idx++) {
-                    if(arg[arg_idx] == group->op[op_idx].buffer_in.name_off) {
+                    if(!memcmp(arg_name[arg_idx], group->op[op_idx].buffer_in.name, BUFFER_NAME_SIZE)) {
                         op_found_in = 1;
                         break;
                     }
                 }
                 if(!op_found_in) {
-                    arg[arg_num] = group->op[op_idx].buffer_in.name_off;
+                    arg_name[arg_num] = calloc(BUFFER_NAME_SIZE + 1, sizeof(char));
+                    memcpy(arg_name[arg_num], group->op[op_idx].buffer_in.name, BUFFER_NAME_SIZE);
+                    arg_mem[arg_num] = group->op[op_idx].buffer_in.val_cl;
                     arg_num++;
                     if(arg_num == arg_cap) {
                         arg_cap *= 2;
-                        arg = reallocarray(arg, arg_cap, sizeof(uint64_t));
+                        arg_name = reallocarray(arg_name, arg_cap, sizeof(uint64_t));
+                        arg_mem = reallocarray(arg_mem, arg_cap, sizeof(cl_mem));
                     }
                 }
             }
         }
     }
 
+    kernel.arg_name = arg_name;
+    kernel.arg_num = arg_num;
+    kernel.arg_mem = arg_mem;
+
     /* TODO: Choose a more accurate name because this just creates the source. The compilation happens when program_run
      * first gets called */
     /* TODO: Maybe make a function in `../runtimes/cl.c` and `../runtimes/cl.h` that just compile the kernel so that it
      * is more clear when what happens? */
-    compile_op_group(&kernel, group, optimizations);
+    compile_op_group(&kernel, group, size_global, size_local, optimizations);
+    printf("%s\n", kernel.source);
 
     return kernel;
 }
@@ -408,8 +421,8 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
     const uint64_t kernel_max = 10000;
     for(uint64_t kernel_idx = 0; kernel_idx < kernel_max; kernel_idx++) {
         op_group_t group = op_group_alloc(linearized, op_used, &op_used);
-        op_group_print(&group, 4, 0, "");
-        kernel_t kernel = kernel_alloc(&group, optimization_none);
+        // op_group_print(&group, 4, 0, "");
+        kernel_t kernel = kernel_alloc(&group, global_size, local_size, optimization_none);
         kernel_free(&kernel);
         op_group_free(&group);
         if(op_used < linearized->op_len) {
