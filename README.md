@@ -24,7 +24,8 @@ clang main.c [your files] ./cgrad/tensor.c ./cgrad/nn.c ./cgrad/compile.c ./cgra
 ## Testing
 
 This project has a big focus on testing, but be aware that despite that there will always be bugs in any sufficiently complex program including this one.
+
 We test:
-    - All atomic ops give the expected results. (Unit testing)
-    - Our linearization of atomic ops gives the same results as calling the ops on their own. (Randomized simulation testing)
-    - Compiling any linearized ops gives the same results as calling the linearized ops with `linearized_run()`, within some small margin of error for hardware differences, at any optimization level. (Randomized simulation testing)
+- All atomic ops give the expected results. (Unit testing)
+- Our linearization of atomic ops gives the same results as calling the ops on their own. (Randomized simulation testing)
+- Compiling any linearized ops gives the same results as calling the linearized ops with `linearized_run()`, within some small margin of error for hardware differences, at any optimization level. (Randomized simulation testing)
