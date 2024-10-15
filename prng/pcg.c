@@ -17,3 +17,7 @@ uint32_t pcg_rand(void) {
     x ^= x >> 18;
     return rotate32((uint32_t)(x >> 27), pivot);
 }
+
+void pcg_init(const uint64_t init) {
+    state = init;
+}
