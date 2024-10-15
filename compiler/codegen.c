@@ -110,7 +110,6 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
     assert(*source_cap);
     assert(op);
 
-    /* TODO: Choose a more accurate name for what this is */
     const uint64_t x_wait_out = 1;
     const uint64_t y_wait_out = x_wait_out * op->buffer_out.x_sze;
     const uint64_t z_wait_out = y_wait_out * op->buffer_out.y_sze;
@@ -136,6 +135,166 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
         source_expand(source, source_curr, source_cap);
     }
 }
+
+static void source_append_op(char **source, char **source_curr, uint64_t *source_cap, const op_t *op,
+                             const uint64_t op_idx, const uint64_t loop_idx) {
+    assert(source);
+    assert(*source);
+    assert(source_curr);
+    assert(*source_curr);
+    assert(*source <= *source_curr);
+    assert(source_cap);
+    assert(*source_cap);
+    assert(op);
+
+    const uint64_t x_sze = op->type_op == op_reduce ? op->buffer_in.x_sze : op->buffer_out.x_sze;
+    const uint64_t y_sze = op->type_op == op_reduce ? op->buffer_in.y_sze : op->buffer_out.y_sze;
+    const uint64_t z_sze = op->type_op == op_reduce ? op->buffer_in.z_sze : op->buffer_out.z_sze;
+    const uint64_t a_sze = op->type_op == op_reduce ? op->buffer_in.a_sze : op->buffer_out.a_sze;
+
+    for(uint64_t a_idx = 0; a_idx < a_sze; a_idx++) {
+        for(uint64_t z_idx = 0; z_idx < z_sze; z_idx++) {
+            for(uint64_t y_idx = 0; y_idx < y_sze; y_idx++) {
+                for(uint64_t x_idx = 0; x_idx < x_sze; x_idx++) {
+
+                    if(op->type_op == op_reduce) {
+                        *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = ", op->buffer_out.name,
+                                                 op->buffer_out.name, loop_idx, op_idx);
+                    } else {
+                        const uint64_t off_out = a_idx * op->buffer_out.a_str + z_idx * op->buffer_out.z_str +
+                                                 y_idx * op->buffer_out.y_str + x_idx * op->buffer_out.x_str;
+                        *source_curr +=
+                            snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] = ", op->buffer_out.name,
+                                     op->buffer_out.name, loop_idx, op_idx, off_out);
+                    }
+                    source_expand(source, source_curr, source_cap);
+
+                    switch(op->type_op) {
+                        case op_unary: {
+                            const uint64_t off_out = a_idx * op->buffer_out.a_str + z_idx * op->buffer_out.z_str +
+                                                     y_idx * op->buffer_out.y_str + x_idx * op->buffer_out.x_str;
+                            switch(op->type_unary) {
+                                case unary_add: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "%s[%s_%lu_%lu + %lu] + (%lf)", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_subtract: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "%s[%s_%lu_%lu + %lu] - (%lf)", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_multiply: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "%s[%s_%lu_%lu + %lu] * (%lf)", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_divide: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "%s[%s_%lu_%lu + %lu] / (%lf)", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_exp: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "exp(%s[%s_%lu_%lu + %lu])",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_log: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "log(%s[%s_%lu_%lu + %lu])",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_square: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] * %s[%s_%lu_%lu + %lu]",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_sqrt: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "sqrt(%s[%s_%lu_%lu + %lu])",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_reciprocal: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "1 / %s[%s_%lu_%lu + %lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_max: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "fmax(%s[%s_%lu_%lu + %lu], (%lf))", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_min: {
+                                    *source_curr += snprintf(*source_curr, write_len_max,
+                                                             "fmin(%s[%s_%lu_%lu + %lu], (%lf))", op->buffer_out.name,
+                                                             op->buffer_out.name, loop_idx, op_idx, off_out, op->u_var);
+                                    break;
+                                }
+                                case unary_set: {
+                                    *source_curr += snprintf(*source_curr, write_len_max, "(%lf)", op->u_var);
+                                    break;
+                                }
+                                case unary_random: {
+                                    TODO();
+                                    // *source_curr +=
+                                    //     snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu]",
+                                    //              op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx,
+                                    //              off_out);
+                                    break;
+                                }
+                                case unary_tanh: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "tanh(%s[%s_%lu_%lu + %lu])",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_absolute: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "fabs(%s[%s_%lu_%lu + %lu])",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                                case unary_sign: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max,
+                                                 "%s[%s_%lu_%lu + %lu] > 0 ? 1 : %s[%s_%lu_%lu + %lu] < 0 ? -1 : 0",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out);
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                        case op_binary: {
+                            switch(op->type_binary) {}
+                            break;
+                        }
+                        case op_reduce: {
+                            switch(op->type_reduce) {}
+                            break;
+                        }
+                    }
+
+                    *source_curr += snprintf(*source_curr, write_len_max, ";\n");
+                    source_expand(source, source_curr, source_cap);
+                }
+            }
+        }
+    }
+    source_expand(source, source_curr, source_cap);
+}
+
 void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t size_global, const uint64_t size_local,
                       const uint64_t optimization) {
     assert(kernel);
@@ -157,8 +316,20 @@ void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t 
     const uint64_t loop_leftover = group->repeat_num % size_global;
     const uint64_t loop_num = group->repeat_num / size_global + loop_leftover ? 1 : 0;
     for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
+        const uint64_t is_conditional = loop_leftover && loop_idx == loop_num - 1;
+        if(is_conditional) {
+            source_curr += snprintf(source_curr, write_len_max, "if(gid < %lu) {\n", loop_leftover);
+            source_expand(&source, &source_curr, &source_cap);
+        }
+
         for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
             source_append_index(&source, &source_curr, &source_cap, &group->op[op_idx], op_idx, loop_idx);
+            source_append_op(&source, &source_curr, &source_cap, &group->op[op_idx], op_idx, loop_idx);
+        }
+
+        if(is_conditional) {
+            source_curr += snprintf(source_curr, write_len_max, "}\n");
+            source_expand(&source, &source_curr, &source_cap);
         }
     }
 
