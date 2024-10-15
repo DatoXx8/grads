@@ -12,9 +12,13 @@
 #include "utils.h"
 
 /*
+ *  TODO: Merge all the op types to a singular enum
+ *  TODO: Make assert that supports error messages
+ *  TODO: Performance profiling
  *  TODO: Decide wether all the free functions should check for NULL
  *  TODO: Rewrite the compiler entirely and move that into a compiler/ directory instead of those two files
- *  TODO: Rewrite test infrastructure to automatically minify the tests (fewest ops, cut from beginning if possible etc), produce logs
+ *  TODO: Rewrite test infrastructure to automatically minify the tests (fewest ops, cut from beginning if possible
+ * etc), produce logs
  *  TODO: Make nicer logging with things like %04lu and things like that
  *  TODO: Swarm testing
  *  TODO: Add multi-thread c runtime
@@ -116,12 +120,12 @@ int main(int argc, const char **argv) {
     layerconfig[4] = l4;
 
     neuralnet_t neuralnet = neuralnet_alloc(LAYERS, layerconfig, LEARNING, compile_type);
-    tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->sze_z,
-                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_y,
-                                  NEURALNET_INPUT(neuralnet).activation->buffer->sze_x, context);
-    tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_z,
-                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_y,
-                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->sze_x, context);
+    tensor_t input = tensor_alloc(SAMPLES, NEURALNET_INPUT(neuralnet).activation->buffer->z_sze,
+                                  NEURALNET_INPUT(neuralnet).activation->buffer->y_sze,
+                                  NEURALNET_INPUT(neuralnet).activation->buffer->x_sze, context);
+    tensor_t output = tensor_alloc(SAMPLES, NEURALNET_OUTPUT(neuralnet).activation->buffer->z_sze,
+                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->y_sze,
+                                   NEURALNET_OUTPUT(neuralnet).activation->buffer->x_sze, context);
     tensor_unary_random(&output);
     tensor_realize(&output);
     tensor_unary_random(&input);
