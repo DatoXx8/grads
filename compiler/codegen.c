@@ -152,6 +152,12 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
     const uint64_t z_sze = op->type_op == op_reduce ? op->buffer_in.z_sze : op->buffer_out.z_sze;
     const uint64_t a_sze = op->type_op == op_reduce ? op->buffer_in.a_sze : op->buffer_out.a_sze;
 
+    if(op->type_op == op_reduce && op->type_reduce == reduce_avg) {
+        *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = 0;\n", op->buffer_out.name,
+                                 op->buffer_out.name, loop_idx, op_idx);
+        source_expand(source, source_curr, source_cap);
+    }
+
     for(uint64_t a_idx = 0; a_idx < a_sze; a_idx++) {
         for(uint64_t z_idx = 0; z_idx < z_sze; z_idx++) {
             for(uint64_t y_idx = 0; y_idx < y_sze; y_idx++) {
@@ -277,14 +283,144 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                             break;
                         }
                         case op_binary: {
-                            switch(op->type_binary) {}
+                            const uint64_t off_out = a_idx * op->buffer_out.a_str + z_idx * op->buffer_out.z_str +
+                                                     y_idx * op->buffer_out.y_str + x_idx * op->buffer_out.x_str;
+                            const uint64_t off_in = op->type_binary < binary_add_like
+                                                        ? a_idx * op->buffer_in.a_str + z_idx * op->buffer_in.z_str +
+                                                              y_idx * op->buffer_in.y_str + x_idx * op->buffer_in.x_str
+                                                        : 0;
+                            switch(op->type_binary) {
+                                case binary_add: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] + %s[%s_%lu_%lu + %lu]",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_subtract: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] - %s[%s_%lu_%lu + %lu]",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_multiply: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] * %s[%s_%lu_%lu + %lu]",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_divide: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] / %s[%s_%lu_%lu + %lu]",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_max: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu + %lu], %s[%s_%lu_%lu + %lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_min: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmin(%s[%s_%lu_%lu + %lu], %s[%s_%lu_%lu + %lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_copy: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu]",
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
+                                }
+                                case binary_add_like: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] + %s[%s_%lu_%lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_subtract_like: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] - %s[%s_%lu_%lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_multiply_like: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] * %s[%s_%lu_%lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_divide_like: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] / %s[%s_%lu_%lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_max_like: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu + %lu] + %s[%s_%lu_%lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_min_like: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmin(%s[%s_%lu_%lu + %lu], %s[%s_%lu_%lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
+                                        op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                                case binary_copy_like: {
+                                    *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu]",
+                                                             op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
+                                    break;
+                                }
+                            }
                             break;
                         }
                         case op_reduce: {
-                            switch(op->type_reduce) {}
+                            const uint64_t off_in = a_idx * op->buffer_in.a_str + z_idx * op->buffer_in.z_str +
+                                                    y_idx * op->buffer_in.y_str + x_idx * op->buffer_in.x_str;
+                            switch(op->type_reduce) {
+                                case reduce_sum: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] + %s[%s_%lu_%lu + %lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                }
+                                case reduce_max: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu], %s[%s_%lu_%lu + %lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, op->buffer_in.name,
+                                        op->buffer_in.name, loop_idx, op_idx, off_in);
+                                }
+                                case reduce_min: {
+                                    *source_curr += snprintf(
+                                        *source_curr, write_len_max, "fmin(%s[%s_%lu_%lu], %s[%s_%lu_%lu + %lu])",
+                                        op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, op->buffer_in.name,
+                                        op->buffer_in.name, loop_idx, op_idx, off_in);
+                                }
+                                case reduce_avg: {
+                                    *source_curr +=
+                                        snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] + %s[%s_%lu_%lu + %lu]",
+                                                 op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx,
+                                                 op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                }
+                            }
                             break;
                         }
                     }
+                    source_expand(source, source_curr, source_cap);
 
                     *source_curr += snprintf(*source_curr, write_len_max, ";\n");
                     source_expand(source, source_curr, source_cap);
@@ -293,6 +429,13 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
         }
     }
     source_expand(source, source_curr, source_cap);
+
+    if(op->type_op == op_reduce && op->type_reduce == reduce_avg) {
+        *source_curr += snprintf(
+            *source_curr, write_len_max, "%s[%s_%lu_%lu] /= %lu;\n", op->buffer_out.name, op->buffer_out.name, loop_idx,
+            op_idx, op->buffer_out.a_sze * op->buffer_out.z_sze * op->buffer_out.y_sze * op->buffer_out.x_sze);
+        source_expand(source, source_curr, source_cap);
+    }
 }
 
 void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t size_global, const uint64_t size_local,
