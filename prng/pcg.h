@@ -17,5 +17,9 @@ instantly. WARNING: Obviously this is not for suitable for cryptography. Never e
 
 extern void pcg_init(const uint64_t init);
 extern uint32_t pcg_rand(void);
+/* Just doing modulo gives slightly biases results which is why this function exists. It is taken from
+ * https://www.pcg-random.org/posts/bounded-rands.html */
+/* This gives results in [0, top) */
+extern uint32_t pcg_rand_below(const uint32_t top);
 
 #endif
