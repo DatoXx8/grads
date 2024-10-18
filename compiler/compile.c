@@ -351,7 +351,6 @@ static kernel_t kernel_alloc(const op_group_t *group, const uint64_t size_global
     /* TODO: Maybe make a function in `../runtimes/cl.c` and `../runtimes/cl.h` that just compile the kernel so that it
      * is more clear when what happens? */
     compile_op_group(&kernel, group, size_global, size_local, optimizations);
-    printf("%s\n", kernel.source);
 
     return kernel;
 }
@@ -401,6 +400,7 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
     assert(global_size);
     assert(local_size);
     assert(local_size <= global_size);
+
     program_t program = {
         .local_size = local_size,
         .global_size = global_size,
@@ -418,13 +418,23 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
     }
 
     uint64_t op_used = 0;
-    const uint64_t kernel_max = 10000;
+    /* At min each kernel takes one op */
+    const uint64_t kernel_max = linearized->op_len;
+    program.kernel_cap = 4;
+    program.kernel = calloc(program.kernel_cap, sizeof(kernel_t));
     for(uint64_t kernel_idx = 0; kernel_idx < kernel_max; kernel_idx++) {
         op_group_t group = op_group_alloc(linearized, op_used, &op_used);
-        // op_group_print(&group, 4, 0, "");
-        kernel_t kernel = kernel_alloc(&group, global_size, local_size, optimization_none);
-        kernel_free(&kernel);
+
+        program.kernel_num++;
+        if(program.kernel_num == program.kernel_cap) {
+            program.kernel_cap *= 2;
+            program.kernel = reallocarray(program.kernel, program.kernel_cap, sizeof(kernel_t));
+            assert(program.kernel);
+        }
+        program.kernel[program.kernel_num - 1] = kernel_alloc(&group, global_size, local_size, optimization_none);
+
         op_group_free(&group);
+
         if(op_used < linearized->op_len) {
             continue;
         } else if(op_used == linearized->op_len) {
@@ -433,7 +443,6 @@ program_t program_compile(const linearized_t *linearized, const cl_device_id *de
             ERROR("Error in kernel extraction in `program_compile()`. Used more ops than there are.\n");
         }
     }
-    /* If you are sure there is no problem here then you can raise the `kernel_max` variable */
     assert(op_used == linearized->op_len);
 
     return program;
