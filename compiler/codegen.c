@@ -93,9 +93,9 @@ static void source_append_head(char **source, char **source_curr, uint64_t *sour
     assert(source_cap);
     assert(*source_cap);
 
-    *source_curr += snprintf(*source_curr, write_len_max, "__local const int gid = get_global_id(0);\n");
+    *source_curr += snprintf(*source_curr, write_len_max, "const int gid = get_global_id(0);\n");
     source_expand(source, source_curr, source_cap);
-    *source_curr += snprintf(*source_curr, write_len_max, "__local int id;\n");
+    *source_curr += snprintf(*source_curr, write_len_max, "int id;\n");
     source_expand(source, source_curr, source_cap);
 }
 
@@ -116,7 +116,7 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
     const uint64_t a_wait_out = z_wait_out * op->buffer_out.z_sze;
     *source_curr +=
         snprintf(*source_curr, write_len_max,
-                 "__local int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
+                 "const int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
                  op->buffer_out.name, loop_idx, op_idx, op->buffer_out.off, op->buffer_out.a_sze * a_wait_out,
                  a_wait_out, op->buffer_out.a_str, a_wait_out, z_wait_out, op->buffer_out.z_str, z_wait_out, y_wait_out,
                  op->buffer_out.y_str, y_wait_out, x_wait_out, op->buffer_out.x_str);
@@ -128,7 +128,7 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
         const uint64_t a_wait_in = z_wait_in * op->buffer_in.z_sze;
         *source_curr +=
             snprintf(*source_curr, write_len_max,
-                     "__local int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
+                     "const int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
                      op->buffer_in.name, loop_idx, op_idx, op->buffer_in.off, op->buffer_in.a_sze * a_wait_in,
                      a_wait_in, op->buffer_in.a_str, a_wait_in, z_wait_in, op->buffer_in.z_str, z_wait_in, y_wait_in,
                      op->buffer_in.y_str, y_wait_in, x_wait_in, op->buffer_in.x_str);
@@ -169,6 +169,9 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                     } else {
                         const uint64_t off_out = a_idx * op->buffer_out.a_str + z_idx * op->buffer_out.z_str +
                                                  y_idx * op->buffer_out.y_str + x_idx * op->buffer_out.x_str;
+                        *source_curr += snprintf(*source_curr, write_len_max, "/*%lu %lu %lu %lu --- %lu %lu %lu %lu*/",
+                                                 op->buffer_out.a_str, op->buffer_out.z_str, op->buffer_out.y_str,
+                                                 op->buffer_out.x_str, a_idx, z_idx, y_idx, x_idx);
                         *source_curr +=
                             snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] = ", op->buffer_out.name,
                                      op->buffer_out.name, loop_idx, op_idx, off_out);
@@ -368,7 +371,7 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                                 }
                                 case binary_max_like: {
                                     *source_curr += snprintf(
-                                        *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu + %lu] + %s[%s_%lu_%lu])",
+                                        *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu + %lu], %s[%s_%lu_%lu])",
                                         op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, off_out,
                                         op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx);
                                     break;
@@ -397,24 +400,28 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                                         snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] + %s[%s_%lu_%lu + %lu]",
                                                  op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx,
                                                  op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
                                 }
                                 case reduce_max: {
                                     *source_curr += snprintf(
                                         *source_curr, write_len_max, "fmax(%s[%s_%lu_%lu], %s[%s_%lu_%lu + %lu])",
                                         op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, op->buffer_in.name,
                                         op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
                                 }
                                 case reduce_min: {
                                     *source_curr += snprintf(
                                         *source_curr, write_len_max, "fmin(%s[%s_%lu_%lu], %s[%s_%lu_%lu + %lu])",
                                         op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx, op->buffer_in.name,
                                         op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
                                 }
                                 case reduce_avg: {
                                     *source_curr +=
                                         snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] + %s[%s_%lu_%lu + %lu]",
                                                  op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx,
                                                  op->buffer_in.name, op->buffer_in.name, loop_idx, op_idx, off_in);
+                                    break;
                                 }
                             }
                             break;
@@ -462,6 +469,14 @@ void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t 
         const uint64_t is_conditional = loop_leftover && loop_idx == loop_num - 1;
         if(is_conditional) {
             source_curr += snprintf(source_curr, write_len_max, "if(gid < %lu) {\n", loop_leftover);
+            source_expand(&source, &source_curr, &source_cap);
+        }
+
+        if(loop_idx) {
+            source_curr += snprintf(source_curr, write_len_max, "id += %lu;\n", size_global);
+            source_expand(&source, &source_curr, &source_cap);
+        } else {
+            source_curr += snprintf(source_curr, write_len_max, "id = gid;\n");
             source_expand(&source, &source_curr, &source_cap);
         }
 
