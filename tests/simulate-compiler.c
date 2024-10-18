@@ -21,7 +21,7 @@ const double EPSILON = 1e-3;
 const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 #define TENSOR_NUM 16ul
 #define MAX_LOOPS 4096ul
-#define OP_NUM 1ul
+#define OP_NUM 50ul
 #define SWITCH_ODS ((double) 1 / (double) 16)
 static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id *device_id, cl_context *context,
                               cl_command_queue *command_queue) {
@@ -379,7 +379,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         }
     }
 
-    LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
+    // LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     program_t program =
         program_compile(tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
@@ -401,8 +401,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     tensor_move_resize(&tensor2[bp_out_idx[OP_NUM - 1]], DIM_SZE, DIM_SZE, DIM_SZE, DIM_SZE);
     tensor_move_offset(&tensor1[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
     tensor_move_offset(&tensor2[bp_out_idx[OP_NUM - 1]], 0, 0, 0, 0);
-    TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
-    TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
+    // TENSOR_PRINT(tensor1[bp_out_idx[OP_NUM - 1]]);
+    // TENSOR_PRINT(tensor2[bp_out_idx[OP_NUM - 1]]);
     double margin_of_error = pow(1 + MARGIN_OF_ERROR, OP_NUM) - 1;
     for(uint64_t a = 0; a < DIM_SZE; a++) {
         for(uint64_t z = 0; z < DIM_SZE; z++) {
