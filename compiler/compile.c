@@ -191,7 +191,7 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
             }
         }
     }
-    for(uint64_t op_idx = 1; op_idx < group.op_num; op_idx++) {
+    for(uint64_t op_idx = 0; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_in = linearized->op[start_idx + op_idx].buffer_in.off;
         const uint64_t a_initial = linearized->op[start_idx + op_idx].buffer_in.a_off;
         const uint64_t z_initial = linearized->op[start_idx + op_idx].buffer_in.z_off;
