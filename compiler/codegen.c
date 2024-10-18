@@ -100,7 +100,7 @@ static void source_append_head(char **source, char **source_curr, uint64_t *sour
 }
 
 static void source_append_index(char **source, char **source_curr, uint64_t *source_cap, const op_t *op,
-                                const uint64_t op_idx, const uint64_t loop_idx) {
+                                const dim_info_t *dim_info, const uint64_t op_idx, const uint64_t loop_idx) {
     assert(source);
     assert(*source);
     assert(source_curr);
@@ -110,28 +110,24 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
     assert(*source_cap);
     assert(op);
 
-    const uint64_t x_wait_out = 1;
-    const uint64_t y_wait_out = x_wait_out * op->buffer_out.x_sze;
-    const uint64_t z_wait_out = y_wait_out * op->buffer_out.y_sze;
-    const uint64_t a_wait_out = z_wait_out * op->buffer_out.z_sze;
     *source_curr +=
         snprintf(*source_curr, write_len_max,
                  "const int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
-                 op->buffer_out.name, loop_idx, op_idx, op->buffer_out.off, op->buffer_out.a_sze * a_wait_out,
-                 a_wait_out, op->buffer_out.a_str, a_wait_out, z_wait_out, op->buffer_out.z_str, z_wait_out, y_wait_out,
-                 op->buffer_out.y_str, y_wait_out, x_wait_out, op->buffer_out.x_str);
+                 op->buffer_out.name, loop_idx, op_idx, op->buffer_out.off, dim_info->res_a_out, dim_info->wai_a_out,
+                 dim_info->str_a_out * op->buffer_out.a_str, dim_info->res_z_out, dim_info->wai_z_out,
+                 dim_info->str_z_out * op->buffer_out.z_str, dim_info->res_y_out, dim_info->wai_y_out,
+                 dim_info->str_y_out * op->buffer_out.y_str, dim_info->res_x_out, dim_info->wai_x_out,
+                 dim_info->str_x_out * op->buffer_out.x_str);
     source_expand(source, source_curr, source_cap);
     if(op->type_op != op_unary) {
-        const uint64_t x_wait_in = 1;
-        const uint64_t y_wait_in = x_wait_in * op->buffer_in.x_sze;
-        const uint64_t z_wait_in = y_wait_in * op->buffer_in.y_sze;
-        const uint64_t a_wait_in = z_wait_in * op->buffer_in.z_sze;
         *source_curr +=
             snprintf(*source_curr, write_len_max,
                      "const int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
-                     op->buffer_in.name, loop_idx, op_idx, op->buffer_in.off, op->buffer_in.a_sze * a_wait_in,
-                     a_wait_in, op->buffer_in.a_str, a_wait_in, z_wait_in, op->buffer_in.z_str, z_wait_in, y_wait_in,
-                     op->buffer_in.y_str, y_wait_in, x_wait_in, op->buffer_in.x_str);
+                     op->buffer_in.name, loop_idx, op_idx, op->buffer_in.off, dim_info->res_a_in,
+                     dim_info->wai_a_in, dim_info->str_a_in * op->buffer_in.a_str, dim_info->res_z_in,
+                     dim_info->wai_z_in, dim_info->str_z_in * op->buffer_in.z_str, dim_info->res_y_in,
+                     dim_info->wai_y_in, dim_info->str_y_in * op->buffer_in.y_str, dim_info->res_x_in,
+                     dim_info->wai_x_in, dim_info->str_x_in * op->buffer_in.x_str);
         source_expand(source, source_curr, source_cap);
     }
 }
@@ -291,7 +287,7 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                             const uint64_t off_in = op->type_binary < binary_add_like
                                                         ? a_idx * op->buffer_in.a_str + z_idx * op->buffer_in.z_str +
                                                               y_idx * op->buffer_in.y_str + x_idx * op->buffer_in.x_str
-                                                        : 0;
+                                                        : op->buffer_in.off;
                             switch(op->type_binary) {
                                 case binary_add: {
                                     *source_curr += snprintf(
@@ -481,7 +477,7 @@ void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t 
         }
 
         for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
-            source_append_index(&source, &source_curr, &source_cap, &group->op[op_idx], op_idx, loop_idx);
+            source_append_index(&source, &source_curr, &source_cap, &group->op[op_idx], &group->dim_info[op_idx], op_idx, loop_idx);
             source_append_op(&source, &source_curr, &source_cap, &group->op[op_idx], op_idx, loop_idx);
         }
 
