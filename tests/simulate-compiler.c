@@ -8,10 +8,10 @@
 #include <time.h>
 
 #include "../compiler/compile.h"
+#include "../prng/pcg.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
 #include "../utils.h"
-#include "../prng/pcg.h"
 
 /* TODO: Switch to pcg_rand_below() */
 
@@ -459,10 +459,6 @@ int main(int argc, char **argv) {
         printf("Compiler simulation with provided %lu...\n", rng);
     }
     pcg_init(rng);
-
-    for(uint64_t id = 0; id < 2; id++) {
-        printf("%lu\n", 0 + id % 8 / 4 * 27 + id % 4 / 2 * 9 + id % 2 / 1 * 3 + id % 1 / 1 * 1);
-    }
 
     int32_t err;
     cl_device_id device_id = cl_device_get();
