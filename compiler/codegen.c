@@ -287,7 +287,7 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                             const uint64_t off_in = op->type_binary < binary_add_like
                                                         ? a_idx * op->buffer_in.a_str + z_idx * op->buffer_in.z_str +
                                                               y_idx * op->buffer_in.y_str + x_idx * op->buffer_in.x_str
-                                                        : op->buffer_in.off;
+                                                        : 0;
                             switch(op->type_binary) {
                                 case binary_add: {
                                     *source_curr += snprintf(
