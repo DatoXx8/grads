@@ -154,6 +154,42 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
                 }
             }
         }
+        if(!a_left) {
+            group.dim_info[op_idx].res_a_out = 1;
+            group.dim_info[op_idx].str_a_out = 0;
+            group.dim_info[op_idx].wai_a_out = 1;
+        } else {
+            if(!a_reenter) {
+                group.dim_info[op_idx].res_a_out = linearized->op_len;
+            }
+        }
+        if(!z_left) {
+            group.dim_info[op_idx].res_z_out = 1;
+            group.dim_info[op_idx].str_z_out = 0;
+            group.dim_info[op_idx].wai_z_out = 1;
+        } else {
+            if(!z_reenter) {
+                group.dim_info[op_idx].res_z_out = linearized->op_len;
+            }
+        }
+        if(!y_left) {
+            group.dim_info[op_idx].res_y_out = 1;
+            group.dim_info[op_idx].str_y_out = 0;
+            group.dim_info[op_idx].wai_y_out = 1;
+        } else {
+            if(!y_reenter) {
+                group.dim_info[op_idx].res_y_out = linearized->op_len;
+            }
+        }
+        if(!x_left) {
+            group.dim_info[op_idx].res_x_out = 1;
+            group.dim_info[op_idx].str_x_out = 0;
+            group.dim_info[op_idx].wai_x_out = 1;
+        } else {
+            if(!x_reenter) {
+                group.dim_info[op_idx].res_x_out = linearized->op_len;
+            }
+        }
     }
     for(uint64_t op_idx = 1; op_idx < group.op_num; op_idx++) {
         group.dim_info[op_idx].off_in = linearized->op[start_idx + op_idx].buffer_in.off;
@@ -231,6 +267,42 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
                 }
             }
         }
+        if(!a_left) {
+            group.dim_info[op_idx].res_a_in = 1;
+            group.dim_info[op_idx].str_a_in = 0;
+            group.dim_info[op_idx].wai_a_in = 1;
+        } else {
+            if(!a_reenter) {
+                group.dim_info[op_idx].res_a_in = linearized->op_len;
+            }
+        }
+        if(!z_left) {
+            group.dim_info[op_idx].res_z_in = 1;
+            group.dim_info[op_idx].str_z_in = 0;
+            group.dim_info[op_idx].wai_z_in = 1;
+        } else {
+            if(!z_reenter) {
+                group.dim_info[op_idx].res_z_in = linearized->op_len;
+            }
+        }
+        if(!y_left) {
+            group.dim_info[op_idx].res_y_in = 1;
+            group.dim_info[op_idx].str_y_in = 0;
+            group.dim_info[op_idx].wai_y_in = 1;
+        } else {
+            if(!y_reenter) {
+                group.dim_info[op_idx].res_y_in = linearized->op_len;
+            }
+        }
+        if(!x_left) {
+            group.dim_info[op_idx].res_x_in = 1;
+            group.dim_info[op_idx].str_x_in = 0;
+            group.dim_info[op_idx].wai_x_in = 1;
+        } else {
+            if(!x_reenter) {
+                group.dim_info[op_idx].res_x_in = linearized->op_len;
+            }
+        }
     }
 
     return group;
@@ -285,7 +357,8 @@ static void op_group_print(op_group_t *group, int padding, int offset, const cha
 }
 
 const uint64_t arg_cap_min = 1;
-static kernel_t kernel_alloc(const op_group_t *group, const uint64_t size_global, const uint64_t size_local, const uint64_t optimizations) {
+static kernel_t kernel_alloc(const op_group_t *group, const uint64_t size_global, const uint64_t size_local,
+                             const uint64_t optimizations) {
     kernel_t kernel = {0};
 
     /* TODO: Measure if using name offsets is faster despite having to generate the strings from the offsets again */
