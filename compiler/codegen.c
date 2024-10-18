@@ -165,9 +165,6 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                     } else {
                         const uint64_t off_out = a_idx * op->buffer_out.a_str + z_idx * op->buffer_out.z_str +
                                                  y_idx * op->buffer_out.y_str + x_idx * op->buffer_out.x_str;
-                        *source_curr += snprintf(*source_curr, write_len_max, "/*%lu %lu %lu %lu --- %lu %lu %lu %lu*/",
-                                                 op->buffer_out.a_str, op->buffer_out.z_str, op->buffer_out.y_str,
-                                                 op->buffer_out.x_str, a_idx, z_idx, y_idx, x_idx);
                         *source_curr +=
                             snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu + %lu] = ", op->buffer_out.name,
                                      op->buffer_out.name, loop_idx, op_idx, off_out);
