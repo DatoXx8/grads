@@ -53,11 +53,11 @@ cl_program cl_program_build(cl_context context, cl_device_id device, const char 
      * fashion such that this builds faster */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if(err < 0) {
-        printf("%s\n", source);
+        printf("SOURCE: %s\n", source);
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
         program_log = calloc(log_size + 1, sizeof(char));
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size + 1, program_log, NULL);
-        printf("%s\n", program_log);
+        printf("LOG: %s\n", program_log);
         free(program_log);
         ERROR("Could not build OpenCL program!\nError %d\n", err);
     }
@@ -83,6 +83,7 @@ void program_run(program_t *program) {
             }
             clFinish(*program->cl_command_queue);
         }
+        // printf("[%lu] `%s`\n", kernel_idx, program->kernel[kernel_idx].source);
         clEnqueueNDRangeKernel(*program->cl_command_queue, program->kernel[kernel_idx].cl_kernel, 1, NULL,
                                (size_t *) &program->global_size, (size_t *) &program->local_size, 0, NULL, NULL);
         clFinish(*program->cl_command_queue);
