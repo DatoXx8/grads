@@ -33,7 +33,18 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
 
     uint64_t op_num = 0;
     for(uint64_t op_off = 1; op_off + start_idx < linearized->op_len; op_off++) {
-        if(op_equal(&linearized->op[start_idx], &linearized->op[start_idx + op_off])) {
+        /* TODO: Stop
+            [16] <0x34c10490> U abs {1, 1, 1, 1} 0 [naaaaaaaaaaaaaaa]
+            [17] <0x34c10618> U add {1, 1, 1, 1} 0 1.000000 [naaaaaaaaaaaaaaa]
+            [18] <0x34c107a0> L div {3, 3, 2, 2} 0 < {1, 1, 1, 1} 0 [xaaaaaaaaaaaaaaa] [naaaaaaaaaaaaaaa]
+            [19] <0x34c10928> U abs {1, 1, 1, 1} 0 [naaaaaaaaaaaaaaa]
+            [20] <0x34c10ab0> U add {1, 1, 1, 1} 0 1.000000 [naaaaaaaaaaaaaaa]
+            [21] <0x34c10c38> L div {3, 3, 2, 2} 0 < {1, 1, 1, 1} 0 [xaaaaaaaaaaaaaaa] [naaaaaaaaaaaaaaa]
+            from getting paralellized */
+        /* TODO: I don't think this is a full fix for the issue outlined above because a later op in the loop could have
+         * the same offset as well */
+        if(op_equal(&linearized->op[start_idx], &linearized->op[start_idx + op_off]) &&
+           linearized->op[start_idx].buffer_out.off != linearized->op[start_idx + op_off].buffer_out.off) {
             uint64_t all_same = 1;
             /* No point in the checking inner_off = 0 since that is guaranteed to be true by the if statement above */
             for(uint64_t inner_off = 1; inner_off < op_off; inner_off++) {
