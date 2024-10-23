@@ -123,11 +123,11 @@ static void source_append_index(char **source, char **source_curr, uint64_t *sou
         *source_curr +=
             snprintf(*source_curr, write_len_max,
                      "const int %s_%lu_%lu = %lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu+id%%%lu/%lu*%lu;\n",
-                     op->buffer_in.name, loop_idx, op_idx, op->buffer_in.off, dim_info->res_a_in,
-                     dim_info->wai_a_in, dim_info->str_a_in * op->buffer_in.a_str, dim_info->res_z_in,
-                     dim_info->wai_z_in, dim_info->str_z_in * op->buffer_in.z_str, dim_info->res_y_in,
-                     dim_info->wai_y_in, dim_info->str_y_in * op->buffer_in.y_str, dim_info->res_x_in,
-                     dim_info->wai_x_in, dim_info->str_x_in * op->buffer_in.x_str);
+                     op->buffer_in.name, loop_idx, op_idx, op->buffer_in.off, dim_info->res_a_in, dim_info->wai_a_in,
+                     dim_info->str_a_in * op->buffer_in.a_str, dim_info->res_z_in, dim_info->wai_z_in,
+                     dim_info->str_z_in * op->buffer_in.z_str, dim_info->res_y_in, dim_info->wai_y_in,
+                     dim_info->str_y_in * op->buffer_in.y_str, dim_info->res_x_in, dim_info->wai_x_in,
+                     dim_info->str_x_in * op->buffer_in.x_str);
         source_expand(source, source_curr, source_cap);
     }
 }
@@ -148,9 +148,29 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
     const uint64_t z_sze = op->type_op == op_reduce ? op->buffer_in.z_sze : op->buffer_out.z_sze;
     const uint64_t a_sze = op->type_op == op_reduce ? op->buffer_in.a_sze : op->buffer_out.a_sze;
 
-    if(op->type_op == op_reduce && op->type_reduce == reduce_avg) {
-        *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = 0;\n", op->buffer_out.name,
-                                 op->buffer_out.name, loop_idx, op_idx);
+    if(op->type_op == op_reduce) {
+        switch(op->type_reduce) {
+            case reduce_avg: {
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = 0;\n", op->buffer_out.name,
+                                         op->buffer_out.name, loop_idx, op_idx);
+                break;
+            }
+            case reduce_sum: {
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = 0;\n", op->buffer_out.name,
+                                         op->buffer_out.name, loop_idx, op_idx);
+                break;
+            }
+            case reduce_max: {
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = -INFINITY;\n", op->buffer_out.name,
+                                         op->buffer_out.name, loop_idx, op_idx);
+                break;
+            }
+            case reduce_min: {
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = INFINITY;\n", op->buffer_out.name,
+                                         op->buffer_out.name, loop_idx, op_idx);
+                break;
+            }
+        }
         source_expand(source, source_curr, source_cap);
     }
 
@@ -474,7 +494,8 @@ void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t 
         }
 
         for(uint64_t op_idx = 0; op_idx < group->op_num; op_idx++) {
-            source_append_index(&source, &source_curr, &source_cap, &group->op[op_idx], &group->dim_info[op_idx], op_idx, loop_idx);
+            source_append_index(&source, &source_curr, &source_cap, &group->op[op_idx], &group->dim_info[op_idx],
+                                op_idx, loop_idx);
             source_append_op(&source, &source_curr, &source_cap, &group->op[op_idx], op_idx, loop_idx);
         }
 
