@@ -40,4 +40,11 @@ extern uint64_t time_ns_load(const uint64_t id);
         fprintf(stderr, "INFO: " __VA_ARGS__);                                                                         \
     }
 
+#define ASSERT_MSG(condition, ...)                                                                                     \
+    if(!(condition)) {                                                                                                 \
+        fprintf(stderr, "Assertion failure: " __VA_ARGS__);                                                            \
+        fprintf("in %s at line %d at %s %s.\n", __FILE__, __LINE__, __DATE__, __TIME__);                               \
+        exit(1);                                                                                                       \
+    }
+
 #endif
