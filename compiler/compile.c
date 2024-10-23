@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,26 @@
 #include "codegen.h"
 #include "compile.h"
 
-static inline uint64_t op_equal(const op_t *op1, const op_t *op2) {
+/* TODO: Implement branchless
+ * https://www.geeksforgeeks.org/compute-the-minimum-or-maximum-max-of-two-integers-without-branching/ */
+
+static inline uint64_t max_u64(const uint64_t a, const uint64_t x) {
+    if(a > x) {
+        return a;
+    } else {
+        return x;
+    }
+}
+
+static inline uint64_t min_u64(const uint64_t a, const uint64_t x) {
+    if(a < x) {
+        return a;
+    } else {
+        return x;
+    }
+}
+
+static inline bool op_equal(const op_t *op1, const op_t *op2) {
     assert(op1);
     assert(op2);
     /* I don't think memcmp works here because I think the offsets being irrelevant would mess that up */
@@ -24,6 +44,42 @@ static inline uint64_t op_equal(const op_t *op1, const op_t *op2) {
            op1->buffer_in.y_sze == op2->buffer_in.y_sze && op1->buffer_in.x_sze == op2->buffer_in.x_sze;
 }
 
+/* This only really makes sense if the ops are equal by op_equal */
+static inline bool op_overlaps(const op_t *op1, const op_t *op2) {
+    assert(op1);
+    assert(op2);
+    /* TODO: Implement this for different sizes */
+    assert(op1->buffer_out.a_sze == op2->buffer_out.a_sze);
+    assert(op1->buffer_out.z_sze == op2->buffer_out.z_sze);
+    assert(op1->buffer_out.y_sze == op2->buffer_out.y_sze);
+    assert(op1->buffer_out.x_sze == op2->buffer_out.x_sze);
+
+    const uint64_t a_1 = op1->buffer_out.a_off + 1;
+    const uint64_t z_1 = op1->buffer_out.z_off + 1;
+    const uint64_t y_1 = op1->buffer_out.y_off + 1;
+    const uint64_t x_1 = op1->buffer_out.x_off + 1;
+
+    const uint64_t a_2 = op2->buffer_out.a_off + 1;
+    const uint64_t z_2 = op2->buffer_out.z_off + 1;
+    const uint64_t y_2 = op2->buffer_out.y_off + 1;
+    const uint64_t x_2 = op2->buffer_out.x_off + 1;
+
+    /* For right now both buffers have to have the same size so it doesn't matter which we choose here */
+    const uint64_t a_sze = op2->buffer_out.a_sze;
+    const uint64_t z_sze = op2->buffer_out.z_sze;
+    const uint64_t y_sze = op2->buffer_out.y_sze;
+    const uint64_t x_sze = op2->buffer_out.x_sze;
+
+    // if(op1->buffer_out.off == op2->buffer_out.off) {
+    //     return true;
+    // }
+
+    return max_u64(a_1, a_2) - min_u64(a_1, a_2) < op1->buffer_out.a_sze &&
+           max_u64(z_1, z_2) - min_u64(z_1, z_2) < op1->buffer_out.z_sze &&
+           max_u64(y_1, y_2) - min_u64(y_1, y_2) < op1->buffer_out.y_sze &&
+           max_u64(x_1, x_2) - min_u64(x_1, x_2) < op1->buffer_out.x_sze;
+}
+
 static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t start_idx, uint64_t *op_used) {
     assert(linearized);
     assert(start_idx < linearized->op_len);
@@ -33,22 +89,15 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
 
     uint64_t op_num = 0;
     for(uint64_t op_off = 1; op_off + start_idx < linearized->op_len; op_off++) {
-        /* TODO: Stop
-            [16] <0x34c10490> U abs {1, 1, 1, 1} 0 [naaaaaaaaaaaaaaa]
-            [17] <0x34c10618> U add {1, 1, 1, 1} 0 1.000000 [naaaaaaaaaaaaaaa]
-            [18] <0x34c107a0> L div {3, 3, 2, 2} 0 < {1, 1, 1, 1} 0 [xaaaaaaaaaaaaaaa] [naaaaaaaaaaaaaaa]
-            [19] <0x34c10928> U abs {1, 1, 1, 1} 0 [naaaaaaaaaaaaaaa]
-            [20] <0x34c10ab0> U add {1, 1, 1, 1} 0 1.000000 [naaaaaaaaaaaaaaa]
-            [21] <0x34c10c38> L div {3, 3, 2, 2} 0 < {1, 1, 1, 1} 0 [xaaaaaaaaaaaaaaa] [naaaaaaaaaaaaaaa]
-            from getting paralellized */
-        /* TODO: I don't think this is a full fix for the issue outlined above because a later op in the loop could have
-         * the same offset as well */
         if(op_equal(&linearized->op[start_idx], &linearized->op[start_idx + op_off]) &&
-           linearized->op[start_idx].buffer_out.off != linearized->op[start_idx + op_off].buffer_out.off) {
+           !op_overlaps(&linearized->op[start_idx], &linearized->op[start_idx + op_off])) {
+
             uint64_t all_same = 1;
             /* No point in the checking inner_off = 0 since that is guaranteed to be true by the if statement above */
             for(uint64_t inner_off = 1; inner_off < op_off; inner_off++) {
-                if(!op_equal(&linearized->op[start_idx + inner_off], &linearized->op[start_idx + op_off + inner_off])) {
+                if((!op_equal(&linearized->op[start_idx + inner_off],
+                              &linearized->op[start_idx + op_off + inner_off])) ||
+                   op_overlaps(&linearized->op[start_idx], &linearized->op[start_idx + op_off])) {
                     all_same = 0;
                     break;
                 }
@@ -563,3 +612,46 @@ void program_free(program_t *program) {
     program->local_size = 0;
     program->global_size = 0;
 }
+
+/* This only really makes sense if the ops are equal by op_equal */
+// static inline bool op_overlaps(const op_t *op1, const op_t *op2) {
+//     assert(op1);
+//     assert(op2);
+//     if(op1->buffer_out.a_off < op2->buffer_out.a_off) {
+//         if(op1->buffer_out.a_off + op1->buffer_out.a_sze > op2->buffer_out.a_off) {
+//             return true;
+//         }
+//     } else if(op1->buffer_out.a_off > op2->buffer_out.a_off) {
+//         if(op1->buffer_out.a_off > op2->buffer_out.a_off + op2->buffer_out.a_sze) {
+//             return true;
+//         }
+//     }
+//     if(op1->buffer_out.z_off < op2->buffer_out.z_off) {
+//         if(op1->buffer_out.z_off + op1->buffer_out.z_sze > op2->buffer_out.z_off) {
+//             return true;
+//         }
+//     } else if(op1->buffer_out.z_off > op2->buffer_out.z_off) {
+//         if(op1->buffer_out.z_off > op2->buffer_out.z_off + op2->buffer_out.z_sze) {
+//             return true;
+//         }
+//     }
+//     if(op1->buffer_out.y_off < op2->buffer_out.y_off) {
+//         if(op1->buffer_out.y_off + op1->buffer_out.y_sze > op2->buffer_out.y_off) {
+//             return true;
+//         }
+//     } else if(op1->buffer_out.y_off > op2->buffer_out.y_off) {
+//         if(op1->buffer_out.y_off > op2->buffer_out.y_off + op2->buffer_out.y_sze) {
+//             return true;
+//         }
+//     }
+//     if(op1->buffer_out.x_off < op2->buffer_out.x_off) {
+//         if(op1->buffer_out.x_off + op1->buffer_out.x_sze > op2->buffer_out.x_off) {
+//             return true;
+//         }
+//     } else if(op1->buffer_out.x_off > op2->buffer_out.x_off) {
+//         if(op1->buffer_out.x_off > op2->buffer_out.x_off + op2->buffer_out.x_sze) {
+//             return true;
+//         }
+//     }
+//     return false;
+// }
