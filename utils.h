@@ -27,15 +27,23 @@ extern uint64_t time_ns_load(const uint64_t id);
     ERROR("Reached `UNREACHABLE()` in %s at line %d at %s %s\n", __FILE__, __LINE__, __DATE__, __TIME__);
 
 #define TODO()                                                                                                         \
-    ERROR("Tried to execute not implemented feature at line %d in file %s\n", __LINE__, __FILE__);             \
+    ERROR("Tried to execute not implemented feature at line %d in file %s\n", __LINE__, __FILE__);                     \
     exit(1);
+
 #define WARN(...)                                                                                                      \
     if(getenv("LOGGER") && getenv("LOGGER")[0] >= '1') {                                                               \
         fprintf(stderr, "WARN: " __VA_ARGS__);                                                                         \
     }
+
 #define INFO(...)                                                                                                      \
     if(getenv("LOGGER") && getenv("LOGGER")[0] >= '2') {                                                               \
         fprintf(stderr, "INFO: " __VA_ARGS__);                                                                         \
+    }
+
+#define ASSERT_MSG(condition, msg)                                                                                     \
+    if(!(condition)) {                                                                                                 \
+        ERROR("Assertion failure in %s at line %d at %s %s with message:\n" msg "\n", __FILE__, __LINE__, __DATE__,    \
+              __TIME__);                                                                                               \
     }
 
 #endif
