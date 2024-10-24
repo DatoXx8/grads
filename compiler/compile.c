@@ -112,8 +112,19 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
     }
     if(op_num) {
         uint64_t group_num = 1;
-        for(uint64_t op_off = op_num; op_off < linearized->op_len - start_idx; op_off += op_num) {
-            if(op_equal(&linearized->op[start_idx], &linearized->op[start_idx + op_off])) {
+        for(uint64_t op_off = op_num; op_off < linearized->op_len - start_idx - op_num; op_off += op_num) {
+            /* TODO: Refactor this. There *has* to be a nice way to do this in one loop without having to do a slow
+             * modulo */
+            uint64_t all_equal = 1;
+            for(uint64_t inner_off = 0; inner_off < op_num; inner_off++) {
+                if(op_equal(&linearized->op[start_idx + inner_off], &linearized->op[start_idx + op_off + inner_off])) {
+                    continue;
+                } else {
+                    all_equal = 0;
+                    break;
+                }
+            }
+            if(all_equal) {
                 group_num++;
             } else {
                 break;
