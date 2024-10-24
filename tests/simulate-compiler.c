@@ -409,10 +409,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
             for(uint64_t y = 0; y < DIM_SZE; y++) {
                 for(uint64_t x = 0; x < DIM_SZE; x++) {
                     /* Both isnan and isinf should be xnor I guess */
-                    assert(!isnan(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isnan(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isinf(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isinf(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
+                    assert(isnan(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) ==
+                           isnan(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
+                    assert(isinf(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) ==
+                           isinf(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
                     if(fabs(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x) -
                             BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) > margin_of_error) {
                         if(fabs(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x) /
@@ -447,6 +447,7 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
 int main(int argc, char **argv) {
     assert(argc == 1 || argc == 3); /* 0 or 2 args but since argv[0] is the program name this is 1 and 3 */
     uint64_t rng;
+    /* TODO: Do a --loop options that loops this test while reseeding every time and increasing the seed by 1. */
     if(argc == 1) {
         /* TODO: Use rng seed from /dev/random */
         rng = time(NULL);
