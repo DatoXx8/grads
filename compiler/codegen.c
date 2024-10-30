@@ -161,13 +161,13 @@ static void source_append_op(char **source, char **source_curr, uint64_t *source
                 break;
             }
             case reduce_max: {
-                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = -INFINITY;\n", op->buffer_out.name,
-                                         op->buffer_out.name, loop_idx, op_idx);
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = -INFINITY;\n",
+                                         op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx);
                 break;
             }
             case reduce_min: {
-                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = INFINITY;\n", op->buffer_out.name,
-                                         op->buffer_out.name, loop_idx, op_idx);
+                *source_curr += snprintf(*source_curr, write_len_max, "%s[%s_%lu_%lu] = INFINITY;\n",
+                                         op->buffer_out.name, op->buffer_out.name, loop_idx, op_idx);
                 break;
             }
         }
@@ -477,7 +477,7 @@ void compile_op_group(kernel_t *kernel, const op_group_t *group, const uint64_t 
     source_append_head(&source, &source_curr, &source_cap);
 
     const uint64_t loop_leftover = group->repeat_num % size_global;
-    const uint64_t loop_num = group->repeat_num / size_global + loop_leftover ? 1 : 0;
+    const uint64_t loop_num = group->repeat_num / size_global + (loop_leftover ? 1 : 0);
     for(uint64_t loop_idx = 0; loop_idx < loop_num; loop_idx++) {
         const uint64_t is_conditional = loop_leftover && loop_idx == loop_num - 1;
         if(is_conditional) {
