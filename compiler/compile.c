@@ -93,7 +93,7 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
            !op_overlaps(&linearized->op[start_idx], &linearized->op[start_idx + op_off])) {
 
             uint64_t all_same = 1;
-            /* No point in the checking inner_off = 0 since that is guaranteed to be true by the if statement above */
+            /* No point in the checking inner_off = 0 since that is guaranteed to be true */
             for(uint64_t inner_off = 1; inner_off < op_off; inner_off++) {
                 if((!op_equal(&linearized->op[start_idx + inner_off],
                               &linearized->op[start_idx + op_off + inner_off])) ||
@@ -112,7 +112,7 @@ static op_group_t op_group_alloc(const linearized_t *linearized, const uint64_t 
     }
     if(op_num) {
         uint64_t group_num = 1;
-        for(uint64_t op_off = op_num; op_off < linearized->op_len - start_idx - op_num; op_off += op_num) {
+        for(uint64_t op_off = op_num; op_off < linearized->op_len - op_num - start_idx + 1; op_off += op_num) {
             /* TODO: Refactor this. There *has* to be a nice way to do this in one loop without having to do a slow
              * modulo */
             uint64_t all_equal = 1;
