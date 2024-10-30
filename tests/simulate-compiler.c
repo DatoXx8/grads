@@ -7,10 +7,13 @@
 #include <string.h>
 #include <time.h>
 
-#include "../compile.h"
+#include "../compiler/compile.h"
+#include "../prng/pcg.h"
 #include "../runtimes/cl.h"
 #include "../tensor.h"
 #include "../utils.h"
+
+/* TODO: Switch to pcg_rand_below() */
 
 #define RANDOM_MAX_TRIES 100ul
 const uint64_t DIM_SZE = 3;
@@ -18,7 +21,7 @@ const double EPSILON = 1e-3;
 const double MARGIN_OF_ERROR = 1e-4; /* 0.01% max error */
 #define TENSOR_NUM 16ul
 #define MAX_LOOPS 4096ul
-#define OP_NUM 6ul
+#define OP_NUM 50ul
 #define SWITCH_ODS ((double) 1 / (double) 16)
 static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id *device_id, cl_context *context,
                               cl_command_queue *command_queue) {
@@ -31,8 +34,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     assert(command_queue);
     assert(*command_queue);
 
-    uint64_t a_off, z_off, y_off, x_off;
-    uint64_t a_sze, z_sze, y_sze, x_sze;
     op_e bp_type[OP_NUM];
     unary_e bp_unary[OP_NUM];
     double bp_val[OP_NUM];
@@ -41,10 +42,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     uint64_t bp_out_idx[OP_NUM];
     uint64_t bp_in_idx[OP_NUM];
 
-    uint64_t bp_base_out = rand() % TENSOR_NUM;
+    uint64_t bp_base_out = pcg_rand() % TENSOR_NUM;
     uint64_t bp_base_in;
     for(uint64_t rand_idx = 0; rand_idx < RANDOM_MAX_TRIES; rand_idx++) {
-        bp_base_in = rand() % TENSOR_NUM;
+        bp_base_in = pcg_rand() % TENSOR_NUM;
         if(bp_base_in != bp_base_out) {
             break;
         }
@@ -54,23 +55,23 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
     bp_in_idx[0] = bp_base_in;
 
     /* This is up here to make sure that I can reduce the number of ops and that is the only thing that changes */
-    const uint64_t size_a = rand() % DIM_SZE + 1;
-    const uint64_t size_z = rand() % DIM_SZE + 1;
-    const uint64_t size_y = rand() % DIM_SZE + 1;
-    const uint64_t size_x = rand() % DIM_SZE + 1;
+    const uint64_t a_size = pcg_rand() % DIM_SZE + 1;
+    const uint64_t z_size = pcg_rand() % DIM_SZE + 1;
+    const uint64_t y_size = pcg_rand() % DIM_SZE + 1;
+    const uint64_t x_size = pcg_rand() % DIM_SZE + 1;
 
-    const uint64_t a_loop = size_a == DIM_SZE ? 1 : rand() % (DIM_SZE - size_a) + 1;
-    const uint64_t z_loop = size_z == DIM_SZE ? 1 : rand() % (DIM_SZE - size_z) + 1;
-    const uint64_t y_loop = size_y == DIM_SZE ? 1 : rand() % (DIM_SZE - size_y) + 1;
-    const uint64_t x_loop = size_x == DIM_SZE ? 1 : rand() % (DIM_SZE - size_x) + 1;
+    const uint64_t a_loop = a_size == DIM_SZE ? 1 : pcg_rand() % (DIM_SZE - a_size) + 1;
+    const uint64_t z_loop = z_size == DIM_SZE ? 1 : pcg_rand() % (DIM_SZE - z_size) + 1;
+    const uint64_t y_loop = y_size == DIM_SZE ? 1 : pcg_rand() % (DIM_SZE - y_size) + 1;
+    const uint64_t x_loop = x_size == DIM_SZE ? 1 : pcg_rand() % (DIM_SZE - x_size) + 1;
 
     for(uint64_t op_idx = 0; op_idx < OP_NUM; op_idx++) {
         if(op_idx) {
-            const double switch_tensor = ((double) rand()) / RAND_MAX;
+            const double switch_tensor = ((double) pcg_rand()) / RAND_MAX;
             if(switch_tensor <= SWITCH_ODS) {
                 bp_in_idx[op_idx] = bp_out_idx[op_idx - 1];
                 for(uint64_t rand_idx = 0; rand_idx < RANDOM_MAX_TRIES; rand_idx++) {
-                    bp_out_idx[op_idx] = rand() % TENSOR_NUM;
+                    bp_out_idx[op_idx] = pcg_rand() % TENSOR_NUM;
                     if(bp_out_idx[op_idx] != bp_in_idx[op_idx]) {
                         break;
                     }
@@ -81,46 +82,40 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                 bp_in_idx[op_idx] = bp_in_idx[op_idx - 1];
             }
 
-            bp_type[op_idx] = rand() % 2;
+            bp_type[op_idx] = pcg_rand() % 2;
             switch(bp_type[op_idx]) {
                 case op_unary: {
-                    bp_unary[op_idx] = rand() % 16;
+                    bp_unary[op_idx] = pcg_rand() % 16;
                     if(bp_unary[op_idx] == unary_divide) {
-                        bp_val[op_idx] = ((double) rand() / RAND_MAX) + 1;
+                        bp_val[op_idx] = ((double) pcg_rand() / RAND_MAX) + 1;
                     } else {
-                        bp_val[op_idx] = 2 * ((double) rand() / RAND_MAX) - 1;
+                        bp_val[op_idx] = 2 * ((double) pcg_rand() / RAND_MAX) - 1;
                     }
                     break;
                 }
                 case op_binary: {
-                    bp_binary[op_idx] = rand() % 14;
+                    bp_binary[op_idx] = pcg_rand() % 14;
                     break;
                 }
                 case op_reduce: {
                     ERROR("Op move is invalid for ops other than the first in `simulate_compiler()`\n");
                 }
-                case op_move: {
-                    ERROR("Op move is invalid in `simulate_compiler()`\n");
-                }
             }
         } else {
-            bp_type[0] = rand() % 3;
+            bp_type[0] = pcg_rand() % 3;
             switch(bp_type[0]) {
                 case op_unary: {
-                    bp_unary[0] = rand() % 16;
-                    bp_val[0] = ((double) rand() / RAND_MAX) + 1;
+                    bp_unary[0] = pcg_rand() % 16;
+                    bp_val[0] = ((double) pcg_rand() / RAND_MAX) + 1;
                     break;
                 }
                 case op_binary: {
-                    bp_binary[0] = rand() % 14;
+                    bp_binary[0] = pcg_rand() % 14;
                     break;
                 }
                 case op_reduce: {
-                    bp_reduce[0] = rand() % 4;
+                    bp_reduce[0] = pcg_rand() % 4;
                     break;
-                }
-                case op_move: {
-                    ERROR("Op move is invalid in `simulate_compiler()`\n");
                 }
             }
         }
@@ -129,10 +124,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         for(uint64_t z_idx = 0; z_idx < z_loop; z_idx++) {
             for(uint64_t y_idx = 0; y_idx < y_loop; y_idx++) {
                 for(uint64_t x_idx = 0; x_idx < x_loop; x_idx++) {
-                    for(uint64_t op_idx = 0; op_idx < OP_NUM - 4; op_idx++) {
+                    for(uint64_t op_idx = 0; op_idx < OP_NUM; op_idx++) {
                         if(bp_type[op_idx] == op_binary && bp_binary[op_idx] < binary_add_like) {
-                            tensor_move_resize(&tensor1[bp_in_idx[op_idx]], size_a, size_z, size_y, size_x);
-                            tensor_move_resize(&tensor2[bp_in_idx[op_idx]], size_a, size_z, size_y, size_x);
+                            tensor_move_resize(&tensor1[bp_in_idx[op_idx]], a_size, z_size, y_size, x_size);
+                            tensor_move_resize(&tensor2[bp_in_idx[op_idx]], a_size, z_size, y_size, x_size);
                         } else {
                             tensor_move_resize(&tensor1[bp_in_idx[op_idx]], 1, 1, 1, 1);
                             tensor_move_resize(&tensor2[bp_in_idx[op_idx]], 1, 1, 1, 1);
@@ -142,8 +137,8 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                             tensor_move_resize(&tensor1[bp_out_idx[op_idx]], 1, 1, 1, 1);
                             tensor_move_resize(&tensor2[bp_out_idx[op_idx]], 1, 1, 1, 1);
                         } else {
-                            tensor_move_resize(&tensor1[bp_out_idx[op_idx]], size_a, size_z, size_y, size_x);
-                            tensor_move_resize(&tensor2[bp_out_idx[op_idx]], size_a, size_z, size_y, size_x);
+                            tensor_move_resize(&tensor1[bp_out_idx[op_idx]], a_size, z_size, y_size, x_size);
+                            tensor_move_resize(&tensor2[bp_out_idx[op_idx]], a_size, z_size, y_size, x_size);
                         }
 
                         tensor_move_offset(&tensor1[bp_out_idx[op_idx]], a_idx, z_idx, y_idx, x_idx);
@@ -377,9 +372,6 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
                                 }
                                 break;
                             }
-                            case op_move: {
-                                UNREACHABLE();
-                            }
                         }
                     }
                 }
@@ -387,11 +379,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
         }
     }
 
-    // LINEARIZED_PRINT_(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
     // LINEARIZED_PRINT_(tensor2[bp_out_idx[OP_NUM - 1]].linearized);
     linearized_run(tensor1[bp_out_idx[OP_NUM - 1]].linearized);
-    program_t program = {0};
-    program_compile(&program, tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
+    program_t program =
+        program_compile(tensor2[bp_out_idx[OP_NUM - 1]].linearized, device_id, context, command_queue, 9, 9);
     // for(uint64_t kernel_idx = 0; kernel_idx < program.kernel_num; kernel_idx++) {
     //     printf("%s\n", program.kernel[kernel_idx].source);
     // }
@@ -418,10 +409,10 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
             for(uint64_t y = 0; y < DIM_SZE; y++) {
                 for(uint64_t x = 0; x < DIM_SZE; x++) {
                     /* Both isnan and isinf should be xnor I guess */
-                    assert(!isnan(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isnan(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isinf(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
-                    assert(!isinf(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
+                    assert(isnan(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) ==
+                           isnan(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
+                    assert(isinf(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) ==
+                           isinf(BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)));
                     if(fabs(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x) -
                             BUFFER_AT_(tensor2[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x)) > margin_of_error) {
                         if(fabs(BUFFER_AT_(tensor1[bp_out_idx[OP_NUM - 1]].buffer, a, z, y, x) /
@@ -455,18 +446,20 @@ static void simulate_compiler(tensor_t *tensor1, tensor_t *tensor2, cl_device_id
 
 int main(int argc, char **argv) {
     assert(argc == 1 || argc == 3); /* 0 or 2 args but since argv[0] is the program name this is 1 and 3 */
-    uint32_t rng;
+    uint64_t rng;
+    /* TODO: Do a --loop options that loops this test while reseeding every time and increasing the seed by 1. */
     if(argc == 1) {
+        /* TODO: Use rng seed from /dev/random */
         rng = time(NULL);
-        printf("Compiler simulation with random %u...\n", rng);
+        printf("Compiler simulation with random %lu...\n", rng);
     } else {
         if(strncmp(argv[1], "--rng", 5) != 0) {
             ERROR("Expected second argument to be `--rng` but got `%s`\n", argv[1]);
         }
-        rng = (uint32_t) strtoul(argv[2], NULL, 10);
-        printf("Compiler simulation with provided %u...\n", rng);
+        rng = strtoull(argv[2], NULL, 10);
+        printf("Compiler simulation with provided %lu...\n", rng);
     }
-    srand(rng);
+    pcg_init(rng);
 
     int32_t err;
     cl_device_id device_id = cl_device_get();
@@ -480,16 +473,15 @@ int main(int argc, char **argv) {
     assert(tensor1);
     assert(tensor2);
     for(uint64_t tensor_idx = 0; tensor_idx < TENSOR_NUM; tensor_idx++) {
-        /* This variation is to test wether indexing still works correctly with offsets and different sizes */
-        const uint64_t a_size = DIM_SZE + rand() % 3;
-        const uint64_t z_size = DIM_SZE + rand() % 3;
-        const uint64_t y_size = DIM_SZE + rand() % 3;
-        const uint64_t x_size = DIM_SZE + rand() % 3;
+        const uint64_t a_size = DIM_SZE + pcg_rand() % 3;
+        const uint64_t z_size = DIM_SZE + pcg_rand() % 3;
+        const uint64_t y_size = DIM_SZE + pcg_rand() % 3;
+        const uint64_t x_size = DIM_SZE + pcg_rand() % 3;
         /* TODO: Make make random offsets */
         tensor1[tensor_idx] = tensor_alloc(a_size, z_size, y_size, x_size, context);
         tensor2[tensor_idx] = tensor_alloc(a_size, z_size, y_size, x_size, context);
         for(uint64_t val_idx = 0; val_idx < a_size * z_size * y_size * x_size; val_idx++) {
-            tensor1[tensor_idx].buffer->val[val_idx] = 2 * (double) rand() / (double) RAND_MAX - 1;
+            tensor1[tensor_idx].buffer->val[val_idx] = 2 * (double) pcg_rand() / (double) RAND_MAX - 1;
             tensor2[tensor_idx].buffer->val[val_idx] = tensor1[tensor_idx].buffer->val[val_idx];
             tensor1[tensor_idx].buffer->val[val_idx] = 1;
             tensor2[tensor_idx].buffer->val[val_idx] = tensor1[tensor_idx].buffer->val[val_idx];

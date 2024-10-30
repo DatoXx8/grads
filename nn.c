@@ -5,11 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "compile.h"
+#include "compiler/compile.h"
 #include "nn.h"
 #include "runtimes/cl.h"
 #include "tensor.h"
 #include "utils.h"
+
+/* TODO: For things like dense_forward I think the dense_t thing should be const */
 
 static activation_t activation_alloc(const activation_e activation_type, const uint64_t a, const uint64_t z,
                                      const uint64_t y, const uint64_t x, cl_context context) {
@@ -217,7 +219,7 @@ static void norm_calculate_layer(norm_t *norm, tensor_t *tensor) {
     tensor_unary_add(norm->layer_variance, EPSILON);
     tensor_unary_sqrt(norm->layer_variance);
 }
-/* This ones tricky. Even the function signature isn't obvious */
+/* TODO: This ones tricky. Even the function signature isn't obvious */
 static void norm_calculate_batch(void) {}
 static void norm_apply(norm_t *norm, tensor_t *tensor) {
     assert(norm);
@@ -667,7 +669,7 @@ reduce_t reduce_alloc(const layer_reduce_e type, const uint64_t input_z, const u
 
     return reduce;
 }
-void reduce_forward(tensor_t *input, const reduce_t *reduce, tensor_t *output) {
+void reduce_forward(tensor_t *input, reduce_t *reduce, tensor_t *output) {
     assert(input);
     assert(reduce);
     assert(output);
@@ -1432,12 +1434,12 @@ neuralnet_t neuralnet_alloc(const uint64_t layers, layerconfig_t *layerconfig, c
         const uint64_t LOCAL_SIZE;
         clGetDeviceInfo(*device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(uint64_t), (uint64_t *) &LOCAL_SIZE, NULL);
         const uint64_t GLOBAL_SIZE = LOCAL_SIZE * 1;
-        program_compile(&neuralnet.forward_cl, neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
-        program_compile(&neuralnet.backward_cl, neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
-        program_compile(&neuralnet.learn_cl, neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE,
-                        LOCAL_SIZE);
+        neuralnet.forward_cl =
+            program_compile(neuralnet.forward, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
+        neuralnet.backward_cl =
+            program_compile(neuralnet.backward, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
+        neuralnet.learn_cl =
+            program_compile(neuralnet.learn, device_id, context, command_queue, GLOBAL_SIZE, LOCAL_SIZE);
     } else {
         free(device_id);
         free(context);
