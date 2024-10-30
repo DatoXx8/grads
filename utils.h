@@ -1,6 +1,6 @@
 /* Bunch of small macros and the like */
-#ifndef CGRAD_UTILS_H_
-#define CGRAD_UTILS_H_
+#ifndef GRADS_UTILS_H_
+#define GRADS_UTILS_H_
 
 #include "math.h"
 #include <stdint.h>

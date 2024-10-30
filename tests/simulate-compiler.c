@@ -477,7 +477,7 @@ int main(int argc, char **argv) {
         const uint64_t z_size = DIM_SZE + pcg_rand() % 3;
         const uint64_t y_size = DIM_SZE + pcg_rand() % 3;
         const uint64_t x_size = DIM_SZE + pcg_rand() % 3;
-        /* TODO: Make make random offsets */
+        /* TODO: Make random offsets */
         tensor1[tensor_idx] = tensor_alloc(a_size, z_size, y_size, x_size, context);
         tensor2[tensor_idx] = tensor_alloc(a_size, z_size, y_size, x_size, context);
         for(uint64_t val_idx = 0; val_idx < a_size * z_size * y_size * x_size; val_idx++) {
