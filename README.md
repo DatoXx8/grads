@@ -1,10 +1,10 @@
-# Z Grad
+# Grads
 
-Z Grad is a deep learning framework written in C. It is mainly a recreational project, though you can use it if you like.
+Grads is a deep learning framework written in C. It is mainly a recreational project, though you can use it if you like.
 It is essentialy an optimizing transpiler to OpenCL.
 
 ## WARNING:
-In the future this will probably be ported to Zig and the C version will likely be abandoned at that point.
+ gn the future this will probably be ported to Zig and the C version will likely be abandoned at that point.
 
 ## Dependencies
 
@@ -17,11 +17,11 @@ Right now, there are only 3 dependencies:
 
 1. Copy this repository as a subdirectory of your main project. You can do this by using the following command in the directory of your project:
 ``` sh
-git clone https://github.com/DatoXx8/zgrad.git
+git clone https://github.com/DatoXx8/grads.git
 ```
 2. Add all the `.c` files to your compile step, which could look as following:
 ``` sh
-clang main.c [your files] ./zgrad/tensor.c ./zgrad/nn.c ./zgrad/compiler/codegen.c ./zgrad/compiler/compile.c ./zgrad/runtimes/cl.c -o grad -O3 -lm -lOpenCL -Wall -Wextra -pedantic
+clang main.c [your files] ./grads/tensor.c ./grads/nn.c ./grads/compiler/codegen.c ./grads/compiler/compile.c ./grads/runtimes/cl.c -o grad -O3 -lm -lOpenCL -Wall -Wextra -pedantic
 ```
 
 ## Testing

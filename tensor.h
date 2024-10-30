@@ -1,5 +1,5 @@
-#ifndef CGRAD_TENSOR_H_
-#define CGRAD_TENSOR_H_
+#ifndef GRADS_TENSOR_H_
+#define GRADS_TENSOR_H_
 
 #include "utils.h"
 typedef enum {
