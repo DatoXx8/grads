@@ -1,5 +1,3 @@
-const buffer_name_size: u64 = 16;
-
 const std = @import("std");
 const math = std.math;
 const assert = std.debug.assert;
@@ -11,6 +9,9 @@ const SyncStatus = enum(u8) {
     snyc_to_device,
     sync_to_none,
 };
+
+const buffer_name_size: u32 = 16;
+var buffer_name_offset: u32 = 0;
 
 const Buffer = struct {
     a_inherent: u32,
@@ -26,11 +27,55 @@ const Buffer = struct {
     y_stride: u32,
     x_stride: u32,
     offset: u32,
-    values: []f32,
+    values: ?[]f32,
     // values_cl: ClMem,
     sync: SyncStatus,
     name: [buffer_name_size]u8,
     name_offset: u32,
+    pub fn alloc(allocator: std.mem.Allocator, a: u32, z: u32, y: u32, x: u32) Buffer {
+        assert(a);
+        assert(z);
+        assert(y);
+        assert(x);
+
+        var name: [buffer_name_size]u8 = ['a']**buffer_name_size;
+        var mod: u32 = 26;
+        for (0..buffer_name_size) |char_idx| {
+            name[char_idx] += buffer_name_offset % mod;
+            mod *= 26;
+        }
+
+        const buffer: Buffer = .{
+            .name_offset = buffer_name_offset,
+            .name = name,
+            .sync = SyncStatus.sync_to_none,
+            .a_size = a,
+            .z_size = z,
+            .y_size = y,
+            .x_size = x,
+            .a_inherent = a,
+            .z_inherent = z,
+            .y_inherent = y,
+            .x_inherent = x,
+            .a_stride = z * y * x,
+            .z_stride = y * x,
+            .y_stride = x,
+            .x_stride = 1,
+            .offset = 0,
+            .values = allocator.alloc(f32, a * z * y * x) orelse null,
+        };
+
+        buffer_name_offset += 1;
+
+        return buffer;
+    }
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
+        assert(this);
+        assert(this.values);
+
+        allocator.free(this.values);
+        this.values = null;
+    }
     pub fn at(this: *@This(), a: u32, z: u32, y: u32, x: u32) u32 {
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
@@ -475,7 +520,7 @@ const Op = struct {
         }
     }
     // Really unhappy about this anytype thing...
-    pub fn print(this: *@This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *@This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
         if (name) |text| {
             try writer.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -829,15 +874,13 @@ const Linearized = struct {
     // Equivalent to op.len
     // TODO: Remove this eventually
     op_cap: u32,
-    pub fn alloc(this: *@This(), allocator: std.mem.Allocator) !void {
-        assert(this);
-        assert(!this.op);
-        assert(this.op_cap == 0);
-        assert(this.op_num == 0);
-
-        this.op_num = 0;
-        this.op_cap = op_cap_base;
-        this.op = allocator.alloc(f32, op_cap_base);
+    pub fn alloc(allocator: std.mem.Allocator) Linearized {
+        const linearized: Linearized = .{
+            .op_num = 0,
+            .op_cap = 0,
+            .op = allocator.alloc(f32, op_cap_base),
+        };
+        return linearized;
     }
     pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
         assert(this);
@@ -865,7 +908,7 @@ const Linearized = struct {
     }
     // TODO: Make a function that expands to the least power of 2 above some value
     // Double the capacity of this.op
-    fn expand(this: *@This(), allocator: std.mem.Allocator) !void {
+    fn expand(this: *@This(), allocator: std.mem.Allocator) void {
         assert(this);
         assert(this.op);
         assert(this.op_cap);
@@ -884,7 +927,7 @@ const Linearized = struct {
         this.op[this.op_num] = op;
         this.op_num += 1;
     }
-    pub fn concat(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+    pub fn concat(this: *@This(), allocator: std.mem.Allocator, source: *Linearized) void {
         assert(this);
         assert(this.op);
         assert(source);
@@ -910,4 +953,35 @@ const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
+    pub fn alloc(allocator: std.mem.Allocator, a: u32, z: u32, y: u32, x: u32) Tensor {
+        assert(a);
+        assert(z);
+        assert(y);
+        assert(x);
+
+        const tensor: Tensor = .{
+            .buffer = Buffer.alloc(allocator, a, z, y, x),
+            .linearized = Linearized.alloc(allocator),
+        };
+
+        return tensor;
+    }
+    pub fn free(this: @This(), allocator: std.mem.Allocator) void {
+        assert(this);
+        assert(this.linearized);
+        assert(this.buffer);
+
+        this.buffer.free(allocator);
+        this.linearized.free(allocator);
+        this.buffer = null;
+        this.linearized = null;
+    }
+    /// TODO: Decide if this should clear the linearized. On one hand it makes it so that you don't need to rebuild the linearized if you want to run it again
+    /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
+    pub fn realize(this: @This()) void {
+        assert(this);
+        this.linearized.run();
+        this.linearized.clear();
+    }
+    // TODO: All the op add functions
 };
