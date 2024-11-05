@@ -1,17 +1,30 @@
+const math = @import("std").math;
+
 var state: u64 = 0;
 const mult: u64 = 6364136223846793005;
 const incr: u64 = 1442695040888963407;
 
+/// The method used in rand_f32 always generates 2 random numbers, and it is kinda pointles to just get rid of the other one.
+/// I measured the performance in ReleaseSafe and generated 2^32 floats and the times were 54s for the spare and 1:35m for no spare.
+/// IMO that is a big enough margin to say that this is definitely faster. It's also less wasteful of randomness if you catch my drift.
+var spare_exists: bool = false;
+var spare: f32 = 0;
+/// The likelyhood of this failing despite trying this many times is ((4 - pi)/4) ^ tries_max, which for tries_max = 40 is 1e-27,
+/// which means it will likely only happen at billions of exabytes (= trillions of petabytes). And I seriously doubt anyone will generate *that* many floats with this.
+const tries_max = 40;
+
+/// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] in a 13 hour block (generating 512 GB)
+/// aNd it found no statistical anomalies.
 pub const Pcg = struct {
     fn rotate_32(x: u32, pivot: u5) u32 {
         return x >> pivot | x << ((-%pivot) & 31);
     }
-    pub fn init(x: u32) void {
+    pub fn init(x: u64) void {
         state = x;
     }
     pub fn rand() u32 {
         var x: u64 = state;
-        const pivot: u32 = @intCast(x >> 59);
+        const pivot: u32 = @truncate(@as(u64, @bitCast(x >> 59)));
 
         state = state *% mult +% incr;
         x ^= x >> 18;
@@ -39,5 +52,29 @@ pub const Pcg = struct {
             }
         }
         return @truncate(m >> 32);
+    }
+    /// Zig rewrite of the Marsaglia polar method from https://en.wikipedia.org/wiki/Marsaglia_polar_method#C++
+    /// TODO: Make this thread-safe
+    pub fn rand_f32() f32 {
+        if (spare_exists) {
+            spare_exists = false;
+            return spare;
+        } else {
+            var u: f32 = 0;
+            var v: f32 = 0;
+            var s: f32 = 0;
+            for (0..tries_max) |_| {
+                u = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
+                v = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
+                s = u * u + v * v;
+                if (s > 0 and s < 1) {
+                    break;
+                }
+            }
+            s = math.sqrt(-2.0 * math.log(f32, math.e, s) / s);
+            spare = v * s;
+            spare_exists = true;
+            return u * s;
+        }
     }
 };
