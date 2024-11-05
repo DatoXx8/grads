@@ -1,6 +1,7 @@
 const std = @import("std");
 const math = std.math;
 const assert = std.debug.assert;
+const Pcg = @import("./prng.zig").Pcg;
 
 // TODO: Init and free functions
 
@@ -82,6 +83,7 @@ const Buffer = struct {
     // pub fn sync_start
     // pub fn sync_wait
 };
+// TODO: Maybe truncate the names to 3 letters each
 const Op = struct {
     type: enum(u8) {
         unary_add,
@@ -121,6 +123,7 @@ const Op = struct {
     },
     u_var: f32,
     // TODO: Probably don't need to save the whole Buffer struct here
+    // Save the pointers to the values and just save the offsets and strides?
     out: Buffer,
     in: Buffer,
     pub fn realize(this: *@This()) void {
@@ -264,8 +267,7 @@ const Op = struct {
                     for (0..this.out.z_size) |z| {
                         for (0..this.out.y_size) |y| {
                             for (0..this.out.x_size) |x| {
-                                // Float with mean = 0 and std deviation = 1
-                                this.out.values[this.out.at(a, z, y, x)] = std.crypto.random.floatNorm(f32);
+                                this.out.values[this.out.at(a, z, y, x)] = Pcg.rand_f32();
                             }
                         }
                     }
@@ -966,7 +968,7 @@ pub const Tensor = struct {
 
         return tensor;
     }
-    pub fn free(this: @This(), allocator: std.mem.Allocator) void {
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
         assert(this);
         assert(this.linearized);
         assert(this.buffer);
@@ -978,10 +980,502 @@ pub const Tensor = struct {
     }
     /// TODO: Decide if this should clear the linearized. On one hand it makes it so that you don't need to rebuild the linearized if you want to run it again
     /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
-    pub fn realize(this: @This()) void {
+    pub fn realize(this: *@This()) void {
         assert(this);
         this.linearized.run();
         this.linearized.clear();
     }
-    // TODO: All the op add functions
+    pub fn preview(this: *@This(), writer: anytype, padding: u32, offset: u32, name: ?[]u8) !void {
+        assert(this);
+        if (name) |text| {
+            try writer.print("{s}{s} = {s}\n", .{ [" "]**(offset + padding), this.buffer.name, text });
+        } else {
+            try writer.print("{s}{s}\n", .{ [" "]**(offset + padding), this.buffer.name });
+        }
+        for (0..this.buffer.a_size) |a| {
+            for (0..this.buffer.z_size) |z| {
+                for (0..this.buffer.y_size) |y| {
+                    try writer.print("[", .{});
+                    for (0..this.buffer.x_size) |x| {
+                        try writer.print(" {d:4.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
+                    }
+                    try writer.print("]\n", .{});
+                }
+                try writer.print("\n", .{});
+            }
+            try writer.print("\n", .{});
+        }
+    }
+    // this.linearized.append(allocator, .{
+    //     .out = this.buffer,
+    //     .in = this.buffer,
+    //     .type = .unary_add,
+    //     .u_var = u_var,
+    // });
+    pub fn unary_add(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_add,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_subtract(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_subtract,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_multiply(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_multiply,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_divide(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_divide,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_exp(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_exp,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_log(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_log,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_square(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_square,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_sqrt(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_sqrt,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_reciprocal(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_reciprocal,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_max(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_max,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_min(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_min,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_set(this: *@This(), allocator: std.mem.Allocator, u_var: f32) void {
+        assert(!math.isNan(u_var));
+        assert(!math.isInf(u_var));
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_set,
+            .u_var = u_var,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_random(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_random,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_tanh(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_tanh,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_absolute(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_absolute,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn unary_sign(this: *@This(), allocator: std.mem.Allocator) void {
+        const op: Op = .{
+            .out = this.buffer,
+            .in = this.buffer,
+            .type = .unary_sign,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_add(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_add,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_subtract(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_subtract,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_multiply(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_multiply,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_divide(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_divide,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_max(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_max,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_min(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_min,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn binary_set(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == source.buffer.a_size);
+        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.y_size == source.buffer.y_size);
+        assert(this.buffer.x_size == source.buffer.x_size);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .binary_set,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_add(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_add,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_subtract(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_subtract,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_multiply(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_multiply,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_divide(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_divide,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_max(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_max,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_min(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_min,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn linary_set(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(source.buffer.a_size == 1);
+        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.y_size == 1);
+        assert(source.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .linary_set,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn reduce_sum(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == 1);
+        assert(this.buffer.z_size == 1);
+        assert(this.buffer.y_size == 1);
+        assert(this.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .reduce_sum,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn reduce_max(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == 1);
+        assert(this.buffer.z_size == 1);
+        assert(this.buffer.y_size == 1);
+        assert(this.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .reduce_max,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn reduce_min(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == 1);
+        assert(this.buffer.z_size == 1);
+        assert(this.buffer.y_size == 1);
+        assert(this.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .reduce_min,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn reduce_avg(this: *@This(), allocator: std.mem.Allocator, source: *@This()) void {
+        assert(this);
+        assert(source);
+        assert(this.buffer.a_size == 1);
+        assert(this.buffer.z_size == 1);
+        assert(this.buffer.y_size == 1);
+        assert(this.buffer.x_size == 1);
+        const op: Op = .{
+            .out = this.buffer,
+            .in = source.buffer,
+            .type = .reduce_avg,
+            .u_var = 0,
+        };
+        this.linearized.append(allocator, op);
+    }
+    pub fn move_reshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+        assert(this);
+        assert(a > 0);
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        this.buffer.a_size = a;
+        this.buffer.z_size = z;
+        this.buffer.y_size = y;
+        this.buffer.x_size = x;
+        this.buffer.a_stride = z * y * x;
+        this.buffer.z_stride = y * x;
+        this.buffer.y_stride = x;
+        this.buffer.x_stride = 1;
+    }
+    pub fn move_resize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+        assert(this);
+        assert(a > 0);
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        this.buffer.a_size = a;
+        this.buffer.z_size = z;
+        this.buffer.y_size = y;
+        this.buffer.x_size = x;
+    }
+    pub fn move_offset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+        assert(this);
+        this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
+    }
 };
