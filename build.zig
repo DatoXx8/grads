@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "cgrad",
+        .name = "grads",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
