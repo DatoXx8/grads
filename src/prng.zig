@@ -11,10 +11,11 @@ var spare_exists: bool = false;
 var spare: f32 = 0;
 /// The likelyhood of this failing despite trying this many times is ((4 - pi)/4) ^ tries_max, which for tries_max = 40 is 1e-27,
 /// which means it will likely only happen at billions of exabytes (= trillions of petabytes). And I seriously doubt anyone will generate *that* many floats with this.
+/// In case it fails anyways it returns 0 because that is the least likely to cause damage as that is the mean anyways.
 const tries_max = 40;
 
-/// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] in a 13 hour block (generating 512 GB)
-/// aNd it found no statistical anomalies.
+/// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB, which took over 24 hours,
+/// and it found no statistical anomalies.
 pub const Pcg = struct {
     fn rotate_32(x: u32, pivot: u5) u32 {
         return x >> pivot | x << ((-%pivot) & 31);
@@ -53,8 +54,8 @@ pub const Pcg = struct {
         }
         return @truncate(m >> 32);
     }
-    /// Zig rewrite of the Marsaglia polar method from https://en.wikipedia.org/wiki/Marsaglia_polar_method#C++
-    /// TODO: Make this thread-safe
+    /// Zig implementation of the Marsaglia polar method from https://en.wikipedia.org/wiki/Marsaglia_polar_method#C++
+    /// TODO: Make this thread-safe, actually not trivial if I don't want to abandon the spare value
     pub fn rand_f32() f32 {
         if (spare_exists) {
             spare_exists = false;
@@ -70,6 +71,9 @@ pub const Pcg = struct {
                 if (s > 0 and s < 1) {
                     break;
                 }
+            }
+            if (s <= 0 or s >= 1) {
+                return 0;
             }
             s = math.sqrt(-2.0 * math.log(f32, math.e, s) / s);
             spare = v * s;
