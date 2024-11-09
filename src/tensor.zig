@@ -13,7 +13,7 @@ const SyncStatus = enum(u8) {
     sync_to_none,
 };
 
-const buffer_name_size: u32 = 8;
+pub const buffer_name_size: u32 = 8;
 var buffer_name_offset: u32 = 0;
 
 const Buffer = struct {
@@ -76,6 +76,10 @@ const Buffer = struct {
         allocator.free(this.values);
     }
     pub fn at(this: *@This(), a: usize, z: usize, y: usize, x: usize) usize {
+        assert(a < this.a_size);
+        assert(z < this.z_size);
+        assert(y < this.y_size);
+        assert(x < this.x_size);
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
     // pub fn sync_start
@@ -83,7 +87,7 @@ const Buffer = struct {
 };
 // TODO: Maybe truncate the names to 3 letters each
 pub const Op = struct {
-    type: enum(u8) {
+    pub const Type = enum(u8) {
         unary_add,
         unary_subtract,
         unary_multiply,
@@ -118,13 +122,43 @@ pub const Op = struct {
         reduce_max,
         reduce_avg,
         reduce_min,
-    },
+    };
+    type: Type,
     u_var: f32,
     // TODO: Probably don't need to save the whole Buffer struct here
     // Save the pointers to the values and just save the offsets and strides?
     out: Buffer,
     in: Buffer,
     pub fn realize(this: *@This()) void {
+        // TODO: There has to be a less grug way of doing this.
+        const is_unary: bool = @intFromEnum(this.type) < @intFromEnum(Op.Type.binary_add);
+        const is_binary: bool = !(is_unary) and @intFromEnum(this.type) < @intFromEnum(Op.Type.linary_add);
+        const is_linary: bool = !(is_unary or is_binary) and @intFromEnum(this.type) < @intFromEnum(Op.Type.reduce_sum);
+        const is_reduce: bool = !(is_binary or is_unary or is_linary);
+        if (is_unary) {
+            // In buffer is just a copy of out buffer, basically just a sanity check.
+            assert(this.out.a_size == this.in.a_size);
+            assert(this.out.z_size == this.in.z_size);
+            assert(this.out.y_size == this.in.y_size);
+            assert(this.out.x_size == this.in.x_size);
+        } else if (is_binary) {
+            assert(this.out.a_size == this.in.a_size);
+            assert(this.out.z_size == this.in.z_size);
+            assert(this.out.y_size == this.in.y_size);
+            assert(this.out.x_size == this.in.x_size);
+        } else if (is_linary) {
+            assert(this.in.a_size == 1);
+            assert(this.in.z_size == 1);
+            assert(this.in.y_size == 1);
+            assert(this.in.x_size == 1);
+        } else if (is_reduce) {
+            assert(this.out.a_size == 1);
+            assert(this.out.z_size == 1);
+            assert(this.out.y_size == 1);
+            assert(this.out.x_size == 1);
+        } else {
+            unreachable;
+        }
         switch (this.type) {
             .unary_add => {
                 for (0..this.out.a_size) |a| {
@@ -1142,6 +1176,7 @@ pub const Tensor = struct {
             .type = .binary_add,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1155,6 +1190,7 @@ pub const Tensor = struct {
             .type = .binary_subtract,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1168,6 +1204,7 @@ pub const Tensor = struct {
             .type = .binary_multiply,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1181,6 +1218,7 @@ pub const Tensor = struct {
             .type = .binary_divide,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1194,6 +1232,7 @@ pub const Tensor = struct {
             .type = .binary_max,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1207,6 +1246,7 @@ pub const Tensor = struct {
             .type = .binary_min,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn binary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1220,6 +1260,7 @@ pub const Tensor = struct {
             .type = .binary_set,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_add(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1233,6 +1274,7 @@ pub const Tensor = struct {
             .type = .linary_add,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1246,6 +1288,7 @@ pub const Tensor = struct {
             .type = .linary_subtract,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1259,6 +1302,7 @@ pub const Tensor = struct {
             .type = .linary_multiply,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1272,6 +1316,7 @@ pub const Tensor = struct {
             .type = .linary_divide,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1285,6 +1330,7 @@ pub const Tensor = struct {
             .type = .linary_max,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1298,6 +1344,7 @@ pub const Tensor = struct {
             .type = .linary_min,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn linary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1311,6 +1358,7 @@ pub const Tensor = struct {
             .type = .linary_set,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn reduce_sum(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1324,6 +1372,7 @@ pub const Tensor = struct {
             .type = .reduce_sum,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn reduce_max(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1337,6 +1386,7 @@ pub const Tensor = struct {
             .type = .reduce_max,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn reduce_min(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1350,6 +1400,7 @@ pub const Tensor = struct {
             .type = .reduce_min,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn reduce_avg(this: *@This(), allocator: anytype, source: *@This()) !void {
@@ -1363,6 +1414,7 @@ pub const Tensor = struct {
             .type = .reduce_avg,
             .u_var = 0,
         };
+        try this.linearized.concat(allocator, source.linearized);
         try this.linearized.append(allocator, &op);
     }
     pub fn move_reshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
@@ -1398,6 +1450,10 @@ pub const Tensor = struct {
         this.buffer.x_size = x;
     }
     pub fn move_offset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         // TODO: Offsets should be bounded
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
     }
