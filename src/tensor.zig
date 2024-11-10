@@ -48,8 +48,11 @@ const Buffer = struct {
             mod *= 26;
         }
 
-        const buffer: Buffer = .{
-            .name_offset = buffer_name_offset,
+        // Have to do it this way because there is no such thing as ++ in Zig.
+        // I could also just create and initialize the buffer first and then increment but that is just as ugly imo
+        buffer_name_offset += 1;
+        return .{
+            .name_offset = buffer_name_offset - 1,
             .name = name,
             .sync = SyncStatus.sync_to_none,
             .a_size = a,
@@ -67,15 +70,11 @@ const Buffer = struct {
             .offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
         };
-
-        buffer_name_offset += 1;
-
-        return buffer;
     }
-    pub fn free(this: *@This(), allocator: anytype) void {
+    pub fn free(this: *const @This(), allocator: anytype) void {
         allocator.free(this.values);
     }
-    pub fn at(this: *@This(), a: usize, z: usize, y: usize, x: usize) usize {
+    pub fn at(this: *const @This(), a: usize, z: usize, y: usize, x: usize) usize {
         assert(a < this.a_size);
         assert(z < this.z_size);
         assert(y < this.y_size);
@@ -129,7 +128,7 @@ pub const Op = struct {
     // Save the pointers to the values and just save the offset and strides?
     out: Buffer,
     in: Buffer,
-    pub fn equal(this: *@This(), target: *Op) bool {
+    pub fn equal(this: *const @This(), target: *const Op) bool {
         return this.type == target.type and this.u_var == this.u_var and
             this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
@@ -137,7 +136,7 @@ pub const Op = struct {
             this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
             this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
     }
-    pub fn overlaps(this: *@This(), target: *Op) bool {
+    pub fn overlaps(this: *const @This(), target: *const Op) bool {
         // TODO: Implement this for non same-size buffers
         assert(this.out.a_size == target.out.a_size);
         assert(this.out.z_size == target.out.z_size);
@@ -159,7 +158,7 @@ pub const Op = struct {
             @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
             @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
     }
-    pub fn realize(this: *@This()) void {
+    pub fn realize(this: *const @This()) void {
         // TODO: There has to be a less grug way of doing this. I am currently doing it like this because comparing ordinals is order dependant.
         const is_unary: bool = this.type == .unary_add or this.type == .unary_subtract or
             this.type == .unary_multiply or this.type == .unary_divide or
@@ -596,7 +595,7 @@ pub const Op = struct {
         }
     }
     // Really unhappy about this anytype thing...
-    pub fn print(this: *@This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
             try writer.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -972,7 +971,7 @@ const Linearized = struct {
     fn expand(this: *@This(), allocator: anytype) !void {
         this.op = try allocator.realloc(this.op, this.op.len * 2);
     }
-    pub fn append(this: *@This(), allocator: anytype, op: *Op) !void {
+    pub fn append(this: *@This(), allocator: anytype, op: *const Op) !void {
         if (this.op_num == this.op.len - 1) {
             try this.expand(allocator);
         }
@@ -983,17 +982,33 @@ const Linearized = struct {
         // This effectively means that the max growth factor is 2^20 = 1_048_576
         const max_expand_tries = 20;
         for (0..max_expand_tries) |_| {
-            if (this.op_num + source.op_num < this.op_cap) {
+            if (this.op_num + source.op_num < this.op.len) {
                 break;
             } else {
                 this.expand(allocator);
             }
         }
-        assert(this.op_num + source.op_num < this.op_cap);
+        assert(this.op_num + source.op_num < this.op.len);
         for (0..source.op_num) |op_idx| {
             this.op[this.op_num + op_idx] = source.op[op_idx];
         }
         this.op_num += source.op_num;
+        source.clear();
+    }
+    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+        if (name) |text| {
+            try writer.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
+        } else {
+            try writer.print("{s}Linearized\n", .{" " ** offset});
+        }
+        if (this.op_num == 0) {
+            try writer.print("{s}[] => empty\n", .{" " ** (offset + padding)});
+        } else {
+            for (0..this.op_num) |op_idx| {
+                try writer.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
+                try this.op[op_idx].print(writer, 0, 0, null);
+            }
+        }
     }
 };
 
@@ -1006,12 +1021,10 @@ pub const Tensor = struct {
         assert(y > 0);
         assert(x > 0);
 
-        const tensor: Tensor = .{
+        return .{
             .buffer = try Buffer.alloc(allocator, a, z, y, x),
             .linearized = try Linearized.alloc(allocator),
         };
-
-        return tensor;
     }
     pub fn free(this: *@This(), allocator: anytype) void {
         this.buffer.free(allocator);
@@ -1021,15 +1034,16 @@ pub const Tensor = struct {
     }
     /// TODO: Decide if this should clear the linearized. On one hand it makes it so that you don't need to rebuild the linearized if you want to run it again
     /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
+    /// Also if you run something more than once you should compile it I guess
     pub fn realize(this: *@This()) void {
         this.linearized.run();
         this.linearized.clear();
     }
-    pub fn print(this: *@This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
-            try writer.print("{s}{s} = {s}\n", .{ " " ** (offset + padding), this.buffer.name, text });
+            try writer.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
         } else {
-            try writer.print("{s}{s}\n", .{ " " ** (offset + padding), this.buffer.name });
+            try writer.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name });
         }
         for (0..this.buffer.a_size) |a| {
             for (0..this.buffer.z_size) |z| {
@@ -1045,421 +1059,381 @@ pub const Tensor = struct {
             try writer.print("\n", .{});
         }
     }
-    // this.linearized.append(allocator, .{
-    //     .out = this.buffer,
-    //     .in = this.buffer,
-    //     .type = .unary_add,
-    //     .u_var = u_var,
-    // });
     pub fn unary_add(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_add,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_subtract(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_subtract,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_multiply(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_multiply,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_divide(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_divide,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_exp(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_exp,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_log(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_log,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_square(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_square,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_sqrt(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sqrt,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_reciprocal(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_reciprocal,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_max(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_max,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_min(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_min,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_set(this: *@This(), allocator: anytype, u_var: f32) !void {
         assert(!math.isNan(u_var));
         assert(!math.isInf(u_var));
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_set,
             .u_var = u_var,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_random(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_random,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_tanh(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_tanh,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_absolute(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_absolute,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn unary_sign(this: *@This(), allocator: anytype) !void {
-        var op: Op = .{
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sign,
             .u_var = 0,
-        };
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_add(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_add,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_subtract,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_multiply,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_divide,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_max,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_min,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn binary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
         assert(this.buffer.z_size == source.bufzer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_set,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_add(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_add,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_subtract,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_multiply,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_divide,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_max,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_min,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn linary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
         assert(source.bufzer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_set,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn reduce_sum(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == 1);
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_sum,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn reduce_max(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == 1);
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_max,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn reduce_min(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == 1);
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_min,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn reduce_avg(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == 1);
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        var op: Op = .{
+        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_avg,
             .u_var = 0,
-        };
-        try this.linearized.concat(allocator, source.linearized);
-        try this.linearized.append(allocator, &op);
+        });
     }
     pub fn move_reshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
         assert(a > 0);
@@ -1498,7 +1472,6 @@ pub const Tensor = struct {
         assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        // TODO: Offsets should be bounded
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
     }
 };
