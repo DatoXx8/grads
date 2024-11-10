@@ -126,15 +126,59 @@ pub const Op = struct {
     type: Type,
     u_var: f32,
     // TODO: Probably don't need to save the whole Buffer struct here
-    // Save the pointers to the values and just save the offsets and strides?
+    // Save the pointers to the values and just save the offset and strides?
     out: Buffer,
     in: Buffer,
+    pub fn equal(this: *@This(), target: *Op) bool {
+        return this.type == target.type and this.u_var == this.u_var and
+            this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
+            this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
+            this.out.x_size == target.out.x_size and this.in.name_offset == target.in.name_offset and
+            this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
+            this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
+    }
+    pub fn overlaps(this: *@This(), target: *Op) bool {
+        // TODO: Implement this for non same-size buffers
+        assert(this.out.a_size == target.out.a_size);
+        assert(this.out.z_size == target.out.z_size);
+        assert(this.out.y_size == target.out.y_size);
+        assert(this.out.x_size == target.out.x_size);
+
+        const a_1: u32 = this.out.a_size;
+        const z_1: u32 = this.out.z_size;
+        const y_1: u32 = this.out.y_size;
+        const x_1: u32 = this.out.x_size;
+
+        const a_2: u32 = target.out.a_size;
+        const z_2: u32 = target.out.z_size;
+        const y_2: u32 = target.out.y_size;
+        const x_2: u32 = target.out.x_size;
+
+        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
+            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
+            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
+            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
+    }
     pub fn realize(this: *@This()) void {
-        // TODO: There has to be a less grug way of doing this.
-        const is_unary: bool = @intFromEnum(this.type) < @intFromEnum(Op.Type.binary_add);
-        const is_binary: bool = !(is_unary) and @intFromEnum(this.type) < @intFromEnum(Op.Type.linary_add);
-        const is_linary: bool = !(is_unary or is_binary) and @intFromEnum(this.type) < @intFromEnum(Op.Type.reduce_sum);
-        const is_reduce: bool = !(is_binary or is_unary or is_linary);
+        // TODO: There has to be a less grug way of doing this. I am currently doing it like this because comparing ordinals is order dependant.
+        const is_unary: bool = this.type == .unary_add or this.type == .unary_subtract or
+            this.type == .unary_multiply or this.type == .unary_divide or
+            this.type == .unary_exp or this.type == .unary_log or
+            this.type == .unary_square or this.type == .unary_sqrt or
+            this.type == .unary_reciprocal or this.type == .unary_max or
+            this.type == .unary_min or this.type == .unary_set or
+            this.type == .unary_random or this.type == .unary_tanh or
+            this.type == .unary_absolute or this.type == .unary_sign;
+        const is_binary: bool = this.type == .binary_add or this.type == .binary_subtract or
+            this.type == .binary_multiply or this.type == .binary_divide or
+            this.type == .binary_max or this.type == .binary_min or
+            this.type == .binary_set;
+        const is_linary: bool = this.type == .linary_add or this.type == .linary_subtract or
+            this.type == .linary_multiply or this.type == .linary_divide or
+            this.type == .linary_max or this.type == .linary_min or
+            this.type == .linary_set;
+        const is_reduce = this.type == .reduce_sum or this.type == .reduce_max or
+            this.type == .reduce_avg or this.type == .reduce_min;
         if (is_unary) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
