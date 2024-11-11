@@ -29,6 +29,10 @@ const Buffer = struct {
     z_stride: u32,
     y_stride: u32,
     x_stride: u32,
+    a_offset: u32,
+    z_offset: u32,
+    y_offset: u32,
+    x_offset: u32,
     offset: u32,
     values: []f32,
     // values_cl: ClMem,
@@ -68,6 +72,10 @@ const Buffer = struct {
             .y_stride = x,
             .x_stride = 1,
             .offset = 0,
+            .a_offset = 0,
+            .z_offset = z,
+            .y_offset = y,
+            .x_offset = x,
             .values = try allocator.alloc(f32, a * z * y * x),
         };
     }
@@ -1473,5 +1481,9 @@ pub const Tensor = struct {
         assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
+        this.buffer.a_offset = a;
+        this.buffer.z_offset = z;
+        this.buffer.y_offset = y;
+        this.buffer.x_offset = x;
     }
 };
