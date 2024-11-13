@@ -34,7 +34,7 @@ const DimInfo = struct {
     res_x_in: u32,
 };
 
-const Pir = struct {
+pub const Pir = struct {
     repeat_num: u32,
     op_num: u32,
     op: []Op,
