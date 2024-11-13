@@ -7,16 +7,15 @@ const assert = @import("./util.zig").assert;
 
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 
-const SyncStatus = enum(u8) {
-    sync_to_host,
-    snyc_to_device,
-    sync_to_none,
-};
-
 pub const buffer_name_size: u32 = 8;
 var buffer_name_offset: u32 = 0;
 
 const Buffer = struct {
+    const SyncStatus = enum(u8) {
+        sync_to_host,
+        snyc_to_device,
+        sync_to_none,
+    };
     a_inherent: u32,
     z_inherent: u32,
     y_inherent: u32,
