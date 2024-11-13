@@ -299,26 +299,3 @@ const Pir = struct {
         }
     }
 };
-
-pub const kernel_name: []u8 = [_]u8{"k"};
-
-const Kernel = struct {
-    arg_name: []?[buffer_name_size]u8,
-    // arg_mem: []?ClMem,
-    arg_num: u32,
-    // arg_cap is arg_name.len
-    // source: [*c]u8,
-    source: [*:0]u8,
-    // cl_kernel: ClKernel,
-    // cl_program: ClProgram,
-};
-
-pub const Program = struct {
-    size_global: u32,
-    size_local: u32,
-    kernel_num: u32,
-    kernel: []Kernel,
-    // cl_device_id: *ClDeviceId,
-    // cl_context: *ClContext,
-    // cl_command_queue: *ClCommandQueue,
-};
