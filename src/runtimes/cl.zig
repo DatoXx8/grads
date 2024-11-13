@@ -118,10 +118,10 @@ pub const ClCommandQueue = struct {
 
 pub const ClProgram = struct {
     program: opencl.cl_program,
-    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: [*:0]const u8, source_size: usize) !ClProgram {
+    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: [*c]const u8, source_size: usize) !ClProgram {
         var log_size: u32 = 0;
         var err: u32 = 0;
-        var log: ?[*:0]u8 = null;
+        var log: ?[*c]u8 = null;
         const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source, &source_size, &err);
         if (err != 0) {
             return ClError.ProgramNotCreated;
@@ -152,7 +152,7 @@ pub const ClProgram = struct {
 
 pub const ClKernel = struct {
     kernel: opencl.cl_kernel,
-    pub fn alloc(program: ClProgram, name: [*:0]const u8) !ClKernel {
+    pub fn alloc(program: ClProgram, name: [*c]const u8) !ClKernel {
         var err: u32 = 0;
         const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, name, &err);
         if (err == 0) {
