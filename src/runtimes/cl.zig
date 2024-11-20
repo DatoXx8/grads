@@ -40,9 +40,9 @@ pub const ClDevice = struct {
     type: ClDeviceType,
     device: opencl.cl_device_id,
     pub fn alloc(device_type: ClDevice.ClDeviceType) !ClDevice {
-        var platform: opencl.cl_platform_id = 0;
-        var device: opencl.cl_device_id = 0;
-        var err: u32 = 0;
+        var platform: opencl.cl_platform_id = null;
+        var device: opencl.cl_device_id = null;
+        var err: i32 = 0;
 
         err = opencl.clGetPlatformIDs(1, &platform, null);
         if (err != 0) {
@@ -75,8 +75,8 @@ pub const ClDevice = struct {
 pub const ClContext = struct {
     context: opencl.cl_context,
     pub fn alloc(device: ClDevice) !ClContext {
-        var context: opencl.cl_context = 0;
-        var err: u32 = 0;
+        var context: opencl.cl_context = null;
+        var err: i32 = 0;
         context = opencl.clCreateContext(null, 1, &device.device, null, null, &err);
         if (err == 0) {
             return .{
@@ -98,8 +98,8 @@ pub const ClContext = struct {
 pub const ClCommandQueue = struct {
     queue: opencl.cl_command_queue,
     pub fn alloc(device: ClDevice, context: ClContext) !ClCommandQueue {
-        var err: u32 = 0;
-        const queue: ClCommandQueue = opencl.clCreateCommandQueueWithProperties(context.context, device.device, null, &err);
+        var err: i32 = 0;
+        const queue: ClCommandQueue = .{ .queue = opencl.clCreateCommandQueueWithProperties(context.context, device.device, null, &err) };
         if (err == 0) {
             return queue;
         } else {
@@ -118,10 +118,10 @@ pub const ClCommandQueue = struct {
 
 pub const ClProgram = struct {
     program: opencl.cl_program,
-    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: [*c]const u8, source_size: usize) !ClProgram {
+    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: [*:0]const u8, source_size: usize) !ClProgram {
         var log_size: u32 = 0;
         var err: u32 = 0;
-        var log: ?[*c]u8 = null;
+        var log: ?[*:0]u8 = null;
         const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source, &source_size, &err);
         if (err != 0) {
             return ClError.ProgramNotCreated;
@@ -152,7 +152,7 @@ pub const ClProgram = struct {
 
 pub const ClKernel = struct {
     kernel: opencl.cl_kernel,
-    pub fn alloc(program: ClProgram, name: [*c]const u8) !ClKernel {
+    pub fn alloc(program: ClProgram, name: [*:0]const u8) !ClKernel {
         var err: u32 = 0;
         const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, name, &err);
         if (err == 0) {
