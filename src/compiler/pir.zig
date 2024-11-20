@@ -40,7 +40,7 @@ pub const Pir = struct {
     op: []Op,
     dim_info: []DimInfo,
     pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *u32) !Pir {
-        assert(op_used.* < linearized.op_num - 1);
+        assert(op_used.* < linearized.op_num);
         var op_num: u32 = 0;
         var group_num: u32 = 1;
         const op_start: u32 = op_used.*;
