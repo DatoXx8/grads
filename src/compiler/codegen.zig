@@ -29,6 +29,7 @@ fn args_gather(allocator: anytype, pir: Pir) ![][buffer_name_size]u8 {
         // TODO: Split cases by is_unary because halfing the string comparisons is faster
         var arg_found_out: bool = false;
         var arg_found_in: bool = false;
+        const is_unary: bool = std.mem.eql(u8, &pir.op[op_idx].out.name, &pir.op[op_idx].in.name);
         for (0..arg_count) |arg_idx| {
             if (!arg_found_out and
                 std.mem.eql(u8, &arg_name[arg_idx], &pir.op[op_idx].out.name))
@@ -50,15 +51,13 @@ fn args_gather(allocator: anytype, pir: Pir) ![][buffer_name_size]u8 {
                 arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
             }
             arg_name[arg_count] = pir.op[op_idx].out.name;
-            std.debug.print("{s}\n", .{arg_name[arg_count]});
             arg_count += 1;
         }
-        if (!arg_found_in) {
+        if (!arg_found_in and !is_unary) {
             if (arg_count == arg_name.len) {
                 arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
             }
             arg_name[arg_count] = pir.op[op_idx].in.name;
-            std.debug.print("{s}\n", .{arg_name[arg_count]});
             arg_count += 1;
         }
     }
