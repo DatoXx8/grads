@@ -8,6 +8,8 @@ const assert = @import("./util.zig").assert;
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
 
+/// 4 is probably already enough. 26 ^ 4 = 456.976
+/// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
 pub const buffer_name_size: u32 = 8;
 var buffer_name_offset: u32 = 0;
 
@@ -46,14 +48,17 @@ const Buffer = struct {
         assert(x > 0);
 
         var name: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-        var mod: u64 = 26;
+        var divisor: u64 = 26;
+        var left: u32 = buffer_name_offset;
         for (0..buffer_name_size) |char_idx| {
-            name[char_idx] += @truncate(buffer_name_offset % mod);
-            mod *= 26;
+            name[char_idx] += @truncate(@divFloor(buffer_name_offset, divisor));
+            left -= @truncate(@divFloor(buffer_name_offset, divisor) * divisor);
+            divisor *= 26;
         }
+        // Enforce that you don't generate new tensors below 'zzzz...zzz'
+        assert(left == 0);
 
         // Have to do it this way because there is no such thing as ++ in Zig.
-        // I could also just create and initialize the buffer first and then increment but that is just as ugly imo
         buffer_name_offset += 1;
         return .{
             .name_offset = buffer_name_offset - 1,
