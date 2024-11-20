@@ -69,7 +69,7 @@ pub const Pir = struct {
         if (op_num == 0) {
             op_num = 1;
         } else {
-            const group_num_max: u32 = @divFloor(linearized.op_num - op_num - op_start + 1, op_num);
+            const group_num_max: u32 = @truncate(@divFloor(linearized.op_num - op_num - op_start + 1, op_num));
             for (1..group_num_max) |group_idx| {
                 var all_equal: bool = true;
                 for (0..op_num) |inner_off| {
@@ -126,13 +126,13 @@ pub const Pir = struct {
                 if (a_out_left) {
                     if (!a_out_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].out.a_offset == a_out_initial) {
-                            dim_info[op_idx].res_a_out = group_idx;
+                            dim_info[op_idx].res_a_out = @truncate(group_idx);
                             a_out_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].out.a_offset != a_out_initial) {
-                        dim_info[op_idx].wai_a_out = group_idx;
+                        dim_info[op_idx].wai_a_out = @truncate(group_idx);
                         dim_info[op_idx].str_a_out = linearized.op[op_start + op_idx + group_idx * op_num].out.a_offset - a_out_initial;
                         a_out_left = true;
                     }
@@ -140,13 +140,13 @@ pub const Pir = struct {
                 if (z_out_left) {
                     if (!z_out_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].out.z_offset == z_out_initial) {
-                            dim_info[op_idx].res_z_out = group_idx;
+                            dim_info[op_idx].res_z_out = @truncate(group_idx);
                             z_out_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].out.z_offset != z_out_initial) {
-                        dim_info[op_idx].wai_z_out = group_idx;
+                        dim_info[op_idx].wai_z_out = @truncate(group_idx);
                         dim_info[op_idx].str_z_out = linearized.op[op_start + op_idx + group_idx * op_num].out.z_offset - z_out_initial;
                         z_out_left = true;
                     }
@@ -154,13 +154,13 @@ pub const Pir = struct {
                 if (y_out_left) {
                     if (!y_out_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].out.y_offset == y_out_initial) {
-                            dim_info[op_idx].res_y_out = group_idx;
+                            dim_info[op_idx].res_y_out = @truncate(group_idx);
                             y_out_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].out.y_offset != y_out_initial) {
-                        dim_info[op_idx].wai_y_out = group_idx;
+                        dim_info[op_idx].wai_y_out = @truncate(group_idx);
                         dim_info[op_idx].str_y_out = linearized.op[op_start + op_idx + group_idx * op_num].out.y_offset - y_out_initial;
                         y_out_left = true;
                     }
@@ -168,13 +168,13 @@ pub const Pir = struct {
                 if (x_out_left) {
                     if (!x_out_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].out.x_offset == x_out_initial) {
-                            dim_info[op_idx].res_x_out = group_idx;
+                            dim_info[op_idx].res_x_out = @truncate(group_idx);
                             x_out_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].out.x_offset != x_out_initial) {
-                        dim_info[op_idx].wai_x_out = group_idx;
+                        dim_info[op_idx].wai_x_out = @truncate(group_idx);
                         dim_info[op_idx].str_x_out = linearized.op[op_start + op_idx + group_idx * op_num].out.x_offset - x_out_initial;
                         x_out_left = true;
                     }
@@ -182,13 +182,13 @@ pub const Pir = struct {
                 if (a_in_left) {
                     if (!a_in_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].in.a_offset == a_in_initial) {
-                            dim_info[op_idx].res_a_in = group_idx;
+                            dim_info[op_idx].res_a_in = @truncate(group_idx);
                             a_in_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].in.a_offset != a_in_initial) {
-                        dim_info[op_idx].wai_a_in = group_idx;
+                        dim_info[op_idx].wai_a_in = @truncate(group_idx);
                         dim_info[op_idx].str_a_in = linearized.op[op_start + op_idx + group_idx * op_num].in.a_offset - a_in_initial;
                         a_in_left = true;
                     }
@@ -196,13 +196,13 @@ pub const Pir = struct {
                 if (z_in_left) {
                     if (!z_in_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].in.z_offset == z_in_initial) {
-                            dim_info[op_idx].res_z_in = group_idx;
+                            dim_info[op_idx].res_z_in = @truncate(group_idx);
                             z_in_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].in.z_offset != z_in_initial) {
-                        dim_info[op_idx].wai_z_in = group_idx;
+                        dim_info[op_idx].wai_z_in = @truncate(group_idx);
                         dim_info[op_idx].str_z_in = linearized.op[op_start + op_idx + group_idx * op_num].in.z_offset - z_in_initial;
                         z_in_left = true;
                     }
@@ -210,13 +210,13 @@ pub const Pir = struct {
                 if (y_in_left) {
                     if (!y_in_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].in.y_offset == y_in_initial) {
-                            dim_info[op_idx].res_y_in = group_idx;
+                            dim_info[op_idx].res_y_in = @truncate(group_idx);
                             y_in_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].in.y_offset != y_in_initial) {
-                        dim_info[op_idx].wai_y_in = group_idx;
+                        dim_info[op_idx].wai_y_in = @truncate(group_idx);
                         dim_info[op_idx].str_y_in = linearized.op[op_start + op_idx + group_idx * op_num].in.y_offset - y_in_initial;
                         y_in_left = true;
                     }
@@ -224,13 +224,13 @@ pub const Pir = struct {
                 if (x_in_left) {
                     if (!x_in_reenter) {
                         if (linearized.op[op_start + op_idx + group_idx * op_num].in.x_offset == x_in_initial) {
-                            dim_info[op_idx].res_x_in = group_idx;
+                            dim_info[op_idx].res_x_in = @truncate(group_idx);
                             x_in_reenter = true;
                         }
                     }
                 } else {
                     if (linearized.op[op_start + op_idx + group_idx * op_num].in.x_offset != x_in_initial) {
-                        dim_info[op_idx].wai_x_in = group_idx;
+                        dim_info[op_idx].wai_x_in = @truncate(group_idx);
                         dim_info[op_idx].str_x_in = linearized.op[op_start + op_idx + group_idx * op_num].in.x_offset - x_in_initial;
                         x_in_left = true;
                     }
