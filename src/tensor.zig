@@ -6,6 +6,7 @@ const Pcg = @import("./prng.zig").Pcg;
 const assert = @import("./util.zig").assert;
 
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
+// TODO: Split the file up more?
 
 pub const buffer_name_size: u32 = 8;
 var buffer_name_offset: u32 = 0;
@@ -135,7 +136,7 @@ pub const Op = struct {
     // Save the pointers to the values and just save the offset and strides?
     out: Buffer,
     in: Buffer,
-    pub fn equal(this: *const @This(), target: *const Op) bool {
+    pub fn equal(this: *const @This(), target: Op) bool {
         return this.type == target.type and this.u_var == this.u_var and
             this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
@@ -143,7 +144,7 @@ pub const Op = struct {
             this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
             this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
     }
-    pub fn overlaps(this: *const @This(), target: *const Op) bool {
+    pub fn overlaps(this: *const @This(), target: Op) bool {
         // TODO: Implement this for non same-size buffers
         assert(this.out.a_size == target.out.a_size);
         assert(this.out.z_size == target.out.z_size);
@@ -950,7 +951,7 @@ pub const Op = struct {
 
 // TODO: There is probably a built-in way to do this
 const op_cap_base: u32 = 4;
-const Linearized = struct {
+pub const Linearized = struct {
     /// Capacity is op.len
     op: []Op,
     op_num: usize,
