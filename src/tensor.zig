@@ -5,6 +5,9 @@ const Pcg = @import("./prng.zig").Pcg;
 
 const assert = @import("./util.zig").assert;
 
+const ClMem = @import("./runtimes/cl.zig").ClMem;
+const ClContext = @import("./runtimes/cl.zig").ClContext;
+
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
 
@@ -37,11 +40,11 @@ const Buffer = struct {
     x_offset: u32,
     offset: u32,
     values: []f32,
-    // values_cl: ClMem,
+    values_cl: ?ClMem,
     sync: SyncStatus,
     name: [buffer_name_size]u8,
     name_offset: u32,
-    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32) !Buffer {
+    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -60,29 +63,58 @@ const Buffer = struct {
 
         // Have to do it this way because there is no such thing as ++ in Zig.
         buffer_name_offset += 1;
-        return .{
-            .name_offset = buffer_name_offset - 1,
-            .name = name,
-            .sync = SyncStatus.sync_to_none,
-            .a_size = a,
-            .z_size = z,
-            .y_size = y,
-            .x_size = x,
-            .a_inherent = a,
-            .z_inherent = z,
-            .y_inherent = y,
-            .x_inherent = x,
-            .a_stride = z * y * x,
-            .z_stride = y * x,
-            .y_stride = x,
-            .x_stride = 1,
-            .offset = 0,
-            .a_offset = 0,
-            .z_offset = z,
-            .y_offset = y,
-            .x_offset = x,
-            .values = try allocator.alloc(f32, a * z * y * x),
-        };
+        // TODO: Get rid of this case destinction. It's really ugly.
+        if (context) |ctx| {
+            return .{
+                .name_offset = buffer_name_offset - 1,
+                .name = name,
+                .sync = SyncStatus.sync_to_none,
+                .a_size = a,
+                .z_size = z,
+                .y_size = y,
+                .x_size = x,
+                .a_inherent = a,
+                .z_inherent = z,
+                .y_inherent = y,
+                .x_inherent = x,
+                .a_stride = z * y * x,
+                .z_stride = y * x,
+                .y_stride = x,
+                .x_stride = 1,
+                .offset = 0,
+                .a_offset = 0,
+                .z_offset = z,
+                .y_offset = y,
+                .x_offset = x,
+                .values = try allocator.alloc(f32, a * z * y * x),
+                .values_cl = try ClMem.alloc(ctx, a, z, y, x),
+            };
+        } else {
+            return .{
+                .name_offset = buffer_name_offset - 1,
+                .name = name,
+                .sync = SyncStatus.sync_to_none,
+                .a_size = a,
+                .z_size = z,
+                .y_size = y,
+                .x_size = x,
+                .a_inherent = a,
+                .z_inherent = z,
+                .y_inherent = y,
+                .x_inherent = x,
+                .a_stride = z * y * x,
+                .z_stride = y * x,
+                .y_stride = x,
+                .x_stride = 1,
+                .offset = 0,
+                .a_offset = 0,
+                .z_offset = z,
+                .y_offset = y,
+                .x_offset = x,
+                .values = try allocator.alloc(f32, a * z * y * x),
+                .values_cl = null,
+            };
+        }
     }
     pub fn free(this: *const @This(), allocator: anytype) void {
         allocator.free(this.values);
@@ -1028,14 +1060,14 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32) !Tensor {
+    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
 
         return .{
-            .buffer = try Buffer.alloc(allocator, a, z, y, x),
+            .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
             .linearized = try Linearized.alloc(allocator),
         };
     }
