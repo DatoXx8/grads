@@ -3,6 +3,9 @@ const std = @import("std");
 const assert = @import("../util.zig").assert;
 // const opencl_version = @import("opencl_config").opencl_version;
 
+pub const kernel_name: []const u8 = &[_]u8{'k'};
+pub const kernel_name_c: []const u8 = kernel_name ++ [_]u8{'\x00'};
+
 const opencl_header = switch (builtin.target.os.tag) {
     .macos => "OpenCL/cl.h",
     else => "CL/cl.h",
@@ -118,11 +121,14 @@ pub const ClCommandQueue = struct {
 
 pub const ClProgram = struct {
     program: opencl.cl_program,
-    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: [*:0]const u8, source_size: usize) !ClProgram {
-        var log_size: u32 = 0;
-        var err: u32 = 0;
-        var log: ?[*:0]u8 = null;
-        const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source, &source_size, &err);
+    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: []u8) !ClProgram {
+        var log_size: usize = 0;
+        var err: i32 = 0;
+        // TODO: Get rid of this optional stuff
+        var log: ?[]u8 = null;
+        var log_c: ?[*:0]u8 = null;
+        var source_c: [*c]u8 = source[0 .. source.len - 1 :0];
+        const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source_c, &source.len, &err);
         if (err != 0) {
             return ClError.ProgramNotCreated;
         }
@@ -132,12 +138,14 @@ pub const ClProgram = struct {
                 .program = program,
             };
         } else {
-            std.log.warn("SOURCE: {s}\n", .{source});
+            std.debug.print("{s}\n", .{source});
             _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, 0, null, &log_size);
             log = try allocator.alloc(u8, log_size);
-            defer allocator.free(log);
-            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, log_size + 1, log, null);
-            std.log.warn("LOG: {s}\n", .{log});
+            defer allocator.free(log.?);
+            @memset(log.?[0..], 0);
+            log_c = log.?[0 .. log.?.len - 1 :0];
+            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, log_size + 1, log_c, null);
+            std.debug.print("{s}\n", .{log.?});
             return ClError.ProgramNotBuilt;
         }
     }
@@ -152,9 +160,9 @@ pub const ClProgram = struct {
 
 pub const ClKernel = struct {
     kernel: opencl.cl_kernel,
-    pub fn alloc(program: ClProgram, name: [*:0]const u8) !ClKernel {
-        var err: u32 = 0;
-        const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, name, &err);
+    pub fn alloc(program: ClProgram) !ClKernel {
+        var err: i32 = 0;
+        const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, kernel_name_c[0 .. kernel_name_c.len - 1 :0], &err);
         if (err == 0) {
             return .{
                 .kernel = kernel,
@@ -180,8 +188,8 @@ pub const ClMem = struct {
         assert(y > 0);
         assert(x > 0);
 
-        var err: u32 = 0;
-        const memory: opencl.cl_mem = opencl.clCreateBuffer(context, opencl.CL_MEM_READ_WRITE, a * z * y * x * @sizeOf(f32), null, &err);
+        var err: i32 = 0;
+        const memory: opencl.cl_mem = opencl.clCreateBuffer(context.context, opencl.CL_MEM_READ_WRITE, a * z * y * x * @sizeOf(f32), null, &err);
         if (err == 0) {
             return .{
                 .memory = memory,
