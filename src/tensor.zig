@@ -203,9 +203,8 @@ pub const Op = struct {
             @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
             @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
     }
-    pub fn realize(this: *const @This()) void {
-        // TODO: There has to be a less grug way of doing this. I am currently doing it like this because comparing ordinals is order dependant.
-        const is_unary: bool = this.type == .unary_add or this.type == .unary_subtract or
+    pub inline fn is_unary(this: *const @This()) bool {
+        return this.type == .unary_add or this.type == .unary_subtract or
             this.type == .unary_multiply or this.type == .unary_divide or
             this.type == .unary_exp or this.type == .unary_log or
             this.type == .unary_square or this.type == .unary_sqrt or
@@ -213,33 +212,42 @@ pub const Op = struct {
             this.type == .unary_min or this.type == .unary_set or
             this.type == .unary_random or this.type == .unary_tanh or
             this.type == .unary_absolute or this.type == .unary_sign;
-        const is_binary: bool = this.type == .binary_add or this.type == .binary_subtract or
+    }
+    pub inline fn is_binary(this: *const @This()) bool {
+        return this.type == .binary_add or this.type == .binary_subtract or
             this.type == .binary_multiply or this.type == .binary_divide or
             this.type == .binary_max or this.type == .binary_min or
             this.type == .binary_set;
-        const is_linary: bool = this.type == .linary_add or this.type == .linary_subtract or
+    }
+    pub inline fn is_linary(this: *const @This()) bool {
+        return this.type == .linary_add or this.type == .linary_subtract or
             this.type == .linary_multiply or this.type == .linary_divide or
             this.type == .linary_max or this.type == .linary_min or
             this.type == .linary_set;
-        const is_reduce = this.type == .reduce_sum or this.type == .reduce_max or
+    }
+    pub inline fn is_reduce(this: *const @This()) bool {
+        return this.type == .reduce_sum or this.type == .reduce_max or
             this.type == .reduce_avg or this.type == .reduce_min;
-        if (is_unary) {
+    }
+    pub fn realize(this: *const @This()) void {
+        // TODO: There has to be a less grug way of doing this. I am currently doing it like this because comparing ordinals is order dependant.
+        if (this.is_unary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (is_binary) {
+        } else if (this.is_binary()) {
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (is_linary) {
+        } else if (this.is_linary()) {
             assert(this.in.a_size == 1);
             assert(this.in.z_size == 1);
             assert(this.in.y_size == 1);
             assert(this.in.x_size == 1);
-        } else if (is_reduce) {
+        } else if (this.is_reduce()) {
             assert(this.out.a_size == 1);
             assert(this.out.z_size == 1);
             assert(this.out.y_size == 1);
