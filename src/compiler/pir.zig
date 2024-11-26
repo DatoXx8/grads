@@ -5,7 +5,7 @@ const Linearized = @import("../tensor.zig").Linearized;
 const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
 const assert = @import("../util.zig").assert;
 
-const DimInfo = struct {
+pub const DimInfo = struct {
     off_in: u32,
     off_out: u32,
     str_a_out: u32,
