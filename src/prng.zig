@@ -14,8 +14,7 @@ var spare: f32 = 0;
 /// In case it fails anyways it returns 0 because that is the least likely to cause damage as that is the mean anyways.
 const tries_max = 40;
 
-/// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB, which took over 24 hours,
-/// and it found no statistical anomalies.
+/// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB and it found no statistical anomalies.
 pub const Pcg = struct {
     fn rotate_32(x: u32, pivot: u5) u32 {
         return x >> pivot | x << ((-%pivot) & 31);
