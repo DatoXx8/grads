@@ -51,12 +51,11 @@ const Buffer = struct {
         assert(x > 0);
 
         var name: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-        var divisor: u64 = 26;
+        const divisor: u64 = 26;
         var left: u32 = buffer_name_offset;
         for (0..buffer_name_size) |char_idx| {
-            name[char_idx] += @truncate(@divFloor(buffer_name_offset, divisor));
-            left -= @truncate(@divFloor(buffer_name_offset, divisor) * divisor);
-            divisor *= 26;
+            name[char_idx] += @truncate(left % divisor);
+            left = @truncate(left / divisor);
         }
         // Enforce that you don't generate new tensors below 'zzzz...zzz'
         assert(left == 0);
