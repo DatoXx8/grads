@@ -95,6 +95,7 @@ pub const Pir = struct {
         }
 
         for (0..op_num) |op_idx| {
+            // TODO: Split up by is_unary
             dim_info[op_idx].off_out = linearized.op[op_start + op_idx].out.offset;
             const a_out_initial = linearized.op[op_start + op_idx].out.a_offset;
             const z_out_initial = linearized.op[op_start + op_idx].out.z_offset;
@@ -109,6 +110,7 @@ pub const Pir = struct {
             var y_out_reenter: bool = false;
             var x_out_reenter: bool = false;
 
+            dim_info[op_idx].off_in = linearized.op[op_start + op_idx].in.offset;
             const a_in_initial = linearized.op[op_start + op_idx].in.a_offset;
             const z_in_initial = linearized.op[op_start + op_idx].in.z_offset;
             const y_in_initial = linearized.op[op_start + op_idx].in.y_offset;
@@ -234,6 +236,78 @@ pub const Pir = struct {
                         dim_info[op_idx].str_x_in = linearized.op[op_start + op_idx + group_idx * op_num].in.x_offset - x_in_initial;
                         x_in_left = true;
                     }
+                }
+            }
+            if (!a_out_left) {
+                dim_info[op_idx].res_a_out = 1;
+                dim_info[op_idx].wai_a_out = 1;
+                dim_info[op_idx].str_a_out = 0;
+            } else {
+                if (!a_out_reenter) {
+                    dim_info[op_idx].res_a_out = @truncate(linearized.op_num);
+                }
+            }
+            if (!z_out_left) {
+                dim_info[op_idx].res_z_out = 1;
+                dim_info[op_idx].wai_z_out = 1;
+                dim_info[op_idx].str_z_out = 0;
+            } else {
+                if (!z_out_reenter) {
+                    dim_info[op_idx].res_z_out = @truncate(linearized.op_num);
+                }
+            }
+            if (!y_out_left) {
+                dim_info[op_idx].res_y_out = 1;
+                dim_info[op_idx].wai_y_out = 1;
+                dim_info[op_idx].str_y_out = 0;
+            } else {
+                if (!y_out_reenter) {
+                    dim_info[op_idx].res_y_out = @truncate(linearized.op_num);
+                }
+            }
+            if (!x_out_left) {
+                dim_info[op_idx].res_x_out = 1;
+                dim_info[op_idx].wai_x_out = 1;
+                dim_info[op_idx].str_x_out = 0;
+            } else {
+                if (!x_out_reenter) {
+                    dim_info[op_idx].res_x_out = @truncate(linearized.op_num);
+                }
+            }
+            if (!a_in_left) {
+                dim_info[op_idx].res_a_in = 1;
+                dim_info[op_idx].wai_a_in = 1;
+                dim_info[op_idx].str_a_in = 0;
+            } else {
+                if (!a_in_reenter) {
+                    dim_info[op_idx].res_a_in = @truncate(linearized.op_num);
+                }
+            }
+            if (!z_in_left) {
+                dim_info[op_idx].res_z_in = 1;
+                dim_info[op_idx].wai_z_in = 1;
+                dim_info[op_idx].str_z_in = 0;
+            } else {
+                if (!z_in_reenter) {
+                    dim_info[op_idx].res_z_in = @truncate(linearized.op_num);
+                }
+            }
+            if (!y_in_left) {
+                dim_info[op_idx].res_y_in = 1;
+                dim_info[op_idx].wai_y_in = 1;
+                dim_info[op_idx].str_y_in = 0;
+            } else {
+                if (!y_in_reenter) {
+                    dim_info[op_idx].res_y_in = @truncate(linearized.op_num);
+                }
+            }
+            if (!x_in_left) {
+                dim_info[op_idx].res_x_in = 1;
+                dim_info[op_idx].wai_x_in = 1;
+                dim_info[op_idx].str_x_in = 0;
+            } else {
+                if (!x_in_reenter) {
+                    dim_info[op_idx].res_x_in = @truncate(linearized.op_num);
                 }
             }
         }
