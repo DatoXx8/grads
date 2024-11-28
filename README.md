@@ -1,16 +1,18 @@
 # Grads
 
-Grads is a deep learning framework written in C. It is mainly a recreational project, though you can use it if you like.
+Grads is a deep learning framework written in Zig. It is mainly a recreational project, though you can use it for serious projects if you want to.
 It is essentialy an optimizing transpiler to OpenCL.
 
+Grads is currently licensed under the [MIT License](https://spdx.org/licenses/MIT.html) but it may be switched to the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/)
+
 > [!IMPORTANT]
-> In the future this will probably be ported to Zig and the C version will likely be abandoned at that point.
+> This is the Zig version and it is still very early in it's development.
 
 ## Dependencies
 
 Right now, there are only 3 dependencies:
-- a C compiler
-- the C standard library
+- The Zig compiler
+- the Zig standard library
 - OpenCL runtime & headers
 
 ## Installation
@@ -19,16 +21,15 @@ Right now, there are only 3 dependencies:
 ``` sh
 git clone https://github.com/DatoXx8/grads.git
 ```
-2. Add all the `.c` files to your compile step, which could look as following:
+2. Compile the project, you can use something else than `ReleaseSafe` but that disables assertions, so be warned!
 ``` sh
-clang main.c [your files] ./grads/tensor.c ./grads/nn.c ./grads/compiler/codegen.c ./grads/compiler/compile.c ./grads/runtimes/cl.c -o grad -O3 -lm -lOpenCL -Wall -Wextra -pedantic
+zig build -Doptmize=ReleaseSafe
 ```
 
 ## Testing
 
-This project has a big focus on testing, but be aware that despite that there will always be bugs in any sufficiently complex program including this one.
+To run the unit tests for singular ops run `zig build test-op`.
+To run the simulation tests for linearized ops run `zig build test-linearized`. (Not yet implemented)
+To run the simulation tests for the compiler run `zig build test-compiler`. (Not yet implemented)
 
-We test:
-- All atomic ops give the expected results. (Unit testing)
-- Our linearization of atomic ops gives the same results as calling the ops on their own. (Randomized simulation testing)
-- Compiling any linearized ops gives the same results as calling the linearized ops with `linearized_run()`, within some small margin of error for hardware differences, at any optimization level. (Randomized simulation testing)
+In case a test fails, you can open an issue on the GitHub with the random seed and because the tests are deterministic that means me and others can then fix that bug.
