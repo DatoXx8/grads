@@ -1030,14 +1030,14 @@ pub const Linearized = struct {
         this.op[this.op_num] = op.*;
         this.op_num += 1;
     }
-    pub fn concat(this: *@This(), allocator: anytype, source: *Linearized) void {
+    pub fn concat(this: *@This(), allocator: anytype, source: *Linearized) !void {
         // This effectively means that the max growth factor is 2^20 = 1_048_576
         const max_expand_tries = 20;
         for (0..max_expand_tries) |_| {
             if (this.op_num + source.op_num < this.op.len) {
                 break;
             } else {
-                this.expand(allocator);
+                try this.expand(allocator);
             }
         }
         assert(this.op_num + source.op_num < this.op.len);
@@ -1255,10 +1255,10 @@ pub const Tensor = struct {
     }
     pub fn binary_add(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1268,10 +1268,10 @@ pub const Tensor = struct {
     }
     pub fn binary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1281,10 +1281,10 @@ pub const Tensor = struct {
     }
     pub fn binary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1294,10 +1294,10 @@ pub const Tensor = struct {
     }
     pub fn binary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1307,10 +1307,10 @@ pub const Tensor = struct {
     }
     pub fn binary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1320,10 +1320,10 @@ pub const Tensor = struct {
     }
     pub fn binary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1333,10 +1333,10 @@ pub const Tensor = struct {
     }
     pub fn binary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.bufzer.z_size);
+        assert(this.buffer.z_size == source.buffer.z_size);
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1346,10 +1346,10 @@ pub const Tensor = struct {
     }
     pub fn linary_add(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1359,10 +1359,10 @@ pub const Tensor = struct {
     }
     pub fn linary_subtract(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1372,10 +1372,10 @@ pub const Tensor = struct {
     }
     pub fn linary_multiply(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1385,10 +1385,10 @@ pub const Tensor = struct {
     }
     pub fn linary_divide(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1398,10 +1398,10 @@ pub const Tensor = struct {
     }
     pub fn linary_max(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1411,10 +1411,10 @@ pub const Tensor = struct {
     }
     pub fn linary_min(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1424,10 +1424,10 @@ pub const Tensor = struct {
     }
     pub fn linary_set(this: *@This(), allocator: anytype, source: *@This()) !void {
         assert(source.buffer.a_size == 1);
-        assert(source.bufzer.z_size == 1);
+        assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1440,7 +1440,7 @@ pub const Tensor = struct {
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1453,7 +1453,7 @@ pub const Tensor = struct {
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1466,7 +1466,7 @@ pub const Tensor = struct {
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
@@ -1479,7 +1479,7 @@ pub const Tensor = struct {
         assert(this.buffer.z_size == 1);
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
-        try this.linearized.concat(allocator, source.linearized);
+        try this.linearized.concat(allocator, &source.linearized);
         try this.linearized.append(allocator, &.{
             .out = this.buffer,
             .in = source.buffer,
