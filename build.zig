@@ -26,6 +26,7 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
+    // TODO: Figure out how to get rid of libc
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("OpenCL");
 
@@ -66,10 +67,14 @@ pub fn build(b: *std.Build) void {
     unit_test_op.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
+    // TODO: Figure out how to get rid of libc
     unit_test_op.linkSystemLibrary("c");
     unit_test_op.linkSystemLibrary("OpenCL");
 
+    b.installArtifact(unit_test_op);
+
     const run_unit_tests = b.addRunArtifact(unit_test_op);
+    run_unit_tests.step.dependOn(b.getInstallStep());
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
