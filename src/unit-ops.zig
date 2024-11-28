@@ -34,6 +34,7 @@ fn assert_eq(val1: f32, val2: f32) !void {
     }
 }
 
+// TODO: --loop option
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -55,10 +56,10 @@ pub fn main() !void {
         }
     }
 
-    const a_size: u32 = 4;
-    const z_size: u32 = 3;
-    const y_size: u32 = 2;
-    const x_size: u32 = 1;
+    const a_size: u32 = 6;
+    const z_size: u32 = 5;
+    const y_size: u32 = 4;
+    const x_size: u32 = 3;
     var tensor1 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null);
     defer tensor1.free(allocator);
     var tensor2 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null);
@@ -191,7 +192,7 @@ pub fn main() !void {
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         product *= tensor1.buffer.values[arg_idx];
     }
-    if (@abs(product) < 1.0 / @as(f32, a_size * z_size * y_size * x_size)) {
+    if (@abs(product) < 1 / @as(f32, a_size * z_size * y_size * x_size)) {
         // Happy case
     } else {
         // For nicer output formatting
