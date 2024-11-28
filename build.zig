@@ -74,7 +74,7 @@ pub fn build(b: *std.Build) void {
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
-    const test_step = b.step("test", "Run unit tests");
+    const test_step = b.step("test-op", "Run unit tests for singular ops");
     test_step.dependOn(&run_unit_tests.step);
 
     if (b.args) |args| {
