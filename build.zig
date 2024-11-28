@@ -54,10 +54,10 @@ pub fn build(b: *std.Build) void {
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build run`
     // This will evaluate the `run` step rather than the default, which is "install".
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    // const run_step = b.step("run", "Run the app");
+    // run_step.dependOn(&run_cmd.step);
 
-    const unit_test_op = b.addTest(.{
+    const unit_test_op = b.addExecutable(.{
         .name = "unit_test_op",
         .root_source_file = b.path("src/unit-ops.zig"),
         .target = target,
@@ -70,12 +70,14 @@ pub fn build(b: *std.Build) void {
     unit_test_op.linkSystemLibrary("OpenCL");
 
     const run_unit_tests = b.addRunArtifact(unit_test_op);
-    // I don't entirely undestand this but it makes the tests rerun if you run `zig build test` more than once
-    run_unit_tests.has_side_effects = true;
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
+
+    if (b.args) |args| {
+        run_unit_tests.addArgs(args);
+    }
 }
