@@ -66,7 +66,7 @@ pub fn build(b: *std.Build) void {
     unit_test_op.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // unit_test_op.linkSystemLibrary("c");
+    unit_test_op.linkSystemLibrary("c");
     unit_test_op.linkSystemLibrary("OpenCL");
 
     const run_unit_tests = b.addRunArtifact(unit_test_op);
