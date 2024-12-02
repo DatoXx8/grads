@@ -74,6 +74,7 @@ pub fn main() !void {
         false => rng_saved.?,
     };
     std.debug.print("unit-ops: rng={}...", .{rng});
+    defer std.debug.print(" passed!\n", .{});
     Pcg.init(rng);
 
     for (0..a_size * z_size * y_size * x_size) |val_idx| {
@@ -361,6 +362,4 @@ pub fn main() !void {
         min = @min(min, val2[arg_idx]);
     }
     try assert_eq(tensor1.buffer.values[0], min);
-
-    std.debug.print(" passed!\n", .{});
 }
