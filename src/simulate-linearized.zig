@@ -249,7 +249,6 @@ pub fn main() !void {
                 tensor2[tensor_out].realize();
             },
             .binary_multiply => {
-                std.debug.print("{} {}\n", .{ tensor_out, tensor_in });
                 try tensor1[tensor_out].binary_multiply(allocator, &tensor1[tensor_in]);
                 try tensor2[tensor_out].binary_multiply(allocator, &tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
