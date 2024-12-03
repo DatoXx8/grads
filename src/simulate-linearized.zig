@@ -64,7 +64,7 @@ pub fn main() !void {
     const x_size: u32 = 3;
 
     const tensor_num: u32 = 10;
-    const op_num: u32 = 50;
+    const op_num: u32 = 80;
     comptime {
         assert(tensor_num > 1);
         assert(tensor_num > 0);
@@ -132,7 +132,7 @@ pub fn main() !void {
             try tensor1[tensor_out].linearized.concat(allocator, &tensor1[tensor_in].linearized);
         }
 
-        // TODO: Random offsets
+        // TODO: Random offsets, because like this unary_set makes it kinda uninteresting
         switch (op_type) {
             .unary_add => {
                 const u_var: f32 = Pcg.rand_f32();
@@ -153,47 +153,67 @@ pub fn main() !void {
                 tensor2[tensor_out].realize();
             },
             .unary_divide => {
+                // NaN prevention
                 const u_var: f32 = @abs(Pcg.rand_f32()) + 1;
                 try tensor1[tensor_out].unary_divide(allocator, u_var);
                 try tensor2[tensor_out].unary_divide(allocator, u_var);
                 tensor2[tensor_out].realize();
             },
             .unary_exp => {
+                // NaN prevention
+                try tensor1[tensor_out].unary_min(allocator, 10);
+                try tensor2[tensor_out].unary_min(allocator, 10);
+                tensor2[tensor_out].realize();
+
                 try tensor1[tensor_out].unary_exp(allocator);
                 try tensor2[tensor_out].unary_exp(allocator);
                 tensor2[tensor_out].realize();
             },
             .unary_log => {
+                // NaN prevention
                 try tensor1[tensor_out].unary_absolute(allocator);
                 try tensor2[tensor_out].unary_absolute(allocator);
                 tensor2[tensor_out].realize();
                 try tensor1[tensor_out].unary_add(allocator, 1);
                 try tensor2[tensor_out].unary_add(allocator, 1);
                 tensor2[tensor_out].realize();
+
                 try tensor1[tensor_out].unary_log(allocator);
                 try tensor2[tensor_out].unary_log(allocator);
                 tensor2[tensor_out].realize();
             },
             .unary_square => {
+                // NaN prevention
+                try tensor1[tensor_out].unary_min(allocator, 100);
+                try tensor2[tensor_out].unary_min(allocator, 100);
+                tensor2[tensor_out].realize();
+                try tensor1[tensor_out].unary_max(allocator, -100);
+                try tensor2[tensor_out].unary_max(allocator, -100);
+                tensor2[tensor_out].realize();
+
                 try tensor1[tensor_out].unary_square(allocator);
                 try tensor2[tensor_out].unary_square(allocator);
                 tensor2[tensor_out].realize();
             },
             .unary_sqrt => {
+                // NaN prevention
                 try tensor1[tensor_out].unary_absolute(allocator);
                 try tensor2[tensor_out].unary_absolute(allocator);
                 tensor2[tensor_out].realize();
+
                 try tensor1[tensor_out].unary_sqrt(allocator);
                 try tensor2[tensor_out].unary_sqrt(allocator);
                 tensor2[tensor_out].realize();
             },
             .unary_reciprocal => {
+                // NaN prevention
                 try tensor1[tensor_out].unary_absolute(allocator);
                 try tensor2[tensor_out].unary_absolute(allocator);
                 tensor2[tensor_out].realize();
                 try tensor1[tensor_out].unary_add(allocator, 1);
                 try tensor2[tensor_out].unary_add(allocator, 1);
                 tensor2[tensor_out].realize();
+
                 try tensor1[tensor_out].unary_reciprocal(allocator);
                 try tensor2[tensor_out].unary_reciprocal(allocator);
                 tensor2[tensor_out].realize();
@@ -254,12 +274,14 @@ pub fn main() !void {
                 tensor2[tensor_out].realize();
             },
             .binary_divide => {
+                // NaN prevention
                 try tensor1[tensor_in].unary_absolute(allocator);
                 try tensor2[tensor_in].unary_absolute(allocator);
                 tensor2[tensor_in].realize();
                 try tensor1[tensor_in].unary_add(allocator, 1);
                 try tensor2[tensor_in].unary_add(allocator, 1);
                 tensor2[tensor_in].realize();
+
                 try tensor1[tensor_out].binary_divide(allocator, &tensor1[tensor_in]);
                 try tensor2[tensor_out].binary_divide(allocator, &tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
@@ -309,12 +331,14 @@ pub fn main() !void {
             .linary_divide => {
                 tensor1[tensor_in].move_resize(1, 1, 1, 1);
                 tensor2[tensor_in].move_resize(1, 1, 1, 1);
+                // NaN prevention
                 try tensor1[tensor_in].unary_absolute(allocator);
                 try tensor2[tensor_in].unary_absolute(allocator);
                 tensor2[tensor_in].realize();
                 try tensor1[tensor_in].unary_add(allocator, 1);
                 try tensor2[tensor_in].unary_add(allocator, 1);
                 tensor2[tensor_in].realize();
+
                 try tensor1[tensor_out].linary_divide(allocator, &tensor1[tensor_in]);
                 try tensor2[tensor_out].linary_divide(allocator, &tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
