@@ -36,6 +36,7 @@ fn assert_eq(val1: f32, val2: f32) !void {
 }
 
 // TODO: --loop option
+// TODO: Minify automatically
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -63,7 +64,11 @@ pub fn main() !void {
     const x_size: u32 = 3;
 
     const tensor_num: u32 = 10;
-    const op_num: u32 = 100;
+    const op_num: u32 = 50;
+    comptime {
+        assert(tensor_num > 1);
+        assert(tensor_num > 0);
+    }
 
     // Arbitrary start points
     var tensor_out: u32 = 0;
@@ -91,7 +96,6 @@ pub fn main() !void {
         false => rng_saved.?,
     };
     std.debug.print("simulate-linearized: rng={}...", .{rng});
-    defer std.debug.print(" passed!\n", .{});
     Pcg.init(rng);
 
     for (0..tensor_num) |tensor_idx| {
@@ -104,6 +108,29 @@ pub fn main() !void {
     const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
     for (0..op_num) |_| {
         const op_type: OpType = @enumFromInt(Pcg.rand_below(op_type_max));
+
+        // The likelyhood is strictly speaking 1 / switch_likelyhood
+        const switch_likelyhood: u32 = 10;
+        if (Pcg.rand_below(switch_likelyhood) == 0) {
+            tensor_in = tensor_out;
+            // At the very worst case this fails one out of 2^100 ~= 10^30 times
+            const rand_tries_max: u32 = 100;
+            for (0..rand_tries_max) |_| {
+                tensor_out = Pcg.rand_below(tensor_num);
+                if (tensor_out != tensor_in) {
+                    break;
+                }
+            }
+            assert(tensor_out != tensor_in);
+        }
+
+        // It is a bit difficult to explain why this is necessary, but essentially it prevents
+        // the loss of ops that have already been executed on tensor2 (only the ones for NaN prevention
+        // because those have effects on the in tensor) that could happen when switching ops and
+        // not reattaching to the in tensor by getting a unary op.
+        if (tensor1[tensor_in].linearized.op_num != 0) {
+            try tensor1[tensor_out].linearized.concat(allocator, &tensor1[tensor_in].linearized);
+        }
 
         // TODO: Random offsets
         switch (op_type) {
@@ -222,6 +249,7 @@ pub fn main() !void {
                 tensor2[tensor_out].realize();
             },
             .binary_multiply => {
+                std.debug.print("{} {}\n", .{ tensor_out, tensor_in });
                 try tensor1[tensor_out].binary_multiply(allocator, &tensor1[tensor_in]);
                 try tensor2[tensor_out].binary_multiply(allocator, &tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
@@ -358,23 +386,12 @@ pub fn main() !void {
                 tensor2[tensor_out].move_resize(a_size, z_size, y_size, x_size);
             },
         }
-
-        // The likelyhood is strictly speaking 1 / switch_likelyhood
-        const switch_likelyhood: u32 = 100;
-        if (Pcg.rand_below(switch_likelyhood) == 0) {
-            tensor_in = tensor_out;
-            const rand_tries_max: u32 = 100;
-            for (0..rand_tries_max) |_| {
-                tensor_out = Pcg.rand_below(tensor_num);
-                if (tensor_out != tensor_in) {
-                    break;
-                }
-            }
-            assert(tensor_out != tensor_in);
-        }
     }
+
     tensor1[tensor_out].realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assert_eq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
     }
+
+    std.debug.print(" passed!\n", .{});
 }
