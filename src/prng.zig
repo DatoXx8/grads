@@ -24,11 +24,11 @@ pub const Pcg = struct {
     }
     pub fn rand() u32 {
         var x: u64 = state;
-        const pivot: u32 = @truncate(@as(u64, @bitCast(x >> 59)));
+        const pivot: u5 = @truncate(x >> 59);
 
         state = state *% mult +% incr;
         x ^= x >> 18;
-        return Pcg.rotate_32(@truncate(x >> 27), @truncate(pivot));
+        return Pcg.rotate_32(@truncate(x >> 27), pivot);
     }
     pub fn rand_below(top: u32) u32 {
         if (top == 0 or top == 1) {
