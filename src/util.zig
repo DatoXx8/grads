@@ -7,11 +7,11 @@
 //         return AssertionErrorType.assertion_failure;
 //     }
 // }
-pub fn assert(ok: bool) void {
+pub inline fn assert(ok: bool) void {
     if (!ok) {
         unreachable;
     }
 }
-pub fn maybe(ok: bool) void {
+pub inline fn maybe(ok: bool) void {
     assert(ok or !ok);
 }
