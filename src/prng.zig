@@ -9,10 +9,6 @@ const incr: u64 = 1442695040888963407;
 /// IMO that is a big enough margin to say that this is definitely faster. It's also less wasteful of randomness if you catch my drift.
 var spare_exists: bool = false;
 var spare: f32 = 0;
-/// The likelyhood of this failing despite trying this many times is ((4 - pi)/4) ^ tries_max, which for tries_max = 40 is 1e-27,
-/// which means it will likely only happen at billions of exabytes (= trillions of petabytes). And I seriously doubt anyone will generate *that* many floats with this.
-/// In case it fails anyways it returns 0 because that is the least likely to cause damage as that is the mean anyways.
-const tries_max = 40;
 
 /// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB and it found no statistical anomalies.
 pub const Pcg = struct {
@@ -66,16 +62,10 @@ pub const Pcg = struct {
             var u: f32 = 0;
             var v: f32 = 0;
             var s: f32 = 0;
-            for (0..tries_max) |_| {
+            while (s <= 0 or s >= 1) {
                 u = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
                 v = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
                 s = u * u + v * v;
-                if (s > 0 and s < 1) {
-                    break;
-                }
-            }
-            if (s <= 0 or s >= 1) {
-                return 0;
             }
             s = math.sqrt(-2.0 * math.log(f32, math.e, s) / s);
             spare = v * s;
