@@ -1083,7 +1083,7 @@ pub const Linearized = struct {
         this.op_num += 1;
     }
     pub fn concat(this: *@This(), allocator: anytype, source: *Linearized) !void {
-        while (this.op_num + source.op_num > this.op.len) {
+        while (this.op_num + source.op_num >= this.op.len) {
             try this.expand(allocator);
         }
         for (0..source.op_num) |op_idx| {
