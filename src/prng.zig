@@ -21,6 +21,9 @@ pub const Pcg = struct {
     }
     pub fn init(x: u64) void {
         state = x;
+        // To make sure that re-initing guarantees the same results, as long as you don't use multi-threading ^^
+        spare_exists = false;
+        spare = 0;
     }
     pub fn rand() u32 {
         var x: u64 = state;
