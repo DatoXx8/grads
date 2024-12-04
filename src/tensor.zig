@@ -7,6 +7,8 @@ const assert = @import("./util.zig").assert;
 
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
+const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
+const OpenCl = @import("./runtimes/cl.zig").opencl;
 
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
@@ -125,8 +127,25 @@ const Buffer = struct {
         assert(x < this.x_size);
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
-    // pub fn sync_start
-    // pub fn sync_wait
+    pub fn sync_to_host(this: *const @This(), command_queue: ClCommandQueue) void {
+        assert(this.sync == .sync_to_host);
+        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent;
+        OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?, OpenCl.CL_TRUE, 0, size, this.values, 0, null, null);
+        this.sync = .sync_to_none;
+    }
+    pub fn sync_to_device(this: *const @This(), command_queue: ClCommandQueue) void {
+        assert(this.sync == .sync_to_device);
+        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent;
+        OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?, OpenCl.CL_TRUE, 0, size, this.values, 0, null, null);
+        this.sync = .sync_to_none;
+    }
+    pub fn sync_update(this: *const @This(), sync: Buffer.SyncStatus) void {
+        assert(this.sync == .sync_to_none);
+        assert(sync != .sync_to_none);
+    }
+    pub fn sync_wait(command_queue: ClCommandQueue) void {
+        OpenCl.clFinish(command_queue.queue);
+    }
 };
 // TODO: Maybe truncate the names to 3 letters each
 pub const Op = struct {
@@ -1133,8 +1152,11 @@ pub const Tensor = struct {
     /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
     /// Also if you run something more than once you should compile it I guess
     pub fn realize(this: *@This()) void {
-        this.linearized.run();
-        this.linearized.clear();
+        if (this.linearized.op_num) {
+            this.linearized.run();
+            this.linearized.clear();
+            // this.buffer.
+        }
     }
     pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
