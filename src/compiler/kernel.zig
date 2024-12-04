@@ -32,11 +32,11 @@ pub const Kernel = struct {
         const arg_initial: u32 = 4;
         var arg_name: [][buffer_name_size]u8 = try allocator.alloc([buffer_name_size]u8, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
-        var arg_count: u32 = 0;
+        var arg_num: u32 = 0;
 
         for (0..pir.op_num) |op_idx| {
             var arg_found_out: bool = false;
-            for (0..arg_count) |arg_idx| {
+            for (0..arg_num) |arg_idx| {
                 if (!arg_found_out and
                     std.mem.eql(u8, &arg_name[arg_idx], &pir.op[op_idx].out.name))
                 {
@@ -46,18 +46,18 @@ pub const Kernel = struct {
             }
 
             if (!arg_found_out) {
-                if (arg_count == arg_name.len) {
+                if (arg_num == arg_name.len) {
                     arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
                 }
-                arg_name[arg_count] = pir.op[op_idx].out.name;
+                arg_name[arg_num] = pir.op[op_idx].out.name;
                 // TODO: Get rid of this .? stuff
-                arg_mem[arg_count] = pir.op[op_idx].out.values_cl.?;
-                arg_count += 1;
+                arg_mem[arg_num] = pir.op[op_idx].out.values_cl.?;
+                arg_num += 1;
             }
             // Split because saving on string comparisons saves a lot of computation
-            if (pir.op[op_idx].is_unary()) {
+            if (!pir.op[op_idx].is_unary()) {
                 var arg_found_in: bool = false;
-                for (0..arg_count) |arg_idx| {
+                for (0..arg_num) |arg_idx| {
                     if (!arg_found_in and
                         std.mem.eql(u8, &arg_name[arg_idx], &pir.op[op_idx].in.name))
                     {
@@ -66,20 +66,23 @@ pub const Kernel = struct {
                     }
                 }
                 if (!arg_found_in) {
-                    if (arg_count == arg_name.len) {
+                    if (arg_num == arg_name.len) {
                         arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
                     }
-                    arg_name[arg_count] = pir.op[op_idx].in.name;
+                    arg_name[arg_num] = pir.op[op_idx].in.name;
                     // TODO: Get rid of this .? stuff
-                    arg_mem[arg_count] = pir.op[op_idx].out.values_cl.?;
-                    arg_count += 1;
+                    arg_mem[arg_num] = pir.op[op_idx].out.values_cl.?;
+                    arg_num += 1;
                 }
             }
+        }
+        for (0..arg_num) |arg_idx| {
+            std.debug.print("{} => {s}\n", .{ arg_idx, arg_name[arg_idx] });
         }
         return .{
             .arg_name = arg_name,
             .arg_mem = arg_mem,
-            .arg_num = arg_count,
+            .arg_num = arg_num,
         };
     }
     pub fn alloc(
@@ -105,14 +108,13 @@ pub const Kernel = struct {
         };
     }
     pub fn free(kernel: @This(), allocator: anytype) !void {
-        try kernel.kernel.free();
-        try kernel.program.free();
-        allocator.free(kernel.source);
         for (0..kernel.args.arg_num) |arg_idx| {
             try kernel.args.arg_mem[arg_idx].free();
-            // allocator.free(kernel.args.arg_name[arg_idx]);
         }
         allocator.free(kernel.args.arg_name);
         allocator.free(kernel.args.arg_mem);
+        allocator.free(kernel.source);
+        try kernel.kernel.free();
+        try kernel.program.free();
     }
 };
