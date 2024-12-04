@@ -8,7 +8,6 @@ const Pcg = @import("./prng.zig").Pcg;
 const assert = @import("./util.zig").assert;
 
 // TODO: Move tests to seperate directory
-// TODO: Make options to run with provided seed
 
 const AssertError = error{
     nan,
@@ -86,15 +85,9 @@ fn simulate_linearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off:
         const switch_likelyhood: u32 = 10;
         if (Pcg.rand_below(switch_likelyhood) == 0) {
             tensor_in = tensor_out;
-            // At the very worst case this fails one out of 2^100 ~= 10^30 times
-            const rand_tries_max: u32 = 100;
-            for (0..rand_tries_max) |_| {
+            while (tensor_out == tensor_in) {
                 tensor_out = Pcg.rand_below(tensor_num);
-                if (tensor_out != tensor_in) {
-                    break;
-                }
             }
-            assert(tensor_out != tensor_in);
         }
 
         // It is a bit difficult to explain why this is necessary, but essentially it prevents
@@ -457,8 +450,6 @@ fn minify_linearized(allocator: anytype, tensor_num: u32, op_num: u32, rng: u64,
     return err;
 }
 
-// TODO: --loop option
-// TODO: Minify automatically
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
