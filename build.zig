@@ -66,4 +66,25 @@ pub fn build(b: *std.Build) void {
     }
     const test_linearized_step = b.step("test-linearized", "Run the simulator for linearized ops");
     test_linearized_step.dependOn(&test_linearized.step);
+
+    const simulation_test_compiler = b.addExecutable(.{
+        .name = "simulate-compiler",
+        .root_source_file = b.path("src/simulate-compiler.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    simulation_test_compiler.addIncludePath(.{
+        .cwd_relative = "/usr/include/",
+    });
+    // TODO: Figure out how to get rid of libc
+    simulation_test_compiler.linkSystemLibrary("c");
+    simulation_test_compiler.linkSystemLibrary("OpenCL");
+    b.installArtifact(simulation_test_compiler);
+    const test_compiler = b.addRunArtifact(simulation_test_compiler);
+    test_compiler.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        test_compiler.addArgs(args);
+    }
+    const test_compiler_step = b.step("test-compiler", "Run the simulator for the compiler");
+    test_compiler_step.dependOn(&test_compiler.step);
 }
