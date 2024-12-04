@@ -90,7 +90,7 @@ pub const ClContext = struct {
         }
     }
     pub fn free(context: ClContext) !void {
-        if (opencl.clReleaseContet(context.context) == 0) {
+        if (opencl.clReleaseContext(context.context) == 0) {
             return;
         } else {
             return ClError.ContextNotFreed;
@@ -110,7 +110,7 @@ pub const ClCommandQueue = struct {
         }
     }
     pub fn free(queue: ClCommandQueue) !void {
-        const err: u32 = opencl.clReleaseCommandQueue(queue.queue);
+        const err: i32 = opencl.clReleaseCommandQueue(queue.queue);
         if (err == 0) {
             return;
         } else {
