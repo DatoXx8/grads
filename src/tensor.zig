@@ -228,8 +228,8 @@ pub const Op = struct {
         return this.type == .reduce_sum or this.type == .reduce_max or
             this.type == .reduce_avg or this.type == .reduce_min;
     }
+    // TODO: Optimise this with simd, see @Vector
     pub fn realize(this: *const @This()) void {
-        // TODO: There has to be a less grug way of doing this. I am currently doing it like this because comparing ordinals is order dependant.
         if (this.is_unary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
@@ -1083,16 +1083,9 @@ pub const Linearized = struct {
         this.op_num += 1;
     }
     pub fn concat(this: *@This(), allocator: anytype, source: *Linearized) !void {
-        // This effectively means that the max growth factor is 2^20 = 1_048_576
-        const max_expand_tries = 20;
-        for (0..max_expand_tries) |_| {
-            if (this.op_num + source.op_num < this.op.len) {
-                break;
-            } else {
-                try this.expand(allocator);
-            }
+        while (this.op_num + source.op_num > this.op.len) {
+            try this.expand(allocator);
         }
-        assert(this.op_num + source.op_num < this.op.len);
         for (0..source.op_num) |op_idx| {
             this.op[this.op_num + op_idx] = source.op[op_idx];
         }
