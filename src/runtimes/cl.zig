@@ -11,7 +11,7 @@ const opencl_header = switch (builtin.target.os.tag) {
     else => "CL/cl.h",
 };
 
-const opencl = @cImport({
+pub const opencl = @cImport({
     // @cDefine("CL_TARGET_OPENCL_VERSION", opencl_version);
     @cInclude(opencl_header);
 });
