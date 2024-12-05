@@ -106,7 +106,8 @@ pub const Kernel = struct {
         errdefer kernel.free() catch {};
 
         for (0..args.arg_num) |arg_idx| {
-            // This pointer cast business is a little dumb, but it's necessary
+            // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
+            // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
             const err: i32 = OpenCl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
                 @sizeOf(OpenCl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory));
             if (err != 0) {
