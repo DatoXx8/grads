@@ -106,9 +106,9 @@ pub const Kernel = struct {
         errdefer kernel.free() catch {};
 
         for (0..args.arg_num) |arg_idx| {
+            // This pointer cast business is a little dumb, but it's necessary
             const err: i32 = OpenCl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
-                @sizeOf(OpenCl.cl_mem), args.arg_mem[arg_idx].memory);
-            std.debug.print("Error {}\n", .{err});
+                @sizeOf(OpenCl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory));
             if (err != 0) {
                 return ClError.ArgNotSet;
             }
