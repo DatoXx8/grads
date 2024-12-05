@@ -8,11 +8,14 @@ const ClKernel = Cl.ClKernel;
 const ClProgram = Cl.ClProgram;
 const ClDevice = Cl.ClDevice;
 const ClContext = Cl.ClContext;
+const ClError = Cl.ClError;
 
 const Pir = @import("./pir.zig").Pir;
 
 const source_generate = @import("./codegen.zig").generate;
 const Optimisation = @import("./codegen.zig").Optimisation;
+
+const OpenCl = @import("../runtimes/cl.zig").OpenCl;
 
 pub const Args = struct {
     arg_name: [][buffer_name_size]u8,
@@ -101,6 +104,15 @@ pub const Kernel = struct {
         errdefer program.free() catch {};
         const kernel: ClKernel = try ClKernel.alloc(program);
         errdefer kernel.free() catch {};
+
+        for (0..args.arg_num) |arg_idx| {
+            const err: i32 = OpenCl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
+                @sizeOf(OpenCl.cl_mem), args.arg_mem[arg_idx].memory);
+            std.debug.print("Error {}\n", .{err});
+            if (err != 0) {
+                return ClError.ArgNotSet;
+            }
+        }
 
         return .{
             .args = args,

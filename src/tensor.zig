@@ -8,7 +8,7 @@ const assert = @import("./util.zig").assert;
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const OpenCl = @import("./runtimes/cl.zig").opencl;
+const OpenCl = @import("./runtimes/cl.zig").OpenCl;
 
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
