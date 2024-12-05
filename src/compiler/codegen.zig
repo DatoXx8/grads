@@ -734,6 +734,5 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size
 
     try write_buffer(allocator, &source, &offset, padding, "}}\n", .{});
 
-    std.debug.print("Source:\n{s}\n", .{source});
     return source;
 }
