@@ -74,7 +74,7 @@ pub const Kernel = struct {
                     }
                     arg_name[arg_num] = pir.op[op_idx].in.name;
                     // TODO: Get rid of this .? stuff
-                    arg_mem[arg_num] = pir.op[op_idx].out.values_cl.?;
+                    arg_mem[arg_num] = pir.op[op_idx].in.values_cl.?;
                     arg_num += 1;
                 }
             }
