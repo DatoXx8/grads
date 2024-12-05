@@ -21,8 +21,12 @@ var buffer_name_offset: u32 = 0;
 const Buffer = struct {
     const SyncStatus = enum(u8) {
         sync_to_host,
-        snyc_to_device,
+        sync_to_device,
         sync_to_none,
+    };
+    const SyncError = error{
+        FailedToHost,
+        FailedToDevice,
     };
     a_inherent: u32,
     z_inherent: u32,
@@ -59,7 +63,7 @@ const Buffer = struct {
             name[char_idx] += @truncate(left % divisor);
             left = @truncate(left / divisor);
         }
-        // Enforce that you don't generate new tensors below 'zzzz...zzz'
+        // Enforce that you don't generate new tensors beyond 'zzzz...zzz'
         assert(left == 0);
 
         // Have to do it this way because there is no such thing as ++ in Zig.
@@ -127,21 +131,30 @@ const Buffer = struct {
         assert(x < this.x_size);
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
-    pub fn sync_to_host(this: *const @This(), command_queue: ClCommandQueue) void {
+    pub fn sync_to_host(this: *@This(), command_queue: ClCommandQueue) !void {
         assert(this.sync == .sync_to_host);
-        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent;
-        OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?, OpenCl.CL_TRUE, 0, size, this.values, 0, null, null);
+        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+        const err: i32 = OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?.memory, //
+            OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
+        if (err != 0) {
+            return SyncError.FailedToHost;
+        }
         this.sync = .sync_to_none;
     }
-    pub fn sync_to_device(this: *const @This(), command_queue: ClCommandQueue) void {
+    pub fn sync_to_device(this: *@This(), command_queue: ClCommandQueue) !void {
         assert(this.sync == .sync_to_device);
-        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent;
-        OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?, OpenCl.CL_TRUE, 0, size, this.values, 0, null, null);
+        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+        const err: i32 = OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?.memory, //
+            OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
+        if (err != 0) {
+            return SyncError.FailedToDevice;
+        }
         this.sync = .sync_to_none;
     }
-    pub fn sync_update(this: *const @This(), sync: Buffer.SyncStatus) void {
+    pub fn sync_update(this: *@This(), sync: SyncStatus) void {
         assert(this.sync == .sync_to_none);
         assert(sync != .sync_to_none);
+        this.sync = sync;
     }
     pub fn sync_wait(command_queue: ClCommandQueue) void {
         OpenCl.clFinish(command_queue.queue);
@@ -1152,10 +1165,10 @@ pub const Tensor = struct {
     /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
     /// Also if you run something more than once you should compile it I guess
     pub fn realize(this: *@This()) void {
-        if (this.linearized.op_num) {
+        if (this.linearized.op_num != 0) {
             this.linearized.run();
             this.linearized.clear();
-            // this.buffer.
+            // TODO: This should update sync to `snyc_to_host`
         }
     }
     pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
