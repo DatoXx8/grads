@@ -36,6 +36,7 @@ pub const Program = struct {
         const capacity_initial: u32 = 4;
         var op_used: u32 = 0;
         var kernel: []Kernel = try allocator.alloc(Kernel, capacity_initial);
+        errdefer allocator.free(kernel);
         var kernel_num: u32 = 0;
 
         for (0..linearized.op_num) |_| {
@@ -50,6 +51,7 @@ pub const Program = struct {
             kernel_num += 1;
         }
         assert(op_used == linearized.op_num);
+
         return .{
             .size_global = size_global,
             .size_local = size_local,
@@ -62,5 +64,6 @@ pub const Program = struct {
         for (0..this.kernel_num) |kernel_idx| {
             try this.kernel[kernel_idx].free(allocator);
         }
+        allocator.free(this.kernel);
     }
 };
