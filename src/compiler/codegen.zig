@@ -244,7 +244,7 @@ fn generate_op_singular(
             });
         },
         .unary_sqrt => {
-            try write_buffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fsqrt({s}[{s}_{}_{} + {}]);\n", .{
+            try write_buffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = sqrt({s}[{s}_{}_{} + {}]);\n", .{
                 op.out.name,
                 op.out.name,
                 repeat_idx,
