@@ -4,6 +4,8 @@ const Cl = @import("../runtimes/cl.zig");
 const ClDevice = Cl.ClDevice;
 const ClContext = Cl.ClContext;
 const ClCommandQueue = Cl.ClCommandQueue;
+const ClError = Cl.ClError;
+const OpenCl = Cl.OpenCl;
 
 const Linearized = @import("../tensor.zig").Linearized;
 const Pir = @import("./pir.zig").Pir;
@@ -15,8 +17,8 @@ const Optimisation = @import("./codegen.zig").Optimisation;
 const std = @import("std");
 
 pub const Program = struct {
-    size_global: u32,
-    size_local: u32,
+    size_global: usize,
+    size_local: usize,
     kernel_num: u32,
     kernel: []Kernel,
     // device: *ClDevice,
@@ -65,5 +67,18 @@ pub const Program = struct {
             try this.kernel[kernel_idx].free(allocator);
         }
         allocator.free(this.kernel);
+    }
+    pub fn run(this: @This()) !void {
+        for (0..this.kernel_num) |kernel_idx| {
+            var err: i32 = OpenCl.clEnqueueNDRangeKernel(this.command_queue.queue, this.kernel[kernel_idx].kernel.kernel, //
+                1, null, &this.size_global, &this.size_local, 0, null, null);
+            if (err != 0) {
+                return ClError.ProgramNotRun;
+            }
+            err = OpenCl.clFinish(this.command_queue.queue);
+            if (err != 0) {
+                return ClError.QueueCouldNotWait;
+            }
+        }
     }
 };
