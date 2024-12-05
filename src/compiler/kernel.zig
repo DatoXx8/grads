@@ -76,9 +76,7 @@ pub const Kernel = struct {
                 }
             }
         }
-        for (0..arg_num) |arg_idx| {
-            std.debug.print("{} => {s}\n", .{ arg_idx, arg_name[arg_idx] });
-        }
+
         return .{
             .arg_name = arg_name,
             .arg_mem = arg_mem,
@@ -95,10 +93,14 @@ pub const Kernel = struct {
         optimisation: Optimisation,
     ) !Kernel {
         const args: Args = try Kernel.args_gather(allocator, pir);
+        errdefer allocator.free(args.arg_name);
         const source: []u8 = try source_generate(allocator, pir, args, size_global, size_local, optimisation);
+        errdefer allocator.free(source);
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
+        errdefer program.free() catch {};
         const kernel: ClKernel = try ClKernel.alloc(program);
+        errdefer kernel.free() catch {};
 
         return .{
             .args = args,
@@ -108,9 +110,11 @@ pub const Kernel = struct {
         };
     }
     pub fn free(kernel: @This(), allocator: anytype) !void {
-        for (0..kernel.args.arg_num) |arg_idx| {
-            try kernel.args.arg_mem[arg_idx].free();
-        }
+        // The arg_mem get's freed with the tensors
+
+        // for (0..kernel.args.arg_num) |arg_idx| {
+        //     try kernel.args.arg_mem[arg_idx].free();
+        // }
         allocator.free(kernel.args.arg_name);
         allocator.free(kernel.args.arg_mem);
         allocator.free(kernel.source);
