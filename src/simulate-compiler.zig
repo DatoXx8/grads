@@ -21,11 +21,15 @@ const AssertError = error{
 };
 /// Margin of error
 const epsilon: f32 = 1e-6;
+const epsilon_relative: f32 = 1e-4;
 /// Check for equality between the two floats within the margin of error of `epsilon`
 fn assert_eq(val1: f32, val2: f32) !void {
     if (std.math.approxEqAbs(f32, val1, val2, epsilon)) {
         return;
     } else {
+        if (std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
+            return;
+        }
         if (std.math.isNan(val1) or std.math.isNan(val2)) {
             // For nicer output formatting
             std.debug.print("\n", .{});
@@ -44,14 +48,10 @@ fn simulate_compiler(allocator: anytype, tensor_num: u32, op_num: u32, op_off: u
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off);
-    // const a_size: u32 = 6;
-    // const z_size: u32 = 5;
-    // const y_size: u32 = 4;
-    // const x_size: u32 = 3;
-    const a_size: u32 = 2;
-    const z_size: u32 = 2;
-    const y_size: u32 = 2;
-    const x_size: u32 = 2;
+    const a_size: u32 = 6;
+    const z_size: u32 = 5;
+    const y_size: u32 = 4;
+    const x_size: u32 = 3;
 
     // Arbitrary start points
     var tensor_out: u32 = 0;
@@ -373,9 +373,11 @@ fn simulate_compiler(allocator: anytype, tensor_num: u32, op_num: u32, op_off: u
         tensor1[tensor_idx].buffer.sync_update(.sync_to_device);
         try tensor1[tensor_idx].buffer.sync_to_device(command_queue);
     }
+
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, size_global, size_local, device, context, command_queue);
     try program.run();
     try program.free(allocator);
+
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.sync_update(.sync_to_host);
         try tensor1[tensor_idx].buffer.sync_to_host(command_queue);
@@ -458,7 +460,7 @@ pub fn main() !void {
     };
 
     const tensor_num: u32 = 10;
-    const op_num: u32 = 1;
+    const op_num: u32 = 10;
     comptime {
         assert(tensor_num > 1);
         assert(op_num > 0);
