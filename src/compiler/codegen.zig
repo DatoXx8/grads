@@ -355,8 +355,12 @@ fn generate_op_singular(
             });
         },
         .unary_sign => {
-            assert(false);
-            try write_buffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}];\n", .{
+            try write_buffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}] > 0 ? 1 :({s}[{s}_{}_{} + {}] < 0 ? -1 : 0);\n", .{
+                op.out.name,
+                op.out.name,
+                repeat_idx,
+                op_idx,
+                offset_out,
                 op.out.name,
                 op.out.name,
                 repeat_idx,
