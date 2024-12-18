@@ -1,5 +1,7 @@
 // PIR = Parallel intermediate representation
 
+const std = @import("std");
+
 const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
@@ -326,19 +328,19 @@ pub const Pir = struct {
         allocator.free(this.op);
         allocator.free(this.dim_info);
     }
-    pub fn print(this: *@This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
-            try writer.print("{s}PIR = {s}\n", .{ " " ** offset, text });
+            std.debug.print("{s}PIR = {s}\n", .{ " " ** offset, text });
         }
         for (0..this.op_num) |op_idx| {
-            try writer.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
-            try this.op[op_idx].print(writer, 0, 0, null);
-            try writer.print("{s}off => out({d:4}) in({d:4})\n", .{
+            std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
+            try this.op[op_idx].print(0, 0, null);
+            std.debug.print("{s}off => out({d:4}) in({d:4})\n", .{
                 " " ** (offset + 2 * padding),
                 this.dim_info[op_idx].off_out,
                 this.dim_info[op_idx].off_in,
             });
-            try writer.print("{s}str => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+            std.debug.print("{s}str => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
                 " " ** (offset + 2 * padding),
                 this.dim_info[op_idx].str_a_out,
                 this.dim_info[op_idx].str_z_out,
@@ -349,7 +351,7 @@ pub const Pir = struct {
                 this.dim_info[op_idx].str_y_in,
                 this.dim_info[op_idx].str_x_in,
             });
-            try writer.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+            std.debug.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
                 " " ** (offset + 2 * padding),
                 this.dim_info[op_idx].wai_a_out,
                 this.dim_info[op_idx].wai_z_out,
@@ -360,7 +362,7 @@ pub const Pir = struct {
                 this.dim_info[op_idx].wai_y_in,
                 this.dim_info[op_idx].wai_x_in,
             });
-            try writer.print("{s}res => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+            std.debug.print("{s}res => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
                 " " ** (offset + 2 * padding),
                 this.dim_info[op_idx].res_a_out,
                 this.dim_info[op_idx].res_z_out,

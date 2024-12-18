@@ -679,14 +679,14 @@ pub const Op = struct {
         }
     }
     // Really unhappy about this anytype thing...
-    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
-            try writer.print("{s}{s} ", .{ " " ** (padding + offset), text });
+            std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
-            try writer.print("{s}", .{" " ** (padding + offset)});
+            std.debug.print("{s}", .{" " ** (padding + offset)});
         }
         switch (this.type) {
-            .unary_add => try writer.print("U add ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_add => std.debug.print("U add ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -695,7 +695,7 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_subtract => try writer.print("U sub ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_subtract => std.debug.print("U sub ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -704,7 +704,7 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_multiply => try writer.print("U mul ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_multiply => std.debug.print("U mul ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -713,7 +713,7 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_divide => try writer.print("U div ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_divide => std.debug.print("U div ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -722,7 +722,7 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_exp => try writer.print("U exp ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_exp => std.debug.print("U exp ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -730,7 +730,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_log => try writer.print("U log ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_log => std.debug.print("U log ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -738,7 +738,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_square => try writer.print("U sqr ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_square => std.debug.print("U sqr ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -746,7 +746,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_sqrt => try writer.print("U sqt ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_sqrt => std.debug.print("U sqt ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -754,7 +754,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_reciprocal => try writer.print("U rec ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_reciprocal => std.debug.print("U rec ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -762,16 +762,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_max => try writer.print("U max ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.offset,
-                this.out.name,
-                this.u_var,
-            }),
-            .unary_min => try writer.print("U min ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_max => std.debug.print("U max ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -780,7 +771,7 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_set => try writer.print("U set ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            .unary_min => std.debug.print("U min ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -789,7 +780,16 @@ pub const Op = struct {
                 this.out.name,
                 this.u_var,
             }),
-            .unary_random => try writer.print("U rng ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_set => std.debug.print("U set ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+                this.out.a_size,
+                this.out.z_size,
+                this.out.y_size,
+                this.out.x_size,
+                this.out.offset,
+                this.out.name,
+                this.u_var,
+            }),
+            .unary_random => std.debug.print("U rng ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -797,7 +797,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_tanh => try writer.print("U tan ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_tanh => std.debug.print("U tan ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -805,7 +805,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_absolute => try writer.print("U abs ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_absolute => std.debug.print("U abs ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -813,7 +813,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .unary_sign => try writer.print("U sgn ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .unary_sign => std.debug.print("U sgn ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -821,35 +821,7 @@ pub const Op = struct {
                 this.out.offset,
                 this.out.name,
             }),
-            .binary_add => try writer.print("B add ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.offset,
-                this.out.name,
-                this.in.a_size,
-                this.in.z_size,
-                this.in.y_size,
-                this.in.x_size,
-                this.in.offset,
-                this.in.name,
-            }),
-            .binary_subtract => try writer.print("B sub ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.offset,
-                this.out.name,
-                this.in.a_size,
-                this.in.z_size,
-                this.in.y_size,
-                this.in.x_size,
-                this.in.offset,
-                this.in.name,
-            }),
-            .binary_multiply => try writer.print("B mul ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_add => std.debug.print("B add ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -863,7 +835,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .binary_divide => try writer.print("B div ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_subtract => std.debug.print("B sub ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -877,7 +849,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .binary_max => try writer.print("B max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_multiply => std.debug.print("B mul ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -891,7 +863,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .binary_min => try writer.print("B min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_divide => std.debug.print("B div ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -905,7 +877,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .binary_set => try writer.print("B set ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_max => std.debug.print("B max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -919,7 +891,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_add => try writer.print("L add ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_min => std.debug.print("B min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -933,7 +905,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_subtract => try writer.print("L sub ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .binary_set => std.debug.print("B set ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -947,7 +919,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_multiply => try writer.print("L mul ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_add => std.debug.print("L add ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -961,7 +933,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_divide => try writer.print("L div ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_subtract => std.debug.print("L sub ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -975,7 +947,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_max => try writer.print("L max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_multiply => std.debug.print("L mul ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -989,7 +961,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_min => try writer.print("L min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_divide => std.debug.print("L div ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1003,7 +975,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .linary_set => try writer.print("L set ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_max => std.debug.print("L max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1017,7 +989,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .reduce_sum => try writer.print("R sum ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_min => std.debug.print("L min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1031,7 +1003,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .reduce_max => try writer.print("R max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .linary_set => std.debug.print("L set ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1045,7 +1017,7 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .reduce_min => try writer.print("R min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .reduce_sum => std.debug.print("R sum ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1059,7 +1031,35 @@ pub const Op = struct {
                 this.in.offset,
                 this.in.name,
             }),
-            .reduce_avg => try writer.print("R avg ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+            .reduce_max => std.debug.print("R max ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+                this.out.a_size,
+                this.out.z_size,
+                this.out.y_size,
+                this.out.x_size,
+                this.out.offset,
+                this.out.name,
+                this.in.a_size,
+                this.in.z_size,
+                this.in.y_size,
+                this.in.x_size,
+                this.in.offset,
+                this.in.name,
+            }),
+            .reduce_min => std.debug.print("R min ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
+                this.out.a_size,
+                this.out.z_size,
+                this.out.y_size,
+                this.out.x_size,
+                this.out.offset,
+                this.out.name,
+                this.in.a_size,
+                this.in.z_size,
+                this.in.y_size,
+                this.in.x_size,
+                this.in.offset,
+                this.in.name,
+            }),
+            .reduce_avg => std.debug.print("R avg ({d} {d} {d} {d}) [{d}] \"{s}\" ({d} {d} {d} {d}) [{d}] \"{s}\"\n", .{
                 this.out.a_size,
                 this.out.z_size,
                 this.out.y_size,
@@ -1124,18 +1124,18 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
-            try writer.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
+            std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
-            try writer.print("{s}Linearized\n", .{" " ** offset});
+            std.debug.print("{s}Linearized\n", .{" " ** offset});
         }
         if (this.op_num == 0) {
-            try writer.print("{s}[] => empty\n", .{" " ** (offset + padding)});
+            std.debug.print("{s}[] => empty\n", .{" " ** (offset + padding)});
         } else {
             for (0..this.op_num) |op_idx| {
-                try writer.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
-                try this.op[op_idx].print(writer, 0, 0, null);
+                std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
+                try this.op[op_idx].print(0, 0, null);
             }
         }
     }
@@ -1171,24 +1171,24 @@ pub const Tensor = struct {
             // TODO: This should update sync to `snyc_to_host`
         }
     }
-    pub fn print(this: *const @This(), writer: anytype, comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
         if (name) |text| {
-            try writer.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
+            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
         } else {
-            try writer.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name });
+            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name });
         }
         for (0..this.buffer.a_size) |a| {
             for (0..this.buffer.z_size) |z| {
                 for (0..this.buffer.y_size) |y| {
-                    try writer.print("{s}[", .{" " ** (offset + padding)});
+                    std.debug.print("{s}[", .{" " ** (offset + padding)});
                     for (0..this.buffer.x_size) |x| {
-                        try writer.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
+                        std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
                     }
-                    try writer.print("]\n", .{});
+                    std.debug.print("]\n", .{});
                 }
-                try writer.print("\n", .{});
+                std.debug.print("\n", .{});
             }
-            try writer.print("\n", .{});
+            std.debug.print("\n", .{});
         }
     }
     pub fn unaryAdd(this: *@This(), allocator: anytype, u_var: f32) !void {
