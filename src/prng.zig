@@ -4,7 +4,7 @@ var state: u64 = 0;
 const mult: u64 = 6364136223846793005;
 const incr: u64 = 1442695040888963407;
 
-/// The method used in rand_f32 always generates 2 random numbers, and it is kinda pointles to just get rid of the other one.
+/// The method used in randF32 always generates 2 random numbers, and it is kinda pointles to just get rid of the other one.
 /// I measured the performance in ReleaseSafe and generated 2^32 floats and the times were 54s for the spare and 1:35m for no spare.
 /// IMO that is a big enough margin to say that this is definitely faster. It's also less wasteful of randomness if you catch my drift.
 var spare_exists: bool = false;
@@ -12,7 +12,7 @@ var spare: f32 = 0;
 
 /// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB and it found no statistical anomalies.
 pub const Pcg = struct {
-    fn rotate_32(x: u32, pivot: u5) u32 {
+    fn rotate32(x: u32, pivot: u5) u32 {
         return x >> pivot | x << ((-%pivot) & 31);
     }
     pub fn init(x: u64) void {
@@ -27,9 +27,9 @@ pub const Pcg = struct {
 
         state = state *% mult +% incr;
         x ^= x >> 18;
-        return Pcg.rotate_32(@truncate(x >> 27), pivot);
+        return Pcg.rotate32(@truncate(x >> 27), pivot);
     }
-    pub fn rand_below(top: u32) u32 {
+    pub fn randBelow(top: u32) u32 {
         if (top == 0 or top == 1) {
             return 0;
         }
@@ -54,7 +54,7 @@ pub const Pcg = struct {
     }
     /// Zig implementation of the Marsaglia polar method from https://en.wikipedia.org/wiki/Marsaglia_polar_method#C++
     /// TODO: Make this thread-safe, actually not trivial if I don't want to abandon the spare value
-    pub fn rand_f32() f32 {
+    pub fn randF32() f32 {
         if (spare_exists) {
             spare_exists = false;
             return spare;

@@ -16,7 +16,7 @@ const AssertError = error{
 /// Margin of error
 const epsilon: f32 = 1e-9;
 /// Check for equality between the two floats within the margin of error of `epsilon`
-fn assert_eq(val1: f32, val2: f32) !void {
+fn assertEq(val1: f32, val2: f32) !void {
     if (std.math.approxEqAbs(f32, val1, val2, epsilon)) {
         return;
     } else {
@@ -34,7 +34,7 @@ fn assert_eq(val1: f32, val2: f32) !void {
     }
 }
 
-fn simulate_linearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off: u32, rng: u64) !void {
+fn simulateLinearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off: u32, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off);
@@ -72,21 +72,21 @@ fn simulate_linearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off:
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-            tensor1[tensor_idx].buffer.values[arg_idx] = Pcg.rand_f32();
+            tensor1[tensor_idx].buffer.values[arg_idx] = Pcg.randF32();
             tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
         }
     }
 
     const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
     for (0..op_num) |op_idx| {
-        const op_type: OpType = @enumFromInt(Pcg.rand_below(op_type_max));
+        const op_type: OpType = @enumFromInt(Pcg.randBelow(op_type_max));
 
         // The likelyhood is strictly speaking 1 / switch_likelyhood
         const switch_likelyhood: u32 = 10;
-        if (Pcg.rand_below(switch_likelyhood) == 0) {
+        if (Pcg.randBelow(switch_likelyhood) == 0) {
             tensor_in = tensor_out;
             while (tensor_out == tensor_in) {
-                tensor_out = Pcg.rand_below(tensor_num);
+                tensor_out = Pcg.randBelow(tensor_num);
             }
         }
 
@@ -103,306 +103,306 @@ fn simulate_linearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off:
             // Need to keep prng state consistent between skipping and not skipping
             switch (op_type) {
                 .unary_add => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_subtract => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_multiply => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_divide => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_max => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_min => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_set => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 .unary_random => {
-                    _ = Pcg.rand_f32();
+                    _ = Pcg.randF32();
                 },
                 else => {},
             }
         } else {
             switch (op_type) {
                 .unary_add => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_add(allocator, u_var);
-                    try tensor2[tensor_out].unary_add(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unaryAdd(allocator, u_var);
+                    try tensor2[tensor_out].unaryAdd(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_subtract => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_subtract(allocator, u_var);
-                    try tensor2[tensor_out].unary_subtract(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unarySubtract(allocator, u_var);
+                    try tensor2[tensor_out].unarySubtract(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_multiply => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_multiply(allocator, u_var);
-                    try tensor2[tensor_out].unary_multiply(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unaryMultiply(allocator, u_var);
+                    try tensor2[tensor_out].unaryMultiply(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_divide => {
                     // NaN prevention
-                    const u_var: f32 = @abs(Pcg.rand_f32()) + 1;
-                    try tensor1[tensor_out].unary_divide(allocator, u_var);
-                    try tensor2[tensor_out].unary_divide(allocator, u_var);
+                    const u_var: f32 = @abs(Pcg.randF32()) + 1;
+                    try tensor1[tensor_out].unaryDivide(allocator, u_var);
+                    try tensor2[tensor_out].unaryDivide(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_exp => {
                     // NaN prevention
-                    try tensor1[tensor_out].unary_min(allocator, 10);
-                    try tensor2[tensor_out].unary_min(allocator, 10);
+                    try tensor1[tensor_out].unaryMin(allocator, 10);
+                    try tensor2[tensor_out].unaryMin(allocator, 10);
                     tensor2[tensor_out].realize();
 
-                    try tensor1[tensor_out].unary_exp(allocator);
-                    try tensor2[tensor_out].unary_exp(allocator);
+                    try tensor1[tensor_out].unaryExp(allocator);
+                    try tensor2[tensor_out].unaryExp(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_log => {
                     // NaN prevention
-                    try tensor1[tensor_out].unary_absolute(allocator);
-                    try tensor2[tensor_out].unary_absolute(allocator);
+                    try tensor1[tensor_out].unaryAbsolute(allocator);
+                    try tensor2[tensor_out].unaryAbsolute(allocator);
                     tensor2[tensor_out].realize();
-                    try tensor1[tensor_out].unary_add(allocator, 1);
-                    try tensor2[tensor_out].unary_add(allocator, 1);
+                    try tensor1[tensor_out].unaryAdd(allocator, 1);
+                    try tensor2[tensor_out].unaryAdd(allocator, 1);
                     tensor2[tensor_out].realize();
 
-                    try tensor1[tensor_out].unary_log(allocator);
-                    try tensor2[tensor_out].unary_log(allocator);
+                    try tensor1[tensor_out].unaryLog(allocator);
+                    try tensor2[tensor_out].unaryLog(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_square => {
                     // NaN prevention
-                    try tensor1[tensor_out].unary_min(allocator, 100);
-                    try tensor2[tensor_out].unary_min(allocator, 100);
+                    try tensor1[tensor_out].unaryMin(allocator, 100);
+                    try tensor2[tensor_out].unaryMin(allocator, 100);
                     tensor2[tensor_out].realize();
-                    try tensor1[tensor_out].unary_max(allocator, -100);
-                    try tensor2[tensor_out].unary_max(allocator, -100);
+                    try tensor1[tensor_out].unaryMax(allocator, -100);
+                    try tensor2[tensor_out].unaryMax(allocator, -100);
                     tensor2[tensor_out].realize();
 
-                    try tensor1[tensor_out].unary_square(allocator);
-                    try tensor2[tensor_out].unary_square(allocator);
+                    try tensor1[tensor_out].unarySquare(allocator);
+                    try tensor2[tensor_out].unarySquare(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_sqrt => {
                     // NaN prevention
-                    try tensor1[tensor_out].unary_absolute(allocator);
-                    try tensor2[tensor_out].unary_absolute(allocator);
+                    try tensor1[tensor_out].unaryAbsolute(allocator);
+                    try tensor2[tensor_out].unaryAbsolute(allocator);
                     tensor2[tensor_out].realize();
 
-                    try tensor1[tensor_out].unary_sqrt(allocator);
-                    try tensor2[tensor_out].unary_sqrt(allocator);
+                    try tensor1[tensor_out].unarySqrt(allocator);
+                    try tensor2[tensor_out].unarySqrt(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_reciprocal => {
                     // NaN prevention
-                    try tensor1[tensor_out].unary_absolute(allocator);
-                    try tensor2[tensor_out].unary_absolute(allocator);
+                    try tensor1[tensor_out].unaryAbsolute(allocator);
+                    try tensor2[tensor_out].unaryAbsolute(allocator);
                     tensor2[tensor_out].realize();
-                    try tensor1[tensor_out].unary_add(allocator, 1);
-                    try tensor2[tensor_out].unary_add(allocator, 1);
+                    try tensor1[tensor_out].unaryAdd(allocator, 1);
+                    try tensor2[tensor_out].unaryAdd(allocator, 1);
                     tensor2[tensor_out].realize();
 
-                    try tensor1[tensor_out].unary_reciprocal(allocator);
-                    try tensor2[tensor_out].unary_reciprocal(allocator);
+                    try tensor1[tensor_out].unaryReciprocal(allocator);
+                    try tensor2[tensor_out].unaryReciprocal(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_max => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_max(allocator, u_var);
-                    try tensor2[tensor_out].unary_max(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unaryMax(allocator, u_var);
+                    try tensor2[tensor_out].unaryMax(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_min => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_min(allocator, u_var);
-                    try tensor2[tensor_out].unary_min(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unaryMin(allocator, u_var);
+                    try tensor2[tensor_out].unaryMin(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_set => {
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_set(allocator, u_var);
-                    try tensor2[tensor_out].unary_set(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unarySet(allocator, u_var);
+                    try tensor2[tensor_out].unarySet(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_random => {
                     // Not doing this because I would have to reset the rng
-                    const u_var: f32 = Pcg.rand_f32();
-                    try tensor1[tensor_out].unary_set(allocator, u_var);
-                    try tensor2[tensor_out].unary_set(allocator, u_var);
+                    const u_var: f32 = Pcg.randF32();
+                    try tensor1[tensor_out].unarySet(allocator, u_var);
+                    try tensor2[tensor_out].unarySet(allocator, u_var);
                     tensor2[tensor_out].realize();
                 },
                 .unary_tanh => {
-                    try tensor1[tensor_out].unary_tanh(allocator);
-                    try tensor2[tensor_out].unary_tanh(allocator);
+                    try tensor1[tensor_out].unaryTanh(allocator);
+                    try tensor2[tensor_out].unaryTanh(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_absolute => {
-                    try tensor1[tensor_out].unary_absolute(allocator);
-                    try tensor2[tensor_out].unary_absolute(allocator);
+                    try tensor1[tensor_out].unaryAbsolute(allocator);
+                    try tensor2[tensor_out].unaryAbsolute(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .unary_sign => {
-                    try tensor1[tensor_out].unary_sign(allocator);
-                    try tensor2[tensor_out].unary_sign(allocator);
+                    try tensor1[tensor_out].unarySign(allocator);
+                    try tensor2[tensor_out].unarySign(allocator);
                     tensor2[tensor_out].realize();
                 },
                 .binary_add => {
-                    try tensor1[tensor_out].binary_add(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_add(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binaryAdd(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binaryAdd(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_subtract => {
-                    try tensor1[tensor_out].binary_subtract(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_subtract(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binarySubtract(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binarySubtract(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_multiply => {
-                    try tensor1[tensor_out].binary_multiply(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_multiply(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binaryMultiply(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binaryMultiply(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_divide => {
                     // NaN prevention
-                    try tensor1[tensor_in].unary_absolute(allocator);
-                    try tensor2[tensor_in].unary_absolute(allocator);
+                    try tensor1[tensor_in].unaryAbsolute(allocator);
+                    try tensor2[tensor_in].unaryAbsolute(allocator);
                     tensor2[tensor_in].realize();
-                    try tensor1[tensor_in].unary_add(allocator, 1);
-                    try tensor2[tensor_in].unary_add(allocator, 1);
+                    try tensor1[tensor_in].unaryAdd(allocator, 1);
+                    try tensor2[tensor_in].unaryAdd(allocator, 1);
                     tensor2[tensor_in].realize();
 
-                    try tensor1[tensor_out].binary_divide(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_divide(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binaryDivide(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binaryDivide(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_max => {
-                    try tensor1[tensor_out].binary_max(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_max(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binaryMax(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binaryMax(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_min => {
-                    try tensor1[tensor_out].binary_min(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_min(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binaryMin(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binaryMin(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .binary_set => {
-                    try tensor1[tensor_out].binary_set(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].binary_set(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].binarySet(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].binarySet(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
                 },
                 .linary_add => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_add(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_add(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linaryAdd(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linaryAdd(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_subtract => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_subtract(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_subtract(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linarySubtract(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linarySubtract(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_multiply => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_multiply(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_multiply(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linaryMultiply(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linaryMultiply(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_divide => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
                     // NaN prevention
-                    try tensor1[tensor_in].unary_absolute(allocator);
-                    try tensor2[tensor_in].unary_absolute(allocator);
+                    try tensor1[tensor_in].unaryAbsolute(allocator);
+                    try tensor2[tensor_in].unaryAbsolute(allocator);
                     tensor2[tensor_in].realize();
-                    try tensor1[tensor_in].unary_add(allocator, 1);
-                    try tensor2[tensor_in].unary_add(allocator, 1);
+                    try tensor1[tensor_in].unaryAdd(allocator, 1);
+                    try tensor2[tensor_in].unaryAdd(allocator, 1);
                     tensor2[tensor_in].realize();
 
-                    try tensor1[tensor_out].linary_divide(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_divide(allocator, &tensor2[tensor_in]);
+                    try tensor1[tensor_out].linaryDivide(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linaryDivide(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_max => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_max(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_max(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linaryMax(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linaryMax(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_min => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_min(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_min(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linaryMin(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linaryMin(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .linary_set => {
-                    tensor1[tensor_in].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_in].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].linary_set(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].linary_set(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_in].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_in].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].linarySet(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].linarySet(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_in].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_in].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .reduce_sum => {
-                    tensor1[tensor_out].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_out].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].reduce_sum(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].reduce_sum(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_out].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_out].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].reduceSum(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].reduceSum(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_out].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_out].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .reduce_max => {
-                    tensor1[tensor_out].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_out].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].reduce_max(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].reduce_max(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_out].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_out].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].reduceMax(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].reduceMax(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_out].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_out].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .reduce_min => {
-                    tensor1[tensor_out].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_out].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].reduce_min(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].reduce_min(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_out].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_out].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].reduceMin(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].reduceMin(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_out].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_out].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                 },
                 .reduce_avg => {
-                    tensor1[tensor_out].move_resize(1, 1, 1, 1);
-                    tensor2[tensor_out].move_resize(1, 1, 1, 1);
-                    try tensor1[tensor_out].reduce_avg(allocator, &tensor1[tensor_in]);
-                    try tensor2[tensor_out].reduce_avg(allocator, &tensor2[tensor_in]);
+                    tensor1[tensor_out].moveResize(1, 1, 1, 1);
+                    tensor2[tensor_out].moveResize(1, 1, 1, 1);
+                    try tensor1[tensor_out].reduceAvg(allocator, &tensor1[tensor_in]);
+                    try tensor2[tensor_out].reduceAvg(allocator, &tensor2[tensor_in]);
                     tensor2[tensor_out].realize();
-                    tensor1[tensor_out].move_resize(a_size, z_size, y_size, x_size);
-                    tensor2[tensor_out].move_resize(a_size, z_size, y_size, x_size);
+                    tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
+                    tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                 },
             }
         }
@@ -410,20 +410,20 @@ fn simulate_linearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off:
 
     tensor1[tensor_out].realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assert_eq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
+        try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
     }
 
     std.debug.print(" passed!\n", .{});
 }
 
-fn minify_linearized(allocator: anytype, tensor_num: u32, op_num: u32, rng: u64, err: anytype) !void {
+fn minifyLinearized(allocator: anytype, tensor_num: u32, op_num: u32, rng: u64, err: anytype) !void {
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_top: u32 = 1;
     for (0..op_num) |op_removed| {
         var failed: bool = false;
-        simulate_linearized(allocator, tensor_num, @truncate(op_num - op_removed), 0, rng) catch {
+        simulateLinearized(allocator, tensor_num, @truncate(op_num - op_removed), 0, rng) catch {
             failed = true;
         };
         if (failed) {
@@ -436,7 +436,7 @@ fn minify_linearized(allocator: anytype, tensor_num: u32, op_num: u32, rng: u64,
     var op_low: u32 = op_top - 1;
     for (0..op_top) |op_removed| {
         var failed: bool = false;
-        simulate_linearized(allocator, tensor_num, op_top, @truncate(op_removed), rng) catch {
+        simulateLinearized(allocator, tensor_num, op_top, @truncate(op_removed), rng) catch {
             failed = true;
         };
         if (failed) {
@@ -499,16 +499,16 @@ pub fn main() !void {
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
             std.debug.print("{} => ", .{loop_idx});
-            simulate_linearized(allocator, tensor_num, op_num, 0, rng + loop_idx) catch |err| {
-                try minify_linearized(allocator, tensor_num, op_num, rng, err);
+            simulateLinearized(allocator, tensor_num, op_num, 0, rng + loop_idx) catch |err| {
+                try minifyLinearized(allocator, tensor_num, op_num, rng, err);
             };
             loop_idx += 1;
         }
     } else {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => ", .{loop_idx});
-            simulate_linearized(allocator, tensor_num, op_num, 0, rng + loop_idx) catch |err| {
-                try minify_linearized(allocator, tensor_num, op_num, rng + loop_idx, err);
+            simulateLinearized(allocator, tensor_num, op_num, 0, rng + loop_idx) catch |err| {
+                try minifyLinearized(allocator, tensor_num, op_num, rng + loop_idx, err);
             };
         }
     }

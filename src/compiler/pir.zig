@@ -39,6 +39,7 @@ pub const Pir = struct {
     op_num: u32,
     op: []Op,
     dim_info: []DimInfo,
+    // TODO: Refactor this, like move the DimInfo stuff to the DimInfo struct and things like that
     pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *u32) !Pir {
         assert(op_used.* < linearized.op_num);
         var op_num: u32 = 0;
@@ -95,7 +96,7 @@ pub const Pir = struct {
         }
 
         for (0..op_num) |op_idx| {
-            // TODO: Split up by is_unary
+            // TODO: Split up by isUnary
             dim_info[op_idx].off_out = linearized.op[op_start + op_idx].out.offset;
             const a_out_initial = linearized.op[op_start + op_idx].out.a_offset;
             const z_out_initial = linearized.op[op_start + op_idx].out.z_offset;

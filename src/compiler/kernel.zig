@@ -12,7 +12,7 @@ const ClError = Cl.ClError;
 
 const Pir = @import("./pir.zig").Pir;
 
-const source_generate = @import("./codegen.zig").generate;
+const sourceGenerate = @import("./codegen.zig").generate;
 const Optimisation = @import("./codegen.zig").Optimisation;
 
 const OpenCl = @import("../runtimes/cl.zig").OpenCl;
@@ -31,7 +31,7 @@ pub const Kernel = struct {
     source: []u8,
     kernel: ClKernel,
     program: ClProgram,
-    pub fn args_gather(allocator: anytype, pir: Pir) !Args {
+    pub fn argsGather(allocator: anytype, pir: Pir) !Args {
         const arg_initial: u32 = 4;
         var arg_name: [][buffer_name_size]u8 = try allocator.alloc([buffer_name_size]u8, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
@@ -58,7 +58,7 @@ pub const Kernel = struct {
                 arg_num += 1;
             }
             // Split because saving on string comparisons saves a lot of computation
-            if (!pir.op[op_idx].is_unary()) {
+            if (!pir.op[op_idx].isUnary()) {
                 var arg_found_in: bool = false;
                 for (0..arg_num) |arg_idx| {
                     if (!arg_found_in and
@@ -95,9 +95,9 @@ pub const Kernel = struct {
         size_local: u32,
         optimisation: Optimisation,
     ) !Kernel {
-        const args: Args = try Kernel.args_gather(allocator, pir);
+        const args: Args = try Kernel.argsGather(allocator, pir);
         errdefer allocator.free(args.arg_name);
-        const source: []u8 = try source_generate(allocator, pir, args, size_global, size_local, optimisation);
+        const source: []u8 = try sourceGenerate(allocator, pir, args, size_global, size_local, optimisation);
         errdefer allocator.free(source);
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
