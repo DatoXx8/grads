@@ -5,7 +5,7 @@ const std = @import("std");
 const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
-const assert = @import("../util.zig").assert;
+const assert = std.debug.assert;
 
 pub const DimInfo = struct {
     off_in: u32,

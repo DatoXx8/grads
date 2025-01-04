@@ -1,6 +1,6 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const assert = @import("../util.zig").assert;
+const assert = std.debug.assert;
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
 pub const kernel_name: []const u8 = &[_]u8{'k'};

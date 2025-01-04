@@ -10,7 +10,7 @@ const OpenCl = Cl.OpenCl;
 const Linearized = @import("../tensor.zig").Linearized;
 const Pir = @import("./pir.zig").Pir;
 
-const assert = @import("../util.zig").assert;
+const assert = std.debug.assert;
 
 const Optimisation = @import("./codegen.zig").Optimisation;
 

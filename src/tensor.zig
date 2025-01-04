@@ -3,7 +3,7 @@ const math = std.math;
 
 const Pcg = @import("./prng.zig").Pcg;
 
-const assert = @import("./util.zig").assert;
+const assert = std.debug.assert;
 
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;

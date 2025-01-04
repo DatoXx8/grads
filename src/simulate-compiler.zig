@@ -5,7 +5,7 @@ const OpType = @import("./tensor.zig").Op.Type;
 
 const Pcg = @import("./prng.zig").Pcg;
 
-const assert = @import("./util.zig").assert;
+const assert = std.debug.assert;
 
 const Program = @import("./compiler/program.zig").Program;
 const ClContext = @import("./runtimes/cl.zig").ClContext;

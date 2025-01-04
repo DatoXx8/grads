@@ -4,7 +4,7 @@ const Tensor = @import("./tensor.zig").Tensor;
 
 const Pcg = @import("./prng.zig").Pcg;
 
-const assert = @import("./util.zig").assert;
+const assert = std.debug.assert;
 
 // TODO: Move tests to seperate directory
 // TODO: Make options to run with provided seed

@@ -10,7 +10,7 @@ const std = @import("std");
 const Pir = @import("./pir.zig").Pir;
 const DimInfo = @import("./pir.zig").DimInfo;
 
-const assert = @import("../util.zig").assert;
+const assert = std.debug.assert;
 
 const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 const Op = @import("../tensor.zig").Op;
