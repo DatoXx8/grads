@@ -284,6 +284,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, 1);
             output.moveResize(1, 1, 1, 1);
 
+            try output.dependOn(allocator, input);
             for (0..this.size_output) |row_idx_usize| {
                 const row_idx: u32 = @truncate(row_idx_usize);
                 this.weights.moveOffset(0, 0, 0, row_idx);
@@ -1238,6 +1239,7 @@ pub const Neuralnet = struct {
 
             previous_values = layers[layer_idx].values;
         }
+
         var forward_cpu: Linearized = try Linearized.alloc(allocator);
         try forward_cpu.concat(allocator, &layers[layers.len - 1].values.linearized);
 
@@ -1338,16 +1340,16 @@ pub const Neuralnet = struct {
                     switch (this.layers[layer_idx].compute) {
                         .dense => {
                             try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
                         },
                         .convolution => {
                             try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
                         },
                         .reduce => {},
                         .split => {
                             try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
                         },
                         .residual => {},
                     }
@@ -1356,9 +1358,13 @@ pub const Neuralnet = struct {
                 // Maybe have the user do this manually?
                 this.input.buffer.syncUpdate(.sync_to_device);
                 try this.input.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                try this.input.buffer.syncWait(this.forward_cl.?.command_queue);
+
                 try this.forward_cl.?.run();
+
                 this.layers[this.layers.len - 1].values.buffer.syncUpdate(.sync_to_host);
                 try this.layers[this.layers.len - 1].values.buffer.syncToHost(this.forward_cl.?.command_queue);
+                try this.layers[this.layers.len - 1].values.buffer.syncWait(this.forward_cl.?.command_queue);
             },
         }
     }
