@@ -132,24 +132,26 @@ const Buffer = struct {
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
     pub fn syncToHost(this: *@This(), command_queue: ClCommandQueue) !void {
-        assert(this.sync == .sync_to_host);
-        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-        const err: i32 = OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?.memory, //
-            OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
-        if (err != 0) {
-            return SyncError.FailedToHost;
+        if (this.sync == .sync_to_host) {
+            const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const err: i32 = OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?.memory, //
+                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
+            if (err != 0) {
+                return SyncError.FailedToHost;
+            }
+            this.sync = .sync_to_none;
         }
-        this.sync = .sync_to_none;
     }
     pub fn syncToDevice(this: *@This(), command_queue: ClCommandQueue) !void {
-        assert(this.sync == .sync_to_device);
-        const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-        const err: i32 = OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?.memory, //
-            OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
-        if (err != 0) {
-            return SyncError.FailedToDevice;
+        if (this.sync == .sync_to_device) {
+            const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const err: i32 = OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?.memory, //
+                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
+            if (err != 0) {
+                return SyncError.FailedToDevice;
+            }
+            this.sync = .sync_to_none;
         }
-        this.sync = .sync_to_none;
     }
     pub fn syncUpdate(this: *@This(), sync: SyncStatus) void {
         assert(this.sync == .sync_to_none);
@@ -1124,7 +1126,7 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -1168,7 +1170,7 @@ pub const Tensor = struct {
         if (this.linearized.op_num != 0) {
             this.linearized.run();
             this.linearized.clear();
-            // TODO: This should update sync to `snyc_to_host`
+            this.buffer.syncUpdate(.sync_to_device);
         }
     }
     pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {

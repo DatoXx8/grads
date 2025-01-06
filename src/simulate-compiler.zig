@@ -463,7 +463,7 @@ pub fn main() !void {
         assert(op_num > 0);
     }
 
-    const device: ClDevice = try ClDevice.alloc(.Gpu);
+    const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const command_queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
 

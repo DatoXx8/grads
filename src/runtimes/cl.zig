@@ -41,8 +41,8 @@ pub const ClError = error{
 // TODO: Support multiple devices
 pub const ClDevice = struct {
     pub const ClDeviceType = enum(u8) {
-        Cpu,
-        Gpu,
+        cpu,
+        gpu,
     };
     type: ClDeviceType,
     device: OpenCl.cl_device_id,
@@ -57,8 +57,8 @@ pub const ClDevice = struct {
         }
 
         err = OpenCl.clGetDeviceIDs(platform, switch (device_type) {
-            .Gpu => OpenCl.CL_DEVICE_TYPE_GPU,
-            .Cpu => OpenCl.CL_DEVICE_TYPE_CPU,
+            .gpu => OpenCl.CL_DEVICE_TYPE_GPU,
+            .cpu => OpenCl.CL_DEVICE_TYPE_CPU,
         }, 1, &device, null);
 
         if (err == 0) {

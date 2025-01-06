@@ -361,7 +361,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -579,7 +579,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -839,13 +839,13 @@ pub const Neuralnet = struct {
                 this.x,
                 this.filters,
             });
-            this.biases.print(padding, offset + padding, "biases"[0..]);
-            this.biases_g.print(padding, offset + padding, "biases_g"[0..]);
-            this.weights.print(padding, offset + padding, "weights"[0..]);
-            this.weights_g.print(padding, offset + padding, "weights_g"[0..]);
-            this.temp_input.print(padding, offset + padding, "temp_input"[0..]);
+            this.biases.print(padding, offset + padding, "biases");
+            this.biases_g.print(padding, offset + padding, "biases_g");
+            this.weights.print(padding, offset + padding, "weights");
+            this.weights_g.print(padding, offset + padding, "weights_g");
+            this.temp_input.print(padding, offset + padding, "temp_input");
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -859,11 +859,11 @@ pub const Neuralnet = struct {
                 this.x,
                 this.filters,
             });
-            this.biases.debug(padding, offset + padding, "biases");
-            this.biases_g.debug(padding, offset + padding, "biases_g");
-            this.weights.debug(padding, offset + padding, "weights");
-            this.weights_g.debug(padding, offset + padding, "weights_g");
-            this.temp_input.debug(padding, offset + padding, "temp_input");
+            this.biases.print(padding, offset + padding, "biases");
+            this.biases_g.print(padding, offset + padding, "biases_g");
+            this.weights.print(padding, offset + padding, "weights");
+            this.weights_g.print(padding, offset + padding, "weights_g");
+            this.temp_input.print(padding, offset + padding, "temp_input");
         }
     };
     pub const Residual = struct {
@@ -997,10 +997,10 @@ pub const Neuralnet = struct {
             std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
             switch (this.connection) {
                 .identity => {},
-                .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"[0..]),
-                .dense => this.connection.dense.print(padding, offset + padding, "dense"[0..]),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"[0..]),
-                .split => this.connection.split.print(padding, offset + padding, "split"[0..]),
+                .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"),
+                .dense => this.connection.dense.print(padding, offset + padding, "dense"),
+                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
+                .split => this.connection.split.print(padding, offset + padding, "split"),
             }
         }
         pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
@@ -1013,10 +1013,10 @@ pub const Neuralnet = struct {
             std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
             switch (this.connection) {
                 .identity => {},
-                .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"[0..]),
-                .dense => this.connection.dense.debug(padding, offset + padding, "dense"[0..]),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"[0..]),
-                .split => this.connection.split.debug(padding, offset + padding, "split"[0..]),
+                .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"),
+                .dense => this.connection.dense.debug(padding, offset + padding, "dense"),
+                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
+                .split => this.connection.split.debug(padding, offset + padding, "split"),
             }
         }
     };
@@ -1176,7 +1176,7 @@ pub const Neuralnet = struct {
                 std.debug.print("{s}Layer\n", .{[1]u8{' '} ** offset});
             }
 
-            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.type });
+            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.t });
             switch (this.compute) {
                 .dense => this.compute.dense.debug(padding, offset + padding, null),
                 .convolution => this.compute.convolution.debug(padding, offset + padding, null),
@@ -1188,10 +1188,10 @@ pub const Neuralnet = struct {
     };
     input: Tensor,
     layers: []Layer,
-    forward: Linearized,
-    backward: Linearized,
-    forward_cl: Program,
-    backward_cl: Program,
+    forward_cpu: ?Linearized,
+    backward_cpu: ?Linearized,
+    forward_cl: ?Program,
+    backward_cl: ?Program,
     pub fn alloc(
         allocator: anytype,
         input: Tensor,
@@ -1238,8 +1238,8 @@ pub const Neuralnet = struct {
 
             previous_values = layers[layer_idx].values;
         }
-        var forward: Linearized = try Linearized.alloc(allocator);
-        try forward.concat(allocator, &layers[layers.len - 1].values.linearized);
+        var forward_cpu: Linearized = try Linearized.alloc(allocator);
+        try forward_cpu.concat(allocator, &layers[layers.len - 1].values.linearized);
 
         for (0..layers.len - 1) |layer_idx_reverse| {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
@@ -1271,18 +1271,19 @@ pub const Neuralnet = struct {
             }
         }
 
-        var backward: Linearized = try Linearized.alloc(allocator);
-        try backward.concat(allocator, &layers[0].values.linearized);
+        var backward_cpu: Linearized = try Linearized.alloc(allocator);
+        try backward_cpu.concat(allocator, &layers[0].values.linearized);
 
-        const forward_cl: Program = try Program.alloc(allocator, forward, size_global, //
+        const forward_cl: Program = try Program.alloc(allocator, forward_cpu, size_global, //
             size_local, device, context, queue);
-        const backward_cl: Program = try Program.alloc(allocator, backward, size_global, //
+        const backward_cl: Program = try Program.alloc(allocator, backward_cpu, size_global, //
             size_local, device, context, queue);
+
         return .{
             .input = input,
             .layers = layers,
-            .forward = forward,
-            .backward = backward,
+            .forward_cpu = forward_cpu,
+            .backward_cpu = backward_cpu,
             .forward_cl = forward_cl,
             .backward_cl = backward_cl,
         };
@@ -1293,11 +1294,75 @@ pub const Neuralnet = struct {
         }
         allocator.free(this.layers);
         // this.input.free(allocator);
-        this.forward.free(allocator);
-        this.backward.free(allocator);
-        try this.forward_cl.free(allocator);
-        try this.backward_cl.free(allocator);
+        this.forward_cpu.?.free(allocator);
+        this.backward_cpu.?.free(allocator);
+        try this.forward_cl.?.free(allocator);
+        try this.backward_cl.?.free(allocator);
     }
+    // TODO: Maybe merge this into the alloc?
+    pub fn init(this: *@This(), allocator: anytype) !void {
+        for (0..this.layers.len) |layer_idx| {
+            switch (this.layers[layer_idx].compute) {
+                .dense => {
+                    try this.layers[layer_idx].compute.dense.weights.unaryRandom(allocator);
+                    try this.layers[layer_idx].compute.dense.biases.unaryRandom(allocator);
+                    this.layers[layer_idx].compute.dense.weights.realize();
+                    this.layers[layer_idx].compute.dense.biases.realize();
+                },
+                .convolution => {
+                    try this.layers[layer_idx].compute.convolution.weights.unaryRandom(allocator);
+                    try this.layers[layer_idx].compute.convolution.biases.unaryRandom(allocator);
+                    this.layers[layer_idx].compute.convolution.weights.realize();
+                    this.layers[layer_idx].compute.convolution.biases.realize();
+                },
+                .reduce => {},
+                .split => {
+                    try this.layers[layer_idx].compute.split.weights.unaryRandom(allocator);
+                    try this.layers[layer_idx].compute.split.biases.unaryRandom(allocator);
+                    this.layers[layer_idx].compute.split.weights.realize();
+                    this.layers[layer_idx].compute.split.biases.realize();
+                },
+                .residual => {},
+            }
+        }
+    }
+    /// Have to put the input values in the dedicated struct field
+    pub fn forward(this: *@This(), t: ClDevice.ClDeviceType) !void {
+        switch (t) {
+            .cpu => {
+                this.forward_cpu.?.run();
+            },
+            .gpu => {
+                // This only copies the data to the gpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                        },
+                        .residual => {},
+                    }
+                }
+
+                // Maybe have the user do this manually?
+                this.input.buffer.syncUpdate(.sync_to_device);
+                try this.input.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                try this.forward_cl.?.run();
+                this.layers[this.layers.len - 1].values.buffer.syncUpdate(.sync_to_host);
+                try this.layers[this.layers.len - 1].values.buffer.syncToHost(this.forward_cl.?.command_queue);
+            },
+        }
+    }
+    // TODO: Backward
     pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
@@ -1307,6 +1372,17 @@ pub const Neuralnet = struct {
         this.input.print(padding, offset + padding, "input");
         for (0..this.layers.len) |layer_idx| {
             this.layers[layer_idx].print(padding, padding + offset, null);
+        }
+    }
+    pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Neuralnet\n", .{[1]u8{' '} ** offset});
+        }
+        this.input.print(padding, offset + padding, "input");
+        for (0..this.layers.len) |layer_idx| {
+            this.layers[layer_idx].debug(padding, padding + offset, null);
         }
     }
 };
