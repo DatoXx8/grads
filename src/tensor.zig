@@ -27,6 +27,7 @@ const Buffer = struct {
     const SyncError = error{
         FailedToHost,
         FailedToDevice,
+        FailedWait,
     };
     a_inherent: u32,
     z_inherent: u32,
@@ -158,8 +159,13 @@ const Buffer = struct {
         assert(sync != .sync_to_none);
         this.sync = sync;
     }
-    pub fn syncWait(command_queue: ClCommandQueue) void {
-        OpenCl.clFinish(command_queue.queue);
+    pub fn syncWait(this: *@This(), command_queue: ClCommandQueue) !void {
+        _ = this;
+        if (OpenCl.clFinish(command_queue.queue) == 0) {
+            return;
+        } else {
+            return SyncError.FailedWait;
+        }
     }
 };
 // TODO: Maybe truncate the names to 3 letters each
@@ -231,10 +237,10 @@ pub const Op = struct {
         const y_2: u32 = target.out.y_size;
         const x_2: u32 = target.out.x_size;
 
-        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
-            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
-            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
-            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
+        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_offset and
+            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_offset and
+            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_offset and
+            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_offset;
     }
     pub inline fn isUnary(this: *const @This()) bool {
         return this.type == .unary_add or this.type == .unary_subtract or
@@ -681,7 +687,7 @@ pub const Op = struct {
         }
     }
     // Really unhappy about this anytype thing...
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -1137,7 +1143,7 @@ pub const Linearized = struct {
         } else {
             for (0..this.op_num) |op_idx| {
                 std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
-                try this.op[op_idx].print(0, 0, null);
+                this.op[op_idx].print(0, 0, null);
             }
         }
     }
@@ -1611,5 +1617,8 @@ pub const Tensor = struct {
         this.buffer.z_offset = z;
         this.buffer.y_offset = y;
         this.buffer.x_offset = x;
+    }
+    pub fn dependOn(this: *@This(), allocator: anytype, prerequisite: *@This()) !void {
+        try this.linearized.concat(allocator, &prerequisite.linearized);
     }
 };
