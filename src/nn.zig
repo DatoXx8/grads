@@ -14,224 +14,6 @@ const assert = std.debug.assert;
 // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
 // That would remove the need for temp_full
 
-// TODO: Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
-/// Has to be `none` for reduce layers
-pub const Activation = struct {
-    const leaky_factor: f32 = 0.1;
-    pub const Type = enum(u8) {
-        none,
-        relu,
-        sigmoid,
-        tanh,
-        silu,
-        gelu,
-        leaky,
-    };
-    t: Activation.Type,
-    intermediary: ?Tensor,
-    pub fn alloc(allocator: anytype, t: Activation.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Activation {
-        return .{
-            .t = t,
-            .intermediary = switch (t) {
-                .none => null,
-                .relu => null,
-                .sigmoid => null,
-                .tanh => null,
-                .silu => Tensor.alloc(allocator, a, z, y, x, context),
-                .gelu => Tensor.alloc(allocator, a, z, y, x, context),
-                .leaky => Tensor.alloc(allocator, a, z, y, x, context),
-            },
-        };
-    }
-    pub fn free(this: *@This(), allocator: anytype) void {
-        if (this.intermediary) |intermediary| {
-            intermediary.free(allocator);
-        }
-    }
-    pub fn forward(this: *@This(), allocator: anytype, input: Tensor) void {
-        switch (this.t) {
-            .none => {},
-            .relu => {
-                try input.unaryMax(allocator, 0);
-            },
-            .sigmoid => {
-                try input.unaryMultiply(allocator, -1);
-                try input.unaryExp(allocator);
-                try input.unaryAdd(allocator, 1);
-                try input.unaryReciprocal(allocator);
-            },
-            .tanh => {
-                try input.unaryTanh(allocator);
-            },
-            .silu => {
-                try this.intermediary.?.binarySet(allocator, input);
-                try input.unaryMultiply(allocator, -1);
-                try input.unaryExp(allocator);
-                try input.unaryAdd(allocator, 1);
-                try input.unaryReciprocal(allocator);
-                try input.binaryMultiply(allocator, this.intermediary.?);
-            },
-            .gelu => {
-                try this.intermediary.?.binarySet(allocator, input);
-                try input.unaryMultiply(allocator, -1.702);
-                try input.unaryExp(allocator);
-                try input.unaryAdd(allocator, 1);
-                try input.unaryReciprocal(allocator);
-                try input.binaryMultiply(allocator, this.intermediary.?);
-            },
-            .leaky => {
-                try this.intermediary.?.binarySet(allocator, input);
-                try this.intermediary.?.unaryMultiply(allocator, Activation.leaky_factor);
-                try input.binaryMax(allocator, this.intermediary.?);
-            },
-        }
-    }
-    pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) void {
-        switch (this.t) {
-            .none => {},
-            .relu => {
-                try this.intermediary.?.binarySet(allocator, input);
-                try this.intermediary.?.unarySign(allocator);
-                try input_g.binaryMultiply(allocator, this.intermediary.?);
-            },
-            .sigmoid => {
-                // try input.unaryMultiply(allocator, -1);
-                // try input.unaryExp(allocator);
-                // try input.unaryAdd(allocator, 1);
-                // try input.unaryReciprocal(allocator);
-                try this.intermediary.?.binarySet(allocator, input);
-                try this.intermediary.?.unaryMultiply(allocator, -1);
-                try this.intermediary.?.unaryAdd(allocator, 1);
-                try this.intermediary.?.binaryMultiply(allocator, input);
-                try input_g.binaryMultiply(allocator, this.intermediary.?);
-            },
-            .tanh => {
-                try input_g.unarySquare(allocator);
-                try input_g.unaryMultiply(allocator, -1);
-                try input_g.unaryAdd(allocator, 1);
-            },
-            .silu => {
-                unreachable;
-            },
-            .gelu => {
-                unreachable;
-            },
-            .leaky => {
-                try this.intermediary.?.binarySet(allocator, input);
-                try this.intermediary.?.unarySign(allocator);
-                try this.intermediary.?.unaryMax(allocator, Activation.leaky_factor);
-                try input_g.binaryMultiply(allocator, this.intermediary.?);
-            },
-        }
-    }
-};
-
-pub const Norm = struct {
-    pub const Type = enum(u8) {
-        none,
-        layer,
-        batch,
-        simple,
-        softmax,
-    };
-    type: Norm.Type,
-    mean: ?Tensor,
-    variance: ?Tensor,
-    max: ?Tensor,
-    pub fn alloc(allocator: anytype, t: Norm.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Norm {
-        return switch (t) {
-            .none => .{
-                .type = t,
-                .mean = null,
-                .variance = null,
-                .max = null,
-            },
-            .layer => .{
-                .type = t,
-                .mean = try Tensor.alloc(allocator, a, z, y, x, context),
-                .variance = try Tensor.alloc(allocator, a, z, y, x, context),
-                .max = null,
-            },
-            .batch => .{
-                .type = t,
-                .mean = try Tensor.alloc(allocator, a, z, y, x, context),
-                .variance = try Tensor.alloc(allocator, a, z, y, x, context),
-                .max = null,
-            },
-            .simple => .{
-                .type = t,
-                .mean = null,
-                .variance = null,
-                .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
-            },
-            .softmax => .{
-                .type = t,
-                // Repurposed to be the place in which to exp the values
-                .mean = null,
-                .variance = null,
-                .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
-            },
-        };
-    }
-    pub fn free(this: *@This(), allocator: anytype) void {
-        switch (this.type) {
-            .none => {},
-            .layer => {
-                this.mean.?.free(allocator);
-                this.variance.?.free(allocator);
-            },
-            .batch => {
-                this.mean.?.free(allocator);
-                this.variance.?.free(allocator);
-            },
-            .simple => {
-                this.max.?.free(allocator);
-            },
-            .softmax => {
-                this.max.?.free(allocator);
-            },
-        }
-    }
-    pub fn forward(this: *@This(), allocator: anytype, input: Tensor) !void {
-        switch (this.type) {
-            .none => {},
-            .layer => {
-                unreachable;
-            },
-            .batch => {
-                unreachable;
-            },
-            .simple => {
-                this.max.?.reduceMax(allocator, input);
-                input.linaryDivide(allocator, this.max.?);
-            },
-            .softmax => {
-                input.unaryExp(allocator);
-                this.max.?.reduceSum(allocator, input);
-                input.linaryDivide(allocator, this.max.?);
-            },
-        }
-    }
-    pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) !void {
-        _ = allocator;
-        _ = input;
-        _ = input_g;
-        switch (this.type) {
-            .none => {},
-            .layer => {
-                unreachable;
-            },
-            .batch => {
-                unreachable;
-            },
-            .simple => {},
-            .softmax => {
-                unreachable;
-            },
-        }
-    }
-};
-
 pub const Neuralnet = struct {
     pub const Type = enum(u8) {
         dense,
@@ -240,7 +22,225 @@ pub const Neuralnet = struct {
         split,
         residual,
     };
-    const Dense = struct {
+
+    // TODO: Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
+    /// Has to be `none` for reduce layers
+    pub const Activation = struct {
+        const leaky_factor: f32 = 0.1;
+        pub const Type = enum(u8) {
+            none,
+            relu,
+            sigmoid,
+            tanh,
+            silu,
+            gelu,
+            leaky,
+        };
+        t: Activation.Type,
+        intermediary: ?Tensor,
+        pub fn alloc(allocator: anytype, t: Activation.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Activation {
+            return .{
+                .t = t,
+                .intermediary = switch (t) {
+                    .none => null,
+                    .relu => try Tensor.alloc(allocator, a, z, y, x, context),
+                    .sigmoid => null,
+                    .tanh => null,
+                    .silu => try Tensor.alloc(allocator, a, z, y, x, context),
+                    .gelu => try Tensor.alloc(allocator, a, z, y, x, context),
+                    .leaky => try Tensor.alloc(allocator, a, z, y, x, context),
+                },
+            };
+        }
+        pub fn free(this: *@This(), allocator: anytype) void {
+            if (this.intermediary) |intermediary| {
+                intermediary.free(allocator);
+            }
+        }
+        pub fn forward(this: *@This(), allocator: anytype, input: *Tensor) !void {
+            switch (this.t) {
+                .none => {},
+                .relu => {
+                    try input.unaryMax(allocator, 0);
+                },
+                .sigmoid => {
+                    try input.unaryMultiply(allocator, -1);
+                    try input.unaryExp(allocator);
+                    try input.unaryAdd(allocator, 1);
+                    try input.unaryReciprocal(allocator);
+                },
+                .tanh => {
+                    try input.unaryTanh(allocator);
+                },
+                .silu => {
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try input.unaryMultiply(allocator, -1);
+                    try input.unaryExp(allocator);
+                    try input.unaryAdd(allocator, 1);
+                    try input.unaryReciprocal(allocator);
+                    try input.binaryMultiply(allocator, &this.intermediary.?);
+                },
+                .gelu => {
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try input.unaryMultiply(allocator, -1.702);
+                    try input.unaryExp(allocator);
+                    try input.unaryAdd(allocator, 1);
+                    try input.unaryReciprocal(allocator);
+                    try input.binaryMultiply(allocator, &this.intermediary.?);
+                },
+                .leaky => {
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try this.intermediary.?.unaryMultiply(allocator, Activation.leaky_factor);
+                    try input.binaryMax(allocator, &this.intermediary.?);
+                },
+            }
+        }
+        pub fn backward(this: *@This(), allocator: anytype, input: *Tensor, input_g: *Tensor) !void {
+            switch (this.t) {
+                .none => {},
+                .relu => {
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try this.intermediary.?.unarySign(allocator);
+                    try input_g.binaryMultiply(allocator, &this.intermediary.?);
+                },
+                .sigmoid => {
+                    // try input.unaryMultiply(allocator, -1);
+                    // try input.unaryExp(allocator);
+                    // try input.unaryAdd(allocator, 1);
+                    // try input.unaryReciprocal(allocator);
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try this.intermediary.?.unaryMultiply(allocator, -1);
+                    try this.intermediary.?.unaryAdd(allocator, 1);
+                    try this.intermediary.?.binaryMultiply(allocator, input);
+                    try input_g.binaryMultiply(allocator, &this.intermediary.?);
+                },
+                .tanh => {
+                    try input_g.unarySquare(allocator);
+                    try input_g.unaryMultiply(allocator, -1);
+                    try input_g.unaryAdd(allocator, 1);
+                },
+                .silu => {
+                    unreachable;
+                },
+                .gelu => {
+                    unreachable;
+                },
+                .leaky => {
+                    try this.intermediary.?.binarySet(allocator, input);
+                    try this.intermediary.?.unarySign(allocator);
+                    try this.intermediary.?.unaryMax(allocator, Activation.leaky_factor);
+                    try input_g.binaryMultiply(allocator, &this.intermediary.?);
+                },
+            }
+        }
+    };
+
+    pub const Norm = struct {
+        pub const Type = enum(u8) {
+            none,
+            layer,
+            batch,
+            simple,
+            softmax,
+        };
+        type: Norm.Type,
+        mean: ?Tensor,
+        variance: ?Tensor,
+        max: ?Tensor,
+        pub fn alloc(allocator: anytype, t: Norm.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Norm {
+            return switch (t) {
+                .none => .{
+                    .type = t,
+                    .mean = null,
+                    .variance = null,
+                    .max = null,
+                },
+                .layer => .{
+                    .type = t,
+                    .mean = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .max = null,
+                },
+                .batch => .{
+                    .type = t,
+                    .mean = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .max = null,
+                },
+                .simple => .{
+                    .type = t,
+                    .mean = null,
+                    .variance = null,
+                    .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+                },
+                .softmax => .{
+                    .type = t,
+                    // Repurposed to be the place in which to exp the values
+                    .mean = null,
+                    .variance = null,
+                    .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+                },
+            };
+        }
+        pub fn free(this: *@This(), allocator: anytype) void {
+            switch (this.type) {
+                .none => {},
+                .layer => {
+                    this.mean.?.free(allocator);
+                    this.variance.?.free(allocator);
+                },
+                .batch => {
+                    this.mean.?.free(allocator);
+                    this.variance.?.free(allocator);
+                },
+                .simple => {
+                    this.max.?.free(allocator);
+                },
+                .softmax => {
+                    this.max.?.free(allocator);
+                },
+            }
+        }
+        pub fn forward(this: *@This(), allocator: anytype, input: Tensor) !void {
+            switch (this.type) {
+                .none => {},
+                .layer => {
+                    unreachable;
+                },
+                .batch => {
+                    unreachable;
+                },
+                .simple => {
+                    this.max.?.reduceMax(allocator, input);
+                    input.linaryDivide(allocator, this.max.?);
+                },
+                .softmax => {
+                    input.unaryExp(allocator);
+                    this.max.?.reduceSum(allocator, input);
+                    input.linaryDivide(allocator, this.max.?);
+                },
+            }
+        }
+        pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) !void {
+            _ = allocator;
+            _ = input;
+            _ = input_g;
+            switch (this.type) {
+                .none => {},
+                .layer => {
+                    unreachable;
+                },
+                .batch => {
+                    unreachable;
+                },
+                .simple => {},
+                .softmax => {
+                    unreachable;
+                },
+            }
+        }
+    };
+    pub const Dense = struct {
         size_input: u32,
         size_output: u32,
 
@@ -279,18 +279,19 @@ pub const Neuralnet = struct {
             this.temp_full.free(allocator);
         }
         /// Automagically flattens the input tensor to shape (1, 1, a * z * y * x, 1)
-        pub fn forward(this: *@This(), allocator: anytype, input: Tensor, output: Tensor) !void {
+        pub fn forward(this: *@This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             input.moveReshape(1, 1, this.size_input, 1);
             this.weights.moveResize(1, 1, this.size_input, 1);
             output.moveResize(1, 1, 1, 1);
 
-            for (0..this.size_output) |row_idx| {
+            for (0..this.size_output) |row_idx_usize| {
+                const row_idx: u32 = @truncate(row_idx_usize);
                 this.weights.moveOffset(0, 0, 0, row_idx);
                 output.moveOffset(0, 0, 0, row_idx);
 
-                this.temp_input.binarySet(allocator, this.weights);
-                this.temp_input.binaryMultiply(allocator, input);
-                output.reduceSum(allocator, this.temp_input);
+                try this.temp_input.binarySet(allocator, &this.weights);
+                try this.temp_input.binaryMultiply(allocator, input);
+                try output.reduceSum(allocator, &this.temp_input);
             }
 
             input.moveReshape(input.buffer.a_inherent, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
@@ -300,39 +301,41 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
 
-            output.binaryAdd(this.biases);
+            try output.binaryAdd(allocator, &this.biases);
         }
-        pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor, output_g: Tensor) !void {
-
+        pub fn backward(this: *@This(), allocator: anytype, input: *Tensor, input_g: *Tensor, output_g: *Tensor) !void {
             // Biases
-            this.biases_g.binaryAdd(allocator, output_g);
+            try this.biases_g.binaryAdd(allocator, output_g);
             // Weights
             this.temp_full.moveResize(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx| {
+            for (0..this.size_input) |column_idx_usize| {
+                const column_idx: u32 = @truncate(column_idx_usize);
                 this.temp_full.moveOffset(0, 0, column_idx, 0);
-                this.temp_full.binarySet(allocator, output_g);
+                try this.temp_full.binarySet(allocator, output_g);
             }
             this.temp_full.moveResize(1, 1, this.size_input, 1);
             input.moveReshape(1, 1, this.size_input, 1);
-            for (0..this.size_output) |row_idx| {
+            for (0..this.size_output) |row_idx_usize| {
+                const row_idx: u32 = @truncate(row_idx_usize);
                 this.temp_full.moveOffset(0, 0, 0, row_idx);
-                this.temp_full.binaryMultiply(input);
+                try this.temp_full.binaryMultiply(allocator, input);
             }
             this.temp_full.moveResize(1, 1, this.size_input, this.size_output);
             this.temp_full.moveOffset(0, 0, 0, 0);
             input.moveReshape(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
-            this.weights_g.binaryAdd(this.temp_full);
+            try this.weights_g.binaryAdd(allocator, &this.temp_full);
             // Previous activation
             input_g.moveReshape(1, 1, this.size_input, 1);
             input_g.moveResize(1, 1, 1, 1);
             this.weights.moveReshape(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx| {
+            for (0..this.size_input) |column_idx_usize| {
+                const column_idx: u32 = @truncate(column_idx_usize);
                 input_g.moveOffset(0, 0, column_idx, 0);
                 this.weights.moveOffset(0, 0, column_idx, 0);
-                this.temp_output.binarySet(allocator, this.weights);
-                this.temp_output.binaryMultiply(allocator, output_g);
+                try this.temp_output.binarySet(allocator, &this.weights);
+                try this.temp_output.binaryMultiply(allocator, output_g);
                 // Could use sum or avg here, sum it technically more accurate but avg is more stable
-                input_g.reduceSum(allocator, this.temp_output);
+                try input_g.reduceSum(allocator, &this.temp_output);
                 // input_g.reduceAvg(allocator, this.temp_output);
             }
             input_g.moveReshape(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
@@ -340,7 +343,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -348,10 +351,12 @@ pub const Neuralnet = struct {
             }
             std.debug.print("{s}In {} Out {}\n", .{ [1]u8{' '} ** (offset + padding), this.size_input, this.size_output });
             std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
                 this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
                 this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
             });
             std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
                 this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
@@ -369,7 +374,7 @@ pub const Neuralnet = struct {
             this.weights_g.print(padding, offset + padding, "weights_g");
         }
     };
-    const Convolution = struct {
+    pub const Convolution = struct {
         z: u32,
         y: u32,
         x: u32,
@@ -399,7 +404,7 @@ pub const Neuralnet = struct {
             kernel_stride: u32,
             kernel_padding: u32,
             context: ClContext,
-        ) !void {
+        ) !Convolution {
             assert(filters > 0);
             assert(kernel_size > 0);
             assert(kernel_stride > 0);
@@ -418,7 +423,7 @@ pub const Neuralnet = struct {
                 .kernel_stride = kernel_stride,
                 .biases = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
                 .biases_g = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
-                .weigths = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
+                .weights = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
                 .weights_g = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
                 .temp_input_padded = try Tensor.alloc(allocator, 1, z, y + 2 * kernel_padding, //
                     x + 2 * kernel_padding, context),
@@ -429,22 +434,20 @@ pub const Neuralnet = struct {
             };
         }
         pub fn free(this: *@This(), allocator: anytype) void {
-            this.kernel_padding.free(allocator);
-            this.kernel_stride.free(allocator);
             this.biases.free(allocator);
             this.biases_g.free(allocator);
-            this.weigths.free(allocator);
+            this.weights.free(allocator);
             this.weights_g.free(allocator);
             this.temp_input_padded.free(allocator);
             this.temp_grad_padded.free(allocator);
             this.temp_kernel.free(allocator);
             this.temp_single.free(allocator);
         }
-        pub fn forward(this: *@This(), allocator: anytype, input: Tensor, output: Tensor) !void {
+        pub fn forward(this: *@This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             const x_in_max = input.buffer.x_inherent + this.kernel_padding - 1;
             const y_in_max = input.buffer.y_inherent + this.kernel_padding - 1;
-            var x_out_idx: usize = 0;
-            var y_out_idx: usize = 0;
+            var x_out_idx: u32 = 0;
+            var y_out_idx: u32 = 0;
 
             // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
 
@@ -454,22 +457,25 @@ pub const Neuralnet = struct {
             output.moveResize(1, 1, 1, 1);
             this.temp_input_padded.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.temp_input_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
-            try this.temp_input_padded.binarySet(input);
+            try this.temp_input_padded.binarySet(allocator, input);
             this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
 
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 y_out_idx = 0;
-                for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx| {
+                for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx_usize| {
+                    const y_in_idx: u32 = @truncate(y_in_idx_usize);
                     x_out_idx = 0;
-                    for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx| {
+                    for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx_usize| {
+                        const x_in_idx: u32 = @truncate(x_in_idx_usize);
                         output.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                         this.temp_input_padded.moveOffset(0, 0, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
-                        try this.temp_kernel.binarySet(allocator, this.temp_input_padded);
-                        try this.temp_kernel.binaryMultiply(allocator, this.weights);
-                        try output.reduceSum(allocator, this.temp_kernel);
-                        try output.binaryAdd(allocator, this.biases);
+                        try this.temp_kernel.binarySet(allocator, &this.temp_input_padded);
+                        try this.temp_kernel.binaryMultiply(allocator, &this.weights);
+                        try output.reduceSum(allocator, &this.temp_kernel);
+                        try output.binaryAdd(allocator, &this.biases);
                         x_out_idx += 1;
                     }
                     y_out_idx += 1;
@@ -485,41 +491,45 @@ pub const Neuralnet = struct {
                 output.buffer.x_inherent + 2 * this.kernel_padding);
             this.temp_input_padded.moveOffset(0, 0, 0, 0);
         }
-        pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor, output: Tensor, output_g: Tensor) !void {
+        pub fn backward(this: *@This(), allocator: anytype, input: *Tensor, input_g: *Tensor, output: *Tensor, output_g: *Tensor) !void {
             // Biases
             this.biases_g.moveResize(1, 1, 1, 1);
             output_g.moveResize(1, 1, output.buffer.y_inherent, output.buffer.x_inherent);
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 this.biases_g.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx, 0, 0);
                 // Could do avg here for better numerical stability
-                this.temp_single.reduceSum(allocator, output_g);
-                this.biases_g.binaryAdd(allocator, this.temp_single);
+                try this.temp_single.reduceSum(allocator, output_g);
+                try this.biases_g.binaryAdd(allocator, &this.temp_single);
             }
             this.biases_g.moveResize(this.filters, 1, 1, 1);
             this.biases_g.moveOffset(0, 0, 0, 0);
             output_g.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
             // Weights
-            var x_in_idx: usize = 0;
-            var y_in_idx: usize = 0;
+            var x_in_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
             output_g.moveResize(1, 1, 1, 1);
             output_g.moveOffset(0, 0, 0, 0);
             this.weights_g.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
             this.weights_g.moveOffset(0, 0, 0, 0);
             this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
             this.temp_input_padded.moveOffset(0, 0, 0, 0);
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 this.weights_g.moveOffset(filter_idx, 0, 0, 0);
                 y_in_idx = 0;
-                for (0..output.buffer.y_inherent) |y_out_idx| {
+                for (0..output.buffer.y_inherent) |y_out_idx_usize| {
+                    const y_out_idx: u32 = @truncate(y_out_idx_usize);
                     x_in_idx = 0;
-                    for (0..output.buffer.x_inherent) |x_out_idx| {
+                    for (0..output.buffer.x_inherent) |x_out_idx_usize| {
+                        const x_out_idx: u32 = @truncate(x_out_idx_usize);
                         output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                         this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
-                        try this.temp_kernel.binarySet(allocator, this.temp_input_padded);
+                        try this.temp_kernel.binarySet(allocator, &this.temp_input_padded);
                         try this.temp_kernel.linaryMultiply(allocator, output_g);
-                        try this.weights_g.binaryAdd(allocator, this.temp_kernel);
+                        try this.weights_g.binaryAdd(allocator, &this.temp_kernel);
                         // TODO: Why was this kernel_padding in the c version?
                         x_in_idx += this.kernel_stride;
                     }
@@ -534,12 +544,12 @@ pub const Neuralnet = struct {
             this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
 
-            input_g.binarySet(allocator, this.temp_grad_padded);
+            try input_g.binarySet(allocator, &this.temp_grad_padded);
 
             this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, //
                 input.buffer.y_inherent + 2 * this.kernel_padding, input.buffer.x_inherent + 2 * this.kernel_padding);
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -548,16 +558,23 @@ pub const Neuralnet = struct {
             const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding, this.kernel_stride);
             const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding, this.kernel_stride);
             const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding, this.kernel_stride);
-            std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{ [1]u8{' '} ** (offset + padding), this.z, this.y, this.x, out_z, out_y, out_x });
+            std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
+                this.z, this.y, this.x, //
+                out_z,  out_y,  out_x,
+            });
             std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
-                [1]u8{' '} ** (offset + padding), this.filters,        this.kernel_size, //
-                this.kernel_stride,               this.kernel_padding,
+                [1]u8{' '} ** (offset + padding), //
+                this.filters,       this.kernel_size, //
+                this.kernel_stride, this.kernel_padding,
             });
             std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
                 this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
                 this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
             });
             std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
                 this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
@@ -573,12 +590,14 @@ pub const Neuralnet = struct {
             const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
 
             std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), this.z, this.y, this.x, //
-                out_z,                            out_y,  out_x,
+                [1]u8{' '} ** (offset + padding), //
+                this.z, this.y, this.x, //
+                out_z,  out_y,  out_x,
             });
             std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
-                [1]u8{' '} ** (offset + padding), this.filters,        this.kernel_size, //
-                this.kernel_stride,               this.kernel_padding,
+                [1]u8{' '} ** (offset + padding), //
+                this.filters,       this.kernel_size, //
+                this.kernel_stride, this.kernel_padding,
             });
             this.biases.print(padding + offset, offset, "biases");
             this.biases_g.print(padding + offset, offset, "biases_g");
@@ -590,8 +609,8 @@ pub const Neuralnet = struct {
             this.temp_single.print(padding + offset, offset, "temp_single");
         }
     };
-    const Reduce = struct {
-        const Type = enum {
+    pub const Reduce = struct {
+        pub const Type = enum {
             sum,
             avg,
             max,
@@ -621,19 +640,22 @@ pub const Neuralnet = struct {
                 .kernel_stride = kernel_stride,
             };
         }
-        pub fn forward(this: *const @This(), allocator: anytype, input: Tensor, output: Tensor) !void {
+        pub fn forward(this: *const @This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             input.moveOffset(0, 0, 0, 0);
             output.moveResize(1, 1, 1, 1);
             output.moveOffset(0, 0, 0, 0);
 
-            var x_out_idx: usize = 0;
-            var y_out_idx: usize = 0;
-            for (0..this.z) |channel_idx| {
+            var x_out_idx: u32 = 0;
+            var y_out_idx: u32 = 0;
+            for (0..this.z) |channel_idx_usize| {
+                const channel_idx: u32 = @truncate(channel_idx_usize);
                 y_out_idx = 0;
-                for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx| {
+                for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx_usize| {
+                    const y_in_idx: u32 = @truncate(y_in_idx_usize);
                     x_out_idx = 0;
-                    for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx| {
+                    for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx_usize| {
+                        const x_in_idx: u32 = @truncate(x_in_idx_usize);
                         input.moveOffset(0, channel_idx, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
                         output.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
                         // If you really want to you can move this switch outside the loops in case you care about every nanosecond
@@ -650,20 +672,23 @@ pub const Neuralnet = struct {
             }
         }
         /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
-        pub fn backward(this: *const @This(), allocator: anytype, input_g: Tensor, output_g: Tensor) void {
+        pub fn backward(this: *const @This(), allocator: anytype, input_g: *Tensor, output_g: *Tensor) !void {
             input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
             output_g.moveResize(1, 1, 1, 1);
 
-            var x_in_idx: usize = 0;
-            var y_in_idx: usize = 0;
-            for (0..this.z) |channel_idx| {
+            var x_in_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
+            for (0..this.z) |channel_idx_usize| {
+                const channel_idx: u32 = @truncate(channel_idx_usize);
                 y_in_idx = 0;
-                for (0..this.y) |y_out_idx| {
+                for (0..this.y) |y_out_idx_usize| {
+                    const y_out_idx: u32 = @truncate(y_out_idx_usize);
                     x_in_idx = 0;
-                    for (0..this.x) |x_out_idx| {
+                    for (0..this.x) |x_out_idx_usize| {
+                        const x_out_idx: u32 = @truncate(x_out_idx_usize);
                         input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
                         output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
-                        input_g.linaryAdd(allocator, output_g);
+                        try input_g.linaryAdd(allocator, output_g);
                         x_in_idx += this.kernel_stride;
                     }
                     y_in_idx += this.kernel_stride;
@@ -672,10 +697,10 @@ pub const Neuralnet = struct {
 
             input_g.moveResize(1, input_g.buffer.z_inherent, input_g.buffer.y_inherent, input_g.buffer.x_inherent);
             input_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, output_g.buffer.z_outherent, output_g.buffer.y_outherent, output_g.buffer.x_outherent);
+            output_g.moveResize(1, output_g.buffer.z_inherent, output_g.buffer.y_inherent, output_g.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Reduce {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -684,20 +709,16 @@ pub const Neuralnet = struct {
             const z_out: u32 = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
             const y_out: u32 = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
             const x_out: u32 = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
-            std.debug.print("Size {} Stride {} In ({}, {}, {}, {}) Out ({}, {}, {}, {})\n", .{
-                u8{' '} ** (padding + offset),
-                this.kernel_size,
-                this.kernel_stride,
-                this.z,
-                this.y,
-                this.x,
-                z_out,
-                y_out,
-                x_out,
+            std.debug.print("{s}Size {} Stride {} In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
+                [1]u8{' '} ** (offset + padding), //
+                this.kernel_size, this.kernel_stride, //
+                this.z,           this.y,
+                this.x,           z_out,
+                y_out,            x_out,
             });
         }
     };
-    const Split = struct {
+    pub const Split = struct {
         filters: u32,
         z: u32,
         y: u32,
@@ -720,11 +741,11 @@ pub const Neuralnet = struct {
                 .z = z,
                 .y = y,
                 .x = x,
-                .weights = Tensor.alloc(allocator, filters, z, y, x, context),
-                .weights_g = Tensor.alloc(allocator, filters, z, y, x, context),
-                .biases = Tensor.alloc(allocator, filters, z, y, x, context),
-                .biases_g = Tensor.alloc(allocator, filters, z, y, x, context),
-                .temp_input = Tensor.alloc(allocator, 1, z, y, x, context),
+                .weights = try Tensor.alloc(allocator, filters, z, y, x, context),
+                .weights_g = try Tensor.alloc(allocator, filters, z, y, x, context),
+                .biases = try Tensor.alloc(allocator, filters, z, y, x, context),
+                .biases_g = try Tensor.alloc(allocator, filters, z, y, x, context),
+                .temp_input = try Tensor.alloc(allocator, 1, z, y, x, context),
             };
         }
         pub fn free(this: *@This(), allocator: anytype) void {
@@ -734,7 +755,7 @@ pub const Neuralnet = struct {
             this.biases_g.free(allocator);
             this.temp_input.free(allocator);
         }
-        pub fn forward(this: *@This(), allocator: anytype, input: Tensor, output: Tensor) !void {
+        pub fn forward(this: *@This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             assert(input.buffer.z_inherent * this.filters == output.buffer.z_inherent);
             assert(input.buffer.y_inherent == output.buffer.y_inherent);
             assert(input.buffer.x_inherent == output.buffer.x_inherent);
@@ -747,13 +768,14 @@ pub const Neuralnet = struct {
             this.biases.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.biases.moveOffset(0, 0, 0, 0);
 
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 output.moveOffset(0, filter_idx * input.buffer.z_inherent, 0, 0);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
                 try output.binarySet(allocator, input);
-                try output.binaryMultiply(allocator, this.weights);
-                try output.binaryAdd(allocator, this.biases);
+                try output.binaryMultiply(allocator, &this.weights);
+                try output.binaryAdd(allocator, &this.biases);
             }
 
             input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
@@ -765,21 +787,22 @@ pub const Neuralnet = struct {
             this.biases.moveResize(this.filters, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.biases.moveOffset(0, 0, 0, 0);
         }
-        pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor, output_g: Tensor) !void {
+        pub fn backward(this: *@This(), allocator: anytype, input: *Tensor, input_g: *Tensor, output_g: *Tensor) !void {
             this.biases_g.moveResize(1, this.z * this.filters, this.y, this.x);
             this.biases_g.moveOffset(0, 0, 0, 0);
-            this.biases_g.binarySet(allocator, output_g);
+            try this.biases_g.binarySet(allocator, output_g);
             this.biases_g.moveResize(this.filters, this.z, this.y, this.x);
             this.biases_g.moveOffset(0, 0, 0, 0);
 
             this.weights_g.moveResize(1, this.z, this.y, this.x);
             output_g.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 this.weights_g.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx * this.z, 0, 0);
-                this.temp_input.binarySet(allocator, output_g);
-                this.temp_input.binaryMultiply(allocator, input);
-                this.weights_g.binaryAdd(allocator, this.temp_input);
+                try this.temp_input.binarySet(allocator, output_g);
+                try this.temp_input.binaryMultiply(allocator, input);
+                try this.weights_g.binaryAdd(allocator, &this.temp_input);
             }
             this.weights_g.moveResize(this.filters, this.z, this.y, this.x);
             this.weights_g.moveOffset(0, 0, 0, 0);
@@ -788,12 +811,13 @@ pub const Neuralnet = struct {
 
             output_g.moveResize(1, this.z, this.y, this.x);
             this.weights.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx| {
+            for (0..this.filters) |filter_idx_usize| {
+                const filter_idx: u32 = @truncate(filter_idx_usize);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx * this.z, 0, 0);
-                this.temp_input.binarySet(allocator, output_g);
-                this.temp_input.binaryMultiply(allocator, this.weights);
-                input_g.binaryAdd(allocator, this.temp_input);
+                try this.temp_input.binarySet(allocator, output_g);
+                try this.temp_input.binaryMultiply(allocator, &this.weights);
+                try input_g.binaryAdd(allocator, &this.temp_input);
             }
             this.weights.moveResize(this.filters, this.z, this.y, this.x);
             this.weights.moveOffset(0, 0, 0, 0);
@@ -801,19 +825,25 @@ pub const Neuralnet = struct {
             output_g.moveOffset(0, 0, 0, 0);
         }
         // TODO: Split backward
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
                 std.debug.print("{s}Split\n", .{[1]u8{' '} ** offset});
             }
 
-            std.debug.print("Z {} Y {} X {} Filters {}\n", .{ this.z, this.y, this.x, this.filters });
-            this.biases.print(padding, offset + padding, "biases");
-            this.biases_g.print(padding, offset + padding, "biases_g");
-            this.weights.print(padding, offset + padding, "weights");
-            this.weights_g.print(padding, offset + padding, "weights_g");
-            this.temp_input.print(padding, offset + padding, "temp_input");
+            std.debug.print("{s}Z {} Y {} X {} Filters {}\n", .{
+                [1]u8{' '} ** (offset + padding),
+                this.z,
+                this.y,
+                this.x,
+                this.filters,
+            });
+            this.biases.print(padding, offset + padding, "biases"[0..]);
+            this.biases_g.print(padding, offset + padding, "biases_g"[0..]);
+            this.weights.print(padding, offset + padding, "weights"[0..]);
+            this.weights_g.print(padding, offset + padding, "weights_g"[0..]);
+            this.temp_input.print(padding, offset + padding, "temp_input"[0..]);
         }
         pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
             if (name) |text| {
@@ -836,7 +866,7 @@ pub const Neuralnet = struct {
             this.temp_input.debug(padding, offset + padding, "temp_input");
         }
     };
-    const Residual = struct {
+    pub const Residual = struct {
         pub const Type = enum {
             identity,
             convolution,
@@ -858,8 +888,8 @@ pub const Neuralnet = struct {
             return .{
                 .layer = layer,
                 .t = .identity,
-                .connection = {
-                    .identity;
+                .connection = .{
+                    .identity = @as(void, {}),
                 },
             };
         }
@@ -868,7 +898,7 @@ pub const Neuralnet = struct {
                 .layer = layer,
                 .t = .dense,
                 .connection = .{
-                    .dense = Dense.alloc(allocator, size_in, size_out, context),
+                    .dense = try Dense.alloc(allocator, size_in, size_out, context),
                 },
             };
         }
@@ -888,7 +918,7 @@ pub const Neuralnet = struct {
                 .layer = layer,
                 .t = .convolution,
                 .connection = .{
-                    .convolution = Convolution.alloc(allocator, z, y, x, filters, kernel_size, kernel_stride, kernel_padding, context),
+                    .convolution = try Convolution.alloc(allocator, z, y, x, filters, kernel_size, kernel_stride, kernel_padding, context),
                 },
             };
         }
@@ -906,7 +936,7 @@ pub const Neuralnet = struct {
                 .layer = layer,
                 .t = .split,
                 .connection = .{
-                    .split = Split.alloc(allocator, filters, z, y, x, context),
+                    .split = try Split.alloc(allocator, filters, z, y, x, context),
                 },
             };
         }
@@ -919,7 +949,7 @@ pub const Neuralnet = struct {
                 .split => {},
             }
         }
-        pub fn forward(this: *@This(), allocator: anytype, input: Tensor, output: Tensor) !void {
+        pub fn forward(this: *@This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             assert(input.buffer.a_inherent == output.buffer.a_inherent);
             assert(input.buffer.z_inherent == output.buffer.z_inherent);
             assert(input.buffer.y_inherent == output.buffer.y_inherent);
@@ -935,9 +965,10 @@ pub const Neuralnet = struct {
                 .convolution => unreachable,
                 .dense => unreachable,
                 .reduce => unreachable,
+                .split => unreachable,
             }
         }
-        pub fn backward(this: *@This(), allocator: anytype, input_g: Tensor, output_g: Tensor) !void {
+        pub fn backward(this: *@This(), allocator: anytype, input_g: *Tensor, output_g: *Tensor) !void {
             assert(input_g.buffer.a_inherent == output_g.buffer.a_inherent);
             assert(input_g.buffer.z_inherent == output_g.buffer.z_inherent);
             assert(input_g.buffer.y_inherent == output_g.buffer.y_inherent);
@@ -953,22 +984,23 @@ pub const Neuralnet = struct {
                 .convolution => unreachable,
                 .dense => unreachable,
                 .reduce => unreachable,
+                .split => unreachable,
             }
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
                 std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
             }
 
-            std.debug.print("{s}Type\n", .{ [1]u8{' '} ** (offset + padding), this.t });
+            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
             switch (this.connection) {
                 .identity => {},
-                .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"),
-                .dense => this.connection.dense.print(padding, offset + padding, "dense"),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
-                .split => this.connection.split.print(padding, offset + padding, "split"),
+                .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"[0..]),
+                .dense => this.connection.dense.print(padding, offset + padding, "dense"[0..]),
+                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"[0..]),
+                .split => this.connection.split.print(padding, offset + padding, "split"[0..]),
             }
         }
         pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
@@ -978,39 +1010,39 @@ pub const Neuralnet = struct {
                 std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
             }
 
-            std.debug.print("{s}Type\n", .{ [1]u8{' '} ** (offset + padding), this.t });
+            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
             switch (this.connection) {
                 .identity => {},
-                .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"),
-                .dense => this.connection.dense.debug(padding, offset + padding, "dense"),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
-                .split => this.connection.split.debug(padding, offset + padding, "split"),
+                .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"[0..]),
+                .dense => this.connection.dense.debug(padding, offset + padding, "dense"[0..]),
+                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"[0..]),
+                .split => this.connection.split.debug(padding, offset + padding, "split"[0..]),
             }
         }
     };
-    const Layer = struct {
+    pub const Layer = struct {
         /// The config is to only have only the info needed when provided with the previous layer
-        const Config = union(enum) {
+        pub const Config = union(enum) {
             dense: struct {
                 size_out: u32,
-                activation: Activation,
+                activation: Activation.Type,
             },
             convolution: struct {
                 filters: u32,
                 kernel_size: u32,
                 kernel_stride: u32,
                 kernel_padding: u32,
-                activation: Activation,
+                activation: Activation.Type,
             },
             reduce: struct {
                 kernel_size: u32,
                 kernel_stride: u32,
                 t: Reduce.Type,
-                // activation: Activation,
+                // activation: Activation.Type,
             },
             split: struct {
                 filters: u32,
-                activation: Activation,
+                activation: Activation.Type,
             },
             residual: struct {
                 t: Residual.Type,
@@ -1021,7 +1053,7 @@ pub const Neuralnet = struct {
                 kernel_size: u32,
                 size_out: u32,
                 reduce_t: Reduce.Type,
-                // activation: Activation,
+                // activation: Activation.Type,
             },
         };
         // TODO: Come up with better name
@@ -1039,10 +1071,10 @@ pub const Neuralnet = struct {
             switch (config) {
                 .dense => {
                     return .{
-                        .activation = .{ .type = config.dense.activation },
-                        .compute = .{ .dense = Dense.alloc(allocator, z * y * x, config.dense.size_out, context) },
-                        .values = Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
-                        .values_g = Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
+                        .activation = try Activation.alloc(allocator, config.dense.activation, 1, 1, 1, config.dense.size_out, context),
+                        .compute = .{ .dense = try Dense.alloc(allocator, z * y * x, config.dense.size_out, context) },
+                        .values = try Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
+                        .values_g = try Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
                     };
                 },
                 .convolution => {
@@ -1052,57 +1084,57 @@ pub const Neuralnet = struct {
                     const x_new: u32 = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
                         config.convolution.kernel_stride + 1);
                     return .{
-                        .activation = .{ .type = config.convolution.activation },
+                        .activation = try Activation.alloc(allocator, config.convolution.activation, 1, z_new, y_new, x_new, context),
                         .compute = .{
-                            .convolution = Convolution.alloc(allocator, z, y, x, config.convolution.filters, //
+                            .convolution = try Convolution.alloc(allocator, z, y, x, config.convolution.filters, //
                                 config.convolution.kernel_size, config.convolution.kernel_stride, //
                                 config.convolution.kernel_padding, context),
-                            .values = Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
-                            .values_g = Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
                         },
+                        .values = try Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
+                        .values_g = try Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
                     };
                 },
                 .reduce => {
                     const z_new: u32 = z;
                     const y_new: u32 = @divFloor(y - config.convolution.kernel_size, config.convolution.kernel_stride + 1);
-                    const x_new: u32 = @divFloor(x + -config.convolution.kernel_size, config.convolution.kernel_stride + 1);
+                    const x_new: u32 = @divFloor(x - config.convolution.kernel_size, config.convolution.kernel_stride + 1);
                     return .{
-                        .activation = .{ .type = .none },
+                        .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .compute = .{
                             .reduce = Reduce.alloc(config.reduce.t, z, y, x, config.reduce.kernel_size, //
                                 config.reduce.kernel_stride),
                         },
-                        .values = Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
-                        .values_g = Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
+                        .values = try Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
+                        .values_g = try Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
                     };
                 },
                 .split => {
                     return .{
-                        .activation = .{ .type = config.dense.activation },
-                        .compute = .{ .split = Split.alloc(allocator, config.split.filters, z, y, x, context) },
-                        .values = Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
-                        .values_g = Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
+                        .activation = try Activation.alloc(allocator, config.split.activation, 1, z * config.split.filters, y, x, context),
+                        .compute = .{ .split = try Split.alloc(allocator, config.split.filters, z, y, x, context) },
+                        .values = try Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
+                        .values_g = try Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
                     };
                 },
                 .residual => {
                     return .{
-                        .activation = .{ .type = .none },
+                        .activation = try Activation.alloc(allocator, .none, 1, z, y, x, context),
                         .compute = .{
                             .residual = switch (config.residual.t) {
                                 .identity => Residual.allocIdentity(config.residual.layer),
-                                .dense => Residual.allocConvolution(config.residual.layer, allocator, z, y, x, //
+                                .dense => try Residual.allocConvolution(config.residual.layer, allocator, z, y, x, //
                                     config.residual.filters, config.residual.kernel_size, config.residual.kernel_stride, //
                                     config.residual.kernel_padding, context),
-                                .convolution => Residual.allocDense(config.residual.layer, allocator, z * y * x, //
+                                .convolution => try Residual.allocDense(config.residual.layer, allocator, z * y * x, //
                                     config.residual.size_out, context),
-                                .reduce => Residual.allocReduce(config.residual.layer, config.residual.reduce_t, //
+                                .reduce => try Residual.allocReduce(config.residual.layer, config.residual.reduce_t, //
                                     z, y, x, config.residual.kernel_size, config.residual.kernel_stride),
-                                .split => Residual.allocSplit(config.residual.layer, allocator, config.residual.filters, //
+                                .split => try Residual.allocSplit(config.residual.layer, allocator, config.residual.filters, //
                                     z, y, x, context),
                             },
                         },
-                        .values = Tensor.alloc(allocator, 1, z, y, x, context),
-                        .values_g = Tensor.alloc(allocator, 1, z, y, x, context),
+                        .values = try Tensor.alloc(allocator, 1, z, y, x, context),
+                        .values_g = try Tensor.alloc(allocator, 1, z, y, x, context),
                     };
                 },
             }
@@ -1115,7 +1147,7 @@ pub const Neuralnet = struct {
                 .split => this.compute.split.free(allocator),
                 .residual => this.compute.residual.free(allocator),
             }
-            if (this.activation.intermediary) |intermediary| {
+            if (this.activation.intermediary) |*intermediary| {
                 intermediary.free(allocator);
             }
             this.values.free(allocator);
@@ -1128,7 +1160,7 @@ pub const Neuralnet = struct {
                 std.debug.print("{s}Layer\n", .{[1]u8{' '} ** offset});
             }
 
-            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.type });
+            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.t });
             switch (this.compute) {
                 .dense => this.compute.dense.print(padding, offset + padding, null),
                 .convolution => this.compute.convolution.print(padding, offset + padding, null),
@@ -1163,19 +1195,19 @@ pub const Neuralnet = struct {
     pub fn alloc(
         allocator: anytype,
         input: Tensor,
-        config: []Layer.Config,
+        config: []const Layer.Config,
         size_global: u32,
         size_local: u32,
         context: ClContext,
         device: ClDevice,
         queue: ClCommandQueue,
     ) !Neuralnet {
-        var layers: []Layer = allocator.alloc(Layer, config.len);
+        var layers: []Layer = try allocator.alloc(Layer, config.len);
         var z_previous: u32 = input.buffer.z_inherent;
         var y_previous: u32 = input.buffer.y_inherent;
         var x_previous: u32 = input.buffer.x_inherent;
         for (0..layers.len) |layer_idx| {
-            layers[layer_idx] = Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
+            layers[layer_idx] = try Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
             z_previous = layers[layer_idx].values.buffer.z_inherent;
             y_previous = layers[layer_idx].values.buffer.y_inherent;
             x_previous = layers[layer_idx].values.buffer.x_inherent;
@@ -1184,67 +1216,67 @@ pub const Neuralnet = struct {
         for (0..layers.len) |layer_idx| {
             switch (layers[layer_idx].compute) {
                 .dense => {
-                    layers[layer_idx].compute.dense.forward(allocator, previous_values, layers[layer_idx].values);
+                    try layers[layer_idx].compute.dense.forward(allocator, &previous_values, &layers[layer_idx].values);
                 },
                 .convolution => {
-                    layers[layer_idx].compute.convolution.forward(allocator, previous_values, layers[layer_idx].values);
+                    try layers[layer_idx].compute.convolution.forward(allocator, &previous_values, &layers[layer_idx].values);
                 },
                 .reduce => {
-                    layers[layer_idx].compute.reduce.forward(allocator, previous_values, layers[layer_idx].values);
+                    try layers[layer_idx].compute.reduce.forward(allocator, &previous_values, &layers[layer_idx].values);
                 },
                 .split => {
-                    layers[layer_idx].compute.split.forward(allocator, previous_values, layers[layer_idx].values);
+                    try layers[layer_idx].compute.split.forward(allocator, &previous_values, &layers[layer_idx].values);
                 },
                 .residual => {
-                    layers[layer_idx].compute.residual.forward(allocator, //
-                        layers[layers[layer_idx].compute.residual.layer].values, layers[layer_idx].values);
+                    try layers[layer_idx].compute.residual.forward(allocator, //
+                        &layers[layers[layer_idx].compute.residual.layer].values, &layers[layer_idx].values);
                 },
             }
 
-            layers[layer_idx].activation.forward(allocator, layers[layer_idx].values);
+            try layers[layer_idx].activation.forward(allocator, &layers[layer_idx].values);
             // TODO: Norming
 
             previous_values = layers[layer_idx].values;
         }
-        var forward: Linearized = Linearized.alloc(allocator);
-        forward.concat(allocator, layers[layers.len - 1].values.linearized);
+        var forward: Linearized = try Linearized.alloc(allocator);
+        try forward.concat(allocator, &layers[layers.len - 1].values.linearized);
 
-        for (0..layers.len) |layer_idx_reverse| {
+        for (0..layers.len - 1) |layer_idx_reverse| {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
 
             // TODO: Norming
-            layers[layer_idx].activation.backward(allocator, layers[layer_idx].values);
+            try layers[layer_idx].activation.backward(allocator, &layers[layer_idx].values, &layers[layer_idx].values_g);
 
             switch (layers[layer_idx].compute) {
                 .dense => {
-                    layers[layer_idx].compute.dense.backward(allocator, layers[layer_idx - 1].values, //
-                        layers[layer_idx - 1].values_g, layers[layer_idx].values_g);
+                    try layers[layer_idx].compute.dense.backward(allocator, &layers[layer_idx - 1].values, //
+                        &layers[layer_idx - 1].values_g, &layers[layer_idx].values_g);
                 },
                 .convolution => {
-                    layers[layer_idx].compute.convolution.backward(allocator, layers[layer_idx - 1].values, //
-                        layers[layer_idx - 1].values_g, layers[layer_idx].values, layers[layer_idx].values_g);
+                    try layers[layer_idx].compute.convolution.backward(allocator, &layers[layer_idx - 1].values, //
+                        &layers[layer_idx - 1].values_g, &layers[layer_idx].values, &layers[layer_idx].values_g);
                 },
                 .reduce => {
-                    layers[layer_idx].compute.reduce.backward(allocator, layers[layer_idx - 1].values_g, //
-                        layers[layer_idx].values_g);
+                    try layers[layer_idx].compute.reduce.backward(allocator, &layers[layer_idx - 1].values_g, //
+                        &layers[layer_idx].values_g);
                 },
                 .split => {
-                    layers[layer_idx].compute.split.backward(allocator, layers[layer_idx - 1].values, //
-                        layers[layer_idx - 1].values_g, layers[layer_idx].values_g);
+                    try layers[layer_idx].compute.split.backward(allocator, &layers[layer_idx - 1].values, //
+                        &layers[layer_idx - 1].values_g, &layers[layer_idx].values_g);
                 },
                 .residual => {
-                    layers[layer_idx].compute.residual.backward(allocator, //
-                        layers[layers[layer_idx].compute.residual.layer].values_g, layers[layer_idx].values_g);
+                    try layers[layer_idx].compute.residual.backward(allocator, //
+                        &layers[layers[layer_idx].compute.residual.layer].values_g, &layers[layer_idx].values_g);
                 },
             }
         }
 
-        var backward: Linearized = Linearized.alloc(allocator);
-        backward.concat(allocator, layers[0].values.linearized);
+        var backward: Linearized = try Linearized.alloc(allocator);
+        try backward.concat(allocator, &layers[0].values.linearized);
 
-        const forward_cl: Program = Program.alloc(allocator, forward, size_global, //
+        const forward_cl: Program = try Program.alloc(allocator, forward, size_global, //
             size_local, device, context, queue);
-        const backward_cl: Program = Program.alloc(allocator, backward, size_global, //
+        const backward_cl: Program = try Program.alloc(allocator, backward, size_global, //
             size_local, device, context, queue);
         return .{
             .input = input,
@@ -1256,14 +1288,25 @@ pub const Neuralnet = struct {
         };
     }
     pub fn free(this: *@This(), allocator: anytype) !void {
-        for (this.layers.len) |layer_idx| {
+        for (0..this.layers.len) |layer_idx| {
             try this.layers[layer_idx].free(allocator);
         }
         allocator.free(this.layers);
-        this.input.free(allocator);
+        // this.input.free(allocator);
         this.forward.free(allocator);
         this.backward.free(allocator);
-        this.forward_cl.free(allocator);
-        this.backward_cl.free(allocator);
+        try this.forward_cl.free(allocator);
+        try this.backward_cl.free(allocator);
+    }
+    pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Neuralnet\n", .{[1]u8{' '} ** offset});
+        }
+        this.input.print(padding, offset + padding, "input");
+        for (0..this.layers.len) |layer_idx| {
+            this.layers[layer_idx].print(padding, padding + offset, null);
+        }
     }
 };
