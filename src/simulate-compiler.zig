@@ -363,8 +363,8 @@ fn simulateCompiler(allocator: anytype, tensor_num: u32, op_num: u32, op_off: u3
 
     tensor2[tensor_out].realize();
 
-    const size_global: usize = 20;
-    const size_local: usize = 4;
+    const size_local: u32 = Pcg.randBelow(10) + 1;
+    const size_global: u32 = size_local * (Pcg.randBelow(10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);
