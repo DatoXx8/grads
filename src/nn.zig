@@ -48,7 +48,7 @@ pub const Activation = struct {
             intermediary.free(allocator);
         }
     }
-    pub fn apply(this: *@This(), allocator: anytype, input: Tensor) void {
+    pub fn forward(this: *@This(), allocator: anytype, input: Tensor) void {
         switch (this.t) {
             .none => {},
             .relu => {
@@ -86,6 +86,44 @@ pub const Activation = struct {
             },
         }
     }
+    pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) void {
+        switch (this.t) {
+            .none => {},
+            .relu => {
+                try this.intermediary.?.binarySet(allocator, input);
+                try this.intermediary.?.unarySign(allocator);
+                try input_g.binaryMultiply(allocator, this.intermediary.?);
+            },
+            .sigmoid => {
+                // try input.unaryMultiply(allocator, -1);
+                // try input.unaryExp(allocator);
+                // try input.unaryAdd(allocator, 1);
+                // try input.unaryReciprocal(allocator);
+                try this.intermediary.?.binarySet(allocator, input);
+                try this.intermediary.?.unaryMultiply(allocator, -1);
+                try this.intermediary.?.unaryAdd(allocator, 1);
+                try this.intermediary.?.binaryMultiply(allocator, input);
+                try input_g.binaryMultiply(allocator, this.intermediary.?);
+            },
+            .tanh => {
+                try input_g.unarySquare(allocator);
+                try input_g.unaryMultiply(allocator, -1);
+                try input_g.unaryAdd(allocator, 1);
+            },
+            .silu => {
+                unreachable;
+            },
+            .gelu => {
+                unreachable;
+            },
+            .leaky => {
+                try this.intermediary.?.binarySet(allocator, input);
+                try this.intermediary.?.unarySign(allocator);
+                try this.intermediary.?.unaryMax(allocator, Activation.leaky_factor);
+                try input_g.binaryMultiply(allocator, this.intermediary.?);
+            },
+        }
+    }
 };
 
 pub const Norm = struct {
@@ -99,6 +137,99 @@ pub const Norm = struct {
     type: Norm.Type,
     mean: ?Tensor,
     variance: ?Tensor,
+    max: ?Tensor,
+    pub fn alloc(allocator: anytype, t: Norm.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Norm {
+        return switch (t) {
+            .none => .{
+                .type = t,
+                .mean = null,
+                .variance = null,
+                .max = null,
+            },
+            .layer => .{
+                .type = t,
+                .mean = try Tensor.alloc(allocator, a, z, y, x, context),
+                .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                .max = null,
+            },
+            .batch => .{
+                .type = t,
+                .mean = try Tensor.alloc(allocator, a, z, y, x, context),
+                .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                .max = null,
+            },
+            .simple => .{
+                .type = t,
+                .mean = null,
+                .variance = null,
+                .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+            },
+            .softmax => .{
+                .type = t,
+                // Repurposed to be the place in which to exp the values
+                .mean = null,
+                .variance = null,
+                .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+            },
+        };
+    }
+    pub fn free(this: *@This(), allocator: anytype) void {
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                this.mean.?.free(allocator);
+                this.variance.?.free(allocator);
+            },
+            .batch => {
+                this.mean.?.free(allocator);
+                this.variance.?.free(allocator);
+            },
+            .simple => {
+                this.max.?.free(allocator);
+            },
+            .softmax => {
+                this.max.?.free(allocator);
+            },
+        }
+    }
+    pub fn forward(this: *@This(), allocator: anytype, input: Tensor) !void {
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                unreachable;
+            },
+            .batch => {
+                unreachable;
+            },
+            .simple => {
+                this.max.?.reduceMax(allocator, input);
+                input.linaryDivide(allocator, this.max.?);
+            },
+            .softmax => {
+                input.unaryExp(allocator);
+                this.max.?.reduceSum(allocator, input);
+                input.linaryDivide(allocator, this.max.?);
+            },
+        }
+    }
+    pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) !void {
+        _ = allocator;
+        _ = input;
+        _ = input_g;
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                unreachable;
+            },
+            .batch => {
+                unreachable;
+            },
+            .simple => {},
+            .softmax => {
+                unreachable;
+            },
+        }
+    }
 };
 
 pub const Neuralnet = struct {
@@ -1025,23 +1156,25 @@ pub const Neuralnet = struct {
     };
     input: Tensor,
     layers: []Layer,
-    linearized: Linearized,
-    program: Program,
+    forward: Linearized,
+    backward: Linearized,
+    forward_cl: Program,
+    backward_cl: Program,
     pub fn alloc(
         allocator: anytype,
         input: Tensor,
         config: []Layer.Config,
+        size_global: u32,
+        size_local: u32,
         context: ClContext,
         device: ClDevice,
         queue: ClCommandQueue,
     ) !Neuralnet {
-        _ = device;
-        _ = queue;
         var layers: []Layer = allocator.alloc(Layer, config.len);
         var z_previous: u32 = input.buffer.z_inherent;
         var y_previous: u32 = input.buffer.y_inherent;
         var x_previous: u32 = input.buffer.x_inherent;
-        for (0..config.len) |layer_idx| {
+        for (0..layers.len) |layer_idx| {
             layers[layer_idx] = Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
             z_previous = layers[layer_idx].values.buffer.z_inherent;
             y_previous = layers[layer_idx].values.buffer.y_inherent;
@@ -1067,7 +1200,8 @@ pub const Neuralnet = struct {
                         layers[layers[layer_idx].compute.residual.layer].values, layers[layer_idx].values);
                 },
             }
-            // TODO: Activation
+
+            layers[layer_idx].activation.forward(allocator, layers[layer_idx].values);
             // TODO: Norming
 
             previous_values = layers[layer_idx].values;
@@ -1077,6 +1211,9 @@ pub const Neuralnet = struct {
 
         for (0..layers.len) |layer_idx_reverse| {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
+
+            // TODO: Norming
+            layers[layer_idx].activation.backward(allocator, layers[layer_idx].values);
 
             switch (layers[layer_idx].compute) {
                 .dense => {
@@ -1100,8 +1237,33 @@ pub const Neuralnet = struct {
                         layers[layers[layer_idx].compute.residual.layer].values_g, layers[layer_idx].values_g);
                 },
             }
-            // TODO: Activation
-            // TODO: Norming
         }
+
+        var backward: Linearized = Linearized.alloc(allocator);
+        backward.concat(allocator, layers[0].values.linearized);
+
+        const forward_cl: Program = Program.alloc(allocator, forward, size_global, //
+            size_local, device, context, queue);
+        const backward_cl: Program = Program.alloc(allocator, backward, size_global, //
+            size_local, device, context, queue);
+        return .{
+            .input = input,
+            .layers = layers,
+            .forward = forward,
+            .backward = backward,
+            .forward_cl = forward_cl,
+            .backward_cl = backward_cl,
+        };
+    }
+    pub fn free(this: *@This(), allocator: anytype) !void {
+        for (this.layers.len) |layer_idx| {
+            try this.layers[layer_idx].free(allocator);
+        }
+        allocator.free(this.layers);
+        this.input.free(allocator);
+        this.forward.free(allocator);
+        this.backward.free(allocator);
+        this.forward_cl.free(allocator);
+        this.backward_cl.free(allocator);
     }
 };
