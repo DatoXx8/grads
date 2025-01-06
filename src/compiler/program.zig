@@ -43,6 +43,9 @@ pub const Program = struct {
 
         for (0..linearized.op_num) |_| {
             // TODO: Support multiple PIRs per kernel
+            if (linearized.op_num == op_used) {
+                break;
+            }
             var pir: Pir = try Pir.alloc(allocator, linearized, &op_used);
             defer pir.free(allocator);
 
