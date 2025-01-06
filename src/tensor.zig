@@ -1171,7 +1171,7 @@ pub const Tensor = struct {
             // TODO: This should update sync to `snyc_to_host`
         }
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) !void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
         } else {
@@ -1572,10 +1572,10 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(a <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(z <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(y <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(x <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         this.buffer.a_size = a;
         this.buffer.z_size = z;
         this.buffer.y_size = y;
@@ -1590,10 +1590,10 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(a <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(z <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(y <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(x <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         this.buffer.a_size = a;
         this.buffer.z_size = z;
         this.buffer.y_size = y;
