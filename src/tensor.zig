@@ -227,20 +227,21 @@ pub const Op = struct {
         assert(this.out.y_size == target.out.y_size);
         assert(this.out.x_size == target.out.x_size);
 
-        const a_1: u32 = this.out.a_size;
-        const z_1: u32 = this.out.z_size;
-        const y_1: u32 = this.out.y_size;
-        const x_1: u32 = this.out.x_size;
+        const a_1: u32 = this.out.a_offset;
+        const z_1: u32 = this.out.z_offset;
+        const y_1: u32 = this.out.y_offset;
+        const x_1: u32 = this.out.x_offset;
 
-        const a_2: u32 = target.out.a_size;
-        const z_2: u32 = target.out.z_size;
-        const y_2: u32 = target.out.y_size;
-        const x_2: u32 = target.out.x_size;
+        const a_2: u32 = target.out.a_offset;
+        const z_2: u32 = target.out.z_offset;
+        const y_2: u32 = target.out.y_offset;
+        const x_2: u32 = target.out.x_offset;
 
-        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_offset and
-            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_offset and
-            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_offset and
-            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_offset;
+        // TODO: This might have to be <= instead of <
+        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
+            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
+            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
+            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
     }
     pub inline fn isUnary(this: *const @This()) bool {
         return this.type == .unary_add or this.type == .unary_subtract or
