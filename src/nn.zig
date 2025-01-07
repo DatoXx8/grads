@@ -631,8 +631,8 @@ pub const Neuralnet = struct {
             assert(x > 0);
             assert(kernel_size > 0);
             assert(kernel_stride > 0);
-            assert(kernel_size + kernel_stride <= y);
-            assert(kernel_size + kernel_stride <= x);
+            assert(kernel_size <= y);
+            assert(kernel_size <= x);
             return .{
                 .t = t,
                 .z = z,
@@ -1098,8 +1098,8 @@ pub const Neuralnet = struct {
                 },
                 .reduce => {
                     const z_new: u32 = z;
-                    const y_new: u32 = @divFloor(y - config.convolution.kernel_size, config.convolution.kernel_stride) + 1;
-                    const x_new: u32 = @divFloor(x - config.convolution.kernel_size, config.convolution.kernel_stride) + 1;
+                    const y_new: u32 = @divFloor(y - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
+                    const x_new: u32 = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .compute = .{
