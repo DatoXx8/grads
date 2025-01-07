@@ -660,15 +660,15 @@ fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize,
                     // TODO: Might have to deal with size = 1 for reduce and linary
                     var offset_out: usize = 0;
                     if (op.isReduce()) {
-                        offset_out = op.out.at(0, 0, 0, 0);
+                        offset_out = op.out.at(0, 0, 0, 0) - op.out.offset;
                     } else {
-                        offset_out = op.out.at(a, z, y, x);
+                        offset_out = op.out.at(a, z, y, x) - op.out.offset;
                     }
                     var offset_in: usize = 0;
                     if (op.isLinary()) {
-                        offset_in = op.in.at(0, 0, 0, 0);
+                        offset_in = op.in.at(0, 0, 0, 0) - op.in.offset;
                     } else {
-                        offset_in = op.in.at(a, z, y, x);
+                        offset_in = op.in.at(a, z, y, x) - op.in.offset;
                     }
                     try generateOpSingular(allocator, source, offset, padding, op, repeat_idx, op_idx, offset_out, offset_in);
                 }
