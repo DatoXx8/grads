@@ -42,7 +42,6 @@ pub const Program = struct {
         var kernel_num: u32 = 0;
 
         for (0..linearized.op_num) |_| {
-            // TODO: Support multiple PIRs per kernel
             if (linearized.op_num == op_used) {
                 break;
             }

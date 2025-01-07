@@ -534,10 +534,10 @@ pub const Neuralnet = struct {
                         try this.temp_kernel.binarySet(allocator, &this.temp_input_padded);
                         try this.temp_kernel.linaryMultiply(allocator, output_g);
                         try this.weights_g.binaryAdd(allocator, &this.temp_kernel);
-                        // TODO: Why was this kernel_padding in the c version?
+
                         x_in_idx += this.kernel_stride;
                     }
-                    // TODO: Why was this kernel_padding in the c version?
+
                     y_in_idx += this.kernel_stride;
                 }
             }
