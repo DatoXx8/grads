@@ -1194,8 +1194,10 @@ pub const Neuralnet = struct {
     layers: []Layer,
     forward_cpu: ?Linearized,
     backward_cpu: ?Linearized,
+    learn_cpu: ?Linearized,
     forward_cl: ?Program,
     backward_cl: ?Program,
+    learn_cl: ?Program,
     pub fn alloc(
         allocator: anytype,
         input: Tensor,
@@ -1219,7 +1221,7 @@ pub const Neuralnet = struct {
         var previous_values: Tensor = input;
         for (0..layers.len) |layer_idx| {
 
-            // Just to force the correct order of operationjs
+            // Just to force the correct order of operations
             try layers[layer_idx].values.dependOn(allocator, previous_values);
 
             switch (layers[layer_idx].compute) {
@@ -1250,8 +1252,12 @@ pub const Neuralnet = struct {
         var forward_cpu: Linearized = try Linearized.alloc(allocator);
         try forward_cpu.concat(allocator, &layers[layers.len - 1].values.linearized);
 
+        // TODO: Is it needed to clear the gradients?
         for (0..layers.len - 1) |layer_idx_reverse| {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
+
+            // Just to force the correct order of operations
+            try layers[layer_idx - 1].values_g.dependOn(allocator, layers[layer_idx].values_g);
 
             // TODO: Norming
             try layers[layer_idx].activation.backward(allocator, &layers[layer_idx].values, &layers[layer_idx].values_g);
@@ -1283,9 +1289,43 @@ pub const Neuralnet = struct {
         var backward_cpu: Linearized = try Linearized.alloc(allocator);
         try backward_cpu.concat(allocator, &layers[0].values.linearized);
 
+        var learn_cpu: Linearized = try Linearized.alloc(allocator);
+        for (0..layers.len) |layer_idx| {
+            switch (layers[layer_idx].compute) {
+                .dense => {
+                    try layers[layer_idx].compute.dense.weights.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.weights_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.dense.weights);
+                    try layers[layer_idx].compute.dense.biases.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.biases_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.dense.biases);
+                },
+                .convolution => {
+                    try layers[layer_idx].compute.convolution.weights.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.weights_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.convolution.weights);
+                    try layers[layer_idx].compute.convolution.biases.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.biases_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.convolution.biases);
+                },
+                .reduce => {},
+                .split => {
+                    try layers[layer_idx].compute.split.weights.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.weights_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.split.weights);
+                    try layers[layer_idx].compute.split.biases.binarySubtract(allocator, //
+                        layers[layer_idx].compute.dense.biases_g);
+                    try learn_cpu.concat(allocator, layers[layer_idx].compute.split.biases);
+                },
+                .residual => {},
+            }
+        }
+
         const forward_cl: Program = try Program.alloc(allocator, forward_cpu, size_global, //
             size_local, device, context, queue);
         const backward_cl: Program = try Program.alloc(allocator, backward_cpu, size_global, //
+            size_local, device, context, queue);
+        const learn_cl: Program = try Program.alloc(allocator, learn_cpu, size_global, //
             size_local, device, context, queue);
 
         return .{
@@ -1293,8 +1333,10 @@ pub const Neuralnet = struct {
             .layers = layers,
             .forward_cpu = forward_cpu,
             .backward_cpu = backward_cpu,
+            .learn_cpu = learn_cpu,
             .forward_cl = forward_cl,
             .backward_cl = backward_cl,
+            .learn_cl = learn_cl,
         };
     }
     pub fn free(this: *@This(), allocator: anytype) !void {
@@ -1305,8 +1347,10 @@ pub const Neuralnet = struct {
         // this.input.free(allocator);
         this.forward_cpu.?.free(allocator);
         this.backward_cpu.?.free(allocator);
+        this.learn_cpu.?.free(allocator);
         try this.forward_cl.?.free(allocator);
         try this.backward_cl.?.free(allocator);
+        try this.learn_cl.?.free(allocator);
     }
     // TODO: Maybe merge this into the alloc?
     pub fn init(this: *@This(), allocator: anytype) !void {
@@ -1376,6 +1420,7 @@ pub const Neuralnet = struct {
         }
     }
     // TODO: Backward
+    // TODO: Learn
     pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
