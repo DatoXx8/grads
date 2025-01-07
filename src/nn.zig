@@ -1082,9 +1082,9 @@ pub const Neuralnet = struct {
                 .convolution => {
                     const z_new: u32 = config.convolution.filters;
                     const y_new: u32 = @divFloor(y + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
-                        config.convolution.kernel_stride + 1);
+                        config.convolution.kernel_stride) + 1;
                     const x_new: u32 = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
-                        config.convolution.kernel_stride + 1);
+                        config.convolution.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, config.convolution.activation, 1, z_new, y_new, x_new, context),
                         .compute = .{
@@ -1098,8 +1098,8 @@ pub const Neuralnet = struct {
                 },
                 .reduce => {
                     const z_new: u32 = z;
-                    const y_new: u32 = @divFloor(y - config.convolution.kernel_size, config.convolution.kernel_stride + 1);
-                    const x_new: u32 = @divFloor(x - config.convolution.kernel_size, config.convolution.kernel_stride + 1);
+                    const y_new: u32 = @divFloor(y - config.convolution.kernel_size, config.convolution.kernel_stride) + 1;
+                    const x_new: u32 = @divFloor(x - config.convolution.kernel_size, config.convolution.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .compute = .{
@@ -1192,12 +1192,12 @@ pub const Neuralnet = struct {
     };
     input: Tensor,
     layers: []Layer,
-    forward_cpu: ?Linearized,
-    backward_cpu: ?Linearized,
-    learn_cpu: ?Linearized,
-    forward_cl: ?Program,
-    backward_cl: ?Program,
-    learn_cl: ?Program,
+    forward_cpu: Linearized,
+    backward_cpu: Linearized,
+    learn_cpu: Linearized,
+    forward_cl: Program,
+    backward_cl: Program,
+    learn_cl: Program,
     pub fn alloc(
         allocator: anytype,
         input: Tensor,
@@ -1222,7 +1222,7 @@ pub const Neuralnet = struct {
         for (0..layers.len) |layer_idx| {
 
             // Just to force the correct order of operations
-            try layers[layer_idx].values.dependOn(allocator, previous_values);
+            try layers[layer_idx].values.dependOn(allocator, &previous_values);
 
             switch (layers[layer_idx].compute) {
                 .dense => {
@@ -1257,7 +1257,7 @@ pub const Neuralnet = struct {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
 
             // Just to force the correct order of operations
-            try layers[layer_idx - 1].values_g.dependOn(allocator, layers[layer_idx].values_g);
+            try layers[layer_idx - 1].values_g.dependOn(allocator, &layers[layer_idx].values_g);
 
             // TODO: Norming
             try layers[layer_idx].activation.backward(allocator, &layers[layer_idx].values, &layers[layer_idx].values_g);
@@ -1294,28 +1294,28 @@ pub const Neuralnet = struct {
             switch (layers[layer_idx].compute) {
                 .dense => {
                     try layers[layer_idx].compute.dense.weights.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.weights_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.dense.weights);
+                        &layers[layer_idx].compute.dense.weights_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.dense.weights.linearized);
                     try layers[layer_idx].compute.dense.biases.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.biases_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.dense.biases);
+                        &layers[layer_idx].compute.dense.biases_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.dense.biases.linearized);
                 },
                 .convolution => {
                     try layers[layer_idx].compute.convolution.weights.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.weights_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.convolution.weights);
+                        &layers[layer_idx].compute.convolution.weights_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.convolution.weights.linearized);
                     try layers[layer_idx].compute.convolution.biases.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.biases_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.convolution.biases);
+                        &layers[layer_idx].compute.convolution.biases_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.convolution.biases.linearized);
                 },
                 .reduce => {},
                 .split => {
                     try layers[layer_idx].compute.split.weights.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.weights_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.split.weights);
+                        &layers[layer_idx].compute.split.weights_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.split.weights.linearized);
                     try layers[layer_idx].compute.split.biases.binarySubtract(allocator, //
-                        layers[layer_idx].compute.dense.biases_g);
-                    try learn_cpu.concat(allocator, layers[layer_idx].compute.split.biases);
+                        &layers[layer_idx].compute.split.biases_g);
+                    try learn_cpu.concat(allocator, &layers[layer_idx].compute.split.biases.linearized);
                 },
                 .residual => {},
             }
@@ -1345,12 +1345,12 @@ pub const Neuralnet = struct {
         }
         allocator.free(this.layers);
         // this.input.free(allocator);
-        this.forward_cpu.?.free(allocator);
-        this.backward_cpu.?.free(allocator);
-        this.learn_cpu.?.free(allocator);
-        try this.forward_cl.?.free(allocator);
-        try this.backward_cl.?.free(allocator);
-        try this.learn_cl.?.free(allocator);
+        this.forward_cpu.free(allocator);
+        this.backward_cpu.free(allocator);
+        this.learn_cpu.free(allocator);
+        try this.forward_cl.free(allocator);
+        try this.backward_cl.free(allocator);
+        try this.learn_cl.free(allocator);
     }
     // TODO: Maybe merge this into the alloc?
     pub fn init(this: *@This(), allocator: anytype) !void {
@@ -1383,24 +1383,43 @@ pub const Neuralnet = struct {
     pub fn forward(this: *@This(), t: ClDevice.ClDeviceType) !void {
         switch (t) {
             .cpu => {
-                this.forward_cpu.?.run();
+                // This only copies the data to the cpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .residual => {},
+                    }
+                }
+                this.forward_cpu.run();
             },
             .gpu => {
                 // This only copies the data to the gpu if it changed
                 for (0..this.layers.len) |layer_idx| {
                     switch (this.layers[layer_idx].compute) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.?.command_queue);
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1408,19 +1427,130 @@ pub const Neuralnet = struct {
 
                 // Maybe have the user do this manually?
                 this.input.buffer.syncUpdate(.sync_to_device);
-                try this.input.buffer.syncToDevice(this.forward_cl.?.command_queue);
-                try this.input.buffer.syncWait(this.forward_cl.?.command_queue);
+                try this.input.buffer.syncToDevice(this.forward_cl.queue);
+                try this.input.buffer.syncWait(this.forward_cl.queue);
 
-                try this.forward_cl.?.run();
+                try this.forward_cl.run();
 
                 this.layers[this.layers.len - 1].values.buffer.syncUpdate(.sync_to_host);
-                try this.layers[this.layers.len - 1].values.buffer.syncToHost(this.forward_cl.?.command_queue);
-                try this.layers[this.layers.len - 1].values.buffer.syncWait(this.forward_cl.?.command_queue);
+                try this.layers[this.layers.len - 1].values.buffer.syncToHost(this.forward_cl.queue);
+                try this.layers[this.layers.len - 1].values.buffer.syncWait(this.forward_cl.queue);
             },
         }
     }
-    // TODO: Backward
-    // TODO: Learn
+    pub fn backward(this: *@This(), t: ClDevice.ClDeviceType) !void {
+        switch (t) {
+            .cpu => {
+                // This only copies the data to the cpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .residual => {},
+                    }
+                }
+                this.backward_cpu.run();
+            },
+            .gpu => {
+                // This only copies the data to the gpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .residual => {},
+                    }
+                }
+
+                // Maybe have the user do this manually?
+                this.input.buffer.syncUpdate(.sync_to_device);
+                try this.input.buffer.syncToDevice(this.forward_cl.queue);
+                try this.input.buffer.syncWait(this.forward_cl.queue);
+
+                try this.backward_cl.run();
+
+                this.layers[this.layers.len - 1].values.buffer.syncUpdate(.sync_to_host);
+                try this.layers[this.layers.len - 1].values.buffer.syncToHost(this.forward_cl.queue);
+                try this.layers[this.layers.len - 1].values.buffer.syncWait(this.forward_cl.queue);
+            },
+        }
+    }
+    pub fn learn(this: *@This(), t: ClDevice.ClDeviceType) !void {
+        switch (t) {
+            .cpu => {
+                // This only copies the data to the cpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                        },
+                        .residual => {},
+                    }
+                }
+                this.learn_cpu.run();
+            },
+            .gpu => {
+                // This only copies the data to the gpu if it changed
+                for (0..this.layers.len) |layer_idx| {
+                    switch (this.layers[layer_idx].compute) {
+                        .dense => {
+                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .convolution => {
+                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .reduce => {},
+                        .split => {
+                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
+                        },
+                        .residual => {},
+                    }
+                }
+
+                // Maybe have the user do this manually?
+                this.input.buffer.syncUpdate(.sync_to_device);
+                try this.input.buffer.syncToDevice(this.forward_cl.queue);
+                try this.input.buffer.syncWait(this.forward_cl.queue);
+
+                try this.learn_cl.run();
+                // TODO: Decide if and how to send the data back to the cpu
+            },
+        }
+    }
     pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });

@@ -25,7 +25,7 @@ pub const Program = struct {
     // context: *ClContext,
     // TODO: Decide wether to save the queue or not
     // Also decide how to handle the quees in Program.free()
-    command_queue: ClCommandQueue,
+    queue: ClCommandQueue,
     pub fn alloc(
         allocator: anytype,
         linearized: Linearized,
@@ -33,7 +33,7 @@ pub const Program = struct {
         size_local: u32,
         device: ClDevice,
         context: ClContext,
-        command_queue: ClCommandQueue,
+        queue: ClCommandQueue,
     ) !Program {
         const capacity_initial: u32 = 4;
         var op_used: u32 = 0;
@@ -61,7 +61,7 @@ pub const Program = struct {
             .size_local = size_local,
             .kernel_num = kernel_num,
             .kernel = kernel,
-            .command_queue = command_queue,
+            .queue = queue,
         };
     }
     pub fn free(this: @This(), allocator: anytype) !void {
@@ -72,12 +72,12 @@ pub const Program = struct {
     }
     pub fn run(this: @This()) !void {
         for (0..this.kernel_num) |kernel_idx| {
-            var err: i32 = OpenCl.clEnqueueNDRangeKernel(this.command_queue.queue, this.kernel[kernel_idx].kernel.kernel, //
+            var err: i32 = OpenCl.clEnqueueNDRangeKernel(this.queue.queue, this.kernel[kernel_idx].kernel.kernel, //
                 1, null, &this.size_global, &this.size_local, 0, null, null);
             if (err != 0) {
                 return ClError.ProgramNotRun;
             }
-            err = OpenCl.clFinish(this.command_queue.queue);
+            err = OpenCl.clFinish(this.queue.queue);
             if (err != 0) {
                 return ClError.QueueCouldNotWait;
             }
