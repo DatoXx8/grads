@@ -763,7 +763,7 @@ pub const Neuralnet = struct {
             assert(input.buffer.x_inherent == output.buffer.x_inherent);
             input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output.moveResize(1, input.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
             output.moveOffset(0, 0, 0, 0);
             this.weights.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.weights.moveOffset(0, 0, 0, 0);
