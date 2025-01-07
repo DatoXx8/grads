@@ -373,6 +373,9 @@ pub const Neuralnet = struct {
             this.biases_g.print(padding, offset + padding, "biases_g");
             this.weights.print(padding, offset + padding, "weights");
             this.weights_g.print(padding, offset + padding, "weights_g");
+            this.temp_input.print(padding, offset + padding, "temp_input");
+            this.temp_output.print(padding, offset + padding, "temp_output");
+            this.temp_full.print(padding, offset + padding, "temp_full");
         }
     };
     pub const Convolution = struct {
@@ -1178,6 +1181,8 @@ pub const Neuralnet = struct {
             }
 
             std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.t });
+            this.values.print(padding, padding + offset, "values");
+            this.values_g.print(padding, padding + offset, "values_g");
             switch (this.compute) {
                 .dense => this.compute.dense.debug(padding, offset + padding, null),
                 .convolution => this.compute.convolution.debug(padding, offset + padding, null),
