@@ -284,7 +284,6 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, 1);
             output.moveResize(1, 1, 1, 1);
 
-            try output.dependOn(allocator, input);
             for (0..this.size_output) |row_idx_usize| {
                 const row_idx: u32 = @truncate(row_idx_usize);
                 this.weights.moveOffset(0, 0, 0, row_idx);
@@ -537,7 +536,6 @@ pub const Neuralnet = struct {
 
                         x_in_idx += this.kernel_stride;
                     }
-
                     y_in_idx += this.kernel_stride;
                 }
             }
@@ -1220,6 +1218,10 @@ pub const Neuralnet = struct {
         }
         var previous_values: Tensor = input;
         for (0..layers.len) |layer_idx| {
+
+            // Just to force the correct order of operationjs
+            try layers[layer_idx].values.dependOn(allocator, previous_values);
+
             switch (layers[layer_idx].compute) {
                 .dense => {
                     try layers[layer_idx].compute.dense.forward(allocator, &previous_values, &layers[layer_idx].values);
