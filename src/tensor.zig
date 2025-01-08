@@ -205,6 +205,32 @@ pub const Op = struct {
         reduce_max,
         reduce_avg,
         reduce_min,
+        pub inline fn isUnary(this: @This()) bool {
+            return this == .unary_add or this == .unary_subtract or
+                this == .unary_multiply or this == .unary_divide or
+                this == .unary_exp or this == .unary_log or
+                this == .unary_square or this == .unary_sqrt or
+                this == .unary_reciprocal or this == .unary_max or
+                this == .unary_min or this == .unary_set or
+                this == .unary_random or this == .unary_tanh or
+                this == .unary_absolute or this == .unary_sign;
+        }
+        pub inline fn isBinary(this: @This()) bool {
+            return this == .binary_add or this == .binary_subtract or
+                this == .binary_multiply or this == .binary_divide or
+                this == .binary_max or this == .binary_min or
+                this == .binary_set;
+        }
+        pub inline fn isLinary(this: @This()) bool {
+            return this == .linary_add or this == .linary_subtract or
+                this == .linary_multiply or this == .linary_divide or
+                this == .linary_max or this == .linary_min or
+                this == .linary_set;
+        }
+        pub inline fn isReduce(this: @This()) bool {
+            return this == .reduce_sum or this == .reduce_max or
+                this == .reduce_avg or this == .reduce_min;
+        }
     };
     type: Type,
     u_var: f32,
@@ -244,30 +270,16 @@ pub const Op = struct {
             @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
     }
     pub inline fn isUnary(this: *const @This()) bool {
-        return this.type == .unary_add or this.type == .unary_subtract or
-            this.type == .unary_multiply or this.type == .unary_divide or
-            this.type == .unary_exp or this.type == .unary_log or
-            this.type == .unary_square or this.type == .unary_sqrt or
-            this.type == .unary_reciprocal or this.type == .unary_max or
-            this.type == .unary_min or this.type == .unary_set or
-            this.type == .unary_random or this.type == .unary_tanh or
-            this.type == .unary_absolute or this.type == .unary_sign;
+        return this.type.isUnary();
     }
     pub inline fn isBinary(this: *const @This()) bool {
-        return this.type == .binary_add or this.type == .binary_subtract or
-            this.type == .binary_multiply or this.type == .binary_divide or
-            this.type == .binary_max or this.type == .binary_min or
-            this.type == .binary_set;
+        return this.type.isBinary();
     }
     pub inline fn isLinary(this: *const @This()) bool {
-        return this.type == .linary_add or this.type == .linary_subtract or
-            this.type == .linary_multiply or this.type == .linary_divide or
-            this.type == .linary_max or this.type == .linary_min or
-            this.type == .linary_set;
+        return this.type.isLinary();
     }
     pub inline fn isReduce(this: *const @This()) bool {
-        return this.type == .reduce_sum or this.type == .reduce_max or
-            this.type == .reduce_avg or this.type == .reduce_min;
+        return this.type.isReduce();
     }
     // TODO: Optimise this with simd, see @Vector
     pub fn realize(this: *const @This()) void {
