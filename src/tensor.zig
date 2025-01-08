@@ -155,7 +155,7 @@ const Buffer = struct {
         }
     }
     pub fn syncUpdate(this: *@This(), sync: SyncStatus) void {
-        assert(this.sync == .sync_to_none);
+        assert(this.sync == .sync_to_none or this.sync == sync);
         assert(sync != .sync_to_none);
         this.sync = sync;
     }
