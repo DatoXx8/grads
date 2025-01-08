@@ -87,7 +87,6 @@ fn simulateLinearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off: 
             tensor_in = tensor_out;
             tensor_out = Pcg.randBelow(tensor_num - 1);
             // I think this should get a guaranteed random number different than tensor_in without biasing the result
-            // TODO: Verify this actually works empirically
             if (tensor_out >= tensor_in) {
                 tensor_out += 1;
             }
