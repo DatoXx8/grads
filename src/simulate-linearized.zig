@@ -85,9 +85,13 @@ fn simulateLinearized(allocator: anytype, tensor_num: u32, op_num: u32, op_off: 
         const switch_likelyhood: u32 = 10;
         if (Pcg.randBelow(switch_likelyhood) == 0) {
             tensor_in = tensor_out;
-            while (tensor_out == tensor_in) {
-                tensor_out = Pcg.randBelow(tensor_num);
+            tensor_out = Pcg.randBelow(tensor_num - 1);
+            // I think this should get a guaranteed random number different than tensor_in without biasing the result
+            // TODO: Verify this actually works empirically
+            if (tensor_out >= tensor_in) {
+                tensor_out += 1;
             }
+            assert(tensor_out != tensor_in);
         }
 
         // It is a bit difficult to explain why this is necessary, but essentially it prevents
