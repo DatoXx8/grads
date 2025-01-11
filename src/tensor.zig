@@ -265,7 +265,6 @@ pub const Op = struct {
         const y_2: u32 = target.out.y_offset;
         const x_2: u32 = target.out.x_offset;
 
-        // TODO: This might have to be <= instead of <
         return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
             @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
             @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
@@ -701,7 +700,7 @@ pub const Op = struct {
             },
         }
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -1097,7 +1096,7 @@ pub const Op = struct {
             }),
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
