@@ -343,7 +343,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -361,7 +361,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -551,7 +551,7 @@ pub const Neuralnet = struct {
             this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, //
                 input.buffer.y_inherent + 2 * this.kernel_padding, input.buffer.x_inherent + 2 * this.kernel_padding);
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -581,7 +581,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -826,8 +826,7 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, this.filters * this.z, this.y, this.x);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        // TODO: Split backward
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -847,7 +846,7 @@ pub const Neuralnet = struct {
             this.weights_g.print(padding, offset + padding, "weights_g");
             this.temp_input.print(padding, offset + padding, "temp_input");
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -989,7 +988,7 @@ pub const Neuralnet = struct {
                 .split => unreachable,
             }
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1005,7 +1004,7 @@ pub const Neuralnet = struct {
                 .split => this.connection.split.print(padding, offset + padding, "split"),
             }
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1794,6 +1793,8 @@ pub const Neuralnet = struct {
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.biases.buffer.values[0])));
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
+                    defer allocator.free(biases);
+                    defer allocator.free(biases);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1804,6 +1805,8 @@ pub const Neuralnet = struct {
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.biases.buffer.values[0])));
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
+                    defer allocator.free(biases);
+                    defer allocator.free(biases);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1815,6 +1818,8 @@ pub const Neuralnet = struct {
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.biases.buffer.values[0])));
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
+                    defer allocator.free(biases);
+                    defer allocator.free(biases);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1824,15 +1829,74 @@ pub const Neuralnet = struct {
             }
         }
     }
-    pub fn readFromFile(this: *const @This(), filename: []const u8) !void {
-        _ = this;
-        _ = filename;
+    /// Load weights and biases from file to already existing net.
+    /// Does not explicitly check that the architecture of the values of the file and the provided net match.
+    pub fn readFromFile(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+        const file_param_ext: []const u8 = ".bin";
+        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
+        defer allocator.free(file_param_name);
+        std.mem.copyForwards(u8, file_param_name[0..], filename);
+        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
+
+        const file_param = try std.fs.cwd().openFile(file_param_name, .{});
+        defer file_param.close();
+
+        try file_param.seekTo(0);
+        for (0..this.layers.len) |layer_idx| {
+            switch (this.layers[layer_idx].compute) {
+                .dense => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
+                    const biases_read = try file_param.readAll(biases);
+                    const weights_read = try file_param.readAll(weights);
+                    assert(biases_read == biases.len);
+                    assert(weights_read == weights.len);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].compute.dense.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].compute.dense.weights.buffer.syncUpdate(.sync_to_device);
+                },
+                .convolution => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
+                    const biases_read = try file_param.readAll(biases);
+                    const weights_read = try file_param.readAll(weights);
+                    assert(biases_read == biases.len);
+                    assert(weights_read == weights.len);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].compute.convolution.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].compute.convolution.weights.buffer.syncUpdate(.sync_to_device);
+                },
+                .reduce => {},
+                .split => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
+                    const biases_read = try file_param.readAll(biases);
+                    const weights_read = try file_param.readAll(weights);
+                    assert(biases_read == biases.len);
+                    assert(weights_read == weights.len);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].compute.split.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].compute.split.weights.buffer.syncUpdate(.sync_to_device);
+                },
+                .residual => {},
+            }
+        }
     }
+    // TODO: This one
     pub fn createFromFile(this: *const @This(), filename: []const u8) !Neuralnet {
         _ = this;
         _ = filename;
     }
-    pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
@@ -1843,7 +1907,7 @@ pub const Neuralnet = struct {
             this.layers[layer_idx].print(padding, padding + offset, null);
         }
     }
-    pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
