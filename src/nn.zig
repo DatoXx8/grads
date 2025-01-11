@@ -1023,7 +1023,7 @@ pub const Neuralnet = struct {
         }
     };
     pub const Layer = struct {
-        /// The config is to only have only the info needed when provided with the previous layer
+        /// The config is to only have the info needed when provided with the previous layer
         pub const Config = union(enum) {
             dense: struct {
                 size_out: u32,
@@ -1550,6 +1550,287 @@ pub const Neuralnet = struct {
                 // TODO: Decide if and how to send the data back to the cpu
             },
         }
+    }
+    fn getUserIn(first_try: bool) !bool {
+        var buf: [2]u8 = undefined;
+
+        if (first_try == false) {
+            std.log.warn("Invalid input. Either accept or decline with (y/n).\n", .{});
+        }
+
+        const stdin = std.io.getStdIn().reader();
+        if (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |user_input| {
+            return switch (user_input[0]) {
+                'y' => true,
+                'Y' => true,
+                'n' => false,
+                'N' => false,
+                else => getUserIn(false),
+            };
+        } else {
+            return error.CouldNotReadUserInput;
+        }
+    }
+    /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
+    /// Asks for user permission to overwrite the files if it already exists
+    pub fn saveToFile(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+        const file_arch_ext: []const u8 = ".arch";
+        const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
+        defer allocator.free(file_arch_name);
+        std.mem.copyForwards(u8, file_arch_name[0..], filename);
+        std.mem.copyForwards(u8, file_arch_name[filename.len..], file_arch_ext);
+
+        var file_arch_exists: bool = true;
+        std.fs.cwd().access(file_arch_name, .{}) catch |err| switch (err) {
+            error.FileNotFound => file_arch_exists = false,
+            else => return err,
+        };
+        var save = true;
+        if (file_arch_exists) {
+            std.log.warn("Architecture file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
+            // TODO: In case user says no ask the user for file to write to
+            save = try getUserIn(true);
+        }
+
+        const file_arch = if (save) try std.fs.cwd().createFile(file_arch_name, .{ .truncate = true }) else null;
+
+        if (file_arch) |file| {
+            defer file.close();
+
+            try file.seekTo(0);
+            const info_input = try std.fmt.allocPrint(allocator, "i {} {} {} {}\n", .{
+                this.input.buffer.a_inherent,
+                this.input.buffer.z_inherent,
+                this.input.buffer.y_inherent,
+                this.input.buffer.x_inherent,
+            });
+            defer allocator.free(info_input);
+            try file.writeAll(info_input);
+
+            for (0..this.layers.len) |layer_idx| {
+                switch (this.layers[layer_idx].compute) {
+                    .dense => {
+                        const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
+                            this.layers[layer_idx].compute.dense.size_output,
+                            this.layers[layer_idx].activation.t,
+                        });
+                        defer allocator.free(info_string);
+                        try file.writeAll(info_string);
+                    },
+                    .convolution => {
+                        const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
+                            this.layers[layer_idx].compute.convolution.filters,
+                            this.layers[layer_idx].compute.convolution.kernel_size,
+                            this.layers[layer_idx].compute.convolution.kernel_stride,
+                            this.layers[layer_idx].compute.convolution.kernel_padding,
+                            this.layers[layer_idx].activation.t,
+                        });
+                        defer allocator.free(info_string);
+                        try file.writeAll(info_string);
+                    },
+                    .reduce => {
+                        const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
+                            this.layers[layer_idx].compute.reduce.kernel_size,
+                            this.layers[layer_idx].compute.reduce.kernel_stride,
+                        });
+                        defer allocator.free(info_string);
+                        try file.writeAll(info_string);
+                    },
+                    .split => {
+                        const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
+                            this.layers[layer_idx].compute.split.filters,
+                            this.layers[layer_idx].activation.t,
+                        });
+                        defer allocator.free(info_string);
+                        try file.writeAll(info_string);
+                    },
+                    .residual => {
+                        // TODO: When adding the more complex residual types update this
+                        assert(this.layers[layer_idx].compute.residual.t == .identity);
+                        const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
+                            this.layers[layer_idx].compute.residual.t,
+                            this.layers[layer_idx].compute.residual.layer,
+                        });
+                        defer allocator.free(info_string);
+                        try file.writeAll(info_string);
+                    },
+                }
+            }
+        } else {
+            std.log.info("Did not save architecture file\n", .{});
+        }
+
+        const file_param_ext: []const u8 = ".bin";
+        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
+        defer allocator.free(file_param_name);
+        std.mem.copyForwards(u8, file_param_name[0..], filename);
+        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
+
+        var file_param_exists: bool = true;
+        std.fs.cwd().access(file_param_name, .{}) catch |err| switch (err) {
+            error.FileNotFound => file_param_exists = false,
+            else => return err,
+        };
+        save = true;
+        if (file_param_exists) {
+            std.log.warn("Parameter file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
+            // TODO: In case user says no ask the user for file to write to
+            save = try getUserIn(true);
+        }
+
+        const file_param = if (save) try std.fs.cwd().createFile(file_param_name, .{ .truncate = true }) else null;
+
+        if (file_param) |file| {
+            defer file.close();
+            try file.seekTo(0);
+            for (0..this.layers.len) |layer_idx| {
+                switch (this.layers[layer_idx].compute) {
+                    .dense => {
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.dense.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.dense.weights.buffer.values));
+                    },
+                    .convolution => {
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.convolution.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.convolution.weights.buffer.values));
+                    },
+                    .reduce => {},
+                    .split => {
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.split.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.split.weights.buffer.values));
+                    },
+                    .residual => {},
+                }
+            }
+        } else {
+            std.log.info("Did not save parameter file\n", .{});
+        }
+    }
+    /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
+    /// Overwrite the files if they already exists without asking for permission
+    pub fn saveToFileOverwrite(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+        const file_arch_ext: []const u8 = ".arch";
+        const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
+        defer allocator.free(file_arch_name);
+        std.mem.copyForwards(u8, file_arch_name[0..], filename);
+        std.mem.copyForwards(u8, file_arch_name[filename.len..], file_arch_ext);
+
+        const file_arch = try std.fs.cwd().createFile(file_arch_name, .{ .truncate = true });
+        defer file_arch.close();
+
+        try file_arch.seekTo(0);
+        const info_input = try std.fmt.allocPrint(allocator, "i {} {} {} {}\n", .{
+            this.input.buffer.a_inherent,
+            this.input.buffer.z_inherent,
+            this.input.buffer.y_inherent,
+            this.input.buffer.x_inherent,
+        });
+        defer allocator.free(info_input);
+        try file_arch.writeAll(info_input);
+
+        for (0..this.layers.len) |layer_idx| {
+            switch (this.layers[layer_idx].compute) {
+                .dense => {
+                    const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
+                        this.layers[layer_idx].compute.dense.size_output,
+                        this.layers[layer_idx].activation.t,
+                    });
+                    defer allocator.free(info_string);
+                    try file_arch.writeAll(info_string);
+                },
+                .convolution => {
+                    const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
+                        this.layers[layer_idx].compute.convolution.filters,
+                        this.layers[layer_idx].compute.convolution.kernel_size,
+                        this.layers[layer_idx].compute.convolution.kernel_stride,
+                        this.layers[layer_idx].compute.convolution.kernel_padding,
+                        this.layers[layer_idx].activation.t,
+                    });
+                    defer allocator.free(info_string);
+                    try file_arch.writeAll(info_string);
+                },
+                .reduce => {
+                    const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
+                        this.layers[layer_idx].compute.reduce.kernel_size,
+                        this.layers[layer_idx].compute.reduce.kernel_stride,
+                    });
+                    defer allocator.free(info_string);
+                    try file_arch.writeAll(info_string);
+                },
+                .split => {
+                    const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
+                        this.layers[layer_idx].compute.split.filters,
+                        this.layers[layer_idx].activation.t,
+                    });
+                    defer allocator.free(info_string);
+                    try file_arch.writeAll(info_string);
+                },
+                .residual => {
+                    // TODO: When adding the more complex residual types update this
+                    assert(this.layers[layer_idx].compute.residual.t == .identity);
+                    const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
+                        this.layers[layer_idx].compute.residual.t,
+                        this.layers[layer_idx].compute.residual.layer,
+                    });
+                    defer allocator.free(info_string);
+                    try file_arch.writeAll(info_string);
+                },
+            }
+        }
+
+        const file_param_ext: []const u8 = ".bin";
+        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
+        defer allocator.free(file_param_name);
+        std.mem.copyForwards(u8, file_param_name[0..], filename);
+        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
+
+        const file_param = try std.fs.cwd().createFile(file_param_name, .{ .truncate = true });
+        defer file_param.close();
+
+        try file_param.seekTo(0);
+        for (0..this.layers.len) |layer_idx| {
+            switch (this.layers[layer_idx].compute) {
+                .dense => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)));
+                    try file_param.writeAll(biases);
+                    try file_param.writeAll(weights);
+                },
+                .convolution => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)));
+                    try file_param.writeAll(biases);
+                    try file_param.writeAll(weights);
+                },
+                .reduce => {},
+                .split => {
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)));
+                    try file_param.writeAll(biases);
+                    try file_param.writeAll(weights);
+                },
+                .residual => {},
+            }
+        }
+    }
+    pub fn readFromFile(this: *const @This(), filename: []const u8) !void {
+        _ = this;
+        _ = filename;
+    }
+    pub fn createFromFile(this: *const @This(), filename: []const u8) !Neuralnet {
+        _ = this;
+        _ = filename;
     }
     pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
