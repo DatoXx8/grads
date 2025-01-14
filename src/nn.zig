@@ -1154,7 +1154,7 @@ pub const Neuralnet = struct {
             this.values.free(allocator);
             this.values_g.free(allocator);
         }
-        pub fn print(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1170,7 +1170,7 @@ pub const Neuralnet = struct {
                 .residual => this.compute.residual.print(padding, offset + padding, null),
             }
         }
-        pub fn debug(this: *@This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1794,7 +1794,7 @@ pub const Neuralnet = struct {
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
                     defer allocator.free(biases);
-                    defer allocator.free(biases);
+                    defer allocator.free(weights);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1806,7 +1806,7 @@ pub const Neuralnet = struct {
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
                     defer allocator.free(biases);
-                    defer allocator.free(biases);
+                    defer allocator.free(weights);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1819,7 +1819,7 @@ pub const Neuralnet = struct {
                     const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
                         @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
                     defer allocator.free(biases);
-                    defer allocator.free(biases);
+                    defer allocator.free(weights);
                     @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)));
                     @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
@@ -1892,10 +1892,11 @@ pub const Neuralnet = struct {
         }
     }
     // TODO: This one
-    pub fn createFromFile(this: *const @This(), filename: []const u8) !Neuralnet {
-        _ = this;
-        _ = filename;
-    }
+    // pub fn createFromFile(allocator: anytype, filename: []const u8, context: ClContext) !Neuralnet {
+    //     _ = allocator;
+    //     _ = filename;
+    //     _ = context;
+    // }
     pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
