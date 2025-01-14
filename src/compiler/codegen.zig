@@ -58,22 +58,26 @@ fn generateIndex(
     repeat_idx: usize,
     op_idx: usize,
 ) !void {
-    try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = id%{}/{}*{}+id%{}/{}*{}+id%{}/{}*{}+id%{}/{}*{}+{};\n", .{
-        op.out.name,        repeat_idx,         op_idx, //
-        dim_info.res_a_out, dim_info.wai_a_out, dim_info.str_a_out * op.out.a_stride,
-        dim_info.res_z_out, dim_info.wai_z_out, dim_info.str_z_out * op.out.z_stride,
-        dim_info.res_y_out, dim_info.wai_y_out, dim_info.str_y_out * op.out.y_stride,
-        dim_info.res_x_out, dim_info.wai_x_out, dim_info.str_x_out * op.out.x_stride,
-        dim_info.off_out,
+    const offset_out: u32 = dim_info.off_a_out * op.out.a_stride + dim_info.off_z_out * op.out.z_stride +
+        dim_info.off_y_out * op.out.y_stride + dim_info.off_x_out * op.out.x_stride;
+    try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n", .{
+        op.out.name, repeat_idx, op_idx, //
+        dim_info.idx_a_out, dim_info.res_a_out, dim_info.wai_a_out, dim_info.str_a_out * op.out.a_stride, //
+        dim_info.idx_z_out, dim_info.res_z_out, dim_info.wai_z_out, dim_info.str_z_out * op.out.z_stride,
+        dim_info.idx_y_out, dim_info.res_y_out, dim_info.wai_y_out, dim_info.str_y_out * op.out.y_stride,
+        dim_info.idx_x_out, dim_info.res_x_out, dim_info.wai_x_out, dim_info.str_x_out * op.out.x_stride,
+        offset_out,
     });
     if (!op.isUnary()) {
-        try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = id%{}/{}*{}+id%{}/{}*{}+id%{}/{}*{}+id%{}/{}*{}+{};\n", .{
-            op.in.name,        repeat_idx,        op_idx, //
-            dim_info.res_a_in, dim_info.wai_a_in, dim_info.str_a_in * op.in.a_stride,
-            dim_info.res_z_in, dim_info.wai_z_in, dim_info.str_z_in * op.in.z_stride,
-            dim_info.res_y_in, dim_info.wai_y_in, dim_info.str_y_in * op.in.y_stride,
-            dim_info.res_x_in, dim_info.wai_x_in, dim_info.str_x_in * op.in.x_stride,
-            dim_info.off_in,
+        const offset_in: u32 = dim_info.off_a_in * op.in.a_stride + dim_info.off_z_in * op.in.z_stride +
+            dim_info.off_y_in * op.in.y_stride + dim_info.off_x_in * op.in.x_stride;
+        try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n", .{
+            op.in.name, repeat_idx, op_idx, //
+            dim_info.idx_a_in, dim_info.res_a_in, dim_info.wai_a_in, dim_info.str_a_in * op.in.a_stride, //
+            dim_info.idx_z_in, dim_info.res_z_in, dim_info.wai_z_in, dim_info.str_z_in * op.in.z_stride,
+            dim_info.idx_y_in, dim_info.res_y_in, dim_info.wai_y_in, dim_info.str_y_in * op.in.y_stride,
+            dim_info.idx_x_in, dim_info.res_x_in, dim_info.wai_x_in, dim_info.str_x_in * op.in.x_stride,
+            offset_in,
         });
     }
 }
