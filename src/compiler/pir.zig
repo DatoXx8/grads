@@ -146,105 +146,105 @@ pub const DimInfo = struct {
                 linearized.op[op_start + idx_a_out * op_num].out.a_offset)
             {
                 a_out_reenter = true;
-                res_a_out = repeat_num;
+                res_a_out = repeat_idx;
             } else if (!a_out_left and !a_out_reenter and linearized.op[op_start + ((idx_a_out + repeat_idx) % repeat_num) * op_num].out.a_offset !=
                 linearized.op[op_start + idx_a_out * op_num].out.a_offset)
             {
                 a_out_left = true;
                 str_a_out = linearized.op[op_start + ((idx_a_out + repeat_idx) % repeat_num) * op_num].out.a_offset -
                     linearized.op[op_start + idx_a_out * op_num].out.a_offset;
-                wai_a_out = repeat_num;
+                wai_a_out = repeat_idx;
             }
             if (z_out_left and !z_out_reenter and linearized.op[op_start + ((idx_z_out + repeat_idx) % repeat_num) * op_num].out.z_offset ==
                 linearized.op[op_start + idx_z_out * op_num].out.z_offset)
             {
                 z_out_reenter = true;
-                res_z_out = repeat_num;
+                res_z_out = repeat_idx;
             } else if (!z_out_left and !z_out_reenter and linearized.op[op_start + ((idx_z_out + repeat_idx) % repeat_num) * op_num].out.z_offset !=
                 linearized.op[op_start + idx_z_out * op_num].out.z_offset)
             {
                 z_out_left = true;
                 str_z_out = linearized.op[op_start + ((idx_z_out + repeat_idx) % repeat_num) * op_num].out.z_offset -
                     linearized.op[op_start + idx_z_out * op_num].out.z_offset;
-                wai_z_out = repeat_num;
+                wai_z_out = repeat_idx;
             }
             if (y_out_left and !y_out_reenter and linearized.op[op_start + ((idx_y_out + repeat_idx) % repeat_num) * op_num].out.y_offset ==
                 linearized.op[op_start + idx_y_out * op_num].out.y_offset)
             {
                 y_out_reenter = true;
-                res_y_out = repeat_num;
+                res_y_out = repeat_idx;
             } else if (!y_out_left and !y_out_reenter and linearized.op[op_start + ((idx_y_out + repeat_idx) % repeat_num) * op_num].out.y_offset !=
                 linearized.op[op_start + idx_y_out * op_num].out.y_offset)
             {
                 y_out_left = true;
                 str_y_out = linearized.op[op_start + ((idx_y_out + repeat_idx) % repeat_num) * op_num].out.y_offset -
                     linearized.op[op_start + idx_y_out * op_num].out.y_offset;
-                wai_y_out = repeat_num;
+                wai_y_out = repeat_idx;
             }
             if (x_out_left and !x_out_reenter and linearized.op[op_start + ((idx_x_out + repeat_idx) % repeat_num) * op_num].out.x_offset ==
                 linearized.op[op_start + idx_x_out * op_num].out.x_offset)
             {
                 x_out_reenter = true;
-                res_x_out = repeat_num;
+                res_x_out = repeat_idx;
             } else if (!x_out_left and !x_out_reenter and linearized.op[op_start + ((idx_x_out + repeat_idx) % repeat_num) * op_num].out.x_offset !=
                 linearized.op[op_start + idx_x_out * op_num].out.x_offset)
             {
                 x_out_left = true;
                 str_x_out = linearized.op[op_start + ((idx_x_out + repeat_idx) % repeat_num) * op_num].out.x_offset -
                     linearized.op[op_start + idx_x_out * op_num].out.x_offset;
-                wai_x_out = repeat_num;
+                wai_x_out = repeat_idx;
             }
             if (a_in_left and !a_in_reenter and linearized.op[op_start + ((idx_a_in + repeat_idx) % repeat_num) * op_num].in.a_offset ==
                 linearized.op[op_start + idx_a_in * op_num].in.a_offset)
             {
                 a_in_reenter = true;
-                res_a_in = repeat_num;
+                res_a_in = repeat_idx;
             } else if (!a_in_left and !a_in_reenter and linearized.op[op_start + ((idx_a_in + repeat_idx) % repeat_num) * op_num].in.a_offset !=
                 linearized.op[op_start + idx_a_in * op_num].in.a_offset)
             {
                 a_in_left = true;
                 str_a_in = linearized.op[op_start + ((idx_a_in + repeat_idx) % repeat_num) * op_num].in.a_offset -
                     linearized.op[op_start + idx_a_in * op_num].in.a_offset;
-                wai_a_in = repeat_num;
+                wai_a_in = repeat_idx;
             }
             if (z_in_left and !z_in_reenter and linearized.op[op_start + ((idx_z_in + repeat_idx) % repeat_num) * op_num].in.z_offset ==
                 linearized.op[op_start + idx_z_in * op_num].in.z_offset)
             {
                 z_in_reenter = true;
-                res_z_in = repeat_num;
+                res_z_in = repeat_idx;
             } else if (!z_in_left and !z_in_reenter and linearized.op[op_start + ((idx_z_in + repeat_idx) % repeat_num) * op_num].in.z_offset !=
                 linearized.op[op_start + idx_z_in * op_num].in.z_offset)
             {
                 z_in_left = true;
                 str_z_in = linearized.op[op_start + ((idx_z_in + repeat_idx) % repeat_num) * op_num].in.z_offset -
                     linearized.op[op_start + idx_z_in * op_num].in.z_offset;
-                wai_z_in = repeat_num;
+                wai_z_in = repeat_idx;
             }
             if (y_in_left and !y_in_reenter and linearized.op[op_start + ((idx_y_in + repeat_idx) % repeat_num) * op_num].in.y_offset ==
                 linearized.op[op_start + idx_y_in * op_num].in.y_offset)
             {
                 y_in_reenter = true;
-                res_y_in = repeat_num;
+                res_y_in = repeat_idx;
             } else if (!y_in_left and !y_in_reenter and linearized.op[op_start + ((idx_y_in + repeat_idx) % repeat_num) * op_num].in.y_offset !=
                 linearized.op[op_start + idx_y_in * op_num].in.y_offset)
             {
                 y_in_left = true;
                 str_y_in = linearized.op[op_start + ((idx_y_in + repeat_idx) % repeat_num) * op_num].in.y_offset -
                     linearized.op[op_start + idx_y_in * op_num].in.y_offset;
-                wai_y_in = repeat_num;
+                wai_y_in = repeat_idx;
             }
             if (x_in_left and !x_in_reenter and linearized.op[op_start + ((idx_x_in + repeat_idx) % repeat_num) * op_num].in.x_offset ==
                 linearized.op[op_start + idx_x_in * op_num].in.x_offset)
             {
                 x_in_reenter = true;
-                res_x_in = repeat_num;
+                res_x_in = repeat_idx;
             } else if (!x_in_left and !x_in_reenter and linearized.op[op_start + ((idx_x_in + repeat_idx) % repeat_num) * op_num].in.x_offset !=
                 linearized.op[op_start + idx_x_in * op_num].in.x_offset)
             {
                 x_in_left = true;
                 str_x_in = linearized.op[op_start + ((idx_x_in + repeat_idx) % repeat_num) * op_num].in.x_offset -
                     linearized.op[op_start + idx_x_in * op_num].in.x_offset;
-                wai_x_in = repeat_num;
+                wai_x_in = repeat_idx;
             }
         }
 
