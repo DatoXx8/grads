@@ -254,7 +254,7 @@ pub const DimInfo = struct {
             str_a_out = 0;
         } else {
             if (!a_out_reenter) {
-                res_a_out = @truncate(linearized.op_num);
+                res_a_out = @truncate(repeat_num);
             }
         }
         if (!z_out_left) {
@@ -263,7 +263,7 @@ pub const DimInfo = struct {
             str_z_out = 0;
         } else {
             if (!z_out_reenter) {
-                res_z_out = @truncate(linearized.op_num);
+                res_z_out = @truncate(repeat_num);
             }
         }
         if (!y_out_left) {
@@ -272,7 +272,7 @@ pub const DimInfo = struct {
             str_y_out = 0;
         } else {
             if (!y_out_reenter) {
-                res_y_out = @truncate(linearized.op_num);
+                res_y_out = @truncate(repeat_num);
             }
         }
         if (!x_out_left) {
@@ -281,7 +281,7 @@ pub const DimInfo = struct {
             str_x_out = 0;
         } else {
             if (!x_out_reenter) {
-                res_x_out = @truncate(linearized.op_num);
+                res_x_out = @truncate(repeat_num);
             }
         }
         if (!a_in_left) {
@@ -290,7 +290,7 @@ pub const DimInfo = struct {
             str_a_in = 0;
         } else {
             if (!a_in_reenter) {
-                res_a_in = @truncate(linearized.op_num);
+                res_a_in = @truncate(repeat_num);
             }
         }
         if (!z_in_left) {
@@ -299,7 +299,7 @@ pub const DimInfo = struct {
             str_z_in = 0;
         } else {
             if (!z_in_reenter) {
-                res_z_in = @truncate(linearized.op_num);
+                res_z_in = @truncate(repeat_num);
             }
         }
         if (!y_in_left) {
@@ -308,7 +308,7 @@ pub const DimInfo = struct {
             str_y_in = 0;
         } else {
             if (!y_in_reenter) {
-                res_y_in = @truncate(linearized.op_num);
+                res_y_in = @truncate(repeat_num);
             }
         }
         if (!x_in_left) {
@@ -317,7 +317,7 @@ pub const DimInfo = struct {
             str_x_in = 0;
         } else {
             if (!x_in_reenter) {
-                res_x_in = @truncate(linearized.op_num);
+                res_x_in = @truncate(repeat_num);
             }
         }
 
@@ -406,7 +406,9 @@ pub const Pir = struct {
                 var all_equal: bool = true;
                 for (0..op_num) |inner_off| {
                     // TODO: Need to check for no overlap here probably
-                    if (linearized.op[op_start + inner_off].equal(linearized.op[op_start + inner_off + repeat_idx * op_num])) {
+                    if (linearized.op[op_start + inner_off].equal(linearized.op[op_start + inner_off + repeat_idx * op_num]) and
+                        !linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + inner_off + repeat_idx * op_num]))
+                    {
                         continue;
                     } else {
                         all_equal = false;
