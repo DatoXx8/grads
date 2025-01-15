@@ -147,7 +147,7 @@ pub const DimInfo = struct {
             {
                 a_out_reenter = true;
                 res_a_out = repeat_num;
-            } else if (!a_out_left and !a_out_reenter and linearized.op[op_start + ((idx_a_out + repeat_idx) % repeat_num) * op_num].out.a_offset ==
+            } else if (!a_out_left and !a_out_reenter and linearized.op[op_start + ((idx_a_out + repeat_idx) % repeat_num) * op_num].out.a_offset !=
                 linearized.op[op_start + idx_a_out * op_num].out.a_offset)
             {
                 a_out_left = true;
@@ -160,7 +160,7 @@ pub const DimInfo = struct {
             {
                 z_out_reenter = true;
                 res_z_out = repeat_num;
-            } else if (!z_out_left and !z_out_reenter and linearized.op[op_start + ((idx_z_out + repeat_idx) % repeat_num) * op_num].out.z_offset ==
+            } else if (!z_out_left and !z_out_reenter and linearized.op[op_start + ((idx_z_out + repeat_idx) % repeat_num) * op_num].out.z_offset !=
                 linearized.op[op_start + idx_z_out * op_num].out.z_offset)
             {
                 z_out_left = true;
@@ -173,7 +173,7 @@ pub const DimInfo = struct {
             {
                 y_out_reenter = true;
                 res_y_out = repeat_num;
-            } else if (!y_out_left and !y_out_reenter and linearized.op[op_start + ((idx_y_out + repeat_idx) % repeat_num) * op_num].out.y_offset ==
+            } else if (!y_out_left and !y_out_reenter and linearized.op[op_start + ((idx_y_out + repeat_idx) % repeat_num) * op_num].out.y_offset !=
                 linearized.op[op_start + idx_y_out * op_num].out.y_offset)
             {
                 y_out_left = true;
@@ -186,7 +186,7 @@ pub const DimInfo = struct {
             {
                 x_out_reenter = true;
                 res_x_out = repeat_num;
-            } else if (!x_out_left and !x_out_reenter and linearized.op[op_start + ((idx_x_out + repeat_idx) % repeat_num) * op_num].out.x_offset ==
+            } else if (!x_out_left and !x_out_reenter and linearized.op[op_start + ((idx_x_out + repeat_idx) % repeat_num) * op_num].out.x_offset !=
                 linearized.op[op_start + idx_x_out * op_num].out.x_offset)
             {
                 x_out_left = true;
@@ -199,7 +199,7 @@ pub const DimInfo = struct {
             {
                 a_in_reenter = true;
                 res_a_in = repeat_num;
-            } else if (!a_in_left and !a_in_reenter and linearized.op[op_start + ((idx_a_in + repeat_idx) % repeat_num) * op_num].in.a_offset ==
+            } else if (!a_in_left and !a_in_reenter and linearized.op[op_start + ((idx_a_in + repeat_idx) % repeat_num) * op_num].in.a_offset !=
                 linearized.op[op_start + idx_a_in * op_num].in.a_offset)
             {
                 a_in_left = true;
@@ -212,7 +212,7 @@ pub const DimInfo = struct {
             {
                 z_in_reenter = true;
                 res_z_in = repeat_num;
-            } else if (!z_in_left and !z_in_reenter and linearized.op[op_start + ((idx_z_in + repeat_idx) % repeat_num) * op_num].in.z_offset ==
+            } else if (!z_in_left and !z_in_reenter and linearized.op[op_start + ((idx_z_in + repeat_idx) % repeat_num) * op_num].in.z_offset !=
                 linearized.op[op_start + idx_z_in * op_num].in.z_offset)
             {
                 z_in_left = true;
@@ -225,7 +225,7 @@ pub const DimInfo = struct {
             {
                 y_in_reenter = true;
                 res_y_in = repeat_num;
-            } else if (!y_in_left and !y_in_reenter and linearized.op[op_start + ((idx_y_in + repeat_idx) % repeat_num) * op_num].in.y_offset ==
+            } else if (!y_in_left and !y_in_reenter and linearized.op[op_start + ((idx_y_in + repeat_idx) % repeat_num) * op_num].in.y_offset !=
                 linearized.op[op_start + idx_y_in * op_num].in.y_offset)
             {
                 y_in_left = true;
@@ -238,7 +238,7 @@ pub const DimInfo = struct {
             {
                 x_in_reenter = true;
                 res_x_in = repeat_num;
-            } else if (!x_in_left and !x_in_reenter and linearized.op[op_start + ((idx_x_in + repeat_idx) % repeat_num) * op_num].in.x_offset ==
+            } else if (!x_in_left and !x_in_reenter and linearized.op[op_start + ((idx_x_in + repeat_idx) % repeat_num) * op_num].in.x_offset !=
                 linearized.op[op_start + idx_x_in * op_num].in.x_offset)
             {
                 x_in_left = true;
