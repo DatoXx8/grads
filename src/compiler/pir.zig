@@ -373,7 +373,7 @@ pub const Pir = struct {
     dim_info: []DimInfo,
     pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *u32) !Pir {
         assert(op_used.* < linearized.op_num);
-        var op_num: u32 = 0;
+        var op_num: u32 = 1;
         var repeat_num: u32 = 1;
         const op_start: u32 = op_used.*;
 
@@ -382,7 +382,7 @@ pub const Pir = struct {
                 !linearized.op[op_start].overlaps(linearized.op[op_start + op_off]))
             {
                 var all_same: bool = true;
-                for (1..op_off) |inner_off| {
+                for (0..op_off) |inner_off| {
                     if (!linearized.op[op_start + inner_off].equal(linearized.op[op_start + op_off + inner_off]) or
                         linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + op_off + inner_off]))
                     {
@@ -398,28 +398,49 @@ pub const Pir = struct {
                 }
             }
         }
-        if (op_num == 0) {
-            op_num = 1;
-        } else {
-            const repeat_num_max: u32 = @truncate(@divFloor(linearized.op_num - (op_num + op_start), op_num) + 1);
-            for (1..repeat_num_max) |repeat_idx| {
-                var all_equal: bool = true;
-                for (0..op_num) |inner_off| {
-                    // TODO: Need to check for no overlap here probably
-                    if (linearized.op[op_start + inner_off].equal(linearized.op[op_start + inner_off + repeat_idx * op_num]) and
-                        !linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + inner_off + repeat_idx * op_num]))
-                    {
-                        continue;
-                    } else {
-                        all_equal = false;
-                        break;
-                    }
-                }
-                if (all_equal) {
-                    repeat_num += 1;
+        const repeat_num_max: u32 = @truncate(@divFloor(linearized.op_num - (op_num + op_start), op_num) + 1);
+        for (1..repeat_num_max) |repeat_idx| {
+            var all_equal: bool = true;
+            for (0..op_num) |inner_off| {
+                // TODO: Need to check for overlaps between all different loops
+                if (linearized.op[op_start + inner_off].equal(linearized.op[op_start + inner_off + repeat_idx * op_num]) and
+                    !linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + inner_off + repeat_idx * op_num]))
+                {
+                    continue;
                 } else {
+                    all_equal = false;
                     break;
                 }
+            }
+            if (all_equal) {
+                // TODO: This really needs to be optimized. Four dim loops should really be avoided
+                var inner_overlap: bool = false;
+                for (0..repeat_num + 1) |outer_idx| outer: {
+                    for (0..repeat_num + 1) |inner_idx| {
+                        if (outer_idx == inner_idx) {
+                            continue;
+                        }
+                        for (0..op_num) |outer_off| {
+                            for (0..op_num) |inner_off| {
+                                if (linearized.op[op_start + outer_off + outer_idx * op_num].equal(linearized.op[op_start + inner_off + inner_idx * op_num]) and
+                                    linearized.op[op_start + outer_off + outer_idx * op_num].overlaps(linearized.op[op_start + inner_off + inner_idx * op_num]))
+                                {
+                                    inner_overlap = true;
+                                    break :outer;
+                                }
+                            }
+                        }
+                    }
+                }
+                inner_overlap = inner_overlap;
+
+                if (inner_overlap) {
+                    break;
+                } else {
+                    repeat_num += 1;
+                }
+            } else {
+                break;
             }
         }
         const op: []Op = try allocator.alloc(Op, op_num * repeat_num);
