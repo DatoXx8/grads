@@ -132,10 +132,10 @@ const Buffer = struct {
         assert(x < this.x_size);
         return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
     }
-    pub fn syncToHost(this: *@This(), command_queue: ClCommandQueue) !void {
+    pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
             const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-            const err: i32 = OpenCl.clEnqueueReadBuffer(command_queue.queue, this.values_cl.?.memory, //
+            const err: i32 = OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
             if (err != 0) {
                 return SyncError.FailedToHost;
@@ -143,10 +143,10 @@ const Buffer = struct {
             this.sync = .sync_to_none;
         }
     }
-    pub fn syncToDevice(this: *@This(), command_queue: ClCommandQueue) !void {
+    pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_device) {
             const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-            const err: i32 = OpenCl.clEnqueueWriteBuffer(command_queue.queue, this.values_cl.?.memory, //
+            const err: i32 = OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
             if (err != 0) {
                 return SyncError.FailedToDevice;
@@ -159,9 +159,9 @@ const Buffer = struct {
         assert(sync != .sync_to_none);
         this.sync = sync;
     }
-    pub fn syncWait(this: *@This(), command_queue: ClCommandQueue) !void {
+    pub fn syncWait(this: *@This(), queue: ClCommandQueue) !void {
         _ = this;
-        if (OpenCl.clFinish(command_queue.queue) == 0) {
+        if (OpenCl.clFinish(queue.queue) == 0) {
             return;
         } else {
             return SyncError.FailedWait;
