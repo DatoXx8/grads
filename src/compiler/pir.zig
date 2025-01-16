@@ -414,7 +414,7 @@ pub const Pir = struct {
             }
             if (all_equal) {
                 // TODO: This really needs to be optimized. Four dim loops should really be avoided
-                var inner_overlap: bool = false;
+                var overlap: bool = false;
                 for (0..repeat_num + 1) |outer_idx| outer: {
                     for (0..repeat_num + 1) |inner_idx| {
                         if (outer_idx == inner_idx) {
@@ -422,19 +422,29 @@ pub const Pir = struct {
                         }
                         for (0..op_num) |outer_off| {
                             for (0..op_num) |inner_off| {
-                                if (linearized.op[op_start + outer_off + outer_idx * op_num].equal(linearized.op[op_start + inner_off + inner_idx * op_num]) and
+                                const overlap_valid: bool = linearized.op[op_start + outer_off + outer_idx * op_num].out.name_offset ==
+                                    linearized.op[op_start + inner_off + inner_idx * op_num].out.name_offset and
+                                    linearized.op[op_start + outer_off + outer_idx * op_num].out.a_size ==
+                                    linearized.op[op_start + inner_off + inner_idx * op_num].out.a_size and
+                                    linearized.op[op_start + outer_off + outer_idx * op_num].out.z_size ==
+                                    linearized.op[op_start + inner_off + inner_idx * op_num].out.z_size and
+                                    linearized.op[op_start + outer_off + outer_idx * op_num].out.y_size ==
+                                    linearized.op[op_start + inner_off + inner_idx * op_num].out.y_size and
+                                    linearized.op[op_start + outer_off + outer_idx * op_num].out.x_size ==
+                                    linearized.op[op_start + inner_off + inner_idx * op_num].out.x_size;
+                                if (overlap_valid and
                                     linearized.op[op_start + outer_off + outer_idx * op_num].overlaps(linearized.op[op_start + inner_off + inner_idx * op_num]))
                                 {
-                                    inner_overlap = true;
+                                    overlap = true;
                                     break :outer;
                                 }
                             }
                         }
                     }
                 }
-                inner_overlap = inner_overlap;
+                overlap = overlap;
 
-                if (inner_overlap) {
+                if (overlap) {
                     break;
                 } else {
                     repeat_num += 1;
