@@ -153,15 +153,17 @@ fn simulateCompiler(
         const loop_len: u32 = Pcg.randBelow(@truncate(op_num - op_idx));
         op_idx_free = @truncate(op_idx + loop_len);
 
-        if (op_idx < op_off_low or op_idx >= op_num - op_off_top) {
-            continue;
-        }
-
         for (0..a_loop) |a_idx_usize| {
             for (0..z_loop) |z_idx_usize| {
                 for (0..y_loop) |y_idx_usize| {
                     for (0..x_loop) |x_idx_usize| {
                         for (0..loop_len) |loop_idx| {
+                            // Putting this in here hurts performance slightly but
+                            // it allows partial loops for nicer debugging
+                            if (op_idx + loop_idx < op_off_low or op_idx + loop_idx >= op_num - op_off_top) {
+                                continue;
+                            }
+
                             const a_idx: u32 = @truncate(a_idx_usize);
                             const z_idx: u32 = @truncate(z_idx_usize);
                             const y_idx: u32 = @truncate(y_idx_usize);
@@ -394,8 +396,10 @@ fn simulateCompiler(
         try tensor1[tensor_idx].buffer.syncToHost(queue);
     }
 
-    for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-        try assertEq(tensor1[op_out[op_num - 1]].buffer.values[arg_idx], tensor2[op_out[op_num - 1]].buffer.values[arg_idx]);
+    for (0..tensor_num) |tensor_idx| {
+        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
+            try assertEq(tensor1[tensor_idx].buffer.values[arg_idx], tensor2[tensor_idx].buffer.values[arg_idx]);
+        }
     }
     std.debug.print(" passed!\n", .{});
 }
@@ -414,7 +418,7 @@ fn minifyCompiler(
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_top: u32 = 1;
-    for (0..op_num) |op_removed_usize| {
+    for (1..op_num) |op_removed_usize| {
         const op_removed: u32 = @truncate(op_removed_usize);
         var failed: bool = false;
         simulateCompiler(allocator, tensor_num, op_num, 0, op_removed, rng, device, context, queue) catch {
@@ -423,12 +427,14 @@ fn minifyCompiler(
         if (failed) {
             continue;
         } else {
-            op_top = op_removed;
+            op_top = op_removed - 1;
             break;
         }
     }
+    // If it fails with no ops there's a serious issue
+    assert(op_top > 0);
     var op_low: u32 = op_top - 1;
-    for (0..op_top) |op_removed_usize| {
+    for (1..op_top) |op_removed_usize| {
         const op_removed: u32 = @truncate(op_removed_usize);
         var failed: bool = false;
         simulateCompiler(allocator, tensor_num, op_num, op_removed, op_top, rng, device, context, queue) catch {
