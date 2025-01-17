@@ -416,7 +416,7 @@ pub const Pir = struct {
                 // TODO: This really needs to be optimized. Four dim loops should really be avoided
                 var overlap: bool = false;
                 for (0..repeat_num + 1) |outer_idx| outer: {
-                    for (0..repeat_num + 1) |inner_idx| {
+                    for (outer_idx + 1..repeat_num + 1) |inner_idx| {
                         if (outer_idx == inner_idx) {
                             continue;
                         }
