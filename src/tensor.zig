@@ -236,8 +236,6 @@ pub const Op = struct {
     };
     type: Type,
     u_var: f32,
-    // TODO: Probably don't need to save the whole Buffer struct here
-    // Save the pointers to the values and just save the offset and strides?
     out: Buffer,
     in: Buffer,
     pub fn equal(this: *const @This(), target: Op) bool {

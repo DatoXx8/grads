@@ -11,6 +11,8 @@ const Program = @import("./compiler/program.zig").Program;
 
 const assert = std.debug.assert;
 
+// TODO: Maybe split this up into multiple files (Maybe one per layer type?)
+
 // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
 // That would remove the need for temp_full
 
@@ -612,7 +614,7 @@ pub const Neuralnet = struct {
         }
     };
     pub const Reduce = struct {
-        pub const Type = enum {
+        pub const Type = enum(u8) {
             sum,
             avg,
             max,
@@ -868,14 +870,14 @@ pub const Neuralnet = struct {
         }
     };
     pub const Residual = struct {
-        pub const Type = enum {
+        pub const Type = enum(u8) {
             identity,
             convolution,
             dense,
             reduce,
             split,
         };
-        const Connection = union(enum) {
+        const Connection = union(Residual.Type) {
             identity: void,
             convolution: Convolution,
             dense: Dense,
@@ -1023,7 +1025,7 @@ pub const Neuralnet = struct {
     };
     pub const Layer = struct {
         /// The config is to only have the info needed when provided with the previous layer
-        pub const Config = union(enum) {
+        pub const Config = union(enum(u8)) {
             dense: struct {
                 size_out: u32,
                 activation: Activation.Type,
