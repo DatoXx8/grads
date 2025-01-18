@@ -67,10 +67,8 @@ fn simulateCompiler(
     assert(op_num > op_off_top);
     assert(op_num > op_off_top + op_off_low);
 
-    var tensor1: []Tensor = try allocator.alloc(Tensor, tensor_num);
-    var tensor2: []Tensor = try allocator.alloc(Tensor, tensor_num);
-    defer allocator.free(tensor1);
-    defer allocator.free(tensor2);
+    var tensor1: [tensor_num]Tensor = undefined;
+    var tensor2: [tensor_num]Tensor = undefined;
 
     const a_size_max: u32 = 7;
     const z_size_max: u32 = 6;
@@ -99,16 +97,9 @@ fn simulateCompiler(
     }
 
     const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
-    const op_type: []OpType = try allocator.alloc(OpType, op_num);
-    const op_out: []u32 = try allocator.alloc(u32, op_num);
-    const op_in: []u32 = try allocator.alloc(u32, op_num);
-    const op_val: []f32 = try allocator.alloc(f32, op_num);
-    defer {
-        allocator.free(op_type);
-        allocator.free(op_out);
-        allocator.free(op_in);
-        allocator.free(op_val);
-    }
+    var op_type: [op_num]OpType = undefined;
+    var op_out: [op_num]u32 = undefined;
+    var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
         op_type[op_idx] = @enumFromInt(Pcg.randBelow(op_type_max));
@@ -204,7 +195,7 @@ fn simulateCompiler(
                             switch (op_type[op_idx + loop_idx]) {
                                 .unary_add => {
                                     try tensor1[tensor_out].unaryAdd(allocator, u_var);
-                                    try tensor2[tensor_out].unaryAdd(allocator, u_var + 1);
+                                    try tensor2[tensor_out].unaryAdd(allocator, u_var);
                                 },
                                 .unary_subtract => {
                                     try tensor1[tensor_out].unarySubtract(allocator, u_var);
