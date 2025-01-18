@@ -20,8 +20,20 @@ Copy this repository to your project as a subdirectory. You can do this with the
 ``` sh
 git clone https://github.com/DatoXx8/grads.git
 ```
-From there you can use the code directly as you would any other. I recommend compiling your project with with mode `ReleaseSafe`, obviously you can use something else but I don't
-recommend that because it disabled assertions.
+From there I recommend creating a Grads module which could look something like this:
+```zig
+const grads = b.addModule("grads", .{
+    .root_source_file = b.path("grads/src/root.zig"),
+});
+```
+And then you need to add the module to the executables where you want to use it:
+```zig
+exe.root_module.addImport("grads", grads);
+```
+Then you can import grads as follows:
+```zig
+const grads = @import("grads");
+```
 
 ## Example
 
