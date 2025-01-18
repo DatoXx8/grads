@@ -52,20 +52,12 @@ comptime {
 }
 
 // If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
-fn profileCompiler(
-    allocator: anytype,
-    rng: u64,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
-) !void {
+fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
 
-    var tensor1: []Tensor = try allocator.alloc(Tensor, tensor_num);
-    var tensor2: []Tensor = try allocator.alloc(Tensor, tensor_num);
-    defer allocator.free(tensor1);
-    defer allocator.free(tensor2);
+    var tensor1: [tensor_num]Tensor = undefined;
+    var tensor2: [tensor_num]Tensor = undefined;
 
     const a_size_max: u32 = 7;
     const z_size_max: u32 = 6;
@@ -94,16 +86,9 @@ fn profileCompiler(
     }
 
     const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
-    const op_type: []OpType = try allocator.alloc(OpType, op_num);
-    const op_out: []u32 = try allocator.alloc(u32, op_num);
-    const op_in: []u32 = try allocator.alloc(u32, op_num);
-    const op_val: []f32 = try allocator.alloc(f32, op_num);
-    defer {
-        allocator.free(op_type);
-        allocator.free(op_out);
-        allocator.free(op_in);
-        allocator.free(op_val);
-    }
+    const op_type: [op_num]OpType = undefined;
+    const op_out: [op_num]u32 = undefined;
+    const op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
         op_type[op_idx] = @enumFromInt(Pcg.randBelow(op_type_max));
