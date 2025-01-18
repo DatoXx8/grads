@@ -18,25 +18,22 @@ const AssertError = error{
 const epsilon: f32 = 1e-9;
 /// Check for equality between the two floats within the margin of error of `epsilon`
 fn assertEq(val1: f32, val2: f32) !void {
-    if (std.math.approxEqAbs(f32, val1, val2, epsilon) and !std.math.isInf(val1) and !std.math.isInf(val2)) {
+    if (std.math.isNan(val1) or std.math.isNan(val2)) {
+        // For nicer output formatting
+        std.debug.print("\n", .{});
+        std.log.err("Found NaN in equality comparison.\n", .{});
+        return AssertError.nan;
+    } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
+        std.debug.print("\n", .{});
+        std.log.err("Found Inf in equality comparison.\n", .{});
+        return AssertError.nan;
+    } else if (std.math.approxEqAbs(f32, val1, val2, epsilon)) {
         return;
     } else {
-        if (std.math.isNan(val1) or std.math.isNan(val2)) {
-            // For nicer output formatting
-            std.debug.print("\n", .{});
-            std.log.err("Found NaN in equality comparison.\n", .{});
-            return AssertError.nan;
-        } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
-            // For nicer output formatting
-            std.debug.print("\n", .{});
-            std.log.err("Found Inf in equality comparison.\n", .{});
-            return AssertError.inf;
-        } else {
-            // For nicer output formatting
-            std.debug.print("\n", .{});
-            std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
-            return AssertError.difference;
-        }
+        // For nicer output formatting
+        std.debug.print("\n", .{});
+        std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
+        return AssertError.difference;
     }
 }
 

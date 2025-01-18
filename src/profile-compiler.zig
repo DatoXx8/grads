@@ -16,6 +16,7 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 
 const AssertError = error{
     nan,
+    inf,
     difference,
 };
 /// Margin of error
@@ -23,28 +24,36 @@ const epsilon: f32 = 1e-6;
 const epsilon_relative: f32 = 1e-4;
 /// Check for equality between the two floats within the margin of error of `epsilon`
 fn assertEq(val1: f32, val2: f32) !void {
-    if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
+    if (std.math.isNan(val1) or std.math.isNan(val2)) {
+        // For nicer output formatting
+        std.debug.print("\n", .{});
+        std.log.err("Found NaN in equality comparison.\n", .{});
+        return AssertError.nan;
+    } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
+        std.debug.print("\n", .{});
+        std.log.err("Found Inf in equality comparison.\n", .{});
+        return AssertError.nan;
+    } else if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
         return;
     } else {
-        if (std.math.isNan(val1) or std.math.isNan(val2)) {
-            // For nicer output formatting
-            std.debug.print("\n", .{});
-            std.log.err("Found NaN in equality comparison.\n", .{});
-            return AssertError.nan;
-        } else {
-            // For nicer output formatting
-            std.debug.print("\n", .{});
-            std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
-            return AssertError.difference;
-        }
+        // For nicer output formatting
+        std.debug.print("\n", .{});
+        std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
+        return AssertError.difference;
     }
+}
+const tensor_num: u32 = 10;
+const op_num: u32 = 10;
+const interations: u32 = 2;
+comptime {
+    assert(tensor_num > 1);
+    assert(op_num > 0);
+    assert(interations > 0);
 }
 
 // If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
 fn profileCompiler(
     allocator: anytype,
-    tensor_num: u32,
-    op_num: u32,
     rng: u64,
     device: ClDevice,
     context: ClContext,
@@ -199,8 +208,10 @@ fn profileCompiler(
                                 },
                                 .unary_exp => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryMax(allocator, 100);
-                                    try tensor2[tensor_out].unaryMax(allocator, 100);
+                                    try tensor1[tensor_out].unaryMax(allocator, 10);
+                                    try tensor2[tensor_out].unaryMax(allocator, 10);
+                                    try tensor1[tensor_out].unaryMin(allocator, -10);
+                                    try tensor2[tensor_out].unaryMin(allocator, -10);
 
                                     try tensor1[tensor_out].unaryExp(allocator);
                                     try tensor2[tensor_out].unaryExp(allocator);
@@ -230,8 +241,8 @@ fn profileCompiler(
                                     try tensor1[tensor_out].unaryAbsolute(allocator);
                                     try tensor2[tensor_out].unaryAbsolute(allocator);
 
-                                    try tensor1[tensor_out].unarySquare(allocator);
-                                    try tensor2[tensor_out].unarySquare(allocator);
+                                    try tensor1[tensor_out].unarySqrt(allocator);
+                                    try tensor2[tensor_out].unarySqrt(allocator);
                                 },
                                 .unary_reciprocal => {
                                     // NaN prevention
@@ -364,8 +375,14 @@ fn profileCompiler(
         }
     }
 
-    tensor2[op_out[op_num - 1]].linearized.debug(4, 0, null);
-    tensor2[op_out[op_num - 1]].realize();
+    var time_linearized: [interations]i128 = undefined;
+    for (0..interations) |interation_idx| {
+        // Not using realize here because that clears the linearized
+        const time_start: i128 = std.time.nanoTimestamp();
+        tensor2[op_out[op_num - 1]].linearized.run();
+        time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
+    }
+    // TODO: Make function like fn analyseTimes(time: [iterations]i128) void that performs a statistical analysis of the times
 
     const size_local: u32 = Pcg.randBelow(10) + 1;
     const size_global: u32 = size_local * (Pcg.randBelow(10) + 1);
@@ -377,10 +394,15 @@ fn profileCompiler(
 
     const program: Program = try Program.alloc(allocator, tensor1[op_out[op_num - 1]].linearized, //
         size_global, size_local, device, context, queue);
-    try program.run();
-    try program.free(allocator);
+    defer program.free(allocator) catch {};
 
-    tensor1[op_out[op_num - 1]].linearized.debug(4, 0, null);
+    var time_program: [interations]i128 = undefined;
+    for (0..interations) |interation_idx| {
+        const time_start: i128 = std.time.nanoTimestamp();
+        try program.run();
+        time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
+    }
+    // TODO: Make function like fn analyseTimes(time: [iterations]i128) void that performs a statistical analysis of the times
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_host);
@@ -430,13 +452,6 @@ pub fn main() !void {
         false => rng_saved.?,
     };
 
-    const tensor_num: u32 = 10;
-    const op_num: u32 = 10;
-    comptime {
-        assert(tensor_num > 1);
-        assert(op_num > 0);
-    }
-
     const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
@@ -448,13 +463,13 @@ pub fn main() !void {
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
             std.debug.print("{} => ", .{loop_idx});
-            try profileCompiler(allocator, tensor_num, op_num, rng + loop_idx, device, context, queue);
+            try profileCompiler(allocator, rng + loop_idx, device, context, queue);
             loop_idx += 1;
         }
     } else {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => ", .{loop_idx});
-            try profileCompiler(allocator, tensor_num, op_num, rng + loop_idx, device, context, queue);
+            try profileCompiler(allocator, rng + loop_idx, device, context, queue);
         }
     }
 }
