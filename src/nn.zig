@@ -1025,7 +1025,7 @@ pub const Neuralnet = struct {
     };
     pub const Layer = struct {
         /// The config is to only have the info needed when provided with the previous layer
-        pub const Config = union(enum(u8)) {
+        pub const Config = union(Neuralnet.Type) {
             dense: struct {
                 size_out: u32,
                 activation: Activation.Type,
