@@ -442,24 +442,14 @@ pub fn main() !void {
     defer args.deinit();
 
     var rng_saved: ?u64 = null;
-    var loop_infinite: bool = false;
-    var loop_count: u64 = 1;
     // Skip the executable call
     _ = args.next();
     if (args.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "rng=")) {
             const offset = "rng="[0..].len;
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
-        } else if (std.mem.startsWith(u8, arg, "loop=")) {
-            const offset = "loop="[0..].len;
-            loop_count = std.fmt.parseInt(u64, arg[offset..], 10) catch 0;
-            if (loop_count == 0) {
-                loop_infinite = true;
-            }
-            // Iff the loop is infinite then the loop count has to be 0
-            assert(loop_infinite == (loop_count == 0));
         } else {
-            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
+            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>`.\n", .{arg});
             assert(false);
         }
     }
@@ -472,20 +462,5 @@ pub fn main() !void {
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
 
-    if (loop_infinite) {
-        var loop_idx: u64 = 0;
-        // TODO: Decide how to reseed the random number generator here...
-        // rng + loop_idx "wastes" the least seeds but it could cause issues
-        // when running multiple threads with this because you then run the same tests over and over again
-        while (true) {
-            std.debug.print("{} => ", .{loop_idx});
-            try profileCompiler(allocator, rng + loop_idx, device, context, queue);
-            loop_idx += 1;
-        }
-    } else {
-        for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => ", .{loop_idx});
-            try profileCompiler(allocator, rng + loop_idx, device, context, queue);
-        }
-    }
+    try profileCompiler(allocator, rng, device, context, queue);
 }
