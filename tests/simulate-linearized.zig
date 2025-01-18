@@ -7,8 +7,6 @@ const pcg = grads.pcg;
 
 const assert = std.debug.assert;
 
-// TODO: Move tests to seperate directory
-
 const AssertError = error{
     nan,
     inf,

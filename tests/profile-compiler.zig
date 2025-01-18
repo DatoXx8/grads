@@ -11,8 +11,6 @@ const ClCommandQueue = grads.ClCommandQueue;
 
 const assert = std.debug.assert;
 
-// TODO: Move profiler to seperate directory
-
 const AssertError = error{
     nan,
     inf,

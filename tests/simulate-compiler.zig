@@ -11,7 +11,6 @@ const ClCommandQueue = grads.ClCommandQueue;
 
 const assert = std.debug.assert;
 
-// TODO: Move tests to seperate directory
 // TODO: Also randomize random optimization once those are implemented
 
 const AssertError = error{
