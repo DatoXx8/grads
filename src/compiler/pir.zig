@@ -7,7 +7,6 @@ const Linearized = @import("../tensor.zig").Linearized;
 const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
 const assert = std.debug.assert;
 
-// TODO: rng=1736435142085023
 // To fix that I actually need to do the dreaded sorting... that won't be fun...
 // Also just put the DimInfo gathering in this struct
 pub const DimInfo = struct {
@@ -402,7 +401,6 @@ pub const Pir = struct {
         for (1..repeat_num_max) |repeat_idx| {
             var all_equal: bool = true;
             for (0..op_num) |inner_off| {
-                // TODO: Need to check for overlaps between all different loops
                 if (linearized.op[op_start + inner_off].equal(linearized.op[op_start + inner_off + repeat_idx * op_num]) and
                     !linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + inner_off + repeat_idx * op_num]))
                 {
