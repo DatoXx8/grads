@@ -1,9 +1,9 @@
 const std = @import("std");
+const Grads = @import("grads");
 
-const Tensor = @import("./tensor.zig").Tensor;
-const OpType = @import("./tensor.zig").Op.Type;
-
-const Pcg = @import("./prng.zig").Pcg;
+const Tensor = Grads.Tensor;
+const OpType = Grads.Op.Type;
+const Pcg = Grads.Pcg;
 
 const assert = std.debug.assert;
 

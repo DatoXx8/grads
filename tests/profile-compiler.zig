@@ -1,19 +1,17 @@
 const std = @import("std");
+const Grads = @import("grads");
 
-const Tensor = @import("./tensor.zig").Tensor;
-const OpType = @import("./tensor.zig").Op.Type;
-
-const Pcg = @import("./prng.zig").Pcg;
+const Tensor = Grads.Tensor;
+const OpType = Grads.Op.Type;
+const Pcg = Grads.Pcg;
+const Program = Grads.Program;
+const ClContext = Grads.ClContext;
+const ClDevice = Grads.ClDevice;
+const ClCommandQueue = Grads.ClCommandQueue;
 
 const assert = std.debug.assert;
 
-const Program = @import("./compiler/program.zig").Program;
-const ClContext = @import("./runtimes/cl.zig").ClContext;
-const ClDevice = @import("./runtimes/cl.zig").ClDevice;
-const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-
-// TODO: Move tests to seperate directory
-// TODO: Also randomize random optimization once those are implemented
+// TODO: Move profiler to seperate directory
 
 const AssertError = error{
     nan,
@@ -43,26 +41,51 @@ fn assertEq(val1: f32, val2: f32) !void {
         return AssertError.difference;
     }
 }
-
 const tensor_num: u32 = 10;
 const op_num: u32 = 10;
+const iterations: u32 = 100;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
+    assert(iterations > 0);
 }
 
-fn simulateCompiler(
-    allocator: anytype,
-    op_off_low: u32,
-    op_off_top: u32,
-    rng: u64,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
-) !void {
-    assert(op_num > op_off_low);
-    assert(op_num > op_off_top);
-    assert(op_num > op_off_top + op_off_low);
+/// Computes and prints mean and variance
+fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
+    var ns_sum: i128 = 0;
+    for (0..iterations) |iteration_idx| {
+        ns_sum += ns_times[iteration_idx];
+    }
+    const ns_mean: i128 = @divFloor(ns_sum, iterations);
+    var ns_square_sum: i128 = 0;
+    for (0..iterations) |iteration_idx| {
+        const ns_difference: i128 = ns_times[iteration_idx] - ns_mean;
+        ns_square_sum += ns_difference * ns_difference;
+    }
+    const ns_variance: u128 = std.math.sqrt(@as(u128, @intCast(@divFloor(ns_square_sum, iterations))));
+
+    if (ns_mean < 1_000) {
+        std.debug.print("Time: {d:8.4}ns +- {d:8.4}ns", .{ ns_mean, ns_variance });
+    } else if (ns_mean < 1_000_000) {
+        const us_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000;
+        const us_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000;
+        std.debug.print("Time: {d:8.4}us +- {d:8.4}us", .{ us_mean, us_variance });
+    } else if (ns_mean < 1_000_000_000) {
+        const ms_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000;
+        const ms_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000;
+        std.debug.print("Time: {d:8.4}ms +- {d:8.4}ms", .{ ms_mean, ms_variance });
+    } else {
+        const s_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000_000;
+        const s_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000_000;
+        std.debug.print("Time: {d:8.4} s +- {d:8.4} s", .{ s_mean, s_variance });
+    }
+    std.debug.print(" {s}\n", .{name});
+}
+
+// If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
+fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
+    assert(tensor_num > 1);
+    assert(op_num > 0);
 
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
@@ -84,7 +107,7 @@ fn simulateCompiler(
     }
 
     Pcg.init(rng);
-    std.debug.print("simulate-compiler: rng={}...", .{rng});
+    std.debug.print("profile-compiler: rng={}...\n", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
@@ -124,7 +147,7 @@ fn simulateCompiler(
         }
     }
 
-    // TODO: Come up with a better name. This is basically the last op that isn't in the last loop
+    // TODO: Come up with a better name. This is basically the first op that isn't in the last loop
     var op_idx_free: u32 = 0;
     for (0..op_num) |op_idx| {
         if (op_idx < op_idx_free) {
@@ -144,7 +167,6 @@ fn simulateCompiler(
         const y_loop: u32 = Pcg.randBelow(y_size_max - (y_size + y_off)) + 1;
         const x_loop: u32 = Pcg.randBelow(x_size_max - (x_size + x_off)) + 1;
 
-        // Putting this out here to make snycing the prng state trivial
         const u_var: f32 = Pcg.randF32();
 
         const loop_len: u32 = Pcg.randBelow(@truncate(op_num - op_idx));
@@ -155,12 +177,6 @@ fn simulateCompiler(
                 for (0..y_loop) |y_idx_usize| {
                     for (0..x_loop) |x_idx_usize| {
                         for (0..loop_len) |loop_idx| {
-                            // Putting this in here hurts performance slightly but
-                            // it allows partial loops for nicer debugging
-                            if (op_idx + loop_idx < op_off_low or op_idx + loop_idx >= op_num - op_off_top) {
-                                continue;
-                            }
-
                             const a_idx: u32 = @truncate(a_idx_usize);
                             const z_idx: u32 = @truncate(z_idx_usize);
                             const y_idx: u32 = @truncate(y_idx_usize);
@@ -375,7 +391,14 @@ fn simulateCompiler(
         }
     }
 
-    tensor2[op_out[op_num - 1]].realize();
+    var time_linearized: [iterations]i128 = undefined;
+    for (0..iterations) |interation_idx| {
+        // Not using realize here because that clears the linearized
+        const time_start: i128 = std.time.nanoTimestamp();
+        tensor2[op_out[op_num - 1]].linearized.run();
+        time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
+    }
+    analyseTimes(time_linearized, "linearized");
 
     const size_local: u32 = Pcg.randBelow(10) + 1;
     const size_global: u32 = size_local * (Pcg.randBelow(10) + 1);
@@ -387,8 +410,15 @@ fn simulateCompiler(
 
     const program: Program = try Program.alloc(allocator, tensor1[op_out[op_num - 1]].linearized, //
         size_global, size_local, device, context, queue);
-    try program.run();
-    try program.free(allocator);
+    defer program.free(allocator) catch {};
+
+    var time_program: [iterations]i128 = undefined;
+    for (0..iterations) |interation_idx| {
+        const time_start: i128 = std.time.nanoTimestamp();
+        try program.run();
+        time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
+    }
+    analyseTimes(time_program, "O0");
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_host);
@@ -400,50 +430,6 @@ fn simulateCompiler(
             try assertEq(tensor1[tensor_idx].buffer.values[arg_idx], tensor2[tensor_idx].buffer.values[arg_idx]);
         }
     }
-    std.debug.print(" passed!\n", .{});
-}
-
-fn minifyCompiler(
-    allocator: anytype,
-    rng: u64,
-    err: anytype,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
-) !void {
-    // TODO: Assert that the thing actually fails
-    assert(tensor_num > 1);
-    assert(op_num > 0);
-    var op_top: u32 = 1;
-    for (1..op_num) |op_removed| {
-        var failed: bool = false;
-        simulateCompiler(allocator, 0, @truncate(op_removed), rng, device, context, queue) catch {
-            failed = true;
-        };
-        if (failed) {
-            op_top = @truncate(op_removed);
-            continue;
-        } else {
-            break;
-        }
-    }
-    // If it fails with no ops there's a serious issue
-    assert(op_top > 0);
-    var op_low: u32 = 0;
-    for (1..op_num - op_top) |op_removed| {
-        var failed: bool = false;
-        simulateCompiler(allocator, @truncate(op_removed), op_top, rng, device, context, queue) catch {
-            failed = true;
-        };
-        if (failed) {
-            op_low = @truncate(op_removed);
-            continue;
-        } else {
-            break;
-        }
-    }
-    std.debug.print("Passes below {} and not after {}\n", .{ op_low, op_num - op_top });
-    return err;
 }
 
 pub fn main() !void {
@@ -455,24 +441,14 @@ pub fn main() !void {
     defer args.deinit();
 
     var rng_saved: ?u64 = null;
-    var loop_infinite: bool = false;
-    var loop_count: u64 = 1;
     // Skip the executable call
     _ = args.next();
     if (args.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "rng=")) {
             const offset = "rng="[0..].len;
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
-        } else if (std.mem.startsWith(u8, arg, "loop=")) {
-            const offset = "loop="[0..].len;
-            loop_count = std.fmt.parseInt(u64, arg[offset..], 10) catch 0;
-            if (loop_count == 0) {
-                loop_infinite = true;
-            }
-            // Iff the loop is infinite then the loop count has to be 0
-            assert(loop_infinite == (loop_count == 0));
         } else {
-            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
+            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>`.\n", .{arg});
             assert(false);
         }
     }
@@ -485,24 +461,5 @@ pub fn main() !void {
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
 
-    if (loop_infinite) {
-        var loop_idx: u64 = 0;
-        // TODO: Decide how to reseed the random number generator here...
-        // rng + loop_idx "wastes" the least seeds but it could cause issues
-        // when running multiple threads with this because you then run the same tests over and over again
-        while (true) {
-            std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
-            };
-            loop_idx += 1;
-        }
-    } else {
-        for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
-            };
-        }
-    }
+    try profileCompiler(allocator, rng, device, context, queue);
 }

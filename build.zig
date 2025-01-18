@@ -1,8 +1,14 @@
 const std = @import("std");
 
+// TODO: Support compiling to a static lib
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const grads = b.addModule("grads", .{
+        .root_source_file = b.path("src/root.zig"),
+    });
 
     const exe = b.addExecutable(.{
         .name = "test",
@@ -27,7 +33,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_test_op = b.addExecutable(.{
         .name = "unit_test_op",
-        .root_source_file = b.path("src/unit-ops.zig"),
+        .root_source_file = b.path("tests/unit-ops.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -37,6 +43,7 @@ pub fn build(b: *std.Build) void {
     // TODO: Figure out how to get rid of libc
     unit_test_op.linkSystemLibrary("c");
     unit_test_op.linkSystemLibrary("OpenCL");
+    unit_test_op.root_module.addImport("grads", grads);
     b.installArtifact(unit_test_op);
     const test_op = b.addRunArtifact(unit_test_op);
     test_op.step.dependOn(b.getInstallStep());
@@ -48,7 +55,7 @@ pub fn build(b: *std.Build) void {
 
     const simulation_test_linearized = b.addExecutable(.{
         .name = "simulate-linearized",
-        .root_source_file = b.path("src/simulate-linearized.zig"),
+        .root_source_file = b.path("tests/simulate-linearized.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -58,6 +65,7 @@ pub fn build(b: *std.Build) void {
     // TODO: Figure out how to get rid of libc
     simulation_test_linearized.linkSystemLibrary("c");
     simulation_test_linearized.linkSystemLibrary("OpenCL");
+    simulation_test_linearized.root_module.addImport("grads", grads);
     b.installArtifact(simulation_test_linearized);
     const test_linearized = b.addRunArtifact(simulation_test_linearized);
     test_linearized.step.dependOn(b.getInstallStep());
@@ -69,7 +77,7 @@ pub fn build(b: *std.Build) void {
 
     const simulation_test_compiler = b.addExecutable(.{
         .name = "simulate-compiler",
-        .root_source_file = b.path("src/simulate-compiler.zig"),
+        .root_source_file = b.path("tests/simulate-compiler.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -79,6 +87,7 @@ pub fn build(b: *std.Build) void {
     // TODO: Figure out how to get rid of libc
     simulation_test_compiler.linkSystemLibrary("c");
     simulation_test_compiler.linkSystemLibrary("OpenCL");
+    simulation_test_compiler.root_module.addImport("grads", grads);
     b.installArtifact(simulation_test_compiler);
     const test_compiler = b.addRunArtifact(simulation_test_compiler);
     test_compiler.step.dependOn(b.getInstallStep());
@@ -90,7 +99,7 @@ pub fn build(b: *std.Build) void {
 
     const simulation_profiler_compiler = b.addExecutable(.{
         .name = "profile-compiler",
-        .root_source_file = b.path("src/profile-compiler.zig"),
+        .root_source_file = b.path("tests/profile-compiler.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -100,6 +109,7 @@ pub fn build(b: *std.Build) void {
     // TODO: Figure out how to get rid of libc
     simulation_profiler_compiler.linkSystemLibrary("c");
     simulation_profiler_compiler.linkSystemLibrary("OpenCL");
+    simulation_profiler_compiler.root_module.addImport("grads", grads);
     b.installArtifact(simulation_profiler_compiler);
     const profiler_compiler = b.addRunArtifact(simulation_profiler_compiler);
     profiler_compiler.step.dependOn(b.getInstallStep());
@@ -108,21 +118,4 @@ pub fn build(b: *std.Build) void {
     }
     const profiler_compiler_step = b.step("profile-compiler", "Run the simulator for the compiler optimisations");
     profiler_compiler_step.dependOn(&profiler_compiler.step);
-
-    const libgrads = b.addStaticLibrary(.{
-        .name = "grads",
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    libgrads.addIncludePath(.{
-        .cwd_relative = "/usr/include/",
-    });
-    // TODO: Do I need to link this?
-    // static_lib.linkSystemLibrary("c");
-    // static_lib.linkSystemLibrary("OpenCL");
-    b.installArtifact(libgrads);
-    if (b.args) |args| {
-        test_compiler.addArgs(args);
-    }
 }
