@@ -14,15 +14,14 @@ Right now, there are only 3 dependencies:
 
 ## Installation
 
-1. Copy this repository to your local machine. You can do this with the following command:
+For now Grads only supports being directly included as source code in your projects.
+
+Copy this repository to your project as a subdirectory. You can do this with the following command:
 ``` sh
 git clone https://github.com/DatoXx8/grads.git
 ```
-2. Compile the project, you can use something else than `ReleaseSafe` but that disables assertions, so be warned!
-``` sh
-zig build -Doptmize=ReleaseSafe
-```
-3. In the `zig-out/lib/` directory there will be a file called `libgrads.a`. You can then use the library as you wish from there!
+From there you can use the code directly as you would any other. I recommend compiling your project with with mode `ReleaseSafe`, obviously you can use something else but I don't
+recommend that because it disabled assertions.
 
 ## Example
 
