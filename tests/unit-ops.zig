@@ -1,9 +1,8 @@
 const std = @import("std");
+const grads = @import("grads");
 
-const Grads = @import("grads");
-
-const Tensor = Grads.Tensor;
-const Pcg = Grads.Pcg;
+const Tensor = grads.Tensor;
+const pcg = grads.pcg;
 
 const assert = std.debug.assert;
 
@@ -76,11 +75,11 @@ pub fn main() !void {
     };
     std.debug.print("unit-ops: rng={}...", .{rng});
     defer std.debug.print(" passed!\n", .{});
-    Pcg.init(rng);
+    pcg.init(rng);
 
     for (0..a_size * z_size * y_size * x_size) |val_idx| {
-        val1[val_idx] = Pcg.randF32();
-        val2[val_idx] = Pcg.randF32();
+        val1[val_idx] = pcg.randF32();
+        val2[val_idx] = pcg.randF32();
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);

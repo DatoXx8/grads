@@ -1,13 +1,13 @@
 const std = @import("std");
-const Grads = @import("grads");
+const grads = @import("grads");
 
-const Tensor = Grads.Tensor;
-const OpType = Grads.Op.Type;
-const Pcg = Grads.Pcg;
-const Program = Grads.Program;
-const ClContext = Grads.ClContext;
-const ClDevice = Grads.ClDevice;
-const ClCommandQueue = Grads.ClCommandQueue;
+const Tensor = grads.Tensor;
+const OpType = grads.Op.Type;
+const pcg = grads.pcg;
+const Program = grads.Program;
+const ClContext = grads.ClContext;
+const ClDevice = grads.ClDevice;
+const ClCommandQueue = grads.ClCommandQueue;
 
 const assert = std.debug.assert;
 
@@ -82,12 +82,12 @@ fn simulateCompiler(
         }
     }
 
-    Pcg.init(rng);
+    pcg.init(rng);
     std.debug.print("simulate-compiler: rng={}...", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            tensor1[tensor_idx].buffer.values[arg_idx] = Pcg.randF32();
+            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.randF32();
             tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
         }
     }
@@ -98,19 +98,19 @@ fn simulateCompiler(
     var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
-        op_type[op_idx] = @enumFromInt(Pcg.randBelow(op_type_max));
+        op_type[op_idx] = @enumFromInt(pcg.randBelow(op_type_max));
 
         if (op_idx == 0) {
-            op_out[0] = Pcg.randBelow(tensor_num);
+            op_out[0] = pcg.randBelow(tensor_num);
 
-            op_in[0] = Pcg.randBelow(tensor_num - 1);
+            op_in[0] = pcg.randBelow(tensor_num - 1);
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
             const switch_likelyhood: u32 = 10;
-            if (Pcg.randBelow(switch_likelyhood) == 0) {
+            if (pcg.randBelow(switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
-                op_out[op_idx] = Pcg.randBelow(tensor_num - 1);
+                op_out[op_idx] = pcg.randBelow(tensor_num - 1);
                 // I think this should get a guaranteed random number different than tensor_in without biasing the result
                 if (op_out[op_idx] >= op_in[op_idx]) {
                     op_out[op_idx] += 1;
@@ -130,23 +130,23 @@ fn simulateCompiler(
             continue;
         }
 
-        const a_size: u32 = Pcg.randBelow(a_size_max) + 1;
-        const z_size: u32 = Pcg.randBelow(z_size_max) + 1;
-        const y_size: u32 = Pcg.randBelow(y_size_max) + 1;
-        const x_size: u32 = Pcg.randBelow(x_size_max) + 1;
-        const a_off: u32 = Pcg.randBelow(a_size_max - a_size);
-        const z_off: u32 = Pcg.randBelow(z_size_max - z_size);
-        const y_off: u32 = Pcg.randBelow(y_size_max - y_size);
-        const x_off: u32 = Pcg.randBelow(x_size_max - x_size);
-        const a_loop: u32 = Pcg.randBelow(a_size_max - (a_size + a_off)) + 1;
-        const z_loop: u32 = Pcg.randBelow(z_size_max - (z_size + z_off)) + 1;
-        const y_loop: u32 = Pcg.randBelow(y_size_max - (y_size + y_off)) + 1;
-        const x_loop: u32 = Pcg.randBelow(x_size_max - (x_size + x_off)) + 1;
+        const a_size: u32 = pcg.randBelow(a_size_max) + 1;
+        const z_size: u32 = pcg.randBelow(z_size_max) + 1;
+        const y_size: u32 = pcg.randBelow(y_size_max) + 1;
+        const x_size: u32 = pcg.randBelow(x_size_max) + 1;
+        const a_off: u32 = pcg.randBelow(a_size_max - a_size);
+        const z_off: u32 = pcg.randBelow(z_size_max - z_size);
+        const y_off: u32 = pcg.randBelow(y_size_max - y_size);
+        const x_off: u32 = pcg.randBelow(x_size_max - x_size);
+        const a_loop: u32 = pcg.randBelow(a_size_max - (a_size + a_off)) + 1;
+        const z_loop: u32 = pcg.randBelow(z_size_max - (z_size + z_off)) + 1;
+        const y_loop: u32 = pcg.randBelow(y_size_max - (y_size + y_off)) + 1;
+        const x_loop: u32 = pcg.randBelow(x_size_max - (x_size + x_off)) + 1;
 
         // Putting this out here to make snycing the prng state trivial
-        const u_var: f32 = Pcg.randF32();
+        const u_var: f32 = pcg.randF32();
 
-        const loop_len: u32 = Pcg.randBelow(@truncate(op_num - op_idx));
+        const loop_len: u32 = pcg.randBelow(@truncate(op_num - op_idx));
         op_idx_free = @truncate(op_idx + loop_len);
 
         for (0..a_loop) |a_idx_usize| {
@@ -376,8 +376,8 @@ fn simulateCompiler(
 
     tensor2[op_out[op_num - 1]].realize();
 
-    const size_local: u32 = Pcg.randBelow(10) + 1;
-    const size_global: u32 = size_local * (Pcg.randBelow(10) + 1);
+    const size_local: u32 = pcg.randBelow(10) + 1;
+    const size_global: u32 = size_local * (pcg.randBelow(10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);

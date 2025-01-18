@@ -19,7 +19,6 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // TODO: Figure out how to get rid of libc
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("OpenCL");
     b.installArtifact(exe);
@@ -40,7 +39,6 @@ pub fn build(b: *std.Build) void {
     unit_test_op.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // TODO: Figure out how to get rid of libc
     unit_test_op.linkSystemLibrary("c");
     unit_test_op.linkSystemLibrary("OpenCL");
     unit_test_op.root_module.addImport("grads", grads);
@@ -62,7 +60,6 @@ pub fn build(b: *std.Build) void {
     simulation_test_linearized.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // TODO: Figure out how to get rid of libc
     simulation_test_linearized.linkSystemLibrary("c");
     simulation_test_linearized.linkSystemLibrary("OpenCL");
     simulation_test_linearized.root_module.addImport("grads", grads);
@@ -84,7 +81,6 @@ pub fn build(b: *std.Build) void {
     simulation_test_compiler.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // TODO: Figure out how to get rid of libc
     simulation_test_compiler.linkSystemLibrary("c");
     simulation_test_compiler.linkSystemLibrary("OpenCL");
     simulation_test_compiler.root_module.addImport("grads", grads);
@@ -106,7 +102,6 @@ pub fn build(b: *std.Build) void {
     simulation_profiler_compiler.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    // TODO: Figure out how to get rid of libc
     simulation_profiler_compiler.linkSystemLibrary("c");
     simulation_profiler_compiler.linkSystemLibrary("OpenCL");
     simulation_profiler_compiler.root_module.addImport("grads", grads);

@@ -1,7 +1,7 @@
 const std = @import("std");
 const math = std.math;
 
-const Pcg = @import("./prng.zig").Pcg;
+const pcg = @import("./prng.zig").pcg;
 
 const assert = std.debug.assert;
 
@@ -444,7 +444,7 @@ pub const Op = struct {
                     for (0..this.out.z_size) |z| {
                         for (0..this.out.y_size) |y| {
                             for (0..this.out.x_size) |x| {
-                                this.out.values[this.out.at(a, z, y, x)] = Pcg.randF32();
+                                this.out.values[this.out.at(a, z, y, x)] = pcg.randF32();
                             }
                         }
                     }

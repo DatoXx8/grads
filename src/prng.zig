@@ -11,7 +11,7 @@ var spare_exists: bool = false;
 var spare: f32 = 0;
 
 /// This implementation was tested using PractRand [https://www.pcg-random.org/posts/how-to-test-with-practrand.html] up to 1 TB and it found no statistical anomalies.
-pub const Pcg = struct {
+pub const pcg = struct {
     fn rotate32(x: u32, pivot: u5) u32 {
         return x >> pivot | x << ((-%pivot) & 31);
     }
@@ -27,13 +27,13 @@ pub const Pcg = struct {
 
         state = state *% mult +% incr;
         x ^= x >> 18;
-        return Pcg.rotate32(@truncate(x >> 27), pivot);
+        return pcg.rotate32(@truncate(x >> 27), pivot);
     }
     pub fn randBelow(top: u32) u32 {
         if (top == 0 or top == 1) {
             return 0;
         }
-        var x: u32 = Pcg.rand();
+        var x: u32 = pcg.rand();
         var m: u64 = @as(u64, x) *% @as(u64, top);
         var l: u32 = @truncate(m);
         if (l < top) {
@@ -45,7 +45,7 @@ pub const Pcg = struct {
                 }
             }
             while (l < t) {
-                x = Pcg.rand();
+                x = pcg.rand();
                 m = @as(u64, x) *% @as(u64, top);
                 l = @truncate(m);
             }
@@ -63,8 +63,8 @@ pub const Pcg = struct {
             var v: f32 = 0;
             var s: f32 = 0;
             while (s <= 0 or s >= 1) {
-                u = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
-                v = (@as(f32, @floatFromInt(Pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
+                u = (@as(f32, @floatFromInt(pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
+                v = (@as(f32, @floatFromInt(pcg.rand())) / @as(f32, @floatFromInt(math.maxInt(u32)))) * 2.0 - 1.0;
                 s = u * u + v * v;
             }
             s = math.sqrt(-2.0 * math.log(f32, math.e, s) / s);
