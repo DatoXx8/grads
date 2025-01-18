@@ -17,6 +17,7 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 
 const AssertError = error{
     nan,
+    inf,
     difference,
 };
 /// Margin of error
@@ -24,7 +25,7 @@ const epsilon: f32 = 1e-6;
 const epsilon_relative: f32 = 1e-4;
 /// Check for equality between the two floats within the margin of error of `epsilon`
 fn assertEq(val1: f32, val2: f32) !void {
-    if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
+    if (std.math.approxEqAbs(f32, val1, val2, epsilon) and !std.math.isInf(val1) and !std.math.isInf(val2)) {
         return;
     } else {
         if (std.math.isNan(val1) or std.math.isNan(val2)) {
@@ -32,6 +33,11 @@ fn assertEq(val1: f32, val2: f32) !void {
             std.debug.print("\n", .{});
             std.log.err("Found NaN in equality comparison.\n", .{});
             return AssertError.nan;
+        } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
+            // For nicer output formatting
+            std.debug.print("\n", .{});
+            std.log.err("Found Inf in equality comparison.\n", .{});
+            return AssertError.inf;
         } else {
             // For nicer output formatting
             std.debug.print("\n", .{});
@@ -41,10 +47,15 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
+const tensor_num: u32 = 10;
+const op_num: u32 = 10;
+comptime {
+    assert(tensor_num > 1);
+    assert(op_num > 0);
+}
+
 fn simulateCompiler(
     allocator: anytype,
-    tensor_num: u32,
-    op_num: u32,
     op_off_low: u32,
     op_off_top: u32,
     rng: u64,
@@ -52,8 +63,6 @@ fn simulateCompiler(
     context: ClContext,
     queue: ClCommandQueue,
 ) !void {
-    assert(tensor_num > 1);
-    assert(op_num > 0);
     assert(op_num > op_off_low);
     assert(op_num > op_off_top);
     assert(op_num > op_off_top + op_off_low);
@@ -195,7 +204,7 @@ fn simulateCompiler(
                             switch (op_type[op_idx + loop_idx]) {
                                 .unary_add => {
                                     try tensor1[tensor_out].unaryAdd(allocator, u_var);
-                                    try tensor2[tensor_out].unaryAdd(allocator, u_var);
+                                    try tensor2[tensor_out].unaryAdd(allocator, u_var + 1);
                                 },
                                 .unary_subtract => {
                                     try tensor1[tensor_out].unarySubtract(allocator, u_var);
@@ -211,8 +220,10 @@ fn simulateCompiler(
                                 },
                                 .unary_exp => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryMax(allocator, 100);
-                                    try tensor2[tensor_out].unaryMax(allocator, 100);
+                                    try tensor1[tensor_out].unaryMax(allocator, 10);
+                                    try tensor2[tensor_out].unaryMax(allocator, 10);
+                                    try tensor1[tensor_out].unaryMin(allocator, -10);
+                                    try tensor2[tensor_out].unaryMin(allocator, -10);
 
                                     try tensor1[tensor_out].unaryExp(allocator);
                                     try tensor2[tensor_out].unaryExp(allocator);
@@ -242,8 +253,8 @@ fn simulateCompiler(
                                     try tensor1[tensor_out].unaryAbsolute(allocator);
                                     try tensor2[tensor_out].unaryAbsolute(allocator);
 
-                                    try tensor1[tensor_out].unarySquare(allocator);
-                                    try tensor2[tensor_out].unarySquare(allocator);
+                                    try tensor1[tensor_out].unarySqrt(allocator);
+                                    try tensor2[tensor_out].unarySqrt(allocator);
                                 },
                                 .unary_reciprocal => {
                                     // NaN prevention
@@ -406,8 +417,6 @@ fn simulateCompiler(
 
 fn minifyCompiler(
     allocator: anytype,
-    tensor_num: u32,
-    op_num: u32,
     rng: u64,
     err: anytype,
     device: ClDevice,
@@ -418,36 +427,34 @@ fn minifyCompiler(
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_top: u32 = 1;
-    for (1..op_num) |op_removed_usize| {
-        const op_removed: u32 = @truncate(op_removed_usize);
+    for (1..op_num) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, tensor_num, op_num, 0, op_removed, rng, device, context, queue) catch {
+        simulateCompiler(allocator, 0, @truncate(op_removed), rng, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
+            op_top = @truncate(op_removed);
             continue;
         } else {
-            op_top = op_removed - 1;
             break;
         }
     }
     // If it fails with no ops there's a serious issue
     assert(op_top > 0);
-    var op_low: u32 = op_top - 1;
-    for (1..op_top) |op_removed_usize| {
-        const op_removed: u32 = @truncate(op_removed_usize);
+    var op_low: u32 = 0;
+    for (1..op_num - op_top) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, tensor_num, op_num, op_removed, op_top, rng, device, context, queue) catch {
+        simulateCompiler(allocator, @truncate(op_removed), op_top, rng, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
+            op_low = @truncate(op_removed);
             continue;
         } else {
-            op_low = op_removed;
             break;
         }
     }
-    std.debug.print("Failed at minimum op num {} and max op num {}\n", .{ op_low + 1, op_num - op_top });
+    std.debug.print("Passes below {} and not after {}\n", .{ op_low, op_num - op_top });
     return err;
 }
 
@@ -486,13 +493,6 @@ pub fn main() !void {
         false => rng_saved.?,
     };
 
-    const tensor_num: u32 = 10;
-    const op_num: u32 = 10;
-    comptime {
-        assert(tensor_num > 1);
-        assert(op_num > 0);
-    }
-
     const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
@@ -504,16 +504,16 @@ pub fn main() !void {
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
             std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, tensor_num, op_num, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, tensor_num, op_num, rng, err, device, context, queue);
+            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
+                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
             };
             loop_idx += 1;
         }
     } else {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, tensor_num, op_num, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, tensor_num, op_num, rng + loop_idx, err, device, context, queue);
+            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
+                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
             };
         }
     }
