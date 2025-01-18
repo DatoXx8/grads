@@ -18,13 +18,13 @@ const OpenCl = @import("./runtimes/cl.zig").OpenCl;
 pub const buffer_name_size: u32 = 8;
 var buffer_name_offset: u32 = 0;
 
-const Buffer = struct {
-    const SyncStatus = enum(u8) {
+pub const Buffer = struct {
+    pub const SyncStatus = enum(u8) {
         sync_to_host,
         sync_to_device,
         sync_to_none,
     };
-    const SyncError = error{
+    pub const SyncError = error{
         FailedToHost,
         FailedToDevice,
         FailedWait,
