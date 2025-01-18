@@ -25,7 +25,9 @@ const epsilon: f32 = 1e-6;
 const epsilon_relative: f32 = 1e-4;
 /// Check for equality between the two floats within the margin of error of `epsilon`
 fn assertEq(val1: f32, val2: f32) !void {
-    if (std.math.approxEqAbs(f32, val1, val2, epsilon) and !std.math.isInf(val1) and !std.math.isInf(val2)) {
+    if ((std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqAbs(f32, val1, val2, epsilon)) and
+        !std.math.isInf(val1) and !std.math.isInf(val2))
+    {
         return;
     } else {
         if (std.math.isNan(val1) or std.math.isNan(val2)) {
