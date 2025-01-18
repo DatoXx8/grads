@@ -44,11 +44,43 @@ fn assertEq(val1: f32, val2: f32) !void {
 }
 const tensor_num: u32 = 10;
 const op_num: u32 = 10;
-const interations: u32 = 2;
+const iterations: u32 = 100;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
-    assert(interations > 0);
+    assert(iterations > 0);
+}
+
+/// Computes and prints mean and variance
+fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
+    var ns_sum: i128 = 0;
+    for (0..iterations) |iteration_idx| {
+        ns_sum += ns_times[iteration_idx];
+    }
+    const ns_mean: i128 = @divFloor(ns_sum, iterations);
+    var ns_square_sum: i128 = 0;
+    for (0..iterations) |iteration_idx| {
+        const ns_difference: i128 = ns_times[iteration_idx] - ns_mean;
+        ns_square_sum += ns_difference * ns_difference;
+    }
+    const ns_variance: u128 = std.math.sqrt(@as(u128, @intCast(@divFloor(ns_square_sum, iterations))));
+
+    if (ns_mean < 1_000) {
+        std.debug.print("Time: {d:8.4}ns +- {d:8.4}ns", .{ ns_mean, ns_variance });
+    } else if (ns_mean < 1_000_000) {
+        const us_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000;
+        const us_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000;
+        std.debug.print("Time: {d:8.4}us +- {d:8.4}us", .{ us_mean, us_variance });
+    } else if (ns_mean < 1_000_000_000) {
+        const ms_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000;
+        const ms_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000;
+        std.debug.print("Time: {d:8.4}ms +- {d:8.4}ms", .{ ms_mean, ms_variance });
+    } else {
+        const s_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000_000;
+        const s_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000_000;
+        std.debug.print("Time: {d:8.4} s +- {d:8.4} s", .{ s_mean, s_variance });
+    }
+    std.debug.print(" {s}\n", .{name});
 }
 
 // If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
@@ -76,7 +108,7 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
     }
 
     Pcg.init(rng);
-    std.debug.print("profile-compiler: rng={}...", .{rng});
+    std.debug.print("profile-compiler: rng={}...\n", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
@@ -86,9 +118,9 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
     }
 
     const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
-    const op_type: [op_num]OpType = undefined;
-    const op_out: [op_num]u32 = undefined;
-    const op_in: [op_num]u32 = undefined;
+    var op_type: [op_num]OpType = undefined;
+    var op_out: [op_num]u32 = undefined;
+    var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
         op_type[op_idx] = @enumFromInt(Pcg.randBelow(op_type_max));
@@ -360,14 +392,14 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
         }
     }
 
-    var time_linearized: [interations]i128 = undefined;
-    for (0..interations) |interation_idx| {
+    var time_linearized: [iterations]i128 = undefined;
+    for (0..iterations) |interation_idx| {
         // Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
         tensor2[op_out[op_num - 1]].linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
-    // TODO: Make function like fn analyseTimes(time: [iterations]i128) void that performs a statistical analysis of the times
+    analyseTimes(time_linearized, "linearized");
 
     const size_local: u32 = Pcg.randBelow(10) + 1;
     const size_global: u32 = size_local * (Pcg.randBelow(10) + 1);
@@ -381,13 +413,13 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
         size_global, size_local, device, context, queue);
     defer program.free(allocator) catch {};
 
-    var time_program: [interations]i128 = undefined;
-    for (0..interations) |interation_idx| {
+    var time_program: [iterations]i128 = undefined;
+    for (0..iterations) |interation_idx| {
         const time_start: i128 = std.time.nanoTimestamp();
         try program.run();
         time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
-    // TODO: Make function like fn analyseTimes(time: [iterations]i128) void that performs a statistical analysis of the times
+    analyseTimes(time_program, "O0");
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_host);
@@ -399,7 +431,6 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
             try assertEq(tensor1[tensor_idx].buffer.values[arg_idx], tensor2[tensor_idx].buffer.values[arg_idx]);
         }
     }
-    std.debug.print(" passed!\n", .{});
 }
 
 pub fn main() !void {
