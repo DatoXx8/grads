@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "grads",
+        .name = "test",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
@@ -87,4 +87,42 @@ pub fn build(b: *std.Build) void {
     }
     const test_compiler_step = b.step("test-compiler", "Run the simulator for the compiler");
     test_compiler_step.dependOn(&test_compiler.step);
+
+    const simulation_profiler_compiler = b.addExecutable(.{
+        .name = "profile-compiler",
+        .root_source_file = b.path("src/profile-compiler.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    simulation_profiler_compiler.addIncludePath(.{
+        .cwd_relative = "/usr/include/",
+    });
+    // TODO: Figure out how to get rid of libc
+    simulation_profiler_compiler.linkSystemLibrary("c");
+    simulation_profiler_compiler.linkSystemLibrary("OpenCL");
+    b.installArtifact(simulation_profiler_compiler);
+    const profiler_compiler = b.addRunArtifact(simulation_profiler_compiler);
+    profiler_compiler.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        profiler_compiler.addArgs(args);
+    }
+    const profiler_compiler_step = b.step("profile-compiler", "Run the simulator for the compiler optimisations");
+    profiler_compiler_step.dependOn(&profiler_compiler.step);
+
+    const libgrads = b.addStaticLibrary(.{
+        .name = "grads",
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    libgrads.addIncludePath(.{
+        .cwd_relative = "/usr/include/",
+    });
+    // TODO: Do I need to link this?
+    // static_lib.linkSystemLibrary("c");
+    // static_lib.linkSystemLibrary("OpenCL");
+    b.installArtifact(libgrads);
+    if (b.args) |args| {
+        test_compiler.addArgs(args);
+    }
 }
