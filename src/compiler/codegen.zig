@@ -316,7 +316,6 @@ fn generateOpSingular(
             });
         },
         .unary_random => {
-            assert(false);
             try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}];\n", .{
                 op.out.name,
                 op.out.name,
@@ -329,6 +328,7 @@ fn generateOpSingular(
                 op_idx,
                 offset_out,
             });
+            unreachable;
         },
         .unary_tanh => {
             try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = tanh({s}[{s}_{}_{} + {}]);\n", .{

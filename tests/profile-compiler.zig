@@ -41,7 +41,7 @@ fn assertEq(val1: f32, val2: f32) !void {
 }
 const tensor_num: u32 = 10;
 const op_num: u32 = 10;
-const iterations: u32 = 100;
+const iterations: u32 = 1000;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -447,7 +447,7 @@ pub fn main() !void {
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
         } else {
             std.log.err("Found unrecognised option `{s}`, expected `rng=<number>`.\n", .{arg});
-            assert(false);
+            unreachable;
         }
     }
     const rng: u64 = switch (rng_saved == null) {

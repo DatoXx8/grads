@@ -451,7 +451,7 @@ pub fn main() !void {
             assert(loop_infinite == (loop_count == 0));
         } else {
             std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
-            assert(false);
+            unreachable;
         }
     }
     const rng: u64 = switch (rng_saved == null) {
