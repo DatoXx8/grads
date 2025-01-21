@@ -384,7 +384,7 @@ fn simulateCompiler(
     }
 
     const program: Program = try Program.alloc(allocator, tensor1[op_out[op_num - 1]].linearized, //
-        size_global, size_local, device, context, queue);
+        size_global, size_local, .O0, device, context, queue);
     try program.run();
     try program.free(allocator);
 

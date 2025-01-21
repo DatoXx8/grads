@@ -50,19 +50,15 @@ pub const ClDevice = struct {
     pub fn alloc(device_type: ClDevice.ClDeviceType) !ClDevice {
         var platform: open_cl.cl_platform_id = null;
         var device: open_cl.cl_device_id = null;
-        var err: i32 = 0;
 
-        err = open_cl.clGetPlatformIDs(1, &platform, null);
-        if (err != 0) {
+        if (open_cl.clGetPlatformIDs(1, &platform, null) != 0) {
             return ClError.PlatformNotFound;
         }
 
-        err = open_cl.clGetDeviceIDs(platform, switch (device_type) {
+        if (open_cl.clGetDeviceIDs(platform, switch (device_type) {
             .gpu => open_cl.CL_DEVICE_TYPE_GPU,
             .cpu => open_cl.CL_DEVICE_TYPE_CPU,
-        }, 1, &device, null);
-
-        if (err == 0) {
+        }, 1, &device, null) == 0) {
             return .{ .type = device_type, .device = device };
         } else {
             return ClError.DeviceNotFound;
@@ -118,8 +114,7 @@ pub const ClCommandQueue = struct {
         }
     }
     pub fn free(queue: ClCommandQueue) !void {
-        const err: i32 = open_cl.clReleaseCommandQueue(queue.queue);
-        if (err == 0) {
+        if (open_cl.clReleaseCommandQueue(queue.queue) == 0) {
             return;
         } else {
             return ClError.QueueNotFreed;

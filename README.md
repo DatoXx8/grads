@@ -45,6 +45,6 @@ To run the unit tests for singular ops run `zig build test-op`.
 To run the simulation tests for linearized ops run `zig build test-linearized`.
 To run the simulation tests for the compiler run `zig build test-compiler`.
 
-To profile the optimiser you can run `zig build profile-compiler`. (The optimiser does not yet deserve it's name as an optimiser)
+To profile the optimizer you can run `zig build profile-compiler`. (The optimizer does not yet deserve it's name as an optimizer)
 
 In case a test fails, you can open an issue on the GitHub with the random seed and because the tests are deterministic that means me and others can then fix that bug.

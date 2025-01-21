@@ -5,11 +5,10 @@ const std = @import("std");
 // TODO: I think all of the above can be gotten rid of by having a way to explicity interface with the linearized capacity to increase / set it as necessary
 //      -> Do something like tensor.capacity_ensure(std.mem.allocator, u32) to ensure there at least that many spots free
 //
-//  TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
-//
-//      FIND THAT FUCKING RACING GAME SONG WITH THE GREEN THUMBNAIL "STARTING THE WINNER" OR SOME SHIT LIKE THAT. THAT SONG WAS A FUCKING BANGER
-//
-//      Error in old c implementation at 1732074960
+// TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
+// TODO: Actual error handling where it is possible
+// TODO: Add autograd
+// TODO: Get rid of comptime for debug printing with a statically allocated padding_max string and then take variable slices of that string
 
 const Tensor = @import("./tensor.zig").Tensor;
 
@@ -21,28 +20,41 @@ const ClDevice = @import("./runtimes/cl.zig").ClDevice;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 
-pub fn main() !void {
-    // const stdout_file = std.io.getStdOut().writer();
-    // var bw = std.io.bufferedWriter(stdout_file);
-    // const stdout = bw.writer();
-    // defer bw.flush() catch {};
+const Neuralnet = @import("./nn.zig").Neuralnet;
 
+pub fn main() !void {
     std.debug.print("Hi :)\n", .{});
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    const device: ClDevice = try ClDevice.alloc(.Gpu);
+    const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
 
-    var tensor: Tensor = try Tensor.alloc(allocator, 2, 3, 4, 5, context);
+    var tensor: Tensor = try Tensor.alloc(allocator, 1, 1, 2, 2, context);
     defer tensor.free(allocator);
-    try tensor.unaryAdd(allocator, 4);
-    try tensor.linearized.print(4, 0, null);
-
-    const program: Program = try Program.alloc(allocator, tensor.linearized, 9, 3, device, context, queue);
-    defer program.free(allocator) catch {};
-
+    try tensor.unaryRandom(allocator);
     tensor.realize();
-    try tensor.linearized.print(4, 0, null);
-    try tensor.print(4, 0, null);
+    try tensor.buffer.syncToDevice(queue);
+    try tensor.buffer.syncWait(queue);
+
+    var nn: Neuralnet = try Neuralnet.alloc(
+        allocator,
+        tensor,
+        &[_]Neuralnet.Layer.Config{
+            // .{ .dense = .{ .size_out = 8, .activation = .none } },
+            // .{ .dense = .{ .size_out = 8, .activation = .relu } },
+            .{ .split = .{ .filters = 2, .activation = .none } },
+        },
+        20,
+        4,
+        .O1,
+        context,
+        device,
+        queue,
+    );
+    defer nn.free(allocator) catch {};
+    try nn.init(allocator);
+    try nn.forward(.gpu);
+    nn.layers[nn.layers.len - 1].values.print(4, 0, null);
+    std.debug.print("Max {}\n", .{try device.maxSizeLocal()});
 }

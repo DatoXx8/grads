@@ -4,6 +4,7 @@ const std = @import("std");
 
 const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
+const Optimization = @import("./codegen.zig").Optimization;
 const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
 const assert = std.debug.assert;
 
@@ -112,15 +113,6 @@ pub const DimInfo = struct {
         var res_z_in: u32 = 0;
         var res_y_in: u32 = 0;
         var res_x_in: u32 = 0;
-        // TODO: Could just inline this in the struct initialiser
-        const off_a_out: u32 = linearized.op[op_start + idx_a_out * op_num].out.a_offset;
-        const off_z_out: u32 = linearized.op[op_start + idx_z_out * op_num].out.z_offset;
-        const off_y_out: u32 = linearized.op[op_start + idx_y_out * op_num].out.y_offset;
-        const off_x_out: u32 = linearized.op[op_start + idx_x_out * op_num].out.x_offset;
-        const off_a_in: u32 = linearized.op[op_start + idx_a_in * op_num].in.a_offset;
-        const off_z_in: u32 = linearized.op[op_start + idx_z_in * op_num].in.z_offset;
-        const off_y_in: u32 = linearized.op[op_start + idx_y_in * op_num].in.y_offset;
-        const off_x_in: u32 = linearized.op[op_start + idx_x_in * op_num].in.x_offset;
 
         var a_out_left: bool = false;
         var z_out_left: bool = false;
@@ -345,14 +337,14 @@ pub const DimInfo = struct {
             .res_z_in = res_z_in,
             .res_y_in = res_y_in,
             .res_x_in = res_x_in,
-            .off_a_out = off_a_out,
-            .off_z_out = off_z_out,
-            .off_y_out = off_y_out,
-            .off_x_out = off_x_out,
-            .off_a_in = off_a_in,
-            .off_z_in = off_z_in,
-            .off_y_in = off_y_in,
-            .off_x_in = off_x_in,
+            .off_a_out = linearized.op[op_start + idx_a_out * op_num].out.a_offset,
+            .off_z_out = linearized.op[op_start + idx_z_out * op_num].out.z_offset,
+            .off_y_out = linearized.op[op_start + idx_y_out * op_num].out.y_offset,
+            .off_x_out = linearized.op[op_start + idx_x_out * op_num].out.x_offset,
+            .off_a_in = linearized.op[op_start + idx_a_in * op_num].in.a_offset,
+            .off_z_in = linearized.op[op_start + idx_z_in * op_num].in.z_offset,
+            .off_y_in = linearized.op[op_start + idx_y_in * op_num].in.y_offset,
+            .off_x_in = linearized.op[op_start + idx_x_in * op_num].in.x_offset,
             .idx_a_out = idx_a_out,
             .idx_z_out = idx_z_out,
             .idx_y_out = idx_y_out,
@@ -366,31 +358,42 @@ pub const DimInfo = struct {
 };
 
 pub const Pir = struct {
+    pub const Inline = enum(u8) {
+        none,
+        in,
+        out,
+    };
     repeat_num: u32,
     op_num: u32,
     op: []Op,
     dim_info: []DimInfo,
+    inline_type: []Pir.Inline,
     pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *u32) !Pir {
         assert(op_used.* < linearized.op_num);
         var op_num: u32 = 1;
         var repeat_num: u32 = 1;
         const op_start: u32 = op_used.*;
+        var inline_type: []Pir.Inline = try allocator.alloc(Pir.Inline, linearized.op_num - op_start);
+        errdefer allocator.free(inline_type);
+        for (0..linearized.op_num - op_start) |op_idx| {
+            inline_type[op_idx] = .none;
+        }
 
-        for (1..linearized.op_num - op_start) |op_off| {
-            if (linearized.op[op_start].equal(linearized.op[op_start + op_off]) and
-                !linearized.op[op_start].overlaps(linearized.op[op_start + op_off]))
-            {
+        // TODO: Put all inlineable ops in the kernel even in case no loop is found
+
+        for (op_start + 1..linearized.op_num) |op_off| {
+            if (linearized.op[op_start].equal(linearized.op[op_off]) and !linearized.op[op_start].overlaps(linearized.op[op_off])) {
                 var all_same: bool = true;
-                for (0..op_off) |inner_off| {
-                    if (!linearized.op[op_start + inner_off].equal(linearized.op[op_start + op_off + inner_off]) or
-                        linearized.op[op_start + inner_off].overlaps(linearized.op[op_start + op_off + inner_off]))
+                for (0..op_off - op_start) |inner_off| {
+                    if (!linearized.op[op_start + inner_off].equal(linearized.op[op_off + inner_off]) or
+                        linearized.op[op_start + inner_off].overlaps(linearized.op[op_off + inner_off]))
                     {
                         all_same = false;
                         break;
                     }
                 }
                 if (all_same) {
-                    op_num = @as(u32, @intCast(op_off));
+                    op_num = @as(u32, @intCast(op_off - op_start));
                     break;
                 } else {
                     continue;
@@ -451,8 +454,8 @@ pub const Pir = struct {
                 break;
             }
         }
-        const op: []Op = try allocator.alloc(Op, op_num * repeat_num);
-        const dim_info: []DimInfo = try allocator.alloc(DimInfo, op_num * repeat_num);
+        const op: []Op = try allocator.alloc(Op, op_num);
+        const dim_info: []DimInfo = try allocator.alloc(DimInfo, op_num);
         for (0..op_num) |op_idx| {
             op[op_idx] = linearized.op[op_start + op_idx];
         }
@@ -468,11 +471,39 @@ pub const Pir = struct {
             .op = op,
             .repeat_num = repeat_num,
             .dim_info = dim_info,
+            .inline_type = inline_type,
         };
     }
     pub fn free(this: *@This(), allocator: anytype) void {
         allocator.free(this.op);
         allocator.free(this.dim_info);
+        allocator.free(this.inline_type);
+    }
+    pub fn optimize(this: *@This(), optimization: Optimization) void {
+        // Structured like this to make debugging easier
+        switch (optimization) {
+            .O0 => {},
+            .O1 => {
+                this.optimizeInline();
+            },
+            .O2 => {
+                this.optimizeInline();
+            },
+            .O3 => {
+                this.optimizeInline();
+            },
+        }
+    }
+    pub fn optimizeInline(this: *@This()) void {
+        for (1..this.op_num) |op_idx| {
+            if (this.op[op_idx - 1].isOutInlinable(&this.op[op_idx])) {
+                this.inline_type[op_idx] = .out;
+            } else if (this.op[op_idx - 1].isInInlinable(&this.op[op_idx])) {
+                this.inline_type[op_idx] = .in;
+            } else {
+                this.inline_type[op_idx] = .none;
+            }
+        }
     }
     pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
         if (name) |text| {
@@ -541,6 +572,10 @@ pub const Pir = struct {
                 this.dim_info[op_idx].idx_z_in,
                 this.dim_info[op_idx].idx_y_in,
                 this.dim_info[op_idx].idx_x_in,
+            });
+            std.debug.print("{s}inline => {}\n", .{
+                " " ** (offset + 2 * padding),
+                this.inline_type[op_idx],
             });
         }
     }

@@ -8,7 +8,7 @@ const assert = std.debug.assert;
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const OpenCl = @import("./runtimes/cl.zig").OpenCl;
+const OpenCl = @import("./runtimes/cl.zig").open_cl;
 
 // TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
@@ -135,9 +135,9 @@ pub const Buffer = struct {
     pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
             const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-            const err: i32 = OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
-                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
-            if (err != 0) {
+            if (OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
+                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
+            {
                 return SyncError.FailedToHost;
             }
             this.sync = .sync_to_none;
@@ -146,9 +146,9 @@ pub const Buffer = struct {
     pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_device) {
             const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
-            const err: i32 = OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
-                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null);
-            if (err != 0) {
+            if (OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
+                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
+            {
                 return SyncError.FailedToDevice;
             }
             this.sync = .sync_to_none;
@@ -280,7 +280,29 @@ pub const Op = struct {
     pub inline fn isReduce(this: *const @This()) bool {
         return this.type.isReduce();
     }
-    // TODO: Optimise this with simd, see @Vector
+    pub inline fn isOutInlinable(this: *const @This(), target: *const @This()) bool {
+        return this.out.name_offset == target.out.name_offset and
+            this.out.a_size == target.out.a_size and
+            this.out.z_size == target.out.z_size and
+            this.out.y_size == target.out.y_size and
+            this.out.x_size == target.out.x_size and
+            this.out.a_offset == target.out.a_offset and
+            this.out.z_offset == target.out.z_offset and
+            this.out.y_offset == target.out.y_offset and
+            this.out.x_offset == target.out.x_offset;
+    }
+    pub inline fn isInInlinable(this: *const @This(), target: *const @This()) bool {
+        return this.out.name_offset == target.in.name_offset and
+            this.out.a_size == target.in.a_size and
+            this.out.z_size == target.in.z_size and
+            this.out.y_size == target.in.y_size and
+            this.out.x_size == target.in.x_size and
+            this.out.a_offset == target.in.a_offset and
+            this.out.z_offset == target.in.z_offset and
+            this.out.y_offset == target.in.y_offset and
+            this.out.x_offset == target.in.x_offset;
+    }
+    // TODO: Optimize this with simd, see @Vector
     pub fn realize(this: *const @This()) void {
         if (this.isUnary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
@@ -1707,11 +1729,10 @@ pub const Linearized = struct {
     op: []Op,
     op_num: usize,
     pub fn alloc(allocator: anytype) !Linearized {
-        const linearized: Linearized = .{
+        return .{
             .op_num = 0,
             .op = try allocator.alloc(Op, op_cap_base),
         };
-        return linearized;
     }
     pub fn free(this: *@This(), allocator: anytype) void {
         this.op_num = 0;

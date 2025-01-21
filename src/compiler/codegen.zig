@@ -1,5 +1,11 @@
-// TODO: Optimisation
-// Optimisation levels
+// TODO: These levels
+// Optimization levels
+// O1 - inline, split, merge kernels
+// O2 - fuse along all axis
+// O3 - memory optimizer (SLOW!!!)
+//
+//
+// Optimiuation levels
 // O0 - none
 // O1 - inline, split, merge kernels
 // O2 - fuse along all axis
@@ -21,7 +27,7 @@ const Args = @import("./kernel.zig").Args;
 const kernel_name = @import("../runtimes/cl.zig").kernel_name;
 const kernel_name_c = @import("../runtimes/cl.zig").kernel_name_c;
 
-pub const Optimisation = enum(u8) {
+pub const Optimization = enum(u8) {
     O0,
     O1,
     O2,
@@ -651,29 +657,19 @@ fn generateOpSingular(
 
 fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize, op: Op, repeat_idx: usize, op_idx: usize) !void {
     // To deal with reduce and linary ops.
-    const a_max: u32 = @max(op.out.a_size, op.in.a_size);
-    const z_max: u32 = @max(op.out.z_size, op.in.z_size);
-    const y_max: u32 = @max(op.out.y_size, op.in.y_size);
-    const x_max: u32 = @max(op.out.x_size, op.in.x_size);
+    const a_max: u32 = if (op.isReduce()) op.in.a_size else op.out.a_size;
+    const z_max: u32 = if (op.isReduce()) op.in.z_size else op.out.z_size;
+    const y_max: u32 = if (op.isReduce()) op.in.y_size else op.out.y_size;
+    const x_max: u32 = if (op.isReduce()) op.in.x_size else op.out.x_size;
 
     try generateOpHeader(allocator, source, offset, padding, op, repeat_idx, op_idx);
     for (0..a_max) |a| {
         for (0..z_max) |z| {
             for (0..y_max) |y| {
                 for (0..x_max) |x| {
-                    // TODO: Might have to deal with size = 1 for reduce and linary
-                    var offset_out: usize = 0;
-                    if (op.isReduce()) {
-                        offset_out = op.out.at(0, 0, 0, 0) - op.out.offset;
-                    } else {
-                        offset_out = op.out.at(a, z, y, x) - op.out.offset;
-                    }
-                    var offset_in: usize = 0;
-                    if (op.isLinary()) {
-                        offset_in = op.in.at(0, 0, 0, 0) - op.in.offset;
-                    } else {
-                        offset_in = op.in.at(a, z, y, x) - op.in.offset;
-                    }
+                    const offset_out: usize = if (op.isReduce()) 0 else op.out.at(a, z, y, x) - op.out.offset;
+                    const offset_in: usize = if (op.isLinary()) 0 - op.in.offset else op.in.at(a, z, y, x) - op.in.offset;
+
                     try generateOpSingular(allocator, source, offset, padding, op, repeat_idx, op_idx, offset_out, offset_in);
                 }
             }
@@ -684,8 +680,7 @@ fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize,
 
 // TODO: Clean up this Args nonsense and the file structure. The way it currently is, it makes little to no sense to have cl.zig in a seperate directory
 /// Create the source for a kernel computing `pir`
-pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size_local: u32, optimisation: Optimisation) ![]u8 {
-    assert(optimisation == .O0);
+pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size_local: u32) ![]u8 {
     assert(args.arg_num > 0);
     assert(size_global % size_local == 0);
     assert(size_global > 0);
@@ -712,10 +707,7 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size
 
     const repeat_leftover: bool = (pir.repeat_num % size_global) != 0;
     // Not using std.math.divCeil here because it is kind of silly that it can error
-    const repeat_kernel: u32 = switch (repeat_leftover) {
-        true => @divFloor(pir.repeat_num, size_global) + 1,
-        false => @divFloor(pir.repeat_num, size_global),
-    };
+    const repeat_kernel: u32 = @divFloor(pir.repeat_num, size_global) + @intFromBool(repeat_leftover);
 
     try writeBuffer(allocator, &source, &offset, padding, "__const int gid = get_global_id(0);\n", .{});
     try writeBuffer(allocator, &source, &offset, padding, "int id;\n", .{});
@@ -733,6 +725,9 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size
         for (0..pir.op_num) |op_idx| {
             try generateIndex(allocator, &source, &offset, padding, pir.op[op_idx], pir.dim_info[op_idx], repeat_idx, op_idx);
             try generateOp(allocator, &source, &offset, padding, pir.op[op_idx], repeat_idx, op_idx);
+            if (op_idx == pir.op_num - 1 or pir.inline_type[op_idx + 1] == .none) {
+                try writeBuffer(allocator, &source, &offset, padding, ";\n", .{});
+            }
         }
 
         if (repeat_leftover and repeat_idx == repeat_kernel - 1) {

@@ -15,7 +15,7 @@ const Pir = @import("./pir.zig").Pir;
 const sourceGenerate = @import("./codegen.zig").generate;
 const Optimisation = @import("./codegen.zig").Optimisation;
 
-const OpenCl = @import("../runtimes/cl.zig").OpenCl;
+const open_cl = @import("../runtimes/cl.zig").open_cl;
 
 pub const Args = struct {
     arg_name: [][buffer_name_size]u8,
@@ -93,11 +93,10 @@ pub const Kernel = struct {
         pir: Pir,
         size_global: u32,
         size_local: u32,
-        optimisation: Optimisation,
     ) !Kernel {
         const args: Args = try Kernel.argsGather(allocator, pir);
         errdefer allocator.free(args.arg_name);
-        const source: []u8 = try sourceGenerate(allocator, pir, args, size_global, size_local, optimisation);
+        const source: []u8 = try sourceGenerate(allocator, pir, args, size_global, size_local);
         errdefer allocator.free(source);
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
@@ -108,9 +107,9 @@ pub const Kernel = struct {
         for (0..args.arg_num) |arg_idx| {
             // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
             // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
-            const err: i32 = OpenCl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
-                @sizeOf(OpenCl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory));
-            if (err != 0) {
+            if (open_cl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
+                @sizeOf(open_cl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
+            {
                 return ClError.ArgNotSet;
             }
         }

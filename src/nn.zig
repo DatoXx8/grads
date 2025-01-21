@@ -9,6 +9,8 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 
 const Program = @import("./compiler/program.zig").Program;
 
+const Optimization = @import("./compiler/codegen.zig").Optimization;
+
 const assert = std.debug.assert;
 
 // TODO: Maybe split this up into multiple files (Maybe one per layer type?)
@@ -1205,6 +1207,7 @@ pub const Neuralnet = struct {
         config: []const Layer.Config,
         size_global: u32,
         size_local: u32,
+        optimization: Optimization,
         context: ClContext,
         device: ClDevice,
         queue: ClCommandQueue,
@@ -1323,11 +1326,11 @@ pub const Neuralnet = struct {
         }
 
         const forward_cl: Program = try Program.alloc(allocator, forward_cpu, size_global, //
-            size_local, device, context, queue);
+            size_local, optimization, device, context, queue);
         const backward_cl: Program = try Program.alloc(allocator, backward_cpu, size_global, //
-            size_local, device, context, queue);
+            size_local, optimization, device, context, queue);
         const learn_cl: Program = try Program.alloc(allocator, learn_cpu, size_global, //
-            size_local, device, context, queue);
+            size_local, optimization, device, context, queue);
 
         return .{
             .input = input,
