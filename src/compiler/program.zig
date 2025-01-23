@@ -51,7 +51,6 @@ pub const Program = struct {
             var pir: Pir = try Pir.alloc(allocator, linearized, &op_used);
             defer pir.free(allocator);
             pir.optimize(optimization);
-            pir.print(4, 0, null);
 
             if (kernel_num == kernel.len) {
                 kernel = try allocator.realloc(kernel, kernel.len * 2);
@@ -77,7 +76,6 @@ pub const Program = struct {
     }
     pub fn run(this: @This()) !void {
         for (0..this.kernel_num) |kernel_idx| {
-            std.debug.print("{} => {s}\n", .{ kernel_idx, this.kernel[kernel_idx].source });
             if (open_cl.clEnqueueNDRangeKernel(this.queue.queue, this.kernel[kernel_idx].kernel.kernel, //
                 1, null, &this.size_global, &this.size_local, 0, null, null) != 0)
             {

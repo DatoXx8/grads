@@ -281,7 +281,9 @@ pub const Op = struct {
         return this.type.isReduce();
     }
     pub inline fn isOutInlinable(this: *const @This(), target: *const @This()) bool {
-        return this.out.name_offset == target.out.name_offset and
+        // TODO: Need to check that there is not a way that changes, that would be done by target get lost in case they get used somewhere else
+        return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
+            this.out.name_offset == target.out.name_offset and
             this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and
             this.out.y_size == target.out.y_size and
@@ -292,7 +294,9 @@ pub const Op = struct {
             this.out.x_offset == target.out.x_offset;
     }
     pub inline fn isInInlinable(this: *const @This(), target: *const @This()) bool {
-        return this.out.name_offset == target.in.name_offset and
+        // TODO: Need to check that there is not a way that changes, that would be done by target get lost in case they get used somewhere else
+        return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
+            this.out.name_offset == target.in.name_offset and
             this.out.a_size == target.in.a_size and
             this.out.z_size == target.in.z_size and
             this.out.y_size == target.in.y_size and

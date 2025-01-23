@@ -3,8 +3,7 @@
 // O1 - inline, split, merge kernels
 // O2 - fuse along all axis
 // O3 - memory optimizer (SLOW!!!)
-//
-//
+
 // Optimiuation levels
 // O0 - none
 // O1 - inline, split, merge kernels
@@ -54,37 +53,58 @@ fn writeBuffer(allocator: anytype, source: *[]u8, offset: *usize, padding: usize
 }
 
 /// Generate computation for per-op indices
-fn generateIndex(
-    allocator: anytype,
-    source: *[]u8,
-    offset: *usize,
-    padding: usize,
-    op: Op,
-    dim_info: DimInfo,
-    repeat_idx: usize,
-    op_idx: usize,
-) !void {
-    const offset_out: u32 = dim_info.off_a_out * op.out.a_stride + dim_info.off_z_out * op.out.z_stride +
-        dim_info.off_y_out * op.out.y_stride + dim_info.off_x_out * op.out.x_stride;
-    try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n", .{
-        op.out.name, repeat_idx, op_idx, //
-        dim_info.idx_a_out, dim_info.res_a_out, dim_info.wai_a_out, dim_info.str_a_out * op.out.a_stride, //
-        dim_info.idx_z_out, dim_info.res_z_out, dim_info.wai_z_out, dim_info.str_z_out * op.out.z_stride,
-        dim_info.idx_y_out, dim_info.res_y_out, dim_info.wai_y_out, dim_info.str_y_out * op.out.y_stride,
-        dim_info.idx_x_out, dim_info.res_x_out, dim_info.wai_x_out, dim_info.str_x_out * op.out.x_stride,
-        offset_out,
-    });
-    if (!op.isUnary()) {
-        const offset_in: u32 = dim_info.off_a_in * op.in.a_stride + dim_info.off_z_in * op.in.z_stride +
-            dim_info.off_y_in * op.in.y_stride + dim_info.off_x_in * op.in.x_stride;
-        try writeBuffer(allocator, source, offset, padding, "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n", .{
-            op.in.name, repeat_idx, op_idx, //
-            dim_info.idx_a_in, dim_info.res_a_in, dim_info.wai_a_in, dim_info.str_a_in * op.in.a_stride, //
-            dim_info.idx_z_in, dim_info.res_z_in, dim_info.wai_z_in, dim_info.str_z_in * op.in.z_stride,
-            dim_info.idx_y_in, dim_info.res_y_in, dim_info.wai_y_in, dim_info.str_y_in * op.in.y_stride,
-            dim_info.idx_x_in, dim_info.res_x_in, dim_info.wai_x_in, dim_info.str_x_in * op.in.x_stride,
-            offset_in,
-        });
+fn generateIndex(allocator: anytype, source: *[]u8, offset: *usize, padding: usize, pir: Pir, repeat_idx: usize) !void {
+    const op = pir.op;
+    const dim_info = pir.dim_info;
+    for (0..pir.op_num) |op_idx| {
+        const offset_out: u32 = dim_info[op_idx].off_a_out * op[op_idx].out.a_stride +
+            dim_info[op_idx].off_z_out * op[op_idx].out.z_stride +
+            dim_info[op_idx].off_y_out * op[op_idx].out.y_stride +
+            dim_info[op_idx].off_x_out * op[op_idx].out.x_stride;
+        try writeBuffer(
+            allocator,
+            source,
+            offset,
+            padding,
+            "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
+            .{
+                op[op_idx].out.name, repeat_idx, op_idx, //
+                dim_info[op_idx].idx_a_out, dim_info[op_idx].res_a_out, //
+                dim_info[op_idx].wai_a_out, dim_info[op_idx].str_a_out * op[op_idx].out.a_stride,
+                dim_info[op_idx].idx_z_out, dim_info[op_idx].res_z_out,
+                dim_info[op_idx].wai_z_out, dim_info[op_idx].str_z_out * op[op_idx].out.z_stride,
+                dim_info[op_idx].idx_y_out, dim_info[op_idx].res_y_out,
+                dim_info[op_idx].wai_y_out, dim_info[op_idx].str_y_out * op[op_idx].out.y_stride,
+                dim_info[op_idx].idx_x_out, dim_info[op_idx].res_x_out,
+                dim_info[op_idx].wai_x_out, dim_info[op_idx].str_x_out * op[op_idx].out.x_stride,
+                offset_out,
+            },
+        );
+        if (!op[op_idx].isUnary()) {
+            const offset_in: u32 = dim_info[op_idx].off_a_in * op[op_idx].in.a_stride +
+                dim_info[op_idx].off_z_in * op[op_idx].in.z_stride +
+                dim_info[op_idx].off_y_in * op[op_idx].in.y_stride +
+                dim_info[op_idx].off_x_in * op[op_idx].in.x_stride;
+            try writeBuffer(
+                allocator,
+                source,
+                offset,
+                padding,
+                "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
+                .{
+                    op[op_idx].in.name, repeat_idx, op_idx, //
+                    dim_info[op_idx].idx_a_in, dim_info[op_idx].res_a_in, //
+                    dim_info[op_idx].wai_a_in, dim_info[op_idx].str_a_in * op[op_idx].in.a_stride,
+                    dim_info[op_idx].idx_z_in, dim_info[op_idx].res_z_in,
+                    dim_info[op_idx].wai_z_in, dim_info[op_idx].str_z_in * op[op_idx].in.z_stride,
+                    dim_info[op_idx].idx_y_in, dim_info[op_idx].res_y_in,
+                    dim_info[op_idx].wai_y_in, dim_info[op_idx].str_y_in * op[op_idx].in.y_stride,
+                    dim_info[op_idx].idx_x_in, dim_info[op_idx].res_x_in,
+                    dim_info[op_idx].wai_x_in, dim_info[op_idx].str_x_in * op[op_idx].in.x_stride,
+                    offset_in,
+                },
+            );
+        }
     }
 }
 
@@ -158,8 +178,507 @@ fn generateOpFooter(
         else => {},
     }
 }
+
+fn generateOpPrefix(
+    allocator: anytype,
+    source: *[]u8,
+    offset: *usize,
+    padding: usize,
+    op: Op,
+    inline_info: Pir.Inline,
+    repeat_idx: usize,
+    op_idx: usize,
+    offset_out: usize,
+) !void {
+    switch (op.type) {
+        .unary_add => {
+            try writeBuffer(allocator, source, offset, padding, "({d} + ", .{
+                op.u_var,
+            });
+        },
+        .unary_subtract => {
+            try writeBuffer(allocator, source, offset, padding, "({d} + ", .{
+                op.u_var,
+            });
+        },
+        .unary_multiply => {
+            try writeBuffer(allocator, source, offset, padding, "({d} + ", .{
+                op.u_var,
+            });
+        },
+        .unary_divide => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+        },
+        .unary_exp => {
+            try writeBuffer(allocator, source, offset, padding, "exp(", .{});
+        },
+        .unary_log => {
+            try writeBuffer(allocator, source, offset, padding, "log(", .{});
+        },
+        .unary_square => {
+            // TODO: Refactor this to be a multiplication instead of an exponentiation algorithm
+            try writeBuffer(allocator, source, offset, padding, "pow(", .{});
+        },
+        .unary_sqrt => {
+            try writeBuffer(allocator, source, offset, padding, "sqrt(", .{});
+        },
+        .unary_reciprocal => {
+            try writeBuffer(allocator, source, offset, padding, "1 / (", .{});
+        },
+        .unary_max => {
+            try writeBuffer(allocator, source, offset, padding, "fmax((float){d}, ", .{
+                op.u_var,
+            });
+        },
+        .unary_min => {
+            try writeBuffer(allocator, source, offset, padding, "fmin((float){d}, ", .{
+                op.u_var,
+            });
+        },
+        .unary_set => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+        },
+        .unary_random => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+            unreachable;
+        },
+        .unary_tanh => {
+            try writeBuffer(allocator, source, offset, padding, "tanh(", .{});
+        },
+        .unary_absolute => {
+            try writeBuffer(allocator, source, offset, padding, "fabs(", .{});
+        },
+        .unary_sign => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+            unreachable;
+        },
+        .binary_add => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{} + {}] + ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .binary_subtract => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{} + {}] - ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .binary_multiply => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{} + {}] * ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .binary_divide => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{} + {}] / ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .binary_max => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "fmax({s}[{s}_{}_{} + {}], ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "fmax(", .{});
+            }
+        },
+        .binary_min => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "fmin({s}[{s}_{}_{} + {}], ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_out,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "fmin(", .{});
+            }
+        },
+        .binary_set => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+        },
+        .linary_add => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] + ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .linary_subtract => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] - ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .linary_multiply => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] * ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .linary_divide => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] / ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "(", .{});
+            }
+        },
+        .linary_max => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "fmax({s}[{s}_{}_{}], ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "fmax(", .{});
+            }
+        },
+        .linary_min => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, "fmin({s}[{s}_{}_{}], ", .{
+                    op.out.name,
+                    op.out.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            } else {
+                try writeBuffer(allocator, source, offset, padding, "fmin(", .{});
+            }
+        },
+        .linary_set => {
+            try writeBuffer(allocator, source, offset, padding, "(", .{});
+        },
+        .reduce_sum => {
+            try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] + ", .{
+                op.out.name,
+                op.out.name,
+                repeat_idx,
+                op_idx,
+            });
+        },
+        .reduce_avg => {
+            try writeBuffer(allocator, source, offset, padding, "({s}[{s}_{}_{}] + ", .{
+                op.out.name,
+                op.out.name,
+                repeat_idx,
+                op_idx,
+            });
+        },
+        .reduce_max => {
+            try writeBuffer(allocator, source, offset, padding, "fmax({s}[{s}_{}_{}], ", .{
+                op.out.name,
+                op.out.name,
+                repeat_idx,
+                op_idx,
+            });
+        },
+        .reduce_min => {
+            try writeBuffer(allocator, source, offset, padding, "fmin({s}[{s}_{}_{}], ", .{
+                op.out.name,
+                op.out.name,
+                repeat_idx,
+                op_idx,
+            });
+        },
+    }
+}
+
 /// Generate a line of OpenCL code computing one entry of `op.out`
-fn generateOpSingular(
+fn generateOpPostfix(
+    allocator: anytype,
+    source: *[]u8,
+    offset: *usize,
+    padding: usize,
+    op: Op,
+    inline_info: Pir.Inline,
+    repeat_idx: usize,
+    op_idx: usize,
+    offset_in: usize,
+) !void {
+    switch (op.type) {
+        .unary_add => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_subtract => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_multiply => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_divide => {
+            try writeBuffer(allocator, source, offset, padding, "/ {})", .{op.u_var});
+        },
+        .unary_exp => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_log => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_square => {
+            // TODO: Refactor this to be a multiplication instead of an exponentiation algorithm
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_sqrt => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_reciprocal => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_max => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_min => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_set => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_random => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+            unreachable;
+        },
+        .unary_tanh => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_absolute => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .unary_sign => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+            unreachable;
+        },
+        .binary_add => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " + {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_subtract => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " - {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_multiply => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " * {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_divide => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " / {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_max => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, ", {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_min => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, ", {s}[{s}_{}_{} + {}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                    offset_in,
+                });
+            }
+        },
+        .binary_set => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .linary_add => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " + {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_subtract => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " - {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_multiply => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " * {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_divide => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, " / {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_max => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, ", {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_min => {
+            if (inline_info == .none or inline_info == .in) {
+                try writeBuffer(allocator, source, offset, padding, ")", .{});
+            } else {
+                try writeBuffer(allocator, source, offset, padding, ", {s}[{s}_{}_{}])", .{
+                    op.in.name,
+                    op.in.name,
+                    repeat_idx,
+                    op_idx,
+                });
+            }
+        },
+        .linary_set => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .reduce_sum => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .reduce_avg => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .reduce_max => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+        .reduce_min => {
+            try writeBuffer(allocator, source, offset, padding, ")", .{});
+        },
+    }
+}
+
+fn generateOpAssign(
     allocator: anytype,
     source: *[]u8,
     offset: *usize,
@@ -168,514 +687,115 @@ fn generateOpSingular(
     repeat_idx: usize,
     op_idx: usize,
     offset_out: usize,
-    offset_in: usize,
 ) !void {
-    switch (op.type) {
-        .unary_add => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] += {d};\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_subtract => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] -= {d};\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_multiply => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] *= {d};\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_divide => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] /= {d};\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_exp => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = exp({s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_log => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = log({s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_square => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] *= {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_sqrt => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = sqrt({s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_reciprocal => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = 1 / {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_max => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmax({s}[{s}_{}_{} + {}], (float){d});\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_min => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmin({s}[{s}_{}_{} + {}], (float){d});\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_set => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {d};\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.u_var,
-            });
-        },
-        .unary_random => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-            unreachable;
-        },
-        .unary_tanh => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = tanh({s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_absolute => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fabs({s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .unary_sign => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}] > 0 ? 1 :({s}[{s}_{}_{} + {}] < 0 ? -1 : 0);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-            });
-        },
-        .binary_add => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] += {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_subtract => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] -= {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_multiply => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] *= {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_divide => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] /= {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_max => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmax({s}[{s}_{}_{} + {}], {s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_min => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmin({s}[{s}_{}_{} + {}], {s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .binary_set => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .linary_add => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] += {s}[{s}_{}_{}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_subtract => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] -= {s}[{s}_{}_{}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_multiply => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] *= {s}[{s}_{}_{}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_divide => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] /= {s}[{s}_{}_{}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_max => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmax({s}[{s}_{}_{} + {}], {s}[{s}_{}_{}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_min => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = fmin({s}[{s}_{}_{} + {}], {s}[{s}_{}_{}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .linary_set => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = {s}[{s}_{}_{}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                offset_out,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-            });
-        },
-        .reduce_sum => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{}] += {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .reduce_avg => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{}] += {s}[{s}_{}_{} + {}];\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .reduce_max => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{}] = fmax({s}[{s}_{}_{}], {s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
-        .reduce_min => {
-            try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{}] = fmin({s}[{s}_{}_{}], {s}[{s}_{}_{} + {}]);\n", .{
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.out.name,
-                op.out.name,
-                repeat_idx,
-                op_idx,
-                op.in.name,
-                op.in.name,
-                repeat_idx,
-                op_idx,
-                offset_in,
-            });
-        },
+    if (op.isReduce()) {
+        assert(offset_out == 0);
+    }
+    try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}] = ", .{
+        op.out.name,
+        op.out.name,
+        repeat_idx,
+        op_idx,
+        offset_out,
+    });
+}
+
+fn generateOpBody(
+    allocator: anytype,
+    source: *[]u8,
+    offset: *usize,
+    padding: usize,
+    op_slice: []Op,
+    inline_info_slice: []Pir.Inline,
+    repeat_idx: usize,
+    kernel_op_idx: usize,
+    a: usize,
+    z: usize,
+    y: usize,
+    x: usize,
+) !void {
+    assert(inline_info_slice[0] == .none);
+    for (0..op_slice.len) |loop_idx| {
+        const offset_out: usize = if (op_slice[loop_idx].isReduce()) 0 else //
+        op_slice[loop_idx].out.at(a, z, y, x) - op_slice[loop_idx].out.offset;
+        try generateOpPrefix(allocator, source, offset, padding, op_slice[loop_idx], inline_info_slice[loop_idx], //
+            repeat_idx, kernel_op_idx + loop_idx, offset_out);
+    }
+    if (op_slice[0].isLinary()) {
+        try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{}]", .{
+            op_slice[0].in.name,
+            op_slice[0].in.name,
+            repeat_idx,
+            kernel_op_idx,
+        });
+    } else {
+        const offset_in: usize = op_slice[op_slice.len - 1].out.at(a, z, y, x) - op_slice[op_slice.len - 1].out.offset;
+        try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}]", .{
+            op_slice[0].in.name,
+            op_slice[0].in.name,
+            repeat_idx,
+            kernel_op_idx,
+            offset_in,
+        });
+    }
+    for (0..op_slice.len) |loop_idx| {
+        const offset_in: usize = if (op_slice[loop_idx].isLinary()) 0 else //
+        op_slice[loop_idx].in.at(a, z, y, x) - op_slice[loop_idx].in.offset;
+        try generateOpPostfix(allocator, source, offset, padding, op_slice[loop_idx], inline_info_slice[loop_idx], //
+            repeat_idx, kernel_op_idx + loop_idx, offset_in);
     }
 }
 
-fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize, op: Op, repeat_idx: usize, op_idx: usize) !void {
-    // To deal with reduce and linary ops.
-    const a_max: u32 = if (op.isReduce()) op.in.a_size else op.out.a_size;
-    const z_max: u32 = if (op.isReduce()) op.in.z_size else op.out.z_size;
-    const y_max: u32 = if (op.isReduce()) op.in.y_size else op.out.y_size;
-    const x_max: u32 = if (op.isReduce()) op.in.x_size else op.out.x_size;
+fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize, pir: Pir, repeat_idx: usize) !void {
+    var kernel_op_idx: usize = 0;
+    for (0..pir.op_num) |_| {
+        var kernel_op_idx_top: usize = kernel_op_idx + 1;
+        for (kernel_op_idx + 1..pir.op_num) |inline_idx| {
+            if (pir.inline_type[inline_idx] == .none) {
+                break;
+            } else {
+                kernel_op_idx_top += 1;
+            }
+        }
 
-    try generateOpHeader(allocator, source, offset, padding, op, repeat_idx, op_idx);
-    for (0..a_max) |a| {
-        for (0..z_max) |z| {
-            for (0..y_max) |y| {
-                for (0..x_max) |x| {
-                    const offset_out: usize = if (op.isReduce()) 0 else op.out.at(a, z, y, x) - op.out.offset;
-                    const offset_in: usize = if (op.isLinary()) 0 - op.in.offset else op.in.at(a, z, y, x) - op.in.offset;
+        const op_slice: []Op = pir.op[kernel_op_idx..kernel_op_idx_top];
+        const inline_info_slice: []Pir.Inline = pir.inline_type[kernel_op_idx..kernel_op_idx_top];
 
-                    try generateOpSingular(allocator, source, offset, padding, op, repeat_idx, op_idx, offset_out, offset_in);
+        assert(pir.inline_type[kernel_op_idx] == .none);
+
+        // Every other op can not be a reduce op so it does not have a op header
+        try generateOpHeader(allocator, source, offset, padding, op_slice[0], repeat_idx, kernel_op_idx);
+
+        // To deal with reduce and linary ops.
+        const a_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.a_size else op_slice[0].out.a_size;
+        const z_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.z_size else op_slice[0].out.z_size;
+        const y_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.y_size else op_slice[0].out.y_size;
+        const x_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.x_size else op_slice[0].out.x_size;
+
+        for (0..a_max) |a| {
+            for (0..z_max) |z| {
+                for (0..y_max) |y| {
+                    for (0..x_max) |x| {
+                        const offset_assign = if (op_slice[0].isReduce()) 0 else //
+                        op_slice[0].out.at(a, z, y, x) - op_slice[0].out.offset;
+                        try generateOpAssign(allocator, source, offset, padding, op_slice[0], repeat_idx, //
+                            kernel_op_idx, offset_assign);
+                        try generateOpBody(allocator, source, offset, padding, op_slice, inline_info_slice, //
+                            repeat_idx, kernel_op_idx, a, z, y, x);
+                        try writeBuffer(allocator, source, offset, padding, ";\n", .{});
+                    }
                 }
             }
         }
+
+        try generateOpFooter(allocator, source, offset, padding, op_slice[0], repeat_idx, kernel_op_idx);
+
+        kernel_op_idx = kernel_op_idx_top;
+
+        if (kernel_op_idx >= pir.op_num) {
+            break;
+        }
     }
-    try generateOpFooter(allocator, source, offset, padding, op, repeat_idx, op_idx);
 }
 
 // TODO: Clean up this Args nonsense and the file structure. The way it currently is, it makes little to no sense to have cl.zig in a seperate directory
@@ -722,13 +842,9 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size
         } else {
             try writeBuffer(allocator, &source, &offset, padding, "id += {};\n", .{size_global});
         }
-        for (0..pir.op_num) |op_idx| {
-            try generateIndex(allocator, &source, &offset, padding, pir.op[op_idx], pir.dim_info[op_idx], repeat_idx, op_idx);
-            try generateOp(allocator, &source, &offset, padding, pir.op[op_idx], repeat_idx, op_idx);
-            if (op_idx == pir.op_num - 1 or pir.inline_type[op_idx + 1] == .none) {
-                try writeBuffer(allocator, &source, &offset, padding, ";\n", .{});
-            }
-        }
+
+        try generateIndex(allocator, &source, &offset, padding, pir, repeat_idx);
+        try generateOp(allocator, &source, &offset, padding, pir, repeat_idx);
 
         if (repeat_leftover and repeat_idx == repeat_kernel - 1) {
             try writeBuffer(allocator, &source, &offset, padding, "}}\n", .{});
