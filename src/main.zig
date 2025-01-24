@@ -8,7 +8,9 @@ const std = @import("std");
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible
 // TODO: Add autograd
-// TODO: Get rid of comptime for debug printing with a statically allocated padding_max string and then take variable slices of that string
+// TODO: Generate linearized at comptime so that the compiler can do all the vectorization and the compiler could possibly inline everything so that there
+//  is no need for going through the switch statement every time
+// TODO: Switch to sea-of-ops ssa pir with explicit dependency fields
 
 const Tensor = @import("./tensor.zig").Tensor;
 
