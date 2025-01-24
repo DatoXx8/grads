@@ -729,7 +729,7 @@ fn generateOpBody(
             kernel_op_idx,
         });
     } else {
-        const offset_in: usize = op_slice[op_slice.len - 1].out.at(a, z, y, x) - op_slice[op_slice.len - 1].out.offset;
+        const offset_in: usize = op_slice[op_slice.len - 1].in.at(a, z, y, x) - op_slice[op_slice.len - 1].in.offset;
         try writeBuffer(allocator, source, offset, padding, "{s}[{s}_{}_{} + {}]", .{
             op_slice[0].in.name,
             op_slice[0].in.name,
