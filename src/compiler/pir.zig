@@ -383,6 +383,8 @@ pub const Pir = struct {
             if (linearized.op[op_start].equal(linearized.op[op_off]) and !linearized.op[op_start].overlaps(linearized.op[op_off])) {
                 var all_same: bool = true;
                 for (0..op_off - op_start) |inner_off| {
+                    // TODO: To fix the current convolution thing with overlaps I also need to check that it only cancels if the significant tensor (last out tensor in group) overlaps
+                    // TODO: If I do this significant tensor thing then ther probably should be a way to mark a tensor as significant
                     if (!linearized.op[op_start + inner_off].equal(linearized.op[op_off + inner_off]) or
                         linearized.op[op_start + inner_off].overlaps(linearized.op[op_off + inner_off]))
                     {
@@ -391,14 +393,14 @@ pub const Pir = struct {
                     }
                 }
                 if (all_same) {
-                    op_num = @as(usize, @intCast(op_off - op_start));
+                    op_num = op_off - op_start;
                     break;
                 } else {
                     continue;
                 }
             }
         }
-        const repeat_num_max: usize = @truncate(@divFloor(linearized.op_num - (op_num + op_start), op_num) + 1);
+        const repeat_num_max: usize = @divFloor(linearized.op_num - (op_num + op_start), op_num) + 1;
         for (1..repeat_num_max) |repeat_idx| {
             var all_equal: bool = true;
             for (0..op_num) |inner_off| {
