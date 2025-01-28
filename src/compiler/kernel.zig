@@ -51,6 +51,7 @@ pub const Kernel = struct {
             if (!arg_found_out) {
                 if (arg_num == arg_name.len) {
                     arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
+                    arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                 }
                 arg_name[arg_num] = pir.op[op_idx].out.name;
                 // TODO: Get rid of this .? stuff
@@ -71,6 +72,7 @@ pub const Kernel = struct {
                 if (!arg_found_in) {
                     if (arg_num == arg_name.len) {
                         arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
+                        arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                     }
                     arg_name[arg_num] = pir.op[op_idx].in.name;
                     // TODO: Get rid of this .? stuff

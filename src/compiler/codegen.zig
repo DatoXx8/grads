@@ -45,6 +45,8 @@ fn capacityEnsure(allocator: anytype, source: []u8, offset: usize, padding: usiz
     }
 }
 
+// TODO: Might need to make my own format string in case the std lib does allocations in formatting and on top of that I could translate the entire kernel in one allocation and format
+
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeBuffer(allocator: anytype, source: *[]u8, offset: *usize, padding: usize, comptime fmt: []const u8, args: anytype) !void {
     // TODO: Validate that there is enough space for this and expand if there isn't
@@ -843,6 +845,7 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: usize, si
             try writeBuffer(allocator, &source, &offset, padding, "id += {};\n", .{size_global});
         }
 
+        // TODO: Reduce allocation by allocating the max size for this pir at once
         try generateIndex(allocator, &source, &offset, padding, pir, repeat_idx);
         try generateOp(allocator, &source, &offset, padding, pir, repeat_idx);
 
