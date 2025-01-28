@@ -197,12 +197,12 @@ fn generateOpPrefix(
             });
         },
         .unary_subtract => {
-            try writeBuffer(allocator, source, offset, padding, "({d} + ", .{
+            try writeBuffer(allocator, source, offset, padding, "({d} - ", .{
                 op.u_var,
             });
         },
         .unary_multiply => {
-            try writeBuffer(allocator, source, offset, padding, "({d} + ", .{
+            try writeBuffer(allocator, source, offset, padding, "({d} * ", .{
                 op.u_var,
             });
         },
@@ -475,8 +475,8 @@ fn generateOpPostfix(
             try writeBuffer(allocator, source, offset, padding, ")", .{});
         },
         .unary_square => {
-            // TODO: Refactor this to be a multiplication instead of an exponentiation algorithm
-            try writeBuffer(allocator, source, offset, padding, ")", .{});
+            // TODO: Refactor this to be a multiplication instead of an exponentiation algorithm where that is advantageous
+            try writeBuffer(allocator, source, offset, padding, ", 2)", .{});
         },
         .unary_sqrt => {
             try writeBuffer(allocator, source, offset, padding, ")", .{});
