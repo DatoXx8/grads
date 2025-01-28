@@ -184,181 +184,181 @@ fn simulateCompiler(
 
                             switch (op_type[op_idx + loop_idx]) {
                                 .unary_add => {
-                                    try tensor1[tensor_out].unaryAdd(allocator, u_var);
-                                    try tensor2[tensor_out].unaryAdd(allocator, u_var);
+                                    tensor1[tensor_out].unaryAdd(u_var);
+                                    tensor2[tensor_out].unaryAdd(u_var);
                                 },
                                 .unary_subtract => {
-                                    try tensor1[tensor_out].unarySubtract(allocator, u_var);
-                                    try tensor2[tensor_out].unarySubtract(allocator, u_var);
+                                    tensor1[tensor_out].unarySubtract(u_var);
+                                    tensor2[tensor_out].unarySubtract(u_var);
                                 },
                                 .unary_multiply => {
-                                    try tensor1[tensor_out].unaryMultiply(allocator, u_var);
-                                    try tensor2[tensor_out].unaryMultiply(allocator, u_var);
+                                    tensor1[tensor_out].unaryMultiply(u_var);
+                                    tensor2[tensor_out].unaryMultiply(u_var);
                                 },
                                 .unary_divide => {
-                                    try tensor1[tensor_out].unaryDivide(allocator, @abs(u_var) + 1);
-                                    try tensor2[tensor_out].unaryDivide(allocator, @abs(u_var) + 1);
+                                    tensor1[tensor_out].unaryDivide(@abs(u_var) + 1);
+                                    tensor2[tensor_out].unaryDivide(@abs(u_var) + 1);
                                 },
                                 .unary_exp => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryMax(allocator, 10);
-                                    try tensor2[tensor_out].unaryMax(allocator, 10);
-                                    try tensor1[tensor_out].unaryMin(allocator, -10);
-                                    try tensor2[tensor_out].unaryMin(allocator, -10);
+                                    tensor1[tensor_out].unaryMax(10);
+                                    tensor2[tensor_out].unaryMax(10);
+                                    tensor1[tensor_out].unaryMin(-10);
+                                    tensor2[tensor_out].unaryMin(-10);
 
-                                    try tensor1[tensor_out].unaryExp(allocator);
-                                    try tensor2[tensor_out].unaryExp(allocator);
+                                    tensor1[tensor_out].unaryExp();
+                                    tensor2[tensor_out].unaryExp();
                                 },
                                 .unary_log => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryAbsolute(allocator);
-                                    try tensor2[tensor_out].unaryAbsolute(allocator);
-                                    try tensor1[tensor_out].unaryAdd(allocator, 1);
-                                    try tensor2[tensor_out].unaryAdd(allocator, 1);
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
+                                    tensor1[tensor_out].unaryAdd(1);
+                                    tensor2[tensor_out].unaryAdd(1);
 
-                                    try tensor1[tensor_out].unaryLog(allocator);
-                                    try tensor2[tensor_out].unaryLog(allocator);
+                                    tensor1[tensor_out].unaryLog();
+                                    tensor2[tensor_out].unaryLog();
                                 },
                                 .unary_square => {
                                     // Inf prevention
-                                    try tensor1[tensor_out].unaryMax(allocator, 100);
-                                    try tensor2[tensor_out].unaryMax(allocator, 100);
-                                    try tensor1[tensor_out].unaryMin(allocator, -100);
-                                    try tensor2[tensor_out].unaryMin(allocator, -100);
+                                    tensor1[tensor_out].unaryMax(100);
+                                    tensor2[tensor_out].unaryMax(100);
+                                    tensor1[tensor_out].unaryMin(-100);
+                                    tensor2[tensor_out].unaryMin(-100);
 
-                                    try tensor1[tensor_out].unarySquare(allocator);
-                                    try tensor2[tensor_out].unarySquare(allocator);
+                                    tensor1[tensor_out].unarySquare();
+                                    tensor2[tensor_out].unarySquare();
                                 },
                                 .unary_sqrt => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryAbsolute(allocator);
-                                    try tensor2[tensor_out].unaryAbsolute(allocator);
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
 
-                                    try tensor1[tensor_out].unarySqrt(allocator);
-                                    try tensor2[tensor_out].unarySqrt(allocator);
+                                    tensor1[tensor_out].unarySqrt();
+                                    tensor2[tensor_out].unarySqrt();
                                 },
                                 .unary_reciprocal => {
                                     // NaN prevention
-                                    try tensor1[tensor_out].unaryAbsolute(allocator);
-                                    try tensor2[tensor_out].unaryAbsolute(allocator);
-                                    try tensor1[tensor_out].unaryAdd(allocator, 1);
-                                    try tensor2[tensor_out].unaryAdd(allocator, 1);
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
+                                    tensor1[tensor_out].unaryAdd(1);
+                                    tensor2[tensor_out].unaryAdd(1);
 
-                                    try tensor1[tensor_out].unaryReciprocal(allocator);
-                                    try tensor2[tensor_out].unaryReciprocal(allocator);
+                                    tensor1[tensor_out].unaryReciprocal();
+                                    tensor2[tensor_out].unaryReciprocal();
                                 },
                                 .unary_max => {
-                                    try tensor1[tensor_out].unaryMax(allocator, u_var);
-                                    try tensor2[tensor_out].unaryMax(allocator, u_var);
+                                    tensor1[tensor_out].unaryMax(u_var);
+                                    tensor2[tensor_out].unaryMax(u_var);
                                 },
                                 .unary_min => {
-                                    try tensor1[tensor_out].unaryMin(allocator, u_var);
-                                    try tensor2[tensor_out].unaryMin(allocator, u_var);
+                                    tensor1[tensor_out].unaryMin(u_var);
+                                    tensor2[tensor_out].unaryMin(u_var);
                                 },
                                 .unary_set => {
-                                    try tensor1[tensor_out].unarySet(allocator, u_var);
-                                    try tensor2[tensor_out].unarySet(allocator, u_var);
+                                    tensor1[tensor_out].unarySet(u_var);
+                                    tensor2[tensor_out].unarySet(u_var);
                                 },
                                 .unary_random => {
                                     // TODO: This
-                                    try tensor1[tensor_out].unarySet(allocator, u_var);
-                                    try tensor2[tensor_out].unarySet(allocator, u_var);
+                                    tensor1[tensor_out].unarySet(u_var);
+                                    tensor2[tensor_out].unarySet(u_var);
                                 },
                                 .unary_tanh => {
-                                    try tensor1[tensor_out].unaryTanh(allocator);
-                                    try tensor2[tensor_out].unaryTanh(allocator);
+                                    tensor1[tensor_out].unaryTanh();
+                                    tensor2[tensor_out].unaryTanh();
                                 },
                                 .unary_absolute => {
-                                    try tensor1[tensor_out].unaryAbsolute(allocator);
-                                    try tensor2[tensor_out].unaryAbsolute(allocator);
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
                                 },
                                 .unary_sign => {
-                                    try tensor1[tensor_out].unarySign(allocator);
-                                    try tensor2[tensor_out].unarySign(allocator);
+                                    tensor1[tensor_out].unarySign();
+                                    tensor2[tensor_out].unarySign();
                                 },
                                 .binary_add => {
-                                    try tensor1[tensor_out].binaryAdd(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binaryAdd(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binaryAdd(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binaryAdd(&tensor2[tensor_in]);
                                 },
                                 .binary_subtract => {
-                                    try tensor1[tensor_out].binarySubtract(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binarySubtract(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binarySubtract(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binarySubtract(&tensor2[tensor_in]);
                                 },
                                 .binary_multiply => {
-                                    try tensor1[tensor_out].binaryMultiply(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binaryMultiply(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binaryMultiply(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binaryMultiply(&tensor2[tensor_in]);
                                 },
                                 .binary_divide => {
                                     // NaN prevention
-                                    try tensor1[tensor_in].unaryAbsolute(allocator);
-                                    try tensor2[tensor_in].unaryAbsolute(allocator);
-                                    try tensor1[tensor_in].unaryAdd(allocator, 1);
-                                    try tensor2[tensor_in].unaryAdd(allocator, 1);
+                                    tensor1[tensor_in].unaryAbsolute();
+                                    tensor2[tensor_in].unaryAbsolute();
+                                    tensor1[tensor_in].unaryAdd(1);
+                                    tensor2[tensor_in].unaryAdd(1);
 
-                                    try tensor1[tensor_out].binaryDivide(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binaryDivide(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binaryDivide(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binaryDivide(&tensor2[tensor_in]);
                                 },
                                 .binary_max => {
-                                    try tensor1[tensor_out].binaryMax(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binaryMax(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binaryMax(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binaryMax(&tensor2[tensor_in]);
                                 },
                                 .binary_min => {
-                                    try tensor1[tensor_out].binaryMin(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binaryMin(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binaryMin(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binaryMin(&tensor2[tensor_in]);
                                 },
                                 .binary_set => {
-                                    try tensor1[tensor_out].binarySet(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].binarySet(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].binarySet(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].binarySet(&tensor2[tensor_in]);
                                 },
                                 .linary_add => {
-                                    try tensor1[tensor_out].linaryAdd(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linaryAdd(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linaryAdd(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linaryAdd(&tensor2[tensor_in]);
                                 },
                                 .linary_subtract => {
-                                    try tensor1[tensor_out].linarySubtract(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linarySubtract(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linarySubtract(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linarySubtract(&tensor2[tensor_in]);
                                 },
                                 .linary_multiply => {
-                                    try tensor1[tensor_out].linaryMultiply(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linaryMultiply(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linaryMultiply(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linaryMultiply(&tensor2[tensor_in]);
                                 },
                                 .linary_divide => {
                                     // NaN prevention
-                                    try tensor1[tensor_in].unaryAbsolute(allocator);
-                                    try tensor2[tensor_in].unaryAbsolute(allocator);
-                                    try tensor1[tensor_in].unaryAdd(allocator, 1);
-                                    try tensor2[tensor_in].unaryAdd(allocator, 1);
+                                    tensor1[tensor_in].unaryAbsolute();
+                                    tensor2[tensor_in].unaryAbsolute();
+                                    tensor1[tensor_in].unaryAdd(1);
+                                    tensor2[tensor_in].unaryAdd(1);
 
-                                    try tensor1[tensor_out].linaryDivide(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linaryDivide(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linaryDivide(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linaryDivide(&tensor2[tensor_in]);
                                 },
                                 .linary_max => {
-                                    try tensor1[tensor_out].linaryMax(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linaryMax(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linaryMax(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linaryMax(&tensor2[tensor_in]);
                                 },
                                 .linary_min => {
-                                    try tensor1[tensor_out].linaryMin(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linaryMin(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linaryMin(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linaryMin(&tensor2[tensor_in]);
                                 },
                                 .linary_set => {
-                                    try tensor1[tensor_out].linarySet(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].linarySet(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].linarySet(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].linarySet(&tensor2[tensor_in]);
                                 },
                                 .reduce_sum => {
-                                    try tensor1[tensor_out].reduceSum(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].reduceSum(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].reduceSum(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].reduceSum(&tensor2[tensor_in]);
                                 },
                                 .reduce_max => {
-                                    try tensor1[tensor_out].reduceMax(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].reduceMax(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].reduceMax(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].reduceMax(&tensor2[tensor_in]);
                                 },
                                 .reduce_avg => {
-                                    try tensor1[tensor_out].reduceAvg(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].reduceAvg(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].reduceAvg(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].reduceAvg(&tensor2[tensor_in]);
                                 },
                                 .reduce_min => {
-                                    try tensor1[tensor_out].reduceMin(allocator, &tensor1[tensor_in]);
-                                    try tensor2[tensor_out].reduceMin(allocator, &tensor2[tensor_in]);
+                                    tensor1[tensor_out].reduceMin(&tensor1[tensor_in]);
+                                    tensor2[tensor_out].reduceMin(&tensor2[tensor_in]);
                                 },
                             }
                         }

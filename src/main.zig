@@ -1,16 +1,16 @@
 const std = @import("std");
 
 // TODO: Get rid of the pollution with passing in an allocator everywhere.
-// TODO: Make the alloc and free functions unable to error. That is fairly easy with just having everything as an optional, but that is horribly disgusting
 // TODO: I think all of the above can be gotten rid of by having a way to explicity interface with the linearized capacity to increase / set it as necessary
-//      -> Do something like tensor.capacity_ensure(std.mem.allocator, usize) to ensure there at least that many spots free
+//      -> Do something like tensor.capacityEnsure(std.mem.allocator, usize) to ensure there at least that many spots free
 //
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible
 // TODO: Add autograd
 // TODO: Generate linearized at comptime so that the compiler can do all the vectorization and the compiler could possibly inline everything so that there
 //  is no need for going through the switch statement every time
-// TODO: Switch to sea-of-ops ssa pir with explicit dependency fields
+// TODO: Make a SSA type thing with dependency layers (0..inf) where a thing in layer a + 1 can only depend on layers < a and then the things in that layer are kind of a sea of nodes
+//  type thing
 
 const Tensor = @import("./tensor.zig").Tensor;
 
@@ -32,9 +32,10 @@ pub fn main() !void {
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
 
-    var tensor: Tensor = try Tensor.alloc(allocator, 1, 1, 2, 2, context);
+    var tensor: Tensor = try Tensor.alloc(allocator, 1, 5, 5, 5, context);
     defer tensor.free(allocator);
-    try tensor.unaryRandom(allocator);
+    try tensor.linearized.capacityEnsure(allocator, 1);
+    tensor.unaryRandom();
     tensor.realize();
     try tensor.buffer.syncToDevice(queue);
     try tensor.buffer.syncWait(queue);
@@ -43,7 +44,9 @@ pub fn main() !void {
         allocator,
         tensor,
         &[_]Neuralnet.Layer.Config{
-            .{ .dense = .{ .size_out = 8, .activation = .none } },
+            // .{ .dense = .{ .size_out = 8, .activation = .none } },
+            .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation = .none } },
+            // .{ .filter = .{ .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation = .none } },
             // .{ .split = .{ .filters = 2, .activation = .none } },
         },
         20,
@@ -54,8 +57,7 @@ pub fn main() !void {
         queue,
     );
     defer nn.free(allocator) catch {};
-    try nn.init(allocator);
+    nn.init();
     try nn.forward(.gpu);
     nn.layers[nn.layers.len - 1].values.print(4, 0, null);
-    std.debug.print("Max {}\n", .{try device.maxSizeLocal()});
 }
