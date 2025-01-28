@@ -15,8 +15,8 @@ const OpenCl = @import("./runtimes/cl.zig").open_cl;
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
-pub const buffer_name_size: u32 = 8;
-var buffer_name_offset: u32 = 0;
+pub const buffer_name_size: usize = 8;
+var buffer_name_offset: usize = 0;
 
 pub const Buffer = struct {
     pub const SyncStatus = enum(u8) {
@@ -29,29 +29,29 @@ pub const Buffer = struct {
         FailedToDevice,
         FailedWait,
     };
-    a_inherent: u32,
-    z_inherent: u32,
-    y_inherent: u32,
-    x_inherent: u32,
-    a_size: u32,
-    z_size: u32,
-    y_size: u32,
-    x_size: u32,
-    a_stride: u32,
-    z_stride: u32,
-    y_stride: u32,
-    x_stride: u32,
-    a_offset: u32,
-    z_offset: u32,
-    y_offset: u32,
-    x_offset: u32,
-    offset: u32,
+    a_inherent: usize,
+    z_inherent: usize,
+    y_inherent: usize,
+    x_inherent: usize,
+    a_size: usize,
+    z_size: usize,
+    y_size: usize,
+    x_size: usize,
+    a_stride: usize,
+    z_stride: usize,
+    y_stride: usize,
+    x_stride: usize,
+    a_offset: usize,
+    z_offset: usize,
+    y_offset: usize,
+    x_offset: usize,
+    offset: usize,
     values: []f32,
     values_cl: ?ClMem,
     sync: SyncStatus,
     name: [buffer_name_size]u8,
-    name_offset: u32,
-    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
+    name_offset: usize,
+    pub fn alloc(allocator: anytype, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -59,7 +59,7 @@ pub const Buffer = struct {
 
         var name: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
         const divisor: u64 = 26;
-        var left: u32 = buffer_name_offset;
+        var left: usize = buffer_name_offset;
         for (0..buffer_name_size) |char_idx| {
             name[char_idx] += @truncate(left % divisor);
             left = @truncate(left / divisor);
@@ -134,7 +134,7 @@ pub const Buffer = struct {
     }
     pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
-            const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const size: usize = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
             if (OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
@@ -145,7 +145,7 @@ pub const Buffer = struct {
     }
     pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_device) {
-            const size: u32 = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const size: usize = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
             if (OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
@@ -253,15 +253,15 @@ pub const Op = struct {
         assert(this.out.y_size == target.out.y_size);
         assert(this.out.x_size == target.out.x_size);
 
-        const a_1: u32 = this.out.a_offset;
-        const z_1: u32 = this.out.z_offset;
-        const y_1: u32 = this.out.y_offset;
-        const x_1: u32 = this.out.x_offset;
+        const a_1: usize = this.out.a_offset;
+        const z_1: usize = this.out.z_offset;
+        const y_1: usize = this.out.y_offset;
+        const x_1: usize = this.out.x_offset;
 
-        const a_2: u32 = target.out.a_offset;
-        const z_2: u32 = target.out.z_offset;
-        const y_2: u32 = target.out.y_offset;
-        const x_2: u32 = target.out.x_offset;
+        const a_2: usize = target.out.a_offset;
+        const z_2: usize = target.out.z_offset;
+        const y_2: usize = target.out.y_offset;
+        const x_2: usize = target.out.x_offset;
 
         return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
             @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
@@ -724,7 +724,7 @@ pub const Op = struct {
             },
         }
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -1120,7 +1120,7 @@ pub const Op = struct {
             }),
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -1727,9 +1727,8 @@ pub const Op = struct {
 };
 
 // TODO: There is probably a built-in way to do this
-const op_cap_base: u32 = 4;
+const op_cap_base: usize = 4;
 pub const Linearized = struct {
-    /// Capacity is op.len
     op: []Op,
     op_num: usize,
     pub fn alloc(allocator: anytype) !Linearized {
@@ -1737,6 +1736,11 @@ pub const Linearized = struct {
             .op_num = 0,
             .op = try allocator.alloc(Op, op_cap_base),
         };
+    }
+    pub fn capacityEnsure(this: *@This(), allocator: anytype, capacity: usize) !void {
+        if (this.op.len < capacity) {
+            this.op = try allocator.realloc(this.op, capacity);
+        }
     }
     pub fn free(this: *@This(), allocator: anytype) void {
         this.op_num = 0;
@@ -1772,7 +1776,7 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -1787,7 +1791,7 @@ pub const Linearized = struct {
             }
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -1807,7 +1811,7 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: anytype, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
+    pub fn alloc(allocator: anytype, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -1821,8 +1825,6 @@ pub const Tensor = struct {
     pub fn free(this: *@This(), allocator: anytype) void {
         this.buffer.free(allocator);
         this.linearized.free(allocator);
-        // this.buffer = null;
-        // this.linearized = null;
     }
     /// TODO: Decide if this should clear the linearized. On one hand it makes it so that you don't need to rebuild the linearized if you want to run it again
     /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
@@ -1834,7 +1836,7 @@ pub const Tensor = struct {
             this.buffer.syncUpdate(.sync_to_device);
         }
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
         } else {
@@ -1854,7 +1856,7 @@ pub const Tensor = struct {
             std.debug.print("\n", .{});
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
         } else {
@@ -2251,7 +2253,7 @@ pub const Tensor = struct {
             .u_var = 0,
         });
     }
-    pub fn moveReshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    pub fn moveReshape(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -2269,7 +2271,7 @@ pub const Tensor = struct {
         this.buffer.y_stride = x;
         this.buffer.x_stride = 1;
     }
-    pub fn moveResize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    pub fn moveResize(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -2283,7 +2285,7 @@ pub const Tensor = struct {
         this.buffer.y_size = y;
         this.buffer.x_size = x;
     }
-    pub fn moveOffset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    pub fn moveOffset(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
         assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);

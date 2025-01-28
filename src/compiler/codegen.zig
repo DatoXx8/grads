@@ -57,7 +57,7 @@ fn generateIndex(allocator: anytype, source: *[]u8, offset: *usize, padding: usi
     const op = pir.op;
     const dim_info = pir.dim_info;
     for (0..pir.op_num) |op_idx| {
-        const offset_out: u32 = dim_info[op_idx].off_a_out * op[op_idx].out.a_stride +
+        const offset_out: usize = dim_info[op_idx].off_a_out * op[op_idx].out.a_stride +
             dim_info[op_idx].off_z_out * op[op_idx].out.z_stride +
             dim_info[op_idx].off_y_out * op[op_idx].out.y_stride +
             dim_info[op_idx].off_x_out * op[op_idx].out.x_stride;
@@ -81,7 +81,7 @@ fn generateIndex(allocator: anytype, source: *[]u8, offset: *usize, padding: usi
             },
         );
         if (!op[op_idx].isUnary()) {
-            const offset_in: u32 = dim_info[op_idx].off_a_in * op[op_idx].in.a_stride +
+            const offset_in: usize = dim_info[op_idx].off_a_in * op[op_idx].in.a_stride +
                 dim_info[op_idx].off_z_in * op[op_idx].in.z_stride +
                 dim_info[op_idx].off_y_in * op[op_idx].in.y_stride +
                 dim_info[op_idx].off_x_in * op[op_idx].in.x_stride;
@@ -767,10 +767,10 @@ fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize,
         try generateOpHeader(allocator, source, offset, padding, op_slice[0], repeat_idx, kernel_op_idx);
 
         // To deal with reduce and linary ops.
-        const a_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.a_size else op_slice[0].out.a_size;
-        const z_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.z_size else op_slice[0].out.z_size;
-        const y_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.y_size else op_slice[0].out.y_size;
-        const x_max: u32 = if (op_slice[0].isReduce()) op_slice[0].in.x_size else op_slice[0].out.x_size;
+        const a_max: usize = if (op_slice[0].isReduce()) op_slice[0].in.a_size else op_slice[0].out.a_size;
+        const z_max: usize = if (op_slice[0].isReduce()) op_slice[0].in.z_size else op_slice[0].out.z_size;
+        const y_max: usize = if (op_slice[0].isReduce()) op_slice[0].in.y_size else op_slice[0].out.y_size;
+        const x_max: usize = if (op_slice[0].isReduce()) op_slice[0].in.x_size else op_slice[0].out.x_size;
 
         for (0..a_max) |a| {
             for (0..z_max) |z| {
@@ -800,7 +800,7 @@ fn generateOp(allocator: anytype, source: *[]u8, offset: *usize, padding: usize,
 
 // TODO: Clean up this Args nonsense and the file structure. The way it currently is, it makes little to no sense to have cl.zig in a seperate directory
 /// Create the source for a kernel computing `pir`
-pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size_local: u32) ![]u8 {
+pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: usize, size_local: usize) ![]u8 {
     assert(args.arg_num > 0);
     assert(size_global % size_local == 0);
     assert(size_global > 0);
@@ -827,7 +827,7 @@ pub fn generate(allocator: anytype, pir: Pir, args: Args, size_global: u32, size
 
     const repeat_leftover: bool = (pir.repeat_num % size_global) != 0;
     // Not using std.math.divCeil here because it is kind of silly that it can error
-    const repeat_kernel: u32 = @divFloor(pir.repeat_num, size_global) + @intFromBool(repeat_leftover);
+    const repeat_kernel: usize = @divFloor(pir.repeat_num, size_global) + @intFromBool(repeat_leftover);
 
     try writeBuffer(allocator, &source, &offset, padding, "__const int gid = get_global_id(0);\n", .{});
     try writeBuffer(allocator, &source, &offset, padding, "int id;\n", .{});

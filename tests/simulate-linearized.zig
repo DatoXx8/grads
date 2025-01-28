@@ -35,14 +35,14 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-const tensor_num: u32 = 10;
-const op_num: u32 = 20;
+const tensor_num: usize = 10;
+const op_num: usize = 20;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
 }
 
-fn simulateLinearized(allocator: anytype, op_off_low: u32, op_off_top: u32, rng: u64) !void {
+fn simulateLinearized(allocator: anytype, op_off_low: usize, op_off_top: usize, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off_low);
@@ -52,10 +52,10 @@ fn simulateLinearized(allocator: anytype, op_off_low: u32, op_off_top: u32, rng:
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
 
-    const a_size_max: u32 = 7;
-    const z_size_max: u32 = 6;
-    const y_size_max: u32 = 5;
-    const x_size_max: u32 = 4;
+    const a_size_max: usize = 7;
+    const z_size_max: usize = 6;
+    const y_size_max: usize = 5;
+    const x_size_max: usize = 4;
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null);
@@ -78,10 +78,10 @@ fn simulateLinearized(allocator: anytype, op_off_low: u32, op_off_top: u32, rng:
         }
     }
 
-    const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
+    const op_type_max: usize = @typeInfo(OpType).Enum.fields.len;
     var op_type: [op_num]OpType = undefined;
-    var op_out: [op_num]u32 = undefined;
-    var op_in: [op_num]u32 = undefined;
+    var op_out: [op_num]usize = undefined;
+    var op_in: [op_num]usize = undefined;
 
     for (0..op_num) |op_idx| {
         op_type[op_idx] = @enumFromInt(pcg.randBelow(op_type_max));
@@ -93,7 +93,7 @@ fn simulateLinearized(allocator: anytype, op_off_low: u32, op_off_top: u32, rng:
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
-            const switch_likelyhood: u32 = 10;
+            const switch_likelyhood: usize = 10;
             if (pcg.randBelow(switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
                 op_out[op_idx] = pcg.randBelow(tensor_num - 1);
@@ -111,20 +111,20 @@ fn simulateLinearized(allocator: anytype, op_off_low: u32, op_off_top: u32, rng:
 
     // TODO: Come up with a better name. This is basically the last op that isn't in the last loop
     for (0..op_num) |op_idx| {
-        const a_size: u32 = pcg.randBelow(a_size_max) + 1;
-        const z_size: u32 = pcg.randBelow(z_size_max) + 1;
-        const y_size: u32 = pcg.randBelow(y_size_max) + 1;
-        const x_size: u32 = pcg.randBelow(x_size_max) + 1;
-        const a_off: u32 = pcg.randBelow(a_size_max - a_size);
-        const z_off: u32 = pcg.randBelow(z_size_max - z_size);
-        const y_off: u32 = pcg.randBelow(y_size_max - y_size);
-        const x_off: u32 = pcg.randBelow(x_size_max - x_size);
+        const a_size: usize = pcg.randBelow(@truncate(a_size_max)) + 1;
+        const z_size: usize = pcg.randBelow(@truncate(z_size_max)) + 1;
+        const y_size: usize = pcg.randBelow(@truncate(y_size_max)) + 1;
+        const x_size: usize = pcg.randBelow(@truncate(x_size_max)) + 1;
+        const a_off: usize = pcg.randBelow(@truncate(a_size_max - a_size));
+        const z_off: usize = pcg.randBelow(@truncate(z_size_max - z_size));
+        const y_off: usize = pcg.randBelow(@truncate(y_size_max - y_size));
+        const x_off: usize = pcg.randBelow(@truncate(x_size_max - x_size));
 
         // Putting this here to make snycing the prng state trivial
         const u_var: f32 = pcg.randF32();
 
-        const tensor_out: u32 = op_out[op_idx];
-        const tensor_in: u32 = op_in[op_idx];
+        const tensor_out: usize = op_out[op_idx];
+        const tensor_in: usize = op_in[op_idx];
 
         if (tensor1[tensor_in].linearized.op_num != 0) {
             try tensor1[tensor_out].linearized.concat(allocator, &tensor1[tensor_in].linearized);
@@ -396,26 +396,26 @@ fn minifyLinearized(allocator: anytype, rng: u64, err: anytype) !void {
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: u32 = 0;
+    var op_top: usize = 0;
     for (1..op_num) |op_removed| {
         var failed: bool = false;
-        simulateLinearized(allocator, 0, @truncate(op_removed), rng) catch {
+        simulateLinearized(allocator, 0, op_removed, rng) catch {
             failed = true;
         };
         if (failed) {
-            op_top = @truncate(op_removed);
+            op_top = op_removed;
         } else {
             break;
         }
     }
-    var op_low: u32 = 0;
+    var op_low: usize = 0;
     for (1..op_num - op_top) |op_removed| {
         var failed: bool = false;
-        simulateLinearized(allocator, @truncate(op_removed), op_top, rng) catch {
+        simulateLinearized(allocator, op_removed, op_top, rng) catch {
             failed = true;
         };
         if (failed) {
-            op_low = @truncate(op_removed);
+            op_low = op_removed;
         } else {
             break;
         }

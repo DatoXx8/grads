@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
+const buffer_name_size: usize = @import("../tensor.zig").buffer_name_size;
 
 const Cl = @import("../runtimes/cl.zig");
 const ClMem = Cl.ClMem;
@@ -20,7 +20,7 @@ const open_cl = @import("../runtimes/cl.zig").open_cl;
 pub const Args = struct {
     arg_name: [][buffer_name_size]u8,
     arg_mem: []ClMem,
-    arg_num: u32,
+    arg_num: usize,
 };
 
 pub const Kernel = struct {
@@ -32,10 +32,10 @@ pub const Kernel = struct {
     kernel: ClKernel,
     program: ClProgram,
     pub fn argsGather(allocator: anytype, pir: Pir) !Args {
-        const arg_initial: u32 = 4;
+        const arg_initial: usize = 4;
         var arg_name: [][buffer_name_size]u8 = try allocator.alloc([buffer_name_size]u8, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
-        var arg_num: u32 = 0;
+        var arg_num: usize = 0;
 
         for (0..pir.op_num) |op_idx| {
             var arg_found_out: bool = false;
@@ -91,8 +91,8 @@ pub const Kernel = struct {
         context: ClContext,
         device: ClDevice,
         pir: Pir,
-        size_global: u32,
-        size_local: u32,
+        size_global: usize,
+        size_local: usize,
     ) !Kernel {
         const args: Args = try Kernel.argsGather(allocator, pir);
         errdefer allocator.free(args.arg_name);

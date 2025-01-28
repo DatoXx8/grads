@@ -5,65 +5,64 @@ const std = @import("std");
 const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const Optimization = @import("./codegen.zig").Optimization;
-const buffer_name_size: u32 = @import("../tensor.zig").buffer_name_size;
+const buffer_name_size: usize = @import("../tensor.zig").buffer_name_size;
 const assert = std.debug.assert;
 
 // To fix that I actually need to do the dreaded sorting... that won't be fun...
 // Also just put the DimInfo gathering in this struct
 pub const DimInfo = struct {
-    str_a_out: u32,
-    str_z_out: u32,
-    str_y_out: u32,
-    str_x_out: u32,
-    str_a_in: u32,
-    str_z_in: u32,
-    str_y_in: u32,
-    str_x_in: u32,
-    wai_a_out: u32,
-    wai_z_out: u32,
-    wai_y_out: u32,
-    wai_x_out: u32,
-    wai_a_in: u32,
-    wai_z_in: u32,
-    wai_y_in: u32,
-    wai_x_in: u32,
-    res_a_out: u32,
-    res_z_out: u32,
-    res_y_out: u32,
-    res_x_out: u32,
-    res_a_in: u32,
-    res_z_in: u32,
-    res_y_in: u32,
-    res_x_in: u32,
-    off_a_out: u32,
-    off_z_out: u32,
-    off_y_out: u32,
-    off_x_out: u32,
-    off_a_in: u32,
-    off_z_in: u32,
-    off_y_in: u32,
-    off_x_in: u32,
+    str_a_out: usize,
+    str_z_out: usize,
+    str_y_out: usize,
+    str_x_out: usize,
+    str_a_in: usize,
+    str_z_in: usize,
+    str_y_in: usize,
+    str_x_in: usize,
+    wai_a_out: usize,
+    wai_z_out: usize,
+    wai_y_out: usize,
+    wai_x_out: usize,
+    wai_a_in: usize,
+    wai_z_in: usize,
+    wai_y_in: usize,
+    wai_x_in: usize,
+    res_a_out: usize,
+    res_z_out: usize,
+    res_y_out: usize,
+    res_x_out: usize,
+    res_a_in: usize,
+    res_z_in: usize,
+    res_y_in: usize,
+    res_x_in: usize,
+    off_a_out: usize,
+    off_z_out: usize,
+    off_y_out: usize,
+    off_x_out: usize,
+    off_a_in: usize,
+    off_z_in: usize,
+    off_y_in: usize,
+    off_x_in: usize,
     // Effectively the offset of the global_id when compiling (offsetting happens per dimension)
     // TODO: This is a terrible name
-    idx_a_out: u32,
-    idx_z_out: u32,
-    idx_y_out: u32,
-    idx_x_out: u32,
-    idx_a_in: u32,
-    idx_z_in: u32,
-    idx_y_in: u32,
-    idx_x_in: u32,
-    pub fn alloc(linearized: Linearized, op_start: u32, op_num: u32, repeat_num: u32) DimInfo {
-        var idx_a_out: u32 = 0;
-        var idx_z_out: u32 = 0;
-        var idx_y_out: u32 = 0;
-        var idx_x_out: u32 = 0;
-        var idx_a_in: u32 = 0;
-        var idx_z_in: u32 = 0;
-        var idx_y_in: u32 = 0;
-        var idx_x_in: u32 = 0;
-        for (1..repeat_num) |repeat_idx_usize| {
-            const repeat_idx: u32 = @truncate(repeat_idx_usize);
+    idx_a_out: usize,
+    idx_z_out: usize,
+    idx_y_out: usize,
+    idx_x_out: usize,
+    idx_a_in: usize,
+    idx_z_in: usize,
+    idx_y_in: usize,
+    idx_x_in: usize,
+    pub fn alloc(linearized: Linearized, op_start: usize, op_num: usize, repeat_num: usize) DimInfo {
+        var idx_a_out: usize = 0;
+        var idx_z_out: usize = 0;
+        var idx_y_out: usize = 0;
+        var idx_x_out: usize = 0;
+        var idx_a_in: usize = 0;
+        var idx_z_in: usize = 0;
+        var idx_y_in: usize = 0;
+        var idx_x_in: usize = 0;
+        for (1..repeat_num) |repeat_idx| {
             if (linearized.op[op_start + idx_a_out * op_num].out.a_offset > linearized.op[op_start + repeat_idx * op_num].out.a_offset) {
                 idx_a_out = repeat_idx;
             }
@@ -89,30 +88,30 @@ pub const DimInfo = struct {
                 idx_x_in = repeat_idx;
             }
         }
-        var str_a_out: u32 = 0;
-        var str_z_out: u32 = 0;
-        var str_y_out: u32 = 0;
-        var str_x_out: u32 = 0;
-        var str_a_in: u32 = 0;
-        var str_z_in: u32 = 0;
-        var str_y_in: u32 = 0;
-        var str_x_in: u32 = 0;
-        var wai_a_out: u32 = 0;
-        var wai_z_out: u32 = 0;
-        var wai_y_out: u32 = 0;
-        var wai_x_out: u32 = 0;
-        var wai_a_in: u32 = 0;
-        var wai_z_in: u32 = 0;
-        var wai_y_in: u32 = 0;
-        var wai_x_in: u32 = 0;
-        var res_a_out: u32 = 0;
-        var res_z_out: u32 = 0;
-        var res_y_out: u32 = 0;
-        var res_x_out: u32 = 0;
-        var res_a_in: u32 = 0;
-        var res_z_in: u32 = 0;
-        var res_y_in: u32 = 0;
-        var res_x_in: u32 = 0;
+        var str_a_out: usize = 0;
+        var str_z_out: usize = 0;
+        var str_y_out: usize = 0;
+        var str_x_out: usize = 0;
+        var str_a_in: usize = 0;
+        var str_z_in: usize = 0;
+        var str_y_in: usize = 0;
+        var str_x_in: usize = 0;
+        var wai_a_out: usize = 0;
+        var wai_z_out: usize = 0;
+        var wai_y_out: usize = 0;
+        var wai_x_out: usize = 0;
+        var wai_a_in: usize = 0;
+        var wai_z_in: usize = 0;
+        var wai_y_in: usize = 0;
+        var wai_x_in: usize = 0;
+        var res_a_out: usize = 0;
+        var res_z_out: usize = 0;
+        var res_y_out: usize = 0;
+        var res_x_out: usize = 0;
+        var res_a_in: usize = 0;
+        var res_z_in: usize = 0;
+        var res_y_in: usize = 0;
+        var res_x_in: usize = 0;
 
         var a_out_left: bool = false;
         var z_out_left: bool = false;
@@ -131,8 +130,7 @@ pub const DimInfo = struct {
         var y_in_reenter: bool = false;
         var x_in_reenter: bool = false;
 
-        for (1..repeat_num) |repeat_idx_usize| {
-            const repeat_idx: u32 = @truncate(repeat_idx_usize);
+        for (1..repeat_num) |repeat_idx| {
             if (a_out_left and !a_out_reenter and linearized.op[op_start + ((idx_a_out + repeat_idx) % repeat_num) * op_num].out.a_offset ==
                 linearized.op[op_start + idx_a_out * op_num].out.a_offset)
             {
@@ -245,7 +243,7 @@ pub const DimInfo = struct {
             str_a_out = 0;
         } else {
             if (!a_out_reenter) {
-                res_a_out = @truncate(repeat_num);
+                res_a_out = repeat_num;
             }
         }
         if (!z_out_left) {
@@ -254,7 +252,7 @@ pub const DimInfo = struct {
             str_z_out = 0;
         } else {
             if (!z_out_reenter) {
-                res_z_out = @truncate(repeat_num);
+                res_z_out = repeat_num;
             }
         }
         if (!y_out_left) {
@@ -263,7 +261,7 @@ pub const DimInfo = struct {
             str_y_out = 0;
         } else {
             if (!y_out_reenter) {
-                res_y_out = @truncate(repeat_num);
+                res_y_out = repeat_num;
             }
         }
         if (!x_out_left) {
@@ -272,7 +270,7 @@ pub const DimInfo = struct {
             str_x_out = 0;
         } else {
             if (!x_out_reenter) {
-                res_x_out = @truncate(repeat_num);
+                res_x_out = repeat_num;
             }
         }
         if (!a_in_left) {
@@ -281,7 +279,7 @@ pub const DimInfo = struct {
             str_a_in = 0;
         } else {
             if (!a_in_reenter) {
-                res_a_in = @truncate(repeat_num);
+                res_a_in = repeat_num;
             }
         }
         if (!z_in_left) {
@@ -290,7 +288,7 @@ pub const DimInfo = struct {
             str_z_in = 0;
         } else {
             if (!z_in_reenter) {
-                res_z_in = @truncate(repeat_num);
+                res_z_in = repeat_num;
             }
         }
         if (!y_in_left) {
@@ -299,7 +297,7 @@ pub const DimInfo = struct {
             str_y_in = 0;
         } else {
             if (!y_in_reenter) {
-                res_y_in = @truncate(repeat_num);
+                res_y_in = repeat_num;
             }
         }
         if (!x_in_left) {
@@ -308,7 +306,7 @@ pub const DimInfo = struct {
             str_x_in = 0;
         } else {
             if (!x_in_reenter) {
-                res_x_in = @truncate(repeat_num);
+                res_x_in = repeat_num;
             }
         }
 
@@ -363,16 +361,16 @@ pub const Pir = struct {
         in,
         out,
     };
-    repeat_num: u32,
-    op_num: u32,
+    repeat_num: usize,
+    op_num: usize,
     op: []Op,
     dim_info: []DimInfo,
     inline_type: []Pir.Inline,
-    pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *u32) !Pir {
+    pub fn alloc(allocator: anytype, linearized: Linearized, op_used: *usize) !Pir {
         assert(op_used.* < linearized.op_num);
-        var op_num: u32 = 1;
-        var repeat_num: u32 = 1;
-        const op_start: u32 = op_used.*;
+        var op_num: usize = 1;
+        var repeat_num: usize = 1;
+        const op_start: usize = op_used.*;
         var inline_type: []Pir.Inline = try allocator.alloc(Pir.Inline, linearized.op_num - op_start);
         errdefer allocator.free(inline_type);
         for (0..linearized.op_num - op_start) |op_idx| {
@@ -393,14 +391,14 @@ pub const Pir = struct {
                     }
                 }
                 if (all_same) {
-                    op_num = @as(u32, @intCast(op_off - op_start));
+                    op_num = @as(usize, @intCast(op_off - op_start));
                     break;
                 } else {
                     continue;
                 }
             }
         }
-        const repeat_num_max: u32 = @truncate(@divFloor(linearized.op_num - (op_num + op_start), op_num) + 1);
+        const repeat_num_max: usize = @truncate(@divFloor(linearized.op_num - (op_num + op_start), op_num) + 1);
         for (1..repeat_num_max) |repeat_idx| {
             var all_equal: bool = true;
             for (0..op_num) |inner_off| {
@@ -461,7 +459,7 @@ pub const Pir = struct {
         }
 
         for (0..op_num) |op_idx| {
-            dim_info[op_idx] = DimInfo.alloc(linearized, @truncate(op_start + op_idx), op_num, repeat_num);
+            dim_info[op_idx] = DimInfo.alloc(linearized, op_start + op_idx, op_num, repeat_num);
         }
 
         op_used.* += op_num * repeat_num;
@@ -505,7 +503,7 @@ pub const Pir = struct {
             }
         }
     }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}PIR = {s}\n", .{ " " ** offset, text });
         }

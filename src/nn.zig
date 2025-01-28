@@ -42,7 +42,7 @@ pub const Neuralnet = struct {
         };
         t: Activation.Type,
         intermediary: ?Tensor,
-        pub fn alloc(allocator: anytype, t: Activation.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Activation {
+        pub fn alloc(allocator: anytype, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
             return .{
                 .t = t,
                 .intermediary = switch (t) {
@@ -151,7 +151,7 @@ pub const Neuralnet = struct {
         mean: ?Tensor,
         variance: ?Tensor,
         max: ?Tensor,
-        pub fn alloc(allocator: anytype, t: Norm.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Norm {
+        pub fn alloc(allocator: anytype, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
             return switch (t) {
                 .none => .{
                     .type = t,
@@ -245,8 +245,8 @@ pub const Neuralnet = struct {
         }
     };
     pub const Dense = struct {
-        size_input: u32,
-        size_output: u32,
+        size_input: usize,
+        size_output: usize,
 
         weights: Tensor,
         biases: Tensor,
@@ -257,7 +257,7 @@ pub const Neuralnet = struct {
         temp_output: Tensor,
         temp_full: Tensor,
 
-        pub fn alloc(allocator: anytype, size_input: u32, size_output: u32, context: ClContext) !Dense {
+        pub fn alloc(allocator: anytype, size_input: usize, size_output: usize, context: ClContext) !Dense {
             assert(size_input > 0);
             assert(size_output > 0);
 
@@ -288,8 +288,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, 1);
             output.moveResize(1, 1, 1, 1);
 
-            for (0..this.size_output) |row_idx_usize| {
-                const row_idx: u32 = @truncate(row_idx_usize);
+            for (0..this.size_output) |row_idx| {
                 this.weights.moveOffset(0, 0, 0, row_idx);
                 output.moveOffset(0, 0, 0, row_idx);
 
@@ -312,15 +311,13 @@ pub const Neuralnet = struct {
             try this.biases_g.binaryAdd(allocator, output_g);
             // Weights
             this.temp_full.moveResize(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx_usize| {
-                const column_idx: u32 = @truncate(column_idx_usize);
+            for (0..this.size_input) |column_idx| {
                 this.temp_full.moveOffset(0, 0, column_idx, 0);
                 try this.temp_full.binarySet(allocator, output_g);
             }
             this.temp_full.moveResize(1, 1, this.size_input, 1);
             input.moveReshape(1, 1, this.size_input, 1);
-            for (0..this.size_output) |row_idx_usize| {
-                const row_idx: u32 = @truncate(row_idx_usize);
+            for (0..this.size_output) |row_idx| {
                 this.temp_full.moveOffset(0, 0, 0, row_idx);
                 try this.temp_full.binaryMultiply(allocator, input);
             }
@@ -332,8 +329,7 @@ pub const Neuralnet = struct {
             input_g.moveReshape(1, 1, this.size_input, 1);
             input_g.moveResize(1, 1, 1, 1);
             this.weights.moveReshape(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx_usize| {
-                const column_idx: u32 = @truncate(column_idx_usize);
+            for (0..this.size_input) |column_idx| {
                 input_g.moveOffset(0, 0, column_idx, 0);
                 this.weights.moveOffset(0, 0, column_idx, 0);
                 try this.temp_output.binarySet(allocator, &this.weights);
@@ -347,7 +343,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -365,7 +361,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -382,14 +378,14 @@ pub const Neuralnet = struct {
         }
     };
     pub const Convolution = struct {
-        z: u32,
-        y: u32,
-        x: u32,
+        z: usize,
+        y: usize,
+        x: usize,
 
-        filters: u32,
-        kernel_size: u32,
-        kernel_stride: u32,
-        kernel_padding: u32,
+        filters: usize,
+        kernel_size: usize,
+        kernel_stride: usize,
+        kernel_padding: usize,
 
         weights: Tensor,
         biases: Tensor,
@@ -403,13 +399,13 @@ pub const Neuralnet = struct {
 
         pub fn alloc(
             allocator: anytype,
-            z: u32,
-            y: u32,
-            x: u32,
-            filters: u32,
-            kernel_size: u32,
-            kernel_stride: u32,
-            kernel_padding: u32,
+            z: usize,
+            y: usize,
+            x: usize,
+            filters: usize,
+            kernel_size: usize,
+            kernel_stride: usize,
+            kernel_padding: usize,
             context: ClContext,
         ) !Convolution {
             assert(filters > 0);
@@ -453,8 +449,8 @@ pub const Neuralnet = struct {
         pub fn forward(this: *@This(), allocator: anytype, input: *Tensor, output: *Tensor) !void {
             const x_in_max = input.buffer.x_inherent + this.kernel_padding - 1;
             const y_in_max = input.buffer.y_inherent + this.kernel_padding - 1;
-            var x_out_idx: u32 = 0;
-            var y_out_idx: u32 = 0;
+            var x_out_idx: usize = 0;
+            var y_out_idx: usize = 0;
 
             // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
 
@@ -467,16 +463,13 @@ pub const Neuralnet = struct {
             try this.temp_input_padded.binarySet(allocator, input);
             this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
 
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 y_out_idx = 0;
-                for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx_usize| {
-                    const y_in_idx: u32 = @truncate(y_in_idx_usize);
+                for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx| {
                     x_out_idx = 0;
-                    for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx_usize| {
-                        const x_in_idx: u32 = @truncate(x_in_idx_usize);
+                    for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx| {
                         output.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                         this.temp_input_padded.moveOffset(0, 0, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
                         try this.temp_kernel.binarySet(allocator, &this.temp_input_padded);
@@ -502,8 +495,7 @@ pub const Neuralnet = struct {
             // Biases
             this.biases_g.moveResize(1, 1, 1, 1);
             output_g.moveResize(1, 1, output.buffer.y_inherent, output.buffer.x_inherent);
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 this.biases_g.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx, 0, 0);
                 // Could do avg here for better numerical stability
@@ -515,23 +507,20 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
             // Weights
-            var x_in_idx: u32 = 0;
-            var y_in_idx: u32 = 0;
+            var x_in_idx: usize = 0;
+            var y_in_idx: usize = 0;
             output_g.moveResize(1, 1, 1, 1);
             output_g.moveOffset(0, 0, 0, 0);
             this.weights_g.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
             this.weights_g.moveOffset(0, 0, 0, 0);
             this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
             this.temp_input_padded.moveOffset(0, 0, 0, 0);
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 this.weights_g.moveOffset(filter_idx, 0, 0, 0);
                 y_in_idx = 0;
-                for (0..output.buffer.y_inherent) |y_out_idx_usize| {
-                    const y_out_idx: u32 = @truncate(y_out_idx_usize);
+                for (0..output.buffer.y_inherent) |y_out_idx| {
                     x_in_idx = 0;
-                    for (0..output.buffer.x_inherent) |x_out_idx_usize| {
-                        const x_out_idx: u32 = @truncate(x_out_idx_usize);
+                    for (0..output.buffer.x_inherent) |x_out_idx| {
                         output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                         this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
                         try this.temp_kernel.binarySet(allocator, &this.temp_input_padded);
@@ -555,7 +544,7 @@ pub const Neuralnet = struct {
             this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, //
                 input.buffer.y_inherent + 2 * this.kernel_padding, input.buffer.x_inherent + 2 * this.kernel_padding);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -585,7 +574,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -623,13 +612,13 @@ pub const Neuralnet = struct {
             min,
         };
         t: Reduce.Type,
-        z: u32,
-        y: u32,
-        x: u32,
-        kernel_size: u32,
-        kernel_stride: u32,
+        z: usize,
+        y: usize,
+        x: usize,
+        kernel_size: usize,
+        kernel_stride: usize,
         // The point of the alloc is only to check that the initialisation uses valid values
-        pub fn alloc(t: Reduce.Type, z: u32, y: u32, x: u32, kernel_size: u32, kernel_stride: u32) Reduce {
+        pub fn alloc(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
             assert(z > 0);
             assert(y > 0);
             assert(x > 0);
@@ -652,16 +641,13 @@ pub const Neuralnet = struct {
             output.moveResize(1, 1, 1, 1);
             output.moveOffset(0, 0, 0, 0);
 
-            var x_out_idx: u32 = 0;
-            var y_out_idx: u32 = 0;
-            for (0..this.z) |channel_idx_usize| {
-                const channel_idx: u32 = @truncate(channel_idx_usize);
+            var x_out_idx: usize = 0;
+            var y_out_idx: usize = 0;
+            for (0..this.z) |channel_idx| {
                 y_out_idx = 0;
-                for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx_usize| {
-                    const y_in_idx: u32 = @truncate(y_in_idx_usize);
+                for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx| {
                     x_out_idx = 0;
-                    for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx_usize| {
-                        const x_in_idx: u32 = @truncate(x_in_idx_usize);
+                    for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx| {
                         input.moveOffset(0, channel_idx, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
                         output.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
                         // If you really want to you can move this switch outside the loops in case you care about every nanosecond
@@ -682,16 +668,13 @@ pub const Neuralnet = struct {
             input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
             output_g.moveResize(1, 1, 1, 1);
 
-            var x_in_idx: u32 = 0;
-            var y_in_idx: u32 = 0;
-            for (0..this.z) |channel_idx_usize| {
-                const channel_idx: u32 = @truncate(channel_idx_usize);
+            var x_in_idx: usize = 0;
+            var y_in_idx: usize = 0;
+            for (0..this.z) |channel_idx| {
                 y_in_idx = 0;
-                for (0..this.y) |y_out_idx_usize| {
-                    const y_out_idx: u32 = @truncate(y_out_idx_usize);
+                for (0..this.y) |y_out_idx| {
                     x_in_idx = 0;
-                    for (0..this.x) |x_out_idx_usize| {
-                        const x_out_idx: u32 = @truncate(x_out_idx_usize);
+                    for (0..this.x) |x_out_idx| {
                         input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
                         output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
                         try input_g.linaryAdd(allocator, output_g);
@@ -706,15 +689,15 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, output_g.buffer.z_inherent, output_g.buffer.y_inherent, output_g.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Reduce {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
                 std.debug.print("{s}Reduce\n", .{[1]u8{' '} ** offset});
             }
-            const z_out: u32 = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
-            const y_out: u32 = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
-            const x_out: u32 = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
+            const z_out: usize = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
+            const y_out: usize = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
+            const x_out: usize = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
             std.debug.print("{s}Size {} Stride {} In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
                 [1]u8{' '} ** (offset + padding), //
                 this.kernel_size, this.kernel_stride, //
@@ -725,10 +708,10 @@ pub const Neuralnet = struct {
         }
     };
     pub const Split = struct {
-        filters: u32,
-        z: u32,
-        y: u32,
-        x: u32,
+        filters: usize,
+        z: usize,
+        y: usize,
+        x: usize,
 
         weights: Tensor,
         biases: Tensor,
@@ -737,7 +720,7 @@ pub const Neuralnet = struct {
 
         temp_input: Tensor,
 
-        pub fn alloc(allocator: anytype, filters: u32, z: u32, y: u32, x: u32, context: ClContext) !Split {
+        pub fn alloc(allocator: anytype, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
             assert(filters > 0);
             assert(z > 0);
             assert(y > 0);
@@ -774,8 +757,7 @@ pub const Neuralnet = struct {
             this.biases.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             this.biases.moveOffset(0, 0, 0, 0);
 
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 output.moveOffset(0, filter_idx * input.buffer.z_inherent, 0, 0);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
@@ -802,8 +784,7 @@ pub const Neuralnet = struct {
 
             this.weights_g.moveResize(1, this.z, this.y, this.x);
             output_g.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 this.weights_g.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx * this.z, 0, 0);
                 try this.temp_input.binarySet(allocator, output_g);
@@ -817,8 +798,7 @@ pub const Neuralnet = struct {
 
             output_g.moveResize(1, this.z, this.y, this.x);
             this.weights.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx_usize| {
-                const filter_idx: u32 = @truncate(filter_idx_usize);
+            for (0..this.filters) |filter_idx| {
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx * this.z, 0, 0);
                 try this.temp_input.binarySet(allocator, output_g);
@@ -830,7 +810,7 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, this.filters * this.z, this.y, this.x);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -850,7 +830,7 @@ pub const Neuralnet = struct {
             this.weights_g.print(padding, offset + padding, "weights_g");
             this.temp_input.print(padding, offset + padding, "temp_input");
         }
-        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -888,8 +868,8 @@ pub const Neuralnet = struct {
         };
         t: Residual.Type,
         connection: Residual.Connection,
-        layer: u32,
-        pub fn allocIdentity(layer: u32) Residual {
+        layer: usize,
+        pub fn allocIdentity(layer: usize) Residual {
             return .{
                 .layer = layer,
                 .t = .identity,
@@ -898,7 +878,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn allocDense(layer: u32, allocator: anytype, size_in: u32, size_out: u32, context: ClContext) !Residual {
+        pub fn allocDense(layer: usize, allocator: anytype, size_in: usize, size_out: usize, context: ClContext) !Residual {
             return .{
                 .layer = layer,
                 .t = .dense,
@@ -908,15 +888,15 @@ pub const Neuralnet = struct {
             };
         }
         pub fn allocConvolution(
-            layer: u32,
+            layer: usize,
             allocator: anytype,
-            z: u32,
-            y: u32,
-            x: u32,
-            filters: u32,
-            kernel_size: u32,
-            kernel_stride: u32,
-            kernel_padding: u32,
+            z: usize,
+            y: usize,
+            x: usize,
+            filters: usize,
+            kernel_size: usize,
+            kernel_stride: usize,
+            kernel_padding: usize,
             context: ClContext,
         ) !Residual {
             return .{
@@ -927,7 +907,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn allocReduce(layer: u32, t: Reduce.Type, z: u32, y: u32, x: u32, kernel_size: u32, kernel_stride: u32) !Residual {
+        pub fn allocReduce(layer: usize, t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) !Residual {
             return .{
                 .layer = layer,
                 .t = .reduce,
@@ -936,7 +916,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn allocSplit(layer: u32, allocator: anytype, filters: u32, z: u32, y: u32, x: u32, context: ClContext) !Residual {
+        pub fn allocSplit(layer: usize, allocator: anytype, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
             return .{
                 .layer = layer,
                 .t = .split,
@@ -992,7 +972,7 @@ pub const Neuralnet = struct {
                 .split => unreachable,
             }
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1008,7 +988,7 @@ pub const Neuralnet = struct {
                 .split => this.connection.split.print(padding, offset + padding, "split"),
             }
         }
-        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1029,34 +1009,34 @@ pub const Neuralnet = struct {
         /// The config is to only have the info needed when provided with the previous layer
         pub const Config = union(Neuralnet.Type) {
             dense: struct {
-                size_out: u32,
+                size_out: usize,
                 activation: Activation.Type,
             },
             convolution: struct {
-                filters: u32,
-                kernel_size: u32,
-                kernel_stride: u32,
-                kernel_padding: u32,
+                filters: usize,
+                kernel_size: usize,
+                kernel_stride: usize,
+                kernel_padding: usize,
                 activation: Activation.Type,
             },
             reduce: struct {
-                kernel_size: u32,
-                kernel_stride: u32,
+                kernel_size: usize,
+                kernel_stride: usize,
                 t: Reduce.Type,
                 // activation: Activation.Type,
             },
             split: struct {
-                filters: u32,
+                filters: usize,
                 activation: Activation.Type,
             },
             residual: struct {
                 t: Residual.Type,
-                layer: u32,
-                filters: u32,
-                kernel_padding: u32,
-                kernel_stride: u32,
-                kernel_size: u32,
-                size_out: u32,
+                layer: usize,
+                filters: usize,
+                kernel_padding: usize,
+                kernel_stride: usize,
+                kernel_size: usize,
+                size_out: usize,
                 reduce_t: Reduce.Type,
                 // activation: Activation.Type,
             },
@@ -1072,7 +1052,7 @@ pub const Neuralnet = struct {
         values: Tensor,
         values_g: Tensor,
         activation: Activation,
-        pub fn alloc(allocator: anytype, z: u32, y: u32, x: u32, config: Config, context: ClContext) !Layer {
+        pub fn alloc(allocator: anytype, z: usize, y: usize, x: usize, config: Config, context: ClContext) !Layer {
             switch (config) {
                 .dense => {
                     return .{
@@ -1083,10 +1063,10 @@ pub const Neuralnet = struct {
                     };
                 },
                 .convolution => {
-                    const z_new: u32 = config.convolution.filters;
-                    const y_new: u32 = @divFloor(y + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
+                    const z_new: usize = config.convolution.filters;
+                    const y_new: usize = @divFloor(y + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
                         config.convolution.kernel_stride) + 1;
-                    const x_new: u32 = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
+                    const x_new: usize = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
                         config.convolution.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, config.convolution.activation, 1, z_new, y_new, x_new, context),
@@ -1100,9 +1080,9 @@ pub const Neuralnet = struct {
                     };
                 },
                 .reduce => {
-                    const z_new: u32 = z;
-                    const y_new: u32 = @divFloor(y - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
-                    const x_new: u32 = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
+                    const z_new: usize = z;
+                    const y_new: usize = @divFloor(y - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
+                    const x_new: usize = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .compute = .{
@@ -1158,7 +1138,7 @@ pub const Neuralnet = struct {
             this.values.free(allocator);
             this.values_g.free(allocator);
         }
-        pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1174,7 +1154,7 @@ pub const Neuralnet = struct {
                 .residual => this.compute.residual.print(padding, offset + padding, null),
             }
         }
-        pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]u8) void {
+        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1205,17 +1185,17 @@ pub const Neuralnet = struct {
         allocator: anytype,
         input: Tensor,
         config: []const Layer.Config,
-        size_global: u32,
-        size_local: u32,
+        size_global: usize,
+        size_local: usize,
         optimization: Optimization,
         context: ClContext,
         device: ClDevice,
         queue: ClCommandQueue,
     ) !Neuralnet {
         var layers: []Layer = try allocator.alloc(Layer, config.len);
-        var z_previous: u32 = input.buffer.z_inherent;
-        var y_previous: u32 = input.buffer.y_inherent;
-        var x_previous: u32 = input.buffer.x_inherent;
+        var z_previous: usize = input.buffer.z_inherent;
+        var y_previous: usize = input.buffer.y_inherent;
+        var x_previous: usize = input.buffer.x_inherent;
         for (0..layers.len) |layer_idx| {
             layers[layer_idx] = try Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
             z_previous = layers[layer_idx].values.buffer.z_inherent;
@@ -1902,7 +1882,7 @@ pub const Neuralnet = struct {
     //     _ = filename;
     //     _ = context;
     // }
-    pub fn print(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
@@ -1913,7 +1893,7 @@ pub const Neuralnet = struct {
             this.layers[layer_idx].print(padding, padding + offset, null);
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: u32, comptime offset: u32, name: ?[]const u8) void {
+    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {

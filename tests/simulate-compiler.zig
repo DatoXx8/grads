@@ -42,8 +42,8 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-const tensor_num: u32 = 10;
-const op_num: u32 = 10;
+const tensor_num: usize = 10;
+const op_num: usize = 10;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -51,8 +51,8 @@ comptime {
 
 fn simulateCompiler(
     allocator: anytype,
-    op_off_low: u32,
-    op_off_top: u32,
+    op_off_low: usize,
+    op_off_top: usize,
     rng: u64,
     device: ClDevice,
     context: ClContext,
@@ -65,10 +65,10 @@ fn simulateCompiler(
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
 
-    const a_size_max: u32 = 7;
-    const z_size_max: u32 = 6;
-    const y_size_max: u32 = 5;
-    const x_size_max: u32 = 4;
+    const a_size_max: usize = 7;
+    const z_size_max: usize = 6;
+    const y_size_max: usize = 5;
+    const x_size_max: usize = 4;
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
@@ -91,10 +91,10 @@ fn simulateCompiler(
         }
     }
 
-    const op_type_max: u32 = @typeInfo(OpType).Enum.fields.len;
+    const op_type_max: usize = @typeInfo(OpType).Enum.fields.len;
     var op_type: [op_num]OpType = undefined;
-    var op_out: [op_num]u32 = undefined;
-    var op_in: [op_num]u32 = undefined;
+    var op_out: [op_num]usize = undefined;
+    var op_in: [op_num]usize = undefined;
 
     for (0..op_num) |op_idx| {
         op_type[op_idx] = @enumFromInt(pcg.randBelow(op_type_max));
@@ -106,7 +106,7 @@ fn simulateCompiler(
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
-            const switch_likelyhood: u32 = 10;
+            const switch_likelyhood: usize = 10;
             if (pcg.randBelow(switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
                 op_out[op_idx] = pcg.randBelow(tensor_num - 1);
@@ -123,35 +123,35 @@ fn simulateCompiler(
     }
 
     // TODO: Come up with a better name. This is basically the last op that isn't in the last loop
-    var op_idx_free: u32 = 0;
+    var op_idx_free: usize = 0;
     for (0..op_num) |op_idx| {
         if (op_idx < op_idx_free) {
             continue;
         }
 
-        const a_size: u32 = pcg.randBelow(a_size_max) + 1;
-        const z_size: u32 = pcg.randBelow(z_size_max) + 1;
-        const y_size: u32 = pcg.randBelow(y_size_max) + 1;
-        const x_size: u32 = pcg.randBelow(x_size_max) + 1;
-        const a_off: u32 = pcg.randBelow(a_size_max - a_size);
-        const z_off: u32 = pcg.randBelow(z_size_max - z_size);
-        const y_off: u32 = pcg.randBelow(y_size_max - y_size);
-        const x_off: u32 = pcg.randBelow(x_size_max - x_size);
-        const a_loop: u32 = pcg.randBelow(a_size_max - (a_size + a_off)) + 1;
-        const z_loop: u32 = pcg.randBelow(z_size_max - (z_size + z_off)) + 1;
-        const y_loop: u32 = pcg.randBelow(y_size_max - (y_size + y_off)) + 1;
-        const x_loop: u32 = pcg.randBelow(x_size_max - (x_size + x_off)) + 1;
+        const a_size: usize = pcg.randBelow(@truncate(a_size_max)) + 1;
+        const z_size: usize = pcg.randBelow(@truncate(z_size_max)) + 1;
+        const y_size: usize = pcg.randBelow(@truncate(y_size_max)) + 1;
+        const x_size: usize = pcg.randBelow(@truncate(x_size_max)) + 1;
+        const a_off: usize = pcg.randBelow(@truncate(a_size_max - a_size));
+        const z_off: usize = pcg.randBelow(@truncate(z_size_max - z_size));
+        const y_off: usize = pcg.randBelow(@truncate(y_size_max - y_size));
+        const x_off: usize = pcg.randBelow(@truncate(x_size_max - x_size));
+        const a_loop: usize = pcg.randBelow(@truncate(a_size_max - (a_size + a_off))) + 1;
+        const z_loop: usize = pcg.randBelow(@truncate(z_size_max - (z_size + z_off))) + 1;
+        const y_loop: usize = pcg.randBelow(@truncate(y_size_max - (y_size + y_off))) + 1;
+        const x_loop: usize = pcg.randBelow(@truncate(x_size_max - (x_size + x_off))) + 1;
 
         // Putting this out here to make snycing the prng state trivial
         const u_var: f32 = pcg.randF32();
 
-        const loop_len: u32 = pcg.randBelow(@truncate(op_num - op_idx));
-        op_idx_free = @truncate(op_idx + loop_len);
+        const loop_len: usize = pcg.randBelow(@truncate(op_num - op_idx));
+        op_idx_free = op_idx + loop_len;
 
-        for (0..a_loop) |a_idx_usize| {
-            for (0..z_loop) |z_idx_usize| {
-                for (0..y_loop) |y_idx_usize| {
-                    for (0..x_loop) |x_idx_usize| {
+        for (0..a_loop) |a_idx| {
+            for (0..z_loop) |z_idx| {
+                for (0..y_loop) |y_idx| {
+                    for (0..x_loop) |x_idx| {
                         for (0..loop_len) |loop_idx| {
                             // Putting this in here hurts performance slightly but
                             // it allows partial loops for nicer debugging
@@ -159,13 +159,8 @@ fn simulateCompiler(
                                 continue;
                             }
 
-                            const a_idx: u32 = @truncate(a_idx_usize);
-                            const z_idx: u32 = @truncate(z_idx_usize);
-                            const y_idx: u32 = @truncate(y_idx_usize);
-                            const x_idx: u32 = @truncate(x_idx_usize);
-
-                            const tensor_out: u32 = op_out[op_idx + loop_idx];
-                            const tensor_in: u32 = op_in[op_idx + loop_idx];
+                            const tensor_out: usize = op_out[op_idx + loop_idx];
+                            const tensor_in: usize = op_in[op_idx + loop_idx];
 
                             if (op_type[op_idx + loop_idx].isReduce()) {
                                 tensor1[tensor_out].moveResize(1, 1, 1, 1);
@@ -375,8 +370,8 @@ fn simulateCompiler(
 
     tensor2[op_out[op_num - 1]].realize();
 
-    const size_local: u32 = pcg.randBelow(10) + 1;
-    const size_global: u32 = size_local * (pcg.randBelow(10) + 1);
+    const size_local: usize = pcg.randBelow(10) + 1;
+    const size_global: usize = size_local * (pcg.randBelow(10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);
@@ -412,14 +407,14 @@ fn minifyCompiler(
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: u32 = 1;
+    var op_top: usize = 1;
     for (1..op_num) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, 0, @truncate(op_removed), rng, device, context, queue) catch {
+        simulateCompiler(allocator, 0, op_removed, rng, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
-            op_top = @truncate(op_removed);
+            op_top = op_removed;
             continue;
         } else {
             break;
@@ -427,14 +422,14 @@ fn minifyCompiler(
     }
     // If it fails with no ops there's a serious issue
     assert(op_top > 0);
-    var op_low: u32 = 0;
+    var op_low: usize = 0;
     for (1..op_num - op_top) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, @truncate(op_removed), op_top, rng, device, context, queue) catch {
+        simulateCompiler(allocator, op_removed, op_top, rng, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
-            op_low = @truncate(op_removed);
+            op_low = op_removed;
             continue;
         } else {
             break;

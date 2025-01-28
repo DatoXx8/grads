@@ -19,7 +19,7 @@ const std = @import("std");
 pub const Program = struct {
     size_global: usize,
     size_local: usize,
-    kernel_num: u32,
+    kernel_num: usize,
     kernel: []Kernel,
     // device: *ClDevice,
     // context: *ClContext,
@@ -29,18 +29,18 @@ pub const Program = struct {
     pub fn alloc(
         allocator: anytype,
         linearized: Linearized,
-        size_global: u32,
-        size_local: u32,
+        size_global: usize,
+        size_local: usize,
         optimization: Optimization,
         device: ClDevice,
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
-        const capacity_initial: u32 = 4;
-        var op_used: u32 = 0;
+        const capacity_initial: usize = 4;
+        var op_used: usize = 0;
         var kernel: []Kernel = try allocator.alloc(Kernel, capacity_initial);
         errdefer allocator.free(kernel);
-        var kernel_num: u32 = 0;
+        var kernel_num: usize = 0;
 
         // TODO: Allocate all the pirs at once in steps
 

@@ -3,7 +3,7 @@ const std = @import("std");
 // TODO: Get rid of the pollution with passing in an allocator everywhere.
 // TODO: Make the alloc and free functions unable to error. That is fairly easy with just having everything as an optional, but that is horribly disgusting
 // TODO: I think all of the above can be gotten rid of by having a way to explicity interface with the linearized capacity to increase / set it as necessary
-//      -> Do something like tensor.capacity_ensure(std.mem.allocator, u32) to ensure there at least that many spots free
+//      -> Do something like tensor.capacity_ensure(std.mem.allocator, usize) to ensure there at least that many spots free
 //
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible
@@ -43,9 +43,8 @@ pub fn main() !void {
         allocator,
         tensor,
         &[_]Neuralnet.Layer.Config{
-            // .{ .dense = .{ .size_out = 8, .activation = .none } },
-            // .{ .dense = .{ .size_out = 8, .activation = .relu } },
-            .{ .split = .{ .filters = 2, .activation = .none } },
+            .{ .dense = .{ .size_out = 8, .activation = .none } },
+            // .{ .split = .{ .filters = 2, .activation = .none } },
         },
         20,
         4,
