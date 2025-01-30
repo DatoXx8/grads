@@ -332,184 +332,81 @@ pub const Op = struct {
         } else {
             unreachable;
         }
-        // Just to be clear: I know this is a lot of very redundant code, but I am, for now, going to keep it this way because otherwise you have to go through
-        // the switch statement every single time, which could cause some slowdown. The branch predictor could probably get this correctly consistently because it doesn't change
-        // but it isn't guaranteed.
+
         switch (this.type) {
-            .unary_add => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+            .reduce_sum => {
+                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
+            },
+            .reduce_max => {
+                this.out.values[this.out.at(0, 0, 0, 0)] = -std.math.inf(f32);
+            },
+            .reduce_min => {
+                this.out.values[this.out.at(0, 0, 0, 0)] = std.math.inf(f32);
+            },
+            .reduce_avg => {
+                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
+            },
+            else => {},
+        }
+        // Just to be clear: I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
+        // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
+        // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
+        // I measured it by running some arbitrary ops and there was no measurable difference
+        for (0..this.out.a_size) |a| {
+            for (0..this.out.z_size) |z| {
+                for (0..this.out.y_size) |y| {
+                    for (0..this.out.x_size) |x| {
+                        switch (this.type) {
+                            .unary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.u_var;
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_subtract => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_subtract => {
                                 this.out.values[this.out.at(a, z, y, x)] -= this.u_var;
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_multiply => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_multiply => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.u_var;
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_divide => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_divide => {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.u_var;
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_exp => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_exp => {
                                 this.out.values[this.out.at(a, z, y, x)] = math.exp(this.out.values[this.out.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_log => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_log => {
                                 this.out.values[this.out.at(a, z, y, x)] = math.log(f32, math.e, this.out.values[this.out.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_square => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_square => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.out.values[this.out.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_sqrt => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_sqrt => {
                                 this.out.values[this.out.at(a, z, y, x)] = math.sqrt(this.out.values[this.out.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_reciprocal => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_reciprocal => {
                                 this.out.values[this.out.at(a, z, y, x)] = 1 / this.out.values[this.out.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_max => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_max => {
                                 this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.u_var);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_min => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_min => {
                                 this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.u_var);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_set => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.u_var;
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_random => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_random => {
                                 this.out.values[this.out.at(a, z, y, x)] = pcg.randF32();
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_tanh => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_tanh => {
                                 this.out.values[this.out.at(a, z, y, x)] = std.math.tanh(this.out.values[this.out.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_absolute => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_absolute => {
                                 if (this.out.values[this.out.at(a, z, y, x)] < 0) {
                                     this.out.values[this.out.at(a, z, y, x)] = -this.out.values[this.out.at(a, z, y, x)];
                                 } else {
                                     this.out.values[this.out.at(a, z, y, x)] = this.out.values[this.out.at(a, z, y, x)];
                                 }
-                            }
-                        }
-                    }
-                }
-            },
-            .unary_sign => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .unary_sign => {
                                 if (this.out.values[this.out.at(a, z, y, x)] > 0) {
                                     this.out.values[this.out.at(a, z, y, x)] = 1;
                                 } else if (this.out.values[this.out.at(a, z, y, x)] < 0) {
@@ -517,214 +414,68 @@ pub const Op = struct {
                                 } else {
                                     this.out.values[this.out.at(a, z, y, x)] = 0;
                                 }
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_add => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_subtract => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_subtract => {
                                 this.out.values[this.out.at(a, z, y, x)] -= this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_multiply => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_multiply => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_divide => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_divide => {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_max => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_max => {
                                 this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_min => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_min => {
                                 this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .binary_set => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .binary_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_add => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(0, 0, 0, 0)];
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_subtract => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_subtract => {
                                 this.out.values[this.out.at(a, z, y, x)] -= this.in.values[this.in.at(0, 0, 0, 0)];
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_multiply => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_multiply => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.in.values[this.in.at(0, 0, 0, 0)];
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_divide => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_divide => {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.in.values[this.in.at(0, 0, 0, 0)];
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_max => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_max => {
                                 this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_min => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_min => {
                                 this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .linary_set => {
-                for (0..this.out.a_size) |a| {
-                    for (0..this.out.z_size) |z| {
-                        for (0..this.out.y_size) |y| {
-                            for (0..this.out.x_size) |x| {
+                            },
+                            .linary_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(0, 0, 0, 0)];
-                            }
-                        }
-                    }
-                }
-            },
-            .reduce_sum => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
-                for (0..this.in.a_size) |a| {
-                    for (0..this.in.z_size) |z| {
-                        for (0..this.in.y_size) |y| {
-                            for (0..this.in.x_size) |x| {
+                            },
+                            .reduce_sum => {
                                 this.out.values[this.out.at(0, 0, 0, 0)] += this.in.values[this.in.at(a, z, y, x)];
-                            }
-                        }
-                    }
-                }
-            },
-            .reduce_max => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = -std.math.inf(f32);
-                for (0..this.in.a_size) |a| {
-                    for (0..this.in.z_size) |z| {
-                        for (0..this.in.y_size) |y| {
-                            for (0..this.in.x_size) |x| {
+                            },
+                            .reduce_max => {
                                 this.out.values[this.out.at(0, 0, 0, 0)] = @max(this.out.values[this.out.at(0, 0, 0, 0)], this.in.values[this.in.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .reduce_min => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = std.math.inf(f32);
-                for (0..this.in.a_size) |a| {
-                    for (0..this.in.z_size) |z| {
-                        for (0..this.in.y_size) |y| {
-                            for (0..this.in.x_size) |x| {
+                            },
+                            .reduce_min => {
                                 this.out.values[this.out.at(0, 0, 0, 0)] = @min(this.out.values[this.out.at(0, 0, 0, 0)], this.in.values[this.in.at(a, z, y, x)]);
-                            }
-                        }
-                    }
-                }
-            },
-            .reduce_avg => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
-                for (0..this.in.a_size) |a| {
-                    for (0..this.in.z_size) |z| {
-                        for (0..this.in.y_size) |y| {
-                            for (0..this.in.x_size) |x| {
+                            },
+                            .reduce_avg => {
                                 this.out.values[this.out.at(0, 0, 0, 0)] += this.in.values[this.in.at(a, z, y, x)];
-                            }
+                            },
                         }
                     }
                 }
-                this.out.values[this.out.at(0, 0, 0, 0)] /= @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
-            },
+            }
+        }
+        if (this.type == .reduce_avg) {
+            this.out.values[this.out.at(0, 0, 0, 0)] /= @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
         }
     }
     pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
