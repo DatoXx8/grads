@@ -134,6 +134,10 @@ fn simulateLinearized(allocator: anytype, op_off_low: usize, op_off_top: usize, 
             continue;
         }
 
+        // Essentially free in case no alocattions are necessary
+        try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor1[tensor_in].linearized.op_num);
+        try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor2[tensor_in].linearized.op_num);
+
         if (op_type[op_idx].isReduce()) {
             tensor1[tensor_out].moveResize(1, 1, 1, 1);
             tensor2[tensor_out].moveResize(1, 1, 1, 1);

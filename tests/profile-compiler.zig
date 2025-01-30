@@ -181,6 +181,10 @@ fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClCo
                             const tensor_out: usize = op_out[op_idx + loop_idx];
                             const tensor_in: usize = op_in[op_idx + loop_idx];
 
+                            // Essentially free in case no alocattions are necessary
+                            try tensor1[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor1[tensor_in].linearized.op_num) * loop_len);
+                            try tensor2[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor2[tensor_in].linearized.op_num) * loop_len);
+
                             if (op_type[op_idx + loop_idx].isReduce()) {
                                 tensor1[tensor_out].moveResize(1, 1, 1, 1);
                                 tensor2[tensor_out].moveResize(1, 1, 1, 1);
