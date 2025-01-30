@@ -332,6 +332,9 @@ pub const Op = struct {
         } else {
             unreachable;
         }
+        // Just to be clear: I know this is a lot of very redundant code, but I am, for now, going to keep it this way because otherwise you have to go through
+        // the switch statement every single time, which could cause some slowdown. The branch predictor could probably get this correctly consistently because it doesn't change
+        // but it isn't guaranteed.
         switch (this.type) {
             .unary_add => {
                 for (0..this.out.a_size) |a| {
@@ -731,7 +734,7 @@ pub const Op = struct {
             std.debug.print("{s}", .{" " ** (padding + offset)});
         }
         if (this.isUnary()) {
-            std.debug.print("U {c} ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
+            std.debug.print("U {s} ({d} {d} {d} {d}) [{d}] \"{s}\" {d}\n", .{
                 switch (this.type) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
@@ -806,7 +809,7 @@ pub const Op = struct {
             std.debug.print("{s}", .{" " ** (padding + offset)});
         }
         if (this.isUnary()) {
-            std.debug.print("U {c} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
+            std.debug.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
                 switch (this.type) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
