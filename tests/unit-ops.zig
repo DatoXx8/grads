@@ -6,8 +6,6 @@ const pcg = grads.pcg;
 
 const assert = std.debug.assert;
 
-// TODO: Make options to run with provided seed
-
 const AssertError = error{
     nan,
     difference,

@@ -6,7 +6,6 @@ const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const Buffer = @import("../tensor.zig").Buffer;
 
-// TODO: Optimizations
 pub const Ssa = struct {
     pub const DimInfo = struct {
         // Offsets for in and out buffer can just be calculated with the idx information

@@ -1,9 +1,5 @@
 const std = @import("std");
 
-// TODO: Get rid of the pollution with passing in an allocator everywhere.
-// TODO: I think all of the above can be gotten rid of by having a way to explicity interface with the linearized capacity to increase / set it as necessary
-//      -> Do something like tensor.capacityEnsure(std.mem.allocator, usize) to ensure there at least that many spots free
-//
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible
 // TODO: Add autograd

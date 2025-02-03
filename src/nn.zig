@@ -15,8 +15,6 @@ const Ssa = @import("./compiler/ssa.zig").Ssa;
 
 const assert = std.debug.assert;
 
-// TODO: Maybe split this up into multiple files (Maybe one per layer type?)
-
 // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
 // That would remove the need for temp_full
 
@@ -1342,7 +1340,6 @@ pub const Neuralnet = struct {
         try this.backward_cl.free(allocator);
         try this.learn_cl.free(allocator);
     }
-    // TODO: Maybe merge this into the alloc?
     pub fn init(this: *@This()) void {
         for (0..this.layers.len) |layer_idx| {
             switch (this.layers[layer_idx].compute) {
