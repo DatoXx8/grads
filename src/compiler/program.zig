@@ -52,7 +52,9 @@ pub const Program = struct {
         var source_len: usize = 0;
         @memset(source, 0);
         var kernel_args: []Args = try allocator.alloc(Args, ssa.layer_num);
+        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.layer_num);
         defer allocator.free(kernel_args);
+        defer allocator.free(kernel_name);
 
         var kernel_num: usize = 0;
         var layer_idx: usize = 0;
@@ -84,21 +86,20 @@ pub const Program = struct {
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering
             kernel_args[kernel_num] = try Args.alloc(allocator, layer);
-            // TODO: This allocation just has to be avoidable
-            const kernel_name: []u8 = try std.fmt.allocPrint(allocator, kernel_base_name, .{kernel_num});
-            defer allocator.free(kernel_name);
+            // NOTE: The \x00 is to make the string 0-terminated
+            kernel_name[kernel_num] = try std.fmt.allocPrint(allocator, kernel_base_name ++ "\x00", .{kernel_num});
 
+            // NOTE: the len - 1 business here is to not pass in the 0-byte at the end of the string. I am doing it like this to avoid having to allocate a version
+            //  with the null terminator and one without
             try compileKernel(allocator, &source, &source_len, layer, layer_loop_id, layer_loop_num, //
-                kernel_args[kernel_num], kernel_name, size_global, size_local);
+                kernel_args[kernel_num], kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
         }
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
         var kernel: []Kernel = try allocator.alloc(Kernel, kernel_num);
 
         for (0..kernel_num) |kernel_idx| {
-            // NOTE: The \x00 is to make the string 0-terminated
-            const kernel_name: []u8 = try std.fmt.allocPrint(allocator, kernel_base_name ++ "\x00", .{kernel_idx});
-            kernel[kernel_idx] = try Kernel.alloc(program, kernel_name, kernel_args[kernel_idx]);
+            kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[kernel_idx], kernel_args[kernel_idx]);
         }
 
         return .{
