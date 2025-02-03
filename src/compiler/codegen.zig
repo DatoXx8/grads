@@ -1,15 +1,3 @@
-// TODO: These levels
-// Optimization levels
-// O1 - inline, split, merge kernels
-// O2 - fuse along all axis
-// O3 - memory optimizer (SLOW!!!)
-
-// Optimiuation levels
-// O0 - none
-// O1 - inline, split, merge kernels
-// O2 - fuse along all axis
-// O3 - memory optimizer (SLOW!!!)
-
 const std = @import("std");
 
 const Ssa = @import("./ssa.zig").Ssa;
@@ -801,7 +789,6 @@ fn writeBuffer(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, comp
 // }
 
 // TODO: Clean up the file structure. The way it currently is, it makes little to no sense to have cl.zig in a seperate directory
-// TODO: Remove this struct bs
 // TODO: compileKernel is a bad name
 /// Create the source for a kernel computing all assignments in `layer` if it is a singular layer and otherwise it computes the loop described by the layers
 pub fn compileKernel(
