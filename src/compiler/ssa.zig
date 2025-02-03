@@ -45,8 +45,6 @@ pub const Ssa = struct {
             assert(loop_num > 0);
             assert(op.len == loop_num);
 
-            // TODO: Could probably make this initializer smaller by making it undefined and then having multiple things in a line like:
-            //  dim_info.a_wait_out, dim_info.z_wait_out... = .{0,0,0,0}t
             var dim_info: DimInfo = .{
                 .a_idx_out = 0,
                 .z_idx_out = 0,

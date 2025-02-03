@@ -1036,8 +1036,7 @@ pub const Neuralnet = struct {
                 // activation: Activation.Type,
             },
         };
-        // TODO: Come up with better name
-        compute: union(Type) {
+        tag: union(Type) {
             dense: Dense,
             convolution: Convolution,
             reduce: Reduce,
@@ -1052,7 +1051,7 @@ pub const Neuralnet = struct {
                 .dense => {
                     return .{
                         .activation = try Activation.alloc(allocator, config.dense.activation, 1, 1, 1, config.dense.size_out, context),
-                        .compute = .{ .dense = try Dense.alloc(allocator, z * y * x, config.dense.size_out, context) },
+                        .tag = .{ .dense = try Dense.alloc(allocator, z * y * x, config.dense.size_out, context) },
                         .values = try Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
                         .values_g = try Tensor.alloc(allocator, 1, 1, 1, config.dense.size_out, context),
                     };
@@ -1065,7 +1064,7 @@ pub const Neuralnet = struct {
                         config.convolution.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, config.convolution.activation, 1, z_new, y_new, x_new, context),
-                        .compute = .{
+                        .tag = .{
                             .convolution = try Convolution.alloc(allocator, z, y, x, config.convolution.filters, //
                                 config.convolution.kernel_size, config.convolution.kernel_stride, //
                                 config.convolution.kernel_padding, context),
@@ -1080,7 +1079,7 @@ pub const Neuralnet = struct {
                     const x_new: usize = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
-                        .compute = .{
+                        .tag = .{
                             .reduce = Reduce.init(config.reduce.t, z, y, x, config.reduce.kernel_size, //
                                 config.reduce.kernel_stride),
                         },
@@ -1091,7 +1090,7 @@ pub const Neuralnet = struct {
                 .split => {
                     return .{
                         .activation = try Activation.alloc(allocator, config.split.activation, 1, z * config.split.filters, y, x, context),
-                        .compute = .{ .split = try Split.alloc(allocator, config.split.filters, z, y, x, context) },
+                        .tag = .{ .split = try Split.alloc(allocator, config.split.filters, z, y, x, context) },
                         .values = try Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
                         .values_g = try Tensor.alloc(allocator, 1, z * config.split.filters, y, x, context),
                     };
@@ -1099,7 +1098,7 @@ pub const Neuralnet = struct {
                 .residual => {
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z, y, x, context),
-                        .compute = .{
+                        .tag = .{
                             .residual = switch (config.residual.t) {
                                 .identity => Residual.allocIdentity(config.residual.layer),
                                 .dense => try Residual.allocConvolution(config.residual.layer, allocator, z, y, x, //
@@ -1120,12 +1119,12 @@ pub const Neuralnet = struct {
             }
         }
         pub fn free(this: *@This(), allocator: std.mem.Allocator) !void {
-            switch (this.compute) {
-                .dense => this.compute.dense.free(allocator),
-                .convolution => this.compute.convolution.free(allocator),
+            switch (this.tag) {
+                .dense => this.tag.dense.free(allocator),
+                .convolution => this.tag.convolution.free(allocator),
                 .reduce => {},
-                .split => this.compute.split.free(allocator),
-                .residual => this.compute.residual.free(allocator),
+                .split => this.tag.split.free(allocator),
+                .residual => this.tag.residual.free(allocator),
             }
             if (this.activation.intermediary) |*intermediary| {
                 intermediary.free(allocator);
@@ -1141,12 +1140,12 @@ pub const Neuralnet = struct {
             }
 
             std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.t });
-            switch (this.compute) {
-                .dense => this.compute.dense.print(padding, offset + padding, null),
-                .convolution => this.compute.convolution.print(padding, offset + padding, null),
-                .reduce => this.compute.reduce.print(padding, offset + padding, null),
-                .split => this.compute.split.print(padding, offset + padding, null),
-                .residual => this.compute.residual.print(padding, offset + padding, null),
+            switch (this.tag) {
+                .dense => this.tag.dense.print(padding, offset + padding, null),
+                .convolution => this.tag.convolution.print(padding, offset + padding, null),
+                .reduce => this.tag.reduce.print(padding, offset + padding, null),
+                .split => this.tag.split.print(padding, offset + padding, null),
+                .residual => this.tag.residual.print(padding, offset + padding, null),
             }
         }
         pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
@@ -1159,12 +1158,12 @@ pub const Neuralnet = struct {
             std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (padding + offset), this.activation.t });
             this.values.print(padding, padding + offset, "values");
             this.values_g.print(padding, padding + offset, "values_g");
-            switch (this.compute) {
-                .dense => this.compute.dense.debug(padding, offset + padding, null),
-                .convolution => this.compute.convolution.debug(padding, offset + padding, null),
-                .reduce => this.compute.reduce.print(padding, offset + padding, null),
-                .split => this.compute.split.debug(padding, offset + padding, null),
-                .residual => this.compute.residual.debug(padding, offset + padding, null),
+            switch (this.tag) {
+                .dense => this.tag.dense.debug(padding, offset + padding, null),
+                .convolution => this.tag.convolution.debug(padding, offset + padding, null),
+                .reduce => this.tag.reduce.print(padding, offset + padding, null),
+                .split => this.tag.split.debug(padding, offset + padding, null),
+                .residual => this.tag.residual.debug(padding, offset + padding, null),
             }
         }
     };
@@ -1201,13 +1200,13 @@ pub const Neuralnet = struct {
         for (0..layers.len) |layer_idx| {
             try layers[layer_idx].values.linearized.capacityEnsure(
                 allocator,
-                previous_values.linearized.op_num + switch (layers[layer_idx].compute) {
-                    .dense => 3 * layers[layer_idx].compute.dense.size_output + 1,
+                previous_values.linearized.op_num + switch (layers[layer_idx].tag) {
+                    .dense => 3 * layers[layer_idx].tag.dense.size_output + 1,
                     .convolution => 4 * layers[layer_idx].values.buffer.z_inherent * //
                         layers[layer_idx].values.buffer.y_inherent * layers[layer_idx].values.buffer.x_inherent + 1,
                     .reduce => layers[layer_idx].values.buffer.z_inherent * //
                         layers[layer_idx].values.buffer.y_inherent * layers[layer_idx].values.buffer.x_inherent,
-                    .split => 3 * layers[layer_idx].compute.split.filters,
+                    .split => 3 * layers[layer_idx].tag.split.filters,
                     .residual => 1,
                 },
             );
@@ -1215,21 +1214,21 @@ pub const Neuralnet = struct {
             // Just to force the correct order of operations
             layers[layer_idx].values.dependOn(&previous_values);
 
-            switch (layers[layer_idx].compute) {
+            switch (layers[layer_idx].tag) {
                 .dense => {
-                    layers[layer_idx].compute.dense.forward(&previous_values, &layers[layer_idx].values);
+                    layers[layer_idx].tag.dense.forward(&previous_values, &layers[layer_idx].values);
                 },
                 .convolution => {
-                    layers[layer_idx].compute.convolution.forward(&previous_values, &layers[layer_idx].values);
+                    layers[layer_idx].tag.convolution.forward(&previous_values, &layers[layer_idx].values);
                 },
                 .reduce => {
-                    layers[layer_idx].compute.reduce.forward(&previous_values, &layers[layer_idx].values);
+                    layers[layer_idx].tag.reduce.forward(&previous_values, &layers[layer_idx].values);
                 },
                 .split => {
-                    layers[layer_idx].compute.split.forward(&previous_values, &layers[layer_idx].values);
+                    layers[layer_idx].tag.split.forward(&previous_values, &layers[layer_idx].values);
                 },
                 .residual => {
-                    layers[layer_idx].compute.residual.forward(&layers[layers[layer_idx].compute.residual.layer].values, //
+                    layers[layer_idx].tag.residual.forward(&layers[layers[layer_idx].tag.residual.layer].values, //
                         &layers[layer_idx].values);
                 },
             }
@@ -1255,25 +1254,25 @@ pub const Neuralnet = struct {
             // TODO: Norming
             layers[layer_idx].activation.backward(&layers[layer_idx].values, &layers[layer_idx].values_g);
 
-            switch (layers[layer_idx].compute) {
+            switch (layers[layer_idx].tag) {
                 .dense => {
-                    layers[layer_idx].compute.dense.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
+                    layers[layer_idx].tag.dense.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
                         &layers[layer_idx].values_g);
                 },
                 .convolution => {
-                    layers[layer_idx].compute.convolution.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
+                    layers[layer_idx].tag.convolution.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
                         &layers[layer_idx].values, &layers[layer_idx].values_g);
                 },
                 .reduce => {
-                    layers[layer_idx].compute.reduce.backward(&layers[layer_idx - 1].values_g, //
+                    layers[layer_idx].tag.reduce.backward(&layers[layer_idx - 1].values_g, //
                         &layers[layer_idx].values_g);
                 },
                 .split => {
-                    layers[layer_idx].compute.split.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
+                    layers[layer_idx].tag.split.backward(&layers[layer_idx - 1].values, &layers[layer_idx - 1].values_g, //
                         &layers[layer_idx].values_g);
                 },
                 .residual => {
-                    layers[layer_idx].compute.residual.backward(&layers[layers[layer_idx].compute.residual.layer].values_g, //
+                    layers[layer_idx].tag.residual.backward(&layers[layers[layer_idx].tag.residual.layer].values_g, //
                         &layers[layer_idx].values_g);
                 },
             }
@@ -1285,25 +1284,25 @@ pub const Neuralnet = struct {
 
         var learn_cpu: Linearized = try Linearized.alloc(allocator);
         for (0..layers.len) |layer_idx| {
-            switch (layers[layer_idx].compute) {
+            switch (layers[layer_idx].tag) {
                 .dense => {
-                    layers[layer_idx].compute.dense.weights.binarySubtract(&layers[layer_idx].compute.dense.weights_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.dense.weights.linearized);
-                    layers[layer_idx].compute.dense.biases.binarySubtract(&layers[layer_idx].compute.dense.biases_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.dense.biases.linearized);
+                    layers[layer_idx].tag.dense.weights.binarySubtract(&layers[layer_idx].tag.dense.weights_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.dense.weights.linearized);
+                    layers[layer_idx].tag.dense.biases.binarySubtract(&layers[layer_idx].tag.dense.biases_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.dense.biases.linearized);
                 },
                 .convolution => {
-                    layers[layer_idx].compute.convolution.weights.binarySubtract(&layers[layer_idx].compute.convolution.weights_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.convolution.weights.linearized);
-                    layers[layer_idx].compute.convolution.biases.binarySubtract(&layers[layer_idx].compute.convolution.biases_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.convolution.biases.linearized);
+                    layers[layer_idx].tag.convolution.weights.binarySubtract(&layers[layer_idx].tag.convolution.weights_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.convolution.weights.linearized);
+                    layers[layer_idx].tag.convolution.biases.binarySubtract(&layers[layer_idx].tag.convolution.biases_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.convolution.biases.linearized);
                 },
                 .reduce => {},
                 .split => {
-                    layers[layer_idx].compute.split.weights.binarySubtract(&layers[layer_idx].compute.split.weights_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.split.weights.linearized);
-                    layers[layer_idx].compute.split.biases.binarySubtract(&layers[layer_idx].compute.split.biases_g);
-                    learn_cpu.concat(&layers[layer_idx].compute.split.biases.linearized);
+                    layers[layer_idx].tag.split.weights.binarySubtract(&layers[layer_idx].tag.split.weights_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.split.weights.linearized);
+                    layers[layer_idx].tag.split.biases.binarySubtract(&layers[layer_idx].tag.split.biases_g);
+                    learn_cpu.concat(&layers[layer_idx].tag.split.biases.linearized);
                 },
                 .residual => {},
             }
@@ -1342,25 +1341,25 @@ pub const Neuralnet = struct {
     }
     pub fn init(this: *@This()) void {
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].compute) {
+            switch (this.layers[layer_idx].tag) {
                 .dense => {
-                    this.layers[layer_idx].compute.dense.weights.unaryRandom();
-                    this.layers[layer_idx].compute.dense.biases.unaryRandom();
-                    this.layers[layer_idx].compute.dense.weights.realize();
-                    this.layers[layer_idx].compute.dense.biases.realize();
+                    this.layers[layer_idx].tag.dense.weights.unaryRandom();
+                    this.layers[layer_idx].tag.dense.biases.unaryRandom();
+                    this.layers[layer_idx].tag.dense.weights.realize();
+                    this.layers[layer_idx].tag.dense.biases.realize();
                 },
                 .convolution => {
-                    this.layers[layer_idx].compute.convolution.weights.unaryRandom();
-                    this.layers[layer_idx].compute.convolution.biases.unaryRandom();
-                    this.layers[layer_idx].compute.convolution.weights.realize();
-                    this.layers[layer_idx].compute.convolution.biases.realize();
+                    this.layers[layer_idx].tag.convolution.weights.unaryRandom();
+                    this.layers[layer_idx].tag.convolution.biases.unaryRandom();
+                    this.layers[layer_idx].tag.convolution.weights.realize();
+                    this.layers[layer_idx].tag.convolution.biases.realize();
                 },
                 .reduce => {},
                 .split => {
-                    this.layers[layer_idx].compute.split.weights.unaryRandom();
-                    this.layers[layer_idx].compute.split.biases.unaryRandom();
-                    this.layers[layer_idx].compute.split.weights.realize();
-                    this.layers[layer_idx].compute.split.biases.realize();
+                    this.layers[layer_idx].tag.split.weights.unaryRandom();
+                    this.layers[layer_idx].tag.split.biases.unaryRandom();
+                    this.layers[layer_idx].tag.split.weights.realize();
+                    this.layers[layer_idx].tag.split.biases.realize();
                 },
                 .residual => {},
             }
@@ -1372,19 +1371,19 @@ pub const Neuralnet = struct {
             .cpu => {
                 // This only copies the data to the cpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1394,19 +1393,19 @@ pub const Neuralnet = struct {
             .gpu => {
                 // This only copies the data to the gpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1430,19 +1429,19 @@ pub const Neuralnet = struct {
             .cpu => {
                 // This only copies the data to the cpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1452,19 +1451,19 @@ pub const Neuralnet = struct {
             .gpu => {
                 // This only copies the data to the gpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1488,19 +1487,19 @@ pub const Neuralnet = struct {
             .cpu => {
                 // This only copies the data to the cpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToHost(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToHost(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToHost(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1510,19 +1509,19 @@ pub const Neuralnet = struct {
             .gpu => {
                 // This only copies the data to the gpu if it changed
                 for (0..this.layers.len) |layer_idx| {
-                    switch (this.layers[layer_idx].compute) {
+                    switch (this.layers[layer_idx].tag) {
                         .dense => {
-                            try this.layers[layer_idx].compute.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.dense.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .convolution => {
-                            try this.layers[layer_idx].compute.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.convolution.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .reduce => {},
                         .split => {
-                            try this.layers[layer_idx].compute.split.weights.buffer.syncToDevice(this.forward_cl.queue);
-                            try this.layers[layer_idx].compute.split.biases.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.weights.buffer.syncToDevice(this.forward_cl.queue);
+                            try this.layers[layer_idx].tag.split.biases.buffer.syncToDevice(this.forward_cl.queue);
                         },
                         .residual => {},
                     }
@@ -1595,10 +1594,10 @@ pub const Neuralnet = struct {
             try file.writeAll(info_input);
 
             for (0..this.layers.len) |layer_idx| {
-                switch (this.layers[layer_idx].compute) {
+                switch (this.layers[layer_idx].tag) {
                     .dense => {
                         const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
-                            this.layers[layer_idx].compute.dense.size_output,
+                            this.layers[layer_idx].tag.dense.size_output,
                             this.layers[layer_idx].activation.t,
                         });
                         defer allocator.free(info_string);
@@ -1606,10 +1605,10 @@ pub const Neuralnet = struct {
                     },
                     .convolution => {
                         const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
-                            this.layers[layer_idx].compute.convolution.filters,
-                            this.layers[layer_idx].compute.convolution.kernel_size,
-                            this.layers[layer_idx].compute.convolution.kernel_stride,
-                            this.layers[layer_idx].compute.convolution.kernel_padding,
+                            this.layers[layer_idx].tag.convolution.filters,
+                            this.layers[layer_idx].tag.convolution.kernel_size,
+                            this.layers[layer_idx].tag.convolution.kernel_stride,
+                            this.layers[layer_idx].tag.convolution.kernel_padding,
                             this.layers[layer_idx].activation.t,
                         });
                         defer allocator.free(info_string);
@@ -1617,15 +1616,15 @@ pub const Neuralnet = struct {
                     },
                     .reduce => {
                         const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
-                            this.layers[layer_idx].compute.reduce.kernel_size,
-                            this.layers[layer_idx].compute.reduce.kernel_stride,
+                            this.layers[layer_idx].tag.reduce.kernel_size,
+                            this.layers[layer_idx].tag.reduce.kernel_stride,
                         });
                         defer allocator.free(info_string);
                         try file.writeAll(info_string);
                     },
                     .split => {
                         const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
-                            this.layers[layer_idx].compute.split.filters,
+                            this.layers[layer_idx].tag.split.filters,
                             this.layers[layer_idx].activation.t,
                         });
                         defer allocator.free(info_string);
@@ -1633,10 +1632,10 @@ pub const Neuralnet = struct {
                     },
                     .residual => {
                         // TODO: When adding the more complex residual types update this
-                        assert(this.layers[layer_idx].compute.residual.t == .identity);
+                        assert(this.layers[layer_idx].tag.residual.t == .identity);
                         const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
-                            this.layers[layer_idx].compute.residual.t,
-                            this.layers[layer_idx].compute.residual.layer,
+                            this.layers[layer_idx].tag.residual.t,
+                            this.layers[layer_idx].tag.residual.layer,
                         });
                         defer allocator.free(info_string);
                         try file.writeAll(info_string);
@@ -1671,19 +1670,19 @@ pub const Neuralnet = struct {
             defer file.close();
             try file.seekTo(0);
             for (0..this.layers.len) |layer_idx| {
-                switch (this.layers[layer_idx].compute) {
+                switch (this.layers[layer_idx].tag) {
                     .dense => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.dense.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.dense.weights.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.dense.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.dense.weights.buffer.values));
                     },
                     .convolution => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.convolution.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.convolution.weights.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.convolution.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.convolution.weights.buffer.values));
                     },
                     .reduce => {},
                     .split => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.split.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].compute.split.weights.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.split.biases.buffer.values));
+                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.split.weights.buffer.values));
                     },
                     .residual => {},
                 }
@@ -1715,10 +1714,10 @@ pub const Neuralnet = struct {
         try file_arch.writeAll(info_input);
 
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].compute) {
+            switch (this.layers[layer_idx].tag) {
                 .dense => {
                     const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
-                        this.layers[layer_idx].compute.dense.size_output,
+                        this.layers[layer_idx].tag.dense.size_output,
                         this.layers[layer_idx].activation.t,
                     });
                     defer allocator.free(info_string);
@@ -1726,10 +1725,10 @@ pub const Neuralnet = struct {
                 },
                 .convolution => {
                     const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
-                        this.layers[layer_idx].compute.convolution.filters,
-                        this.layers[layer_idx].compute.convolution.kernel_size,
-                        this.layers[layer_idx].compute.convolution.kernel_stride,
-                        this.layers[layer_idx].compute.convolution.kernel_padding,
+                        this.layers[layer_idx].tag.convolution.filters,
+                        this.layers[layer_idx].tag.convolution.kernel_size,
+                        this.layers[layer_idx].tag.convolution.kernel_stride,
+                        this.layers[layer_idx].tag.convolution.kernel_padding,
                         this.layers[layer_idx].activation.t,
                     });
                     defer allocator.free(info_string);
@@ -1737,15 +1736,15 @@ pub const Neuralnet = struct {
                 },
                 .reduce => {
                     const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
-                        this.layers[layer_idx].compute.reduce.kernel_size,
-                        this.layers[layer_idx].compute.reduce.kernel_stride,
+                        this.layers[layer_idx].tag.reduce.kernel_size,
+                        this.layers[layer_idx].tag.reduce.kernel_stride,
                     });
                     defer allocator.free(info_string);
                     try file_arch.writeAll(info_string);
                 },
                 .split => {
                     const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
-                        this.layers[layer_idx].compute.split.filters,
+                        this.layers[layer_idx].tag.split.filters,
                         this.layers[layer_idx].activation.t,
                     });
                     defer allocator.free(info_string);
@@ -1753,10 +1752,10 @@ pub const Neuralnet = struct {
                 },
                 .residual => {
                     // TODO: When adding the more complex residual types update this
-                    assert(this.layers[layer_idx].compute.residual.t == .identity);
+                    assert(this.layers[layer_idx].tag.residual.t == .identity);
                     const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
-                        this.layers[layer_idx].compute.residual.t,
-                        this.layers[layer_idx].compute.residual.layer,
+                        this.layers[layer_idx].tag.residual.t,
+                        this.layers[layer_idx].tag.residual.layer,
                     });
                     defer allocator.free(info_string);
                     try file_arch.writeAll(info_string);
@@ -1775,41 +1774,41 @@ pub const Neuralnet = struct {
 
         try file_param.seekTo(0);
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].compute) {
+            switch (this.layers[layer_idx].tag) {
                 .dense => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.weights.buffer.values[0])));
                     defer allocator.free(biases);
                     defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
                     try file_param.writeAll(weights);
                 },
                 .convolution => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.weights.buffer.values[0])));
                     defer allocator.free(biases);
                     defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
                     try file_param.writeAll(weights);
                 },
                 .reduce => {},
                 .split => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.weights.buffer.values[0])));
                     defer allocator.free(biases);
                     defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)));
+                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.biases.buffer.values.ptr)));
+                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.weights.buffer.values.ptr)));
                     try file_param.writeAll(biases);
                     try file_param.writeAll(weights);
                 },
@@ -1831,49 +1830,49 @@ pub const Neuralnet = struct {
 
         try file_param.seekTo(0);
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].compute) {
+            switch (this.layers[layer_idx].tag) {
                 .dense => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.dense.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.dense.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.weights.buffer.values[0])));
                     const biases_read = try file_param.readAll(biases);
                     const weights_read = try file_param.readAll(weights);
                     assert(biases_read == biases.len);
                     assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.dense.weights.buffer.values.ptr)), weights);
-                    this.layers[layer_idx].compute.dense.biases.buffer.syncUpdate(.sync_to_device);
-                    this.layers[layer_idx].compute.dense.weights.buffer.syncUpdate(.sync_to_device);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].tag.dense.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].tag.dense.weights.buffer.syncUpdate(.sync_to_device);
                 },
                 .convolution => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.convolution.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.convolution.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.weights.buffer.values[0])));
                     const biases_read = try file_param.readAll(biases);
                     const weights_read = try file_param.readAll(weights);
                     assert(biases_read == biases.len);
                     assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.convolution.weights.buffer.values.ptr)), weights);
-                    this.layers[layer_idx].compute.convolution.biases.buffer.syncUpdate(.sync_to_device);
-                    this.layers[layer_idx].compute.convolution.weights.buffer.syncUpdate(.sync_to_device);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].tag.convolution.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].tag.convolution.weights.buffer.syncUpdate(.sync_to_device);
                 },
                 .reduce => {},
                 .split => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].compute.split.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].compute.split.weights.buffer.values[0])));
+                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.biases.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.biases.buffer.values[0])));
+                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.weights.buffer.values.len *
+                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.weights.buffer.values[0])));
                     const biases_read = try file_param.readAll(biases);
                     const weights_read = try file_param.readAll(weights);
                     assert(biases_read == biases.len);
                     assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].compute.split.weights.buffer.values.ptr)), weights);
-                    this.layers[layer_idx].compute.split.biases.buffer.syncUpdate(.sync_to_device);
-                    this.layers[layer_idx].compute.split.weights.buffer.syncUpdate(.sync_to_device);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.biases.buffer.values.ptr)), biases);
+                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.weights.buffer.values.ptr)), weights);
+                    this.layers[layer_idx].tag.split.biases.buffer.syncUpdate(.sync_to_device);
+                    this.layers[layer_idx].tag.split.weights.buffer.syncUpdate(.sync_to_device);
                 },
                 .residual => {},
             }

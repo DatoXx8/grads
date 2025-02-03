@@ -247,7 +247,6 @@ pub const Op = struct {
         return this.type.isReduce();
     }
     pub inline fn isOutInlinable(this: *const @This(), target: *const @This()) bool {
-        // TODO: Need to check that there is not a way that changes, that would be done by target get lost in case they get used somewhere else
         return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.out.name_offset and
             this.out.a_size == target.out.a_size and
@@ -260,7 +259,6 @@ pub const Op = struct {
             this.out.x_offset == target.out.x_offset;
     }
     pub inline fn isInInlinable(this: *const @This(), target: *const @This()) bool {
-        // TODO: Need to check that there is not a way that changes, that would be done by target get lost in case they get used somewhere else
         return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.in.name_offset and
             this.out.a_size == target.in.a_size and
@@ -274,7 +272,7 @@ pub const Op = struct {
     }
     pub fn realize(this: *const @This()) void {
         if (this.isUnary()) {
-            // In buffer is just a copy of out buffer, basically just a sanity check.
+            // NOTE: In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
@@ -614,7 +612,6 @@ pub const Op = struct {
     }
 };
 
-// TODO: There is probably a built-in way to do this
 const op_cap_base: usize = 4;
 pub const Linearized = struct {
     op: []Op,
@@ -642,11 +639,6 @@ pub const Linearized = struct {
             this.op[op_idx].realize();
         }
     }
-    // TODO: Make a function that expands to the least power of 2 above some value
-    // Double the capacity of this.op
-    // fn expand(this: *@This(),  allocator: std.mem.Allocator) !void {
-    //     this.op = try allocator.realloc(this.op, this.op.len * 2);
-    // }
     pub fn append(this: *@This(), op: *const Op) void {
         assert(this.op_num < this.op.len);
         this.op[this.op_num] = op.*;
