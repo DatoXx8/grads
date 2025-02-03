@@ -30,7 +30,7 @@ And then you need to add the module to the executables where you want to use it:
 ```zig
 exe.root_module.addImport("grads", grads);
 ```
-Then you can import grads as follows:
+Then you can import grads in a source file as follows:
 ```zig
 const grads = @import("grads");
 ```
