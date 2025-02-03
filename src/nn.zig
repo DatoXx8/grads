@@ -11,6 +11,8 @@ const Program = @import("./compiler/program.zig").Program;
 
 const Optimization = @import("./compiler/codegen.zig").Optimization;
 
+const Ssa = @import("./compiler/ssa.zig").Ssa;
+
 const assert = std.debug.assert;
 
 // TODO: Maybe split this up into multiple files (Maybe one per layer type?)
@@ -42,7 +44,7 @@ pub const Neuralnet = struct {
         };
         t: Activation.Type,
         intermediary: ?Tensor,
-        pub fn alloc(allocator: anytype, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
+        pub fn alloc(allocator: std.mem.Allocator, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
             return .{
                 .t = t,
                 .intermediary = switch (t) {
@@ -56,7 +58,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             if (this.intermediary) |intermediary| {
                 intermediary.free(allocator);
             }
@@ -147,7 +149,7 @@ pub const Neuralnet = struct {
         mean: ?Tensor,
         variance: ?Tensor,
         max: ?Tensor,
-        pub fn alloc(allocator: anytype, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
+        pub fn alloc(allocator: std.mem.Allocator, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
             return switch (t) {
                 .none => .{
                     .type = t,
@@ -182,7 +184,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             switch (this.type) {
                 .none => {},
                 .layer => {
@@ -201,7 +203,7 @@ pub const Neuralnet = struct {
                 },
             }
         }
-        pub fn forward(this: *@This(), allocator: anytype, input: Tensor) !void {
+        pub fn forward(this: *@This(), allocator: std.mem.Allocator, input: Tensor) !void {
             switch (this.type) {
                 .none => {},
                 .layer => {
@@ -221,7 +223,7 @@ pub const Neuralnet = struct {
                 },
             }
         }
-        pub fn backward(this: *@This(), allocator: anytype, input: Tensor, input_g: Tensor) !void {
+        pub fn backward(this: *@This(), allocator: std.mem.Allocator, input: Tensor, input_g: Tensor) !void {
             _ = allocator;
             _ = input;
             _ = input_g;
@@ -253,7 +255,7 @@ pub const Neuralnet = struct {
         temp_output: Tensor,
         temp_full: Tensor,
 
-        pub fn alloc(allocator: anytype, size_input: usize, size_output: usize, context: ClContext) !Dense {
+        pub fn alloc(allocator: std.mem.Allocator, size_input: usize, size_output: usize, context: ClContext) !Dense {
             assert(size_input > 0);
             assert(size_output > 0);
 
@@ -269,7 +271,7 @@ pub const Neuralnet = struct {
                 .temp_full = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             this.weights.free(allocator);
             this.biases.free(allocator);
             this.weights_g.free(allocator);
@@ -393,7 +395,7 @@ pub const Neuralnet = struct {
         temp_single: Tensor,
 
         pub fn alloc(
-            allocator: anytype,
+            allocator: std.mem.Allocator,
             z: usize,
             y: usize,
             x: usize,
@@ -431,7 +433,7 @@ pub const Neuralnet = struct {
                 .temp_single = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             this.biases.free(allocator);
             this.biases_g.free(allocator);
             this.weights.free(allocator);
@@ -612,8 +614,8 @@ pub const Neuralnet = struct {
         x: usize,
         kernel_size: usize,
         kernel_stride: usize,
-        // The point of the alloc is only to check that the initialisation uses valid values
-        pub fn alloc(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
+        // The point of the init is only to check that the initialisation uses valid values
+        pub fn init(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
             assert(z > 0);
             assert(y > 0);
             assert(x > 0);
@@ -715,7 +717,7 @@ pub const Neuralnet = struct {
 
         temp_input: Tensor,
 
-        pub fn alloc(allocator: anytype, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
+        pub fn alloc(allocator: std.mem.Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
             assert(filters > 0);
             assert(z > 0);
             assert(y > 0);
@@ -732,7 +734,7 @@ pub const Neuralnet = struct {
                 .temp_input = try Tensor.alloc(allocator, 1, z, y, x, context),
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             this.weights.free(allocator);
             this.weights_g.free(allocator);
             this.biases.free(allocator);
@@ -873,7 +875,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn allocDense(layer: usize, allocator: anytype, size_in: usize, size_out: usize, context: ClContext) !Residual {
+        pub fn allocDense(layer: usize, allocator: std.mem.Allocator, size_in: usize, size_out: usize, context: ClContext) !Residual {
             return .{
                 .layer = layer,
                 .t = .dense,
@@ -884,7 +886,7 @@ pub const Neuralnet = struct {
         }
         pub fn allocConvolution(
             layer: usize,
-            allocator: anytype,
+            allocator: std.mem.Allocator,
             z: usize,
             y: usize,
             x: usize,
@@ -907,11 +909,11 @@ pub const Neuralnet = struct {
                 .layer = layer,
                 .t = .reduce,
                 .connection = .{
-                    .reduce = Reduce.alloc(t, z, y, x, kernel_size, kernel_stride),
+                    .reduce = Reduce.init(t, z, y, x, kernel_size, kernel_stride),
                 },
             };
         }
-        pub fn allocSplit(layer: usize, allocator: anytype, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
+        pub fn allocSplit(layer: usize, allocator: std.mem.Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
             return .{
                 .layer = layer,
                 .t = .split,
@@ -920,7 +922,7 @@ pub const Neuralnet = struct {
                 },
             };
         }
-        pub fn free(this: *@This(), allocator: anytype) void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
             switch (this.connection) {
                 .identity => {},
                 .convolution => this.connection.convolution.free(allocator),
@@ -1047,7 +1049,7 @@ pub const Neuralnet = struct {
         values: Tensor,
         values_g: Tensor,
         activation: Activation,
-        pub fn alloc(allocator: anytype, z: usize, y: usize, x: usize, config: Config, context: ClContext) !Layer {
+        pub fn alloc(allocator: std.mem.Allocator, z: usize, y: usize, x: usize, config: Config, context: ClContext) !Layer {
             switch (config) {
                 .dense => {
                     return .{
@@ -1081,7 +1083,7 @@ pub const Neuralnet = struct {
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .compute = .{
-                            .reduce = Reduce.alloc(config.reduce.t, z, y, x, config.reduce.kernel_size, //
+                            .reduce = Reduce.init(config.reduce.t, z, y, x, config.reduce.kernel_size, //
                                 config.reduce.kernel_stride),
                         },
                         .values = try Tensor.alloc(allocator, 1, z_new, y_new, x_new, context),
@@ -1119,7 +1121,7 @@ pub const Neuralnet = struct {
                 },
             }
         }
-        pub fn free(this: *@This(), allocator: anytype) !void {
+        pub fn free(this: *@This(), allocator: std.mem.Allocator) !void {
             switch (this.compute) {
                 .dense => this.compute.dense.free(allocator),
                 .convolution => this.compute.convolution.free(allocator),
@@ -1177,7 +1179,7 @@ pub const Neuralnet = struct {
     backward_cl: Program,
     learn_cl: Program,
     pub fn alloc(
-        allocator: anytype,
+        allocator: std.mem.Allocator,
         input: Tensor,
         config: []const Layer.Config,
         size_global: usize,
@@ -1243,7 +1245,6 @@ pub const Neuralnet = struct {
         var forward_cpu: Linearized = try Linearized.alloc(allocator);
         try forward_cpu.capacityEnsure(allocator, layers[layers.len - 1].values.linearized.op_num);
         forward_cpu.concat(&layers[layers.len - 1].values.linearized);
-        forward_cpu.debug(4, 0, null);
 
         // TODO: Is it needed to clear the gradients?
         for (0..layers.len - 1) |layer_idx_reverse| {
@@ -1328,7 +1329,7 @@ pub const Neuralnet = struct {
             .learn_cl = learn_cl,
         };
     }
-    pub fn free(this: *@This(), allocator: anytype) !void {
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) !void {
         for (0..this.layers.len) |layer_idx| {
             try this.layers[layer_idx].free(allocator);
         }
@@ -1562,7 +1563,7 @@ pub const Neuralnet = struct {
     }
     /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
     /// Asks for user permission to overwrite the files if it already exists
-    pub fn saveToFile(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+    pub fn saveToFile(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_arch_ext: []const u8 = ".arch";
         const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
         defer allocator.free(file_arch_name);
@@ -1696,7 +1697,7 @@ pub const Neuralnet = struct {
     }
     /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
     /// Overwrite the files if they already exists without asking for permission
-    pub fn saveToFileOverwrite(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+    pub fn saveToFileOverwrite(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_arch_ext: []const u8 = ".arch";
         const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
         defer allocator.free(file_arch_name);
@@ -1821,7 +1822,7 @@ pub const Neuralnet = struct {
     }
     /// Load weights and biases from file to already existing net.
     /// Does not explicitly check that the architecture of the values of the file and the provided net match.
-    pub fn readFromFile(this: *const @This(), allocator: anytype, filename: []const u8) !void {
+    pub fn readFromFile(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_param_ext: []const u8 = ".bin";
         const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
         defer allocator.free(file_param_name);
@@ -1882,7 +1883,7 @@ pub const Neuralnet = struct {
         }
     }
     // TODO: This one
-    // pub fn createFromFile(allocator: anytype, filename: []const u8, context: ClContext) !Neuralnet {
+    // pub fn createFromFile( allocator: std.mem.Allocator, filename: []const u8, context: ClContext) !Neuralnet {
     //     _ = allocator;
     //     _ = filename;
     //     _ = context;

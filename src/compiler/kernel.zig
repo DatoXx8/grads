@@ -10,74 +10,66 @@ const ClDevice = Cl.ClDevice;
 const ClContext = Cl.ClContext;
 const ClError = Cl.ClError;
 
-const Pir = @import("./pir.zig").Pir;
-
-const sourceGenerate = @import("./codegen.zig").generate;
-const Optimisation = @import("./codegen.zig").Optimisation;
+const Ssa = @import("./ssa.zig").Ssa;
 
 const open_cl = @import("../runtimes/cl.zig").open_cl;
+
+const assert = std.debug.assert;
 
 pub const Args = struct {
     arg_name: [][buffer_name_size]u8,
     arg_mem: []ClMem,
     arg_num: usize,
-};
-
-pub const Kernel = struct {
-    args: Args,
-    // arg_cap is arg_name.len
-    // source: [*c]u8,
-    // Convert to [*:0]u8 with source[0.. :0]
-    source: []u8,
-    kernel: ClKernel,
-    program: ClProgram,
-    pub fn argsGather(allocator: anytype, pir: Pir) !Args {
+    pub fn alloc(allocator: std.mem.Allocator, layer: []Ssa.DepLayer) !Args {
+        // TODO: Refactor this to use either hashtables or some other clever thing
         const arg_initial: usize = 4;
         var arg_name: [][buffer_name_size]u8 = try allocator.alloc([buffer_name_size]u8, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
         var arg_num: usize = 0;
 
-        for (0..pir.op_num) |op_idx| {
-            var arg_found_out: bool = false;
-            for (0..arg_num) |arg_idx| {
-                if (!arg_found_out and
-                    std.mem.eql(u8, &arg_name[arg_idx], &pir.op[op_idx].out.name))
-                {
-                    arg_found_out = true;
-                    break;
-                }
-            }
-
-            if (!arg_found_out) {
-                if (arg_num == arg_name.len) {
-                    arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
-                    arg_mem = try allocator.realloc(arg_mem, arg_name.len);
-                }
-                arg_name[arg_num] = pir.op[op_idx].out.name;
-                // TODO: Get rid of this .? stuff
-                arg_mem[arg_num] = pir.op[op_idx].out.values_cl.?;
-                arg_num += 1;
-            }
-            // Split because saving on string comparisons saves a lot of computation
-            if (!pir.op[op_idx].isUnary()) {
-                var arg_found_in: bool = false;
+        for (0..layer.len) |layer_idx| {
+            for (0..layer[layer_idx].assignment_num) |assignment_idx| {
+                var arg_found_out: bool = false;
                 for (0..arg_num) |arg_idx| {
-                    if (!arg_found_in and
-                        std.mem.eql(u8, &arg_name[arg_idx], &pir.op[op_idx].in.name))
+                    if (!arg_found_out and
+                        std.mem.eql(u8, &arg_name[arg_idx], &layer[layer_idx].assignment[assignment_idx].out.name))
                     {
-                        arg_found_in = true;
+                        arg_found_out = true;
                         break;
                     }
                 }
-                if (!arg_found_in) {
+
+                if (!arg_found_out) {
                     if (arg_num == arg_name.len) {
                         arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
                         arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                     }
-                    arg_name[arg_num] = pir.op[op_idx].in.name;
+                    arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].out.name;
                     // TODO: Get rid of this .? stuff
-                    arg_mem[arg_num] = pir.op[op_idx].in.values_cl.?;
+                    arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].out.values_cl.?;
                     arg_num += 1;
+                }
+                // Split because saving on string comparisons saves a lot of computation
+                if (!layer[layer_idx].assignment[assignment_idx].type.isUnary()) {
+                    var arg_found_in: bool = false;
+                    for (0..arg_num) |arg_idx| {
+                        if (!arg_found_in and
+                            std.mem.eql(u8, &arg_name[arg_idx], &layer[layer_idx].assignment[assignment_idx].in.name))
+                        {
+                            arg_found_in = true;
+                            break;
+                        }
+                    }
+                    if (!arg_found_in) {
+                        if (arg_num == arg_name.len) {
+                            arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
+                            arg_mem = try allocator.realloc(arg_mem, arg_name.len);
+                        }
+                        arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].in.name;
+                        // TODO: Get rid of this .? stuff
+                        arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].in.values_cl.?;
+                        arg_num += 1;
+                    }
                 }
             }
         }
@@ -88,23 +80,24 @@ pub const Kernel = struct {
             .arg_num = arg_num,
         };
     }
-    pub fn alloc(
-        allocator: anytype,
-        context: ClContext,
-        device: ClDevice,
-        pir: Pir,
-        size_global: usize,
-        size_local: usize,
-    ) !Kernel {
-        const args: Args = try Kernel.argsGather(allocator, pir);
-        errdefer allocator.free(args.arg_name);
-        const source: []u8 = try sourceGenerate(allocator, pir, args, size_global, size_local);
-        errdefer allocator.free(source);
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
+        // The arg_mem get's freed with the tensors
+        allocator.free(this.arg_name);
+        allocator.free(this.arg_mem);
+    }
+};
 
-        const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
-        errdefer program.free() catch {};
-        const kernel: ClKernel = try ClKernel.alloc(program);
-        errdefer kernel.free() catch {};
+pub const Kernel = struct {
+    args: Args,
+    name_c: []u8,
+    kernel: ClKernel,
+    pub fn alloc(
+        program: ClProgram,
+        name_c: []u8,
+        args: Args,
+    ) !Kernel {
+        // This @ptrCast is the ultimate trust me bro
+        const kernel: ClKernel = try ClKernel.alloc(program, @ptrCast(name_c));
 
         for (0..args.arg_num) |arg_idx| {
             // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
@@ -118,21 +111,13 @@ pub const Kernel = struct {
 
         return .{
             .args = args,
-            .source = source,
             .kernel = kernel,
-            .program = program,
+            .name_c = name_c,
         };
     }
-    pub fn free(kernel: @This(), allocator: anytype) !void {
-        // The arg_mem get's freed with the tensors
-
-        // for (0..kernel.args.arg_num) |arg_idx| {
-        //     try kernel.args.arg_mem[arg_idx].free();
-        // }
-        allocator.free(kernel.args.arg_name);
-        allocator.free(kernel.args.arg_mem);
-        allocator.free(kernel.source);
-        try kernel.kernel.free();
-        try kernel.program.free();
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) !void {
+        try this.kernel.free();
+        this.args.free(allocator);
+        allocator.free(this.name_c);
     }
 };

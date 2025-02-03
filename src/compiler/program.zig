@@ -5,29 +5,34 @@ const ClDevice = Cl.ClDevice;
 const ClContext = Cl.ClContext;
 const ClCommandQueue = Cl.ClCommandQueue;
 const ClError = Cl.ClError;
+const ClProgram = Cl.ClProgram;
 const open_cl = Cl.open_cl;
 
 const Linearized = @import("../tensor.zig").Linearized;
-const Pir = @import("./pir.zig").Pir;
+
+const Ssa = @import("./ssa.zig").Ssa;
 
 const assert = std.debug.assert;
 
 const Optimization = @import("./codegen.zig").Optimization;
+const compileKernel = @import("./codegen.zig").compileKernel;
+const source_capacity_min = @import("./codegen.zig").capacity_min;
+const kernel_base_name = @import("./codegen.zig").kernel_base_name;
+
+const Args = @import("./kernel.zig").Args;
 
 const std = @import("std");
 
 pub const Program = struct {
     size_global: usize,
     size_local: usize,
-    kernel_num: usize,
     kernel: []Kernel,
-    // device: *ClDevice,
-    // context: *ClContext,
-    // TODO: Decide wether to save the queue or not
-    // Also decide how to handle the quees in Program.free()
+    program: ClProgram,
+    // Convert to [*:0]u8 with source[0.. :0]
+    source: []u8,
     queue: ClCommandQueue,
     pub fn alloc(
-        allocator: anytype,
+        allocator: std.mem.Allocator,
         linearized: Linearized,
         size_global: usize,
         size_local: usize,
@@ -36,47 +41,87 @@ pub const Program = struct {
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
-        const capacity_initial: usize = 4;
-        var op_used: usize = 0;
-        var kernel: []Kernel = try allocator.alloc(Kernel, capacity_initial);
-        errdefer allocator.free(kernel);
+        _ = optimization;
+
+        linearized.debug(4, 0, null);
+        var ssa: Ssa = try Ssa.alloc(allocator, linearized);
+        defer ssa.free(allocator);
+        ssa.debug(4, 0, null);
+
+        var source: []u8 = try allocator.alloc(u8, source_capacity_min);
+        var source_len: usize = 0;
+        @memset(source, 0);
+        var kernel_args: []Args = try allocator.alloc(Args, ssa.layer_num);
+        defer allocator.free(kernel_args);
+
         var kernel_num: usize = 0;
-
-        // TODO: Allocate all the pirs at once in steps
-
-        for (0..linearized.op_num) |_| {
-            if (linearized.op_num == op_used) {
+        var layer_idx: usize = 0;
+        for (0..ssa.layer_num) |_| {
+            if (layer_idx == ssa.layer_num) {
                 break;
             }
-            var pir: Pir = try Pir.alloc(allocator, linearized, &op_used);
-            defer pir.free(allocator);
-            pir.optimize(optimization);
 
-            if (kernel_num == kernel.len) {
-                kernel = try allocator.realloc(kernel, kernel.len * 2);
+            var layer_idx_top: usize = layer_idx + 1;
+            defer {
+                layer_idx = layer_idx_top;
+                kernel_num += 1;
             }
-            kernel[kernel_num] = try Kernel.alloc(allocator, context, device, pir, size_global, size_local);
-            kernel_num += 1;
+
+            if (ssa.layer_loop_id[layer_idx] != 0) {
+                for (layer_idx + 1..ssa.layer_num) |_| {
+                    if (ssa.layer_loop_id[layer_idx] == ssa.layer_loop_id[layer_idx_top]) {
+                        assert(ssa.layer_loop_num[layer_idx] == ssa.layer_loop_num[layer_idx_top]);
+                        layer_idx_top += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            const layer: []Ssa.DepLayer = ssa.layer[layer_idx..layer_idx_top];
+            const layer_loop_id: usize = ssa.layer_loop_id[layer_idx];
+            const layer_loop_num: usize = ssa.layer_loop_num[layer_idx];
+            // NOTE: This should be enough work to justify storing it in memory
+            // TODO: Rethink this when I refactor the args gathering
+            kernel_args[kernel_num] = try Args.alloc(allocator, layer);
+            // TODO: This allocation just has to be avoidable
+            const kernel_name: []u8 = try std.fmt.allocPrint(allocator, kernel_base_name, .{kernel_num});
+            defer allocator.free(kernel_name);
+
+            try compileKernel(allocator, &source, &source_len, layer, layer_loop_id, layer_loop_num, //
+                kernel_args[kernel_num], kernel_name, size_global, size_local);
         }
-        assert(op_used == linearized.op_num);
+
+        const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
+        var kernel: []Kernel = try allocator.alloc(Kernel, kernel_num);
+
+        for (0..kernel_num) |kernel_idx| {
+            // NOTE: The \x00 is to make the string 0-terminated
+            const kernel_name: []u8 = try std.fmt.allocPrint(allocator, kernel_base_name ++ "\x00", .{kernel_idx});
+            kernel[kernel_idx] = try Kernel.alloc(program, kernel_name, kernel_args[kernel_idx]);
+        }
 
         return .{
             .size_global = size_global,
             .size_local = size_local,
-            .kernel_num = kernel_num,
             .kernel = kernel,
+            .program = program,
+            .source = source,
             .queue = queue,
         };
     }
-    pub fn free(this: @This(), allocator: anytype) !void {
-        for (0..this.kernel_num) |kernel_idx| {
-            try this.kernel[kernel_idx].free(allocator);
+    pub fn free(this: @This(), allocator: std.mem.Allocator) !void {
+        for (this.kernel) |*kernel| {
+            try kernel.free(allocator);
         }
         allocator.free(this.kernel);
+        allocator.free(this.source);
+        try this.program.free();
     }
     pub fn run(this: @This()) !void {
-        for (0..this.kernel_num) |kernel_idx| {
-            if (open_cl.clEnqueueNDRangeKernel(this.queue.queue, this.kernel[kernel_idx].kernel.kernel, //
+        for (this.kernel) |kernel| {
+            // TODO: kernel.kernel.kernel is hilarious but should not be a thing
+            if (open_cl.clEnqueueNDRangeKernel(this.queue.queue, kernel.kernel.kernel, //
                 1, null, &this.size_global, &this.size_local, 0, null, null) != 0)
             {
                 return ClError.ProgramNotRun;

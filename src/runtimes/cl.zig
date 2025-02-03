@@ -3,9 +3,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
-pub const kernel_name: []const u8 = &[_]u8{'k'};
-/// Null terminated kernel_name
-pub const kernel_name_c: []const u8 = kernel_name ++ [_]u8{'\x00'};
+// It is just this followed by the index of the kernel
+pub const kernel_name_base: []const u8 = &[_]u8{'k'};
 
 const OpenClHeader = switch (builtin.target.os.tag) {
     .macos => "OpenCL/cl.h",
@@ -124,7 +123,7 @@ pub const ClCommandQueue = struct {
 
 pub const ClProgram = struct {
     program: open_cl.cl_program,
-    pub fn alloc(allocator: anytype, context: ClContext, device: ClDevice, source: []u8) !ClProgram {
+    pub fn alloc(allocator: std.mem.Allocator, context: ClContext, device: ClDevice, source: []u8) !ClProgram {
         var log_size: usize = 0;
         var err: i32 = 0;
         // TODO: Get rid of this optional stuff
@@ -161,9 +160,9 @@ pub const ClProgram = struct {
 
 pub const ClKernel = struct {
     kernel: open_cl.cl_kernel,
-    pub fn alloc(program: ClProgram) !ClKernel {
+    pub fn alloc(program: ClProgram, name_c: [*:0]const u8) !ClKernel {
         var err: i32 = 0;
-        const kernel: open_cl.cl_kernel = open_cl.clCreateKernel(program.program, kernel_name_c[0 .. kernel_name_c.len - 1 :0], &err);
+        const kernel: open_cl.cl_kernel = open_cl.clCreateKernel(program.program, name_c, &err);
         if (err == 0) {
             return .{ .kernel = kernel };
         } else {

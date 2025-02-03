@@ -33,9 +33,6 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-// TODO: Refactor these Tensor things like in the other tests
-
-// TODO: --loop option
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
