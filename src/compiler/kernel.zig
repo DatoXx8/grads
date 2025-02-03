@@ -45,7 +45,6 @@ pub const Args = struct {
                         arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                     }
                     arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].out.name;
-                    // TODO: Get rid of this .? stuff
                     arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].out.values_cl.?;
                     arg_num += 1;
                 }
@@ -66,7 +65,6 @@ pub const Args = struct {
                             arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                         }
                         arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].in.name;
-                        // TODO: Get rid of this .? stuff
                         arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].in.values_cl.?;
                         arg_num += 1;
                     }
