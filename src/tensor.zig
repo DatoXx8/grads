@@ -352,10 +352,14 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        for (0..this.out.a_size) |a| {
-            for (0..this.out.z_size) |z| {
-                for (0..this.out.y_size) |y| {
-                    for (0..this.out.x_size) |x| {
+        const a_size: usize = if (this.isReduce()) this.in.a_size else this.out.a_size;
+        const z_size: usize = if (this.isReduce()) this.in.z_size else this.out.z_size;
+        const y_size: usize = if (this.isReduce()) this.in.y_size else this.out.y_size;
+        const x_size: usize = if (this.isReduce()) this.in.x_size else this.out.x_size;
+        for (0..a_size) |a| {
+            for (0..z_size) |z| {
+                for (0..y_size) |y| {
+                    for (0..x_size) |x| {
                         switch (this.type) {
                             .unary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.u_var;
