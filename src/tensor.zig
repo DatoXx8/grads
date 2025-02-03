@@ -9,8 +9,6 @@ const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const OpenCl = @import("./runtimes/cl.zig").open_cl;
 
-// TODO: Split the file up more?
-
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
 pub const buffer_name_size: usize = 8;
@@ -67,58 +65,30 @@ pub const Buffer = struct {
 
         // Have to do it this way because there is no such thing as ++ in Zig.
         buffer_name_offset += 1;
-        // TODO: Get rid of this case destinction. It's really ugly.
-        if (context) |ctx| {
-            return .{
-                .name_offset = buffer_name_offset - 1,
-                .name = name,
-                .sync = SyncStatus.sync_to_none,
-                .a_size = a,
-                .z_size = z,
-                .y_size = y,
-                .x_size = x,
-                .a_inherent = a,
-                .z_inherent = z,
-                .y_inherent = y,
-                .x_inherent = x,
-                .a_stride = z * y * x,
-                .z_stride = y * x,
-                .y_stride = x,
-                .x_stride = 1,
-                .offset = 0,
-                .a_offset = 0,
-                .z_offset = 0,
-                .y_offset = 0,
-                .x_offset = 0,
-                .values = try allocator.alloc(f32, a * z * y * x),
-                .values_cl = try ClMem.alloc(ctx, a, z, y, x),
-            };
-        } else {
-            return .{
-                .name_offset = buffer_name_offset - 1,
-                .name = name,
-                .sync = SyncStatus.sync_to_none,
-                .a_size = a,
-                .z_size = z,
-                .y_size = y,
-                .x_size = x,
-                .a_inherent = a,
-                .z_inherent = z,
-                .y_inherent = y,
-                .x_inherent = x,
-                .a_stride = z * y * x,
-                .z_stride = y * x,
-                .y_stride = x,
-                .x_stride = 1,
-                .offset = 0,
-                .a_offset = 0,
-                .z_offset = 0,
-                .y_offset = 0,
-                .x_offset = 0,
-                .values = try allocator.alloc(f32, a * z * y * x),
-                .values_cl = null,
-            };
-        }
+        return .{
+            .name_offset = buffer_name_offset - 1,
+            .name = name,
+            .sync = SyncStatus.sync_to_none,
+            .a_size = a,
+            .z_size = z,
+            .y_size = y,
+            .x_size = x,
+            .a_inherent = a,
+            .z_inherent = z,
+            .y_inherent = y,
+            .x_inherent = x,
+            .a_stride = z * y * x,
+            .z_stride = y * x,
+            .y_stride = x,
+            .x_stride = 1,
+            .offset = 0,
+            .a_offset = 0,
+            .z_offset = 0,
+            .y_offset = 0,
+            .x_offset = 0,
+            .values = try allocator.alloc(f32, a * z * y * x),
+            .values_cl = if (context == null) null else try ClMem.alloc(context.?, a, z, y, x),
+        };
     }
     pub fn free(this: *const @This(), allocator: std.mem.Allocator) void {
         allocator.free(this.values);
@@ -166,8 +136,6 @@ pub const Buffer = struct {
         }
     }
 };
-// TODO: Maybe truncate the names to 3 letters each
-// TODO: Put this in a different file
 pub const Op = struct {
     // Linary is like binary but the in buffer has size [1, 1, 1, 1]
     pub const Type = enum(u8) {
