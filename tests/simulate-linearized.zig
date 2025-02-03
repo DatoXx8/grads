@@ -42,7 +42,7 @@ comptime {
     assert(op_num > 0);
 }
 
-fn simulateLinearized(allocator: anytype, op_off_low: usize, op_off_top: usize, rng: u64) !void {
+fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_top: usize, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off_low);
@@ -396,7 +396,7 @@ fn simulateLinearized(allocator: anytype, op_off_low: usize, op_off_top: usize, 
     std.debug.print(" passed!\n", .{});
 }
 
-fn minifyLinearized(allocator: anytype, rng: u64, err: anytype) !void {
+fn minifyLinearized(allocator: std.mem.Allocator, rng: u64, err: anytype) !void {
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);

@@ -1,5 +1,4 @@
 const std = @import("std");
-const math = std.math;
 
 const pcg = @import("./prng.zig").pcg;
 
@@ -10,7 +9,6 @@ const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const OpenCl = @import("./runtimes/cl.zig").open_cl;
 
-// TODO: Get rid of this anytype bs. That is downright horrible imo.
 // TODO: Split the file up more?
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
@@ -51,7 +49,7 @@ pub const Buffer = struct {
     sync: SyncStatus,
     name: [buffer_name_size]u8,
     name_offset: usize,
-    pub fn alloc(allocator: anytype, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+    pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -122,7 +120,7 @@ pub const Buffer = struct {
             };
         }
     }
-    pub fn free(this: *const @This(), allocator: anytype) void {
+    pub fn free(this: *const @This(), allocator: std.mem.Allocator) void {
         allocator.free(this.values);
     }
     pub fn at(this: *const @This(), a: usize, z: usize, y: usize, x: usize) usize {
@@ -306,7 +304,6 @@ pub const Op = struct {
             this.out.y_offset == target.in.y_offset and
             this.out.x_offset == target.in.x_offset;
     }
-    // TODO: Optimize this with simd, see @Vector
     pub fn realize(this: *const @This()) void {
         if (this.isUnary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
@@ -348,6 +345,9 @@ pub const Op = struct {
             },
             else => {},
         }
+
+        // TODO: Add SIMD comptime width using @Vector
+
         // Just to be clear: I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
@@ -370,16 +370,16 @@ pub const Op = struct {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.u_var;
                             },
                             .unary_exp => {
-                                this.out.values[this.out.at(a, z, y, x)] = math.exp(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] = @exp(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_log => {
-                                this.out.values[this.out.at(a, z, y, x)] = math.log(f32, math.e, this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] = @log(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_square => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.out.values[this.out.at(a, z, y, x)];
                             },
                             .unary_sqrt => {
-                                this.out.values[this.out.at(a, z, y, x)] = math.sqrt(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] = @sqrt(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_reciprocal => {
                                 this.out.values[this.out.at(a, z, y, x)] = 1 / this.out.values[this.out.at(a, z, y, x)];
@@ -647,18 +647,18 @@ const op_cap_base: usize = 4;
 pub const Linearized = struct {
     op: []Op,
     op_num: usize,
-    pub fn alloc(allocator: anytype) !Linearized {
+    pub fn alloc(allocator: std.mem.Allocator) !Linearized {
         return .{
             .op_num = 0,
             .op = try allocator.alloc(Op, op_cap_base),
         };
     }
-    pub fn capacityEnsure(this: *@This(), allocator: anytype, capacity: usize) !void {
+    pub fn capacityEnsure(this: *@This(), allocator: std.mem.Allocator, capacity: usize) !void {
         if (this.op.len - this.op_num < capacity) {
             this.op = try allocator.realloc(this.op, this.op_num + capacity);
         }
     }
-    pub fn free(this: *@This(), allocator: anytype) void {
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
         this.op_num = 0;
         allocator.free(this.op);
     }
@@ -672,7 +672,7 @@ pub const Linearized = struct {
     }
     // TODO: Make a function that expands to the least power of 2 above some value
     // Double the capacity of this.op
-    // fn expand(this: *@This(), allocator: anytype) !void {
+    // fn expand(this: *@This(),  allocator: std.mem.Allocator) !void {
     //     this.op = try allocator.realloc(this.op, this.op.len * 2);
     // }
     pub fn append(this: *@This(), op: *const Op) void {
@@ -723,7 +723,7 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: anytype, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+    pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -734,13 +734,11 @@ pub const Tensor = struct {
             .linearized = try Linearized.alloc(allocator),
         };
     }
-    pub fn free(this: *@This(), allocator: anytype) void {
+    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
         this.buffer.free(allocator);
         this.linearized.free(allocator);
     }
-    /// TODO: Decide if this should clear the linearized. On one hand it makes it so that you don't need to rebuild the linearized if you want to run it again
-    /// However it is more intuitive that if you reailze a tensor that it should clear the linearized used to generate it
-    /// Also if you run something more than once you should compile it I guess
+    /// Clears the linearized ops in the tensor, meaning that if you want to run it a few times then use tensor.linearized.run() or compile it to a program if you run it often.
     pub fn realize(this: *@This()) void {
         if (this.linearized.op_num != 0) {
             this.linearized.run();
@@ -790,8 +788,8 @@ pub const Tensor = struct {
         }
     }
     pub fn unaryAdd(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -800,8 +798,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unarySubtract(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -810,8 +808,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryMultiply(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -820,8 +818,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryDivide(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -870,8 +868,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryMax(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -880,8 +878,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryMin(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
@@ -890,8 +888,8 @@ pub const Tensor = struct {
         });
     }
     pub fn unarySet(this: *@This(), u_var: f32) void {
-        assert(!math.isNan(u_var));
-        assert(!math.isInf(u_var));
+        assert(!std.math.isNan(u_var));
+        assert(!std.math.isInf(u_var));
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,

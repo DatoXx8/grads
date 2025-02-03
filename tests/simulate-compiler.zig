@@ -50,7 +50,7 @@ comptime {
 }
 
 fn simulateCompiler(
-    allocator: anytype,
+    allocator: std.mem.Allocator,
     op_off_low: usize,
     op_off_top: usize,
     rng: u64,
@@ -401,7 +401,7 @@ fn simulateCompiler(
 }
 
 fn minifyCompiler(
-    allocator: anytype,
+    allocator: std.mem.Allocator,
     rng: u64,
     err: anytype,
     device: ClDevice,

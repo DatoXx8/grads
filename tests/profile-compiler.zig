@@ -84,7 +84,7 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
 }
 
 // If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
-fn profileCompiler(allocator: anytype, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
+fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
 
