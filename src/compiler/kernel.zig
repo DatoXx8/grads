@@ -20,54 +20,52 @@ pub const Args = struct {
     arg_name: [][buffer_name_size]u8,
     arg_mem: []ClMem,
     arg_num: usize,
-    pub fn alloc(allocator: std.mem.Allocator, layer: []Ssa.DepLayer) !Args {
+    pub fn alloc(allocator: std.mem.Allocator, layer: []Ssa.Assignment) !Args {
         // TODO: Refactor this to use either hashtables or some other clever thing
         const arg_initial: usize = 4;
         var arg_name: [][buffer_name_size]u8 = try allocator.alloc([buffer_name_size]u8, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
         var arg_num: usize = 0;
 
-        for (0..layer.len) |layer_idx| {
-            for (0..layer[layer_idx].assignment_num) |assignment_idx| {
-                var arg_found_out: bool = false;
+        for (0..layer.len) |assignment_idx| {
+            var arg_found_out: bool = false;
+            for (0..arg_num) |arg_idx| {
+                if (!arg_found_out and
+                    std.mem.eql(u8, &arg_name[arg_idx], &layer[assignment_idx].base.out.name))
+                {
+                    arg_found_out = true;
+                    break;
+                }
+            }
+
+            if (!arg_found_out) {
+                if (arg_num == arg_name.len) {
+                    arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
+                    arg_mem = try allocator.realloc(arg_mem, arg_name.len);
+                }
+                arg_name[arg_num] = layer[assignment_idx].base.out.name;
+                arg_mem[arg_num] = layer[assignment_idx].base.out.values_cl.?;
+                arg_num += 1;
+            }
+            // Split because saving on string comparisons saves a lot of computation
+            if (!layer[assignment_idx].base.type.isUnary()) {
+                var arg_found_in: bool = false;
                 for (0..arg_num) |arg_idx| {
-                    if (!arg_found_out and
-                        std.mem.eql(u8, &arg_name[arg_idx], &layer[layer_idx].assignment[assignment_idx].out.name))
+                    if (!arg_found_in and
+                        std.mem.eql(u8, &arg_name[arg_idx], &layer[assignment_idx].base.in.name))
                     {
-                        arg_found_out = true;
+                        arg_found_in = true;
                         break;
                     }
                 }
-
-                if (!arg_found_out) {
+                if (!arg_found_in) {
                     if (arg_num == arg_name.len) {
                         arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
                         arg_mem = try allocator.realloc(arg_mem, arg_name.len);
                     }
-                    arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].out.name;
-                    arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].out.values_cl.?;
+                    arg_name[arg_num] = layer[assignment_idx].base.in.name;
+                    arg_mem[arg_num] = layer[assignment_idx].base.in.values_cl.?;
                     arg_num += 1;
-                }
-                // Split because saving on string comparisons saves a lot of computation
-                if (!layer[layer_idx].assignment[assignment_idx].type.isUnary()) {
-                    var arg_found_in: bool = false;
-                    for (0..arg_num) |arg_idx| {
-                        if (!arg_found_in and
-                            std.mem.eql(u8, &arg_name[arg_idx], &layer[layer_idx].assignment[assignment_idx].in.name))
-                        {
-                            arg_found_in = true;
-                            break;
-                        }
-                    }
-                    if (!arg_found_in) {
-                        if (arg_num == arg_name.len) {
-                            arg_name = try allocator.realloc(arg_name, arg_name.len * 2);
-                            arg_mem = try allocator.realloc(arg_mem, arg_name.len);
-                        }
-                        arg_name[arg_num] = layer[layer_idx].assignment[assignment_idx].in.name;
-                        arg_mem[arg_num] = layer[layer_idx].assignment[assignment_idx].in.values_cl.?;
-                        arg_num += 1;
-                    }
                 }
             }
         }

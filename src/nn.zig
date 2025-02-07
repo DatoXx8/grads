@@ -9,7 +9,7 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 
 const Program = @import("./compiler/program.zig").Program;
 
-const Optimization = @import("./compiler/codegen.zig").Optimization;
+const Optimization = @import("./compiler/optimize.zig").Optimization;
 
 const Ssa = @import("./compiler/ssa.zig").Ssa;
 
@@ -1175,6 +1175,7 @@ pub const Neuralnet = struct {
     forward_cl: Program,
     backward_cl: Program,
     learn_cl: Program,
+    // TODO: When allocating from here it should really always just use O3, or at least not allow O0 since that actually *so* slow
     pub fn alloc(
         allocator: std.mem.Allocator,
         input: Tensor,

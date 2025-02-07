@@ -6,9 +6,12 @@ const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const Buffer = @import("../tensor.zig").Buffer;
 
+const Optimization = @import("./optimize.zig").Optimization;
+
 pub const Ssa = struct {
     pub const DimInfo = struct {
-        // Offsets for in and out buffer can just be calculated with the idx information
+        off_out: usize,
+        off_in: usize,
         a_idx_out: usize,
         z_idx_out: usize,
         y_idx_out: usize,
@@ -46,6 +49,8 @@ pub const Ssa = struct {
             assert(op.len == loop_num);
 
             var dim_info: DimInfo = .{
+                .off_out = 0,
+                .off_in = 0,
                 .a_idx_out = 0,
                 .z_idx_out = 0,
                 .y_idx_out = 0,
@@ -219,6 +224,15 @@ pub const Ssa = struct {
                 }
             }
 
+            dim_info.off_out = op[dim_info.a_idx_out].out.a_offset * op[dim_info.a_idx_out].out.a_stride + //
+                op[dim_info.z_idx_out].out.z_offset * op[dim_info.z_idx_out].out.z_stride + //
+                op[dim_info.y_idx_out].out.y_offset * op[dim_info.y_idx_out].out.y_stride + //
+                op[dim_info.x_idx_out].out.x_offset * op[dim_info.x_idx_out].out.x_stride;
+            dim_info.off_in = op[dim_info.a_idx_in].in.a_offset * op[dim_info.a_idx_in].in.a_stride + //
+                op[dim_info.z_idx_in].in.z_offset * op[dim_info.z_idx_in].in.z_stride + //
+                op[dim_info.y_idx_in].in.y_offset * op[dim_info.y_idx_in].in.y_stride + //
+                op[dim_info.x_idx_in].in.x_offset * op[dim_info.x_idx_in].in.x_stride;
+
             return dim_info;
         }
         pub fn print(this: *@This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
@@ -226,100 +240,165 @@ pub const Ssa = struct {
                 std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
             }
             std.debug.print("{s}str => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
-                " " ** (offset + padding),
-                this.a_stride_out,
-                this.z_stride_out,
-                this.y_stride_out,
-                this.x_stride_out,
-                this.a_stride_out,
-                this.z_stride_out,
-                this.y_stride_out,
-                this.x_stride_out,
-            });
-            std.debug.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
-                " " ** (offset + padding),
-                this.a_wait_out,
-                this.z_wait_out,
-                this.y_wait_out,
-                this.x_wait_out,
-                this.a_wait_out,
-                this.z_wait_out,
-                this.y_wait_out,
-                this.x_wait_out,
+                " " ** (offset + padding), //
+                this.a_stride_out, this.z_stride_out, this.y_stride_out, this.x_stride_out, //
+                this.a_stride_out, this.z_stride_out, this.y_stride_out, this.x_stride_out,
             });
             std.debug.print("{s}res => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
-                " " ** (offset + padding),
-                this.a_reset_out,
-                this.z_reset_out,
-                this.y_reset_out,
-                this.x_reset_out,
-                this.a_reset_out,
-                this.z_reset_out,
-                this.y_reset_out,
-                this.x_reset_out,
+                " " ** (offset + padding), //
+                this.a_reset_out, this.z_reset_out, this.y_reset_out, this.x_reset_out, //
+                this.a_reset_out, this.z_reset_out, this.y_reset_out, this.x_reset_out,
+            });
+            std.debug.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+                " " ** (offset + padding), //
+                this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out, //
+                this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out,
             });
             std.debug.print("{s}idx => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
-                " " ** (offset + padding),
-                this.a_idx_out,
-                this.z_idx_out,
-                this.y_idx_out,
-                this.x_idx_out,
-                this.a_idx_out,
-                this.z_idx_out,
-                this.y_idx_out,
-                this.x_idx_out,
+                " " ** (offset + padding), //
+                this.a_idx_out, this.z_idx_out, this.y_idx_out, this.x_idx_out, //
+                this.a_idx_out, this.z_idx_out, this.y_idx_out, this.x_idx_out,
             });
-            //     this.wai_x_in,
-            //     this.res_x_in,
-            //     this.idx_x_in,
         }
     };
     pub const Assignment = struct {
-        type: Op.Type,
-        u_var: f32,
-        out: Buffer,
-        in: Buffer,
-        // This is the number of times the out / in buffer has been written too
-        layer_out: usize,
-        layer_in: usize,
+        pub const Base = struct {
+            type: Op.Type,
+            out: Buffer,
+            in: Buffer,
+            u_var: f32,
+            layer_out: usize,
+            layer_in: usize,
+            dim_info: DimInfo,
+            pub fn isDependant(this: *const @This()) bool {
+                const t: Op.Type = this.base.type;
+                return !(t == .unary_set or t == .unary_random or t == .binary_set or
+                    t == .linary_set or t == .reduce_avg or t == .reduce_max or
+                    t == .reduce_min or t == .reduce_sum);
+            }
+        };
+        pub const Inlined = struct {
+            pub const Type = enum(u8) { in, out };
+            type: []Type,
+            base: []Base,
+        };
+        pub const Split = struct {
+            splittable: bool,
+        };
+        // TODO: Simd is not really an accurate name, it utilizes simd by block forming
+        //  but I am not really sure how to name that
+        pub const Simd = struct {
+            a_block: usize,
+            z_block: usize,
+            y_block: usize,
+            x_block: usize,
+        };
+        pub const Memory = struct {
+            // TODO: Don't even know what to put here yet
+            //  I guess it's supposed to be like an advanced mix of SIMD block forms with Split
+        };
+        base: Base,
+        inlined: ?Inlined,
+        split: ?Split,
+        simd: ?Simd,
+        memory: ?Memory,
+        pub fn layer(this: *const @This()) usize {
+            return @max(this.base.layer_out, this.base.layer_in);
+        }
         pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
-            const op: Op = .{
-                .out = this.out,
-                .in = this.in,
-                .u_var = this.u_var,
-                .type = this.type,
-            };
+            // TODO: Also print the dim info and optimizations
             if (name) |text| {
-                std.debug.print("{s}Assignment {s}\n", .{ [1]u8{' '} ** offset, text });
+                std.debug.print("{s}Assignment {s}\n", .{ " " ** (padding + offset), text });
             }
-            std.debug.print("{s}{} {} ", .{ [1]u8{' '} ** (offset + padding), this.layer_out, this.layer_in });
-            op.print(0, 0, null);
-        }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
-            const op: Op = .{
-                .out = this.out,
-                .in = this.in,
-                .u_var = this.u_var,
-                .type = this.type,
-            };
-            if (name) |text| {
-                std.debug.print("{s}Assignment {s}\n", .{ [1]u8{' '} ** offset, text });
+            if (this.base.type.isUnary()) {
+                std.debug.print("{} U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {} {d}\n", .{
+                    this.layer(),
+                    switch (this.base.type) {
+                        .unary_add => "add",
+                        .unary_subtract => "sub",
+                        .unary_multiply => "mul",
+                        .unary_divide => "div",
+                        .unary_exp => "exp",
+                        .unary_log => "log",
+                        .unary_square => "sqr",
+                        .unary_sqrt => "sqt",
+                        .unary_reciprocal => "rcp",
+                        .unary_max => "max",
+                        .unary_min => "min",
+                        .unary_set => "set",
+                        .unary_random => "rng",
+                        .unary_tanh => "tanh",
+                        .unary_absolute => "abs",
+                        .unary_sign => "sgn",
+                        else => unreachable,
+                    },
+                    this.base.out.a_size,
+                    this.base.out.z_size,
+                    this.base.out.y_size,
+                    this.base.out.x_size,
+                    this.base.out.a_offset,
+                    this.base.out.z_offset,
+                    this.base.out.y_offset,
+                    this.base.out.x_offset,
+                    this.base.out.offset,
+                    this.base.out.name,
+                    this.base.layer_out,
+                    this.base.u_var,
+                });
+            } else {
+                const op_kind: u8 = if (this.base.type.isBinary()) 'B' else (if (this.base.type.isLinary()) 'L' else 'R');
+                std.debug.print("{} {c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\"\n", .{
+                    this.layer(),
+                    op_kind,
+                    switch (this.base.type) {
+                        .binary_add => "add",
+                        .binary_subtract => "sub",
+                        .binary_multiply => "mul",
+                        .binary_divide => "div",
+                        .binary_max => "max",
+                        .binary_min => "min",
+                        .binary_set => "set",
+                        .linary_add => "add",
+                        .linary_subtract => "sub",
+                        .linary_multiply => "mul",
+                        .linary_divide => "div",
+                        .linary_max => "max",
+                        .linary_min => "min",
+                        .linary_set => "set",
+                        .reduce_sum => "sum",
+                        .reduce_max => "max",
+                        .reduce_min => "min",
+                        .reduce_avg => "avg",
+                        else => unreachable,
+                    },
+                    this.base.out.a_size,
+                    this.base.out.z_size,
+                    this.base.out.y_size,
+                    this.base.out.x_size,
+                    this.base.out.a_offset,
+                    this.base.out.z_offset,
+                    this.base.out.y_offset,
+                    this.base.out.x_offset,
+                    this.base.out.offset,
+                    this.base.layer_out,
+                    this.base.out.name,
+                    this.base.in.a_size,
+                    this.base.in.z_size,
+                    this.base.in.y_size,
+                    this.base.in.x_size,
+                    this.base.in.a_offset,
+                    this.base.in.z_offset,
+                    this.base.in.y_offset,
+                    this.base.in.x_offset,
+                    this.base.in.offset,
+                    this.base.layer_in,
+                    this.base.in.name,
+                });
             }
-            std.debug.print("{s}{} {} ", .{ [1]u8{' '} ** (offset + padding), this.layer_out, this.layer_in });
-            op.debug(0, 0, null);
         }
     };
-    pub const DepLayer = struct {
-        assignment: []Assignment,
-        assignment_num: usize,
-        assignment_dim: []DimInfo,
-    };
-    // TODO: This is a hack. I should make some smart way to group loop layers together
-    layer: []DepLayer,
-    layer_num: usize,
-    // 0 in case there is no loop
-    layer_loop_id: []usize,
-    layer_loop_num: []usize,
+    assignment: []Assignment,
+    assignment_num: usize,
     pub fn alloc(allocator: std.mem.Allocator, linearized: Linearized) !Ssa {
         // Don't think hashmaps are avoidable sadly :^(
         var assignment_layer_write = std.AutoHashMap(usize, usize).init(allocator);
@@ -328,182 +407,71 @@ pub const Ssa = struct {
         var assignment_layer_read = std.AutoHashMap(usize, usize).init(allocator);
         defer assignment_layer_read.deinit();
 
-        const layer_count_op: []usize = try allocator.alloc(usize, linearized.op_num);
-        defer allocator.free(layer_count_op);
-        @memset(layer_count_op, 0);
+        var assignment: []Assignment = try allocator.alloc(Assignment, linearized.op_num);
 
-        const op_slice: []Op = try allocator.alloc(Op, linearized.op_num);
-        defer allocator.free(op_slice);
+        for (0..linearized.op_num) |op_idx| {
+            const layer_out: usize = @max(
+                assignment_layer_write.get(linearized.op[op_idx].out.name_offset) orelse 0,
+                assignment_layer_read.get(linearized.op[op_idx].out.name_offset) orelse 0,
+            );
+            const layer_in: usize = assignment_layer_write.get(linearized.op[op_idx].in.name_offset) orelse 0;
+            const layer_idx: usize = @max(layer_out, layer_in);
 
-        var assignment: []?Assignment = try allocator.alloc(?Assignment, linearized.op_num);
-        defer allocator.free(assignment);
-        @memset(assignment, null);
-
-        var dim_info: []DimInfo = try allocator.alloc(DimInfo, linearized.op_num);
-        defer allocator.free(dim_info);
-
-        var layer_loop_id_tracker: usize = 1;
-        const layer_loop_num: []usize = try allocator.alloc(usize, linearized.op_num);
-        const layer_loop_id: []usize = try allocator.alloc(usize, linearized.op_num);
-        @memset(layer_loop_num, 0);
-        @memset(layer_loop_id, linearized.op_num);
-
-        var op_search_idx: usize = 0;
-        for (0..linearized.op_num) |_| {
-            if (op_search_idx == linearized.op_num) {
-                break;
-            }
-            assert(op_search_idx < linearized.op_num);
-
-            var loop_len: usize = 0;
-            // TODO: Maybe make this a constant like 4096 or something.
-            const loop_len_max: usize = @divFloor(linearized.op_num - op_search_idx, 2);
-            if (loop_len_max != 0) {
-                for (1..loop_len_max) |loop_search| {
-                    const match_potential: bool = linearized.op[op_search_idx].equal(linearized.op[op_search_idx + loop_search]);
-                    var match: bool = true;
-                    if (match_potential) {
-                        for (1..loop_search) |op_idx| {
-                            if (linearized.op[op_search_idx + op_idx].equal(linearized.op[op_search_idx + loop_search + op_idx])) {
-                                continue;
-                            } else {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) {
-                            loop_len = loop_search;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            var layer_loop_id_curr: usize = 0;
-
-            var loop_num: usize = 1;
-            if (loop_len == 0) {
-                loop_len = 1;
-                layer_loop_id_curr = 0;
-            } else {
-                const loop_num_max: usize = @divFloor(linearized.op_num - op_search_idx, loop_len);
-                for (1..loop_num_max) |loop_idx| {
-                    var same: bool = true;
-                    for (0..loop_len) |op_idx| {
-                        if (!linearized.op[op_search_idx + op_idx].equal(linearized.op[op_search_idx + op_idx + loop_idx * loop_len])) {
-                            same = false;
-                            break;
-                        }
-                    }
-                    if (same) {
-                        loop_num += 1;
-                    } else {
-                        break;
-                    }
-                }
-                // If this isn't the case some *really* weird things are going on
-                assert(loop_num <= loop_num_max);
-
-                layer_loop_id_curr = layer_loop_id_tracker;
-                layer_loop_id_tracker += 1;
-            }
-
-            for (0..loop_len) |op_inner_idx| {
-                const op_idx = op_search_idx + op_inner_idx;
-
-                var op_slice_info: []Op = op_slice[0..loop_num];
-                @memset(op_slice_info, undefined);
-                for (0..loop_num) |loop_idx| {
-                    op_slice_info[loop_idx] = linearized.op[op_idx + loop_idx * loop_len];
-                }
-                dim_info[op_idx] = DimInfo.init(op_slice_info, loop_num);
-
-                const layer_out: usize = @max(
-                    assignment_layer_write.get(linearized.op[op_idx].out.name_offset) orelse 0,
-                    assignment_layer_read.get(linearized.op[op_idx].out.name_offset) orelse 0,
-                );
-                const layer_in: usize = assignment_layer_write.get(linearized.op[op_idx].in.name_offset) orelse 0;
-                const layer_idx: usize = @max(layer_out, layer_in);
-
-                assignment[op_idx] = .{
+            assignment[op_idx] = .{
+                .base = .{
                     .type = linearized.op[op_idx].type,
                     .u_var = linearized.op[op_idx].u_var,
                     .out = linearized.op[op_idx].out,
                     .in = linearized.op[op_idx].in,
                     .layer_out = layer_out,
                     .layer_in = layer_in,
-                };
+                    .dim_info = DimInfo.init(linearized.op[op_idx .. op_idx + 1], 1),
+                },
+                .inlined = null,
+                .split = null,
+                .simd = null,
+                .memory = null,
+            };
 
-                // This overwrites the data if it already existed
-                try assignment_layer_write.put(assignment[op_idx].?.out.name_offset, layer_idx + 1);
-                try assignment_layer_read.put(assignment[op_idx].?.in.name_offset, layer_idx + 1);
+            // This overwrites the data if it already existed
+            try assignment_layer_write.put(assignment[op_idx].base.out.name_offset, layer_idx + 1);
+            try assignment_layer_read.put(assignment[op_idx].base.in.name_offset, layer_idx + 1);
 
-                assert(layer_loop_id[layer_idx] == linearized.op_num or layer_loop_id[layer_idx] == layer_loop_id_curr);
-
-                layer_count_op[layer_idx] += 1;
-                layer_loop_id[layer_idx] = layer_loop_id_curr;
-                layer_loop_num[layer_idx] = loop_num;
-            }
-
-            op_search_idx += loop_len * loop_num;
-        }
-
-        // TODO: Refactor this. This just has to be doable in one loop
-        // TODO: When debugging is done uncomment this break and remove the zero_found things.
-        var zero_found: bool = false;
-        var layer_num: usize = 0;
-        for (0..linearized.op_num) |op_idx| {
-            if (layer_count_op[op_idx] == 0) {
-                // break;
-                zero_found = true;
+            if (op_idx == 0) {
+                assert(assignment[0].layer() == 0);
             } else {
-                assert(!zero_found);
-                layer_num = op_idx + 1;
-            }
-        }
-
-        zero_found = false;
-        const layer = try allocator.alloc(DepLayer, layer_num);
-        for (0..layer_num) |layer_idx| {
-            if (layer_count_op[layer_idx] == 0) {
-                // break;
-                zero_found = true;
-            } else {
-                assert(!zero_found);
-                layer[layer_idx].assignment_num = 0;
-                layer[layer_idx].assignment = try allocator.alloc(Assignment, layer_count_op[layer_idx]);
-                layer[layer_idx].assignment_dim = try allocator.alloc(DimInfo, layer_count_op[layer_idx]);
-            }
-        }
-
-        for (0..linearized.op_num) |op_idx| {
-            if (assignment[op_idx]) |assignment_curr| {
-                const layer_idx: usize = @max(assignment_curr.layer_out, assignment_curr.layer_in);
-                if (layer_count_op[layer_idx] == 0) {
-                    break;
-                } else {
-                    layer[layer_idx].assignment[layer[layer_idx].assignment_num] = assignment_curr;
-                    layer[layer_idx].assignment_dim[layer[layer_idx].assignment_num] = dim_info[op_idx];
-                    layer[layer_idx].assignment_num += 1;
-                }
+                assert(assignment[op_idx].layer() >= assignment[op_idx - 1].layer());
             }
         }
 
         return .{
-            .layer = layer,
-            .layer_num = layer.len,
-            .layer_loop_id = layer_loop_id,
-            .layer_loop_num = layer_loop_num,
+            .assignment = assignment,
+            .assignment_num = assignment.len,
         };
     }
     pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
-        for (0..this.layer_num) |layer_idx| {
-            allocator.free(this.layer[layer_idx].assignment);
-            allocator.free(this.layer[layer_idx].assignment_dim);
+        for (this.assignment) |*assignment| {
+            if (assignment.inlined) |*inlined| {
+                allocator.free(inlined.base);
+            }
         }
-        allocator.free(this.layer);
-        allocator.free(this.layer_loop_num);
-        allocator.free(this.layer_loop_id);
+        allocator.free(this.assignment);
+    }
+    pub fn optimize(this: *@This(), allocator: std.mem.Allocator, optimization: Optimization) !void {
+        if (optimization == .O0) {
+            return;
+        }
+        try optimization.inlineOp(allocator, this);
+        try optimization.parallelize(allocator, this);
+        try optimization.splitKernel(allocator, this);
+        if (optimization == .O1) {
+            return;
+        }
+        try optimization.simd(allocator, this);
+        if (optimization == .O2) {
+            return;
+        }
+        try optimization.memoryLayout(allocator, this);
     }
     pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
@@ -511,19 +479,9 @@ pub const Ssa = struct {
         } else {
             std.debug.print("{s}SSA\n", .{[1]u8{' '} ** offset});
         }
-        for (0..this.layer_num) |layer_idx| {
-            std.debug.print("{s}Layer idx={} of {}: id={} repeat_num={}\n", .{
-                [1]u8{' '} ** (offset + padding),
-                layer_idx,
-                this.layer_num,
-                this.layer_loop_id[layer_idx],
-                this.layer_loop_num[layer_idx],
-            });
-            for (0..this.layer[layer_idx].assignment_num) |assignment_idx| {
-                std.debug.print("{s}[{}] ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
-                this.layer[layer_idx].assignment[assignment_idx].print(padding, offset + padding, null);
-                this.layer[layer_idx].assignment_dim[assignment_idx].print(padding, offset + padding, null);
-            }
+        for (0..this.assignment_num) |assignment_idx| {
+            std.debug.print("{s}[{}] => ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
+            this.assignment[assignment_idx].print(0, 0, null);
         }
     }
     pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
@@ -532,19 +490,9 @@ pub const Ssa = struct {
         } else {
             std.debug.print("{s}SSA\n", .{[1]u8{' '} ** offset});
         }
-        for (0..this.layer_num) |layer_idx| {
-            std.debug.print("{s}Layer idx={} of {}: id={} repeat_num={}\n", .{
-                [1]u8{' '} ** (offset + padding),
-                layer_idx,
-                this.layer_num,
-                this.layer_loop_id[layer_idx],
-                this.layer_loop_num[layer_idx],
-            });
-            for (0..this.layer[layer_idx].assignment_num) |assignment_idx| {
-                std.debug.print("{s}[{}] ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
-                this.layer[layer_idx].assignment[assignment_idx].debug(0, 0, null);
-                this.layer[layer_idx].assignment_dim[assignment_idx].print(padding, offset + padding, null);
-            }
+        for (0..this.assignment_num) |assignment_idx| {
+            std.debug.print("{s}[{}] => ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
+            this.assignment[assignment_idx].print(0, 0, null);
         }
     }
 };

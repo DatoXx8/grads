@@ -14,7 +14,8 @@ const Ssa = @import("./ssa.zig").Ssa;
 
 const assert = std.debug.assert;
 
-const Optimization = @import("./codegen.zig").Optimization;
+const Optimization = @import("./optimize.zig").Optimization;
+
 const compileKernel = @import("./codegen.zig").compileKernel;
 const source_capacity_min = @import("./codegen.zig").capacity_min;
 const kernel_base_name = @import("./codegen.zig").kernel_base_name;
@@ -41,48 +42,39 @@ pub const Program = struct {
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
-        _ = optimization;
-
         linearized.debug(4, 0, null);
         var ssa: Ssa = try Ssa.alloc(allocator, linearized);
         defer ssa.free(allocator);
+
+        try ssa.optimize(allocator, optimization);
         ssa.debug(4, 0, null);
 
         var source: []u8 = try allocator.alloc(u8, source_capacity_min);
         var source_len: usize = 0;
         @memset(source, 0);
-        var kernel_args: []Args = try allocator.alloc(Args, ssa.layer_num);
-        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.layer_num);
+        var kernel_args: []Args = try allocator.alloc(Args, ssa.assignment_num);
+        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.assignment_num);
         defer allocator.free(kernel_args);
         defer allocator.free(kernel_name);
 
         var kernel_num: usize = 0;
-        var layer_idx: usize = 0;
-        for (0..ssa.layer_num) |_| {
-            if (layer_idx == ssa.layer_num) {
+        var assignment_idx: usize = 0;
+        for (0..ssa.assignment_num) |_| {
+            if (assignment_idx == ssa.assignment_num) {
                 break;
             }
+            assert(assignment_idx < ssa.assignment_num);
 
-            var layer_idx_top: usize = layer_idx + 1;
-            defer {
-                layer_idx = layer_idx_top;
-                kernel_num += 1;
-            }
-
-            if (ssa.layer_loop_id[layer_idx] != 0) {
-                for (layer_idx + 1..ssa.layer_num) |_| {
-                    if (ssa.layer_loop_id[layer_idx] == ssa.layer_loop_id[layer_idx_top]) {
-                        assert(ssa.layer_loop_num[layer_idx] == ssa.layer_loop_num[layer_idx_top]);
-                        layer_idx_top += 1;
-                    } else {
-                        break;
-                    }
+            var assignment_idx_top: usize = assignment_idx + 1;
+            for (assignment_idx + 1..ssa.assignment_num) |assignment_search_idx| {
+                if (ssa.assignment[assignment_idx].layer() == ssa.assignment[assignment_search_idx].layer()) {
+                    assignment_idx_top += 1;
+                } else {
+                    break;
                 }
             }
+            const layer: []Ssa.Assignment = ssa.assignment;
 
-            const layer: []Ssa.DepLayer = ssa.layer[layer_idx..layer_idx_top];
-            const layer_loop_id: usize = ssa.layer_loop_id[layer_idx];
-            const layer_loop_num: usize = ssa.layer_loop_num[layer_idx];
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering
             kernel_args[kernel_num] = try Args.alloc(allocator, layer);
@@ -91,8 +83,11 @@ pub const Program = struct {
 
             // NOTE: the len - 1 business here is to not pass in the 0-byte at the end of the string. I am doing it like this to avoid having to allocate a version
             //  with the null terminator and one without
-            try compileKernel(allocator, &source, &source_len, layer, layer_loop_id, layer_loop_num, //
+            try compileKernel(allocator, &source, &source_len, layer, 0, 1, //
                 kernel_args[kernel_num], kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
+
+            kernel_num += 1;
+            assignment_idx = assignment_idx_top;
         }
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);

@@ -20,7 +20,6 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const Neuralnet = @import("./nn.zig").Neuralnet;
 
 pub fn main() !void {
-    std.debug.print("Hi :)\n", .{});
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
