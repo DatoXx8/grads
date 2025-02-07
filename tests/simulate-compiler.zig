@@ -3,13 +3,13 @@ const grads = @import("grads");
 
 const Tensor = grads.Tensor;
 const OpType = grads.Op.Type;
-const pcg = grads.pcg;
 const Program = grads.Program;
 const ClContext = grads.ClContext;
 const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
 
 const assert = std.debug.assert;
+const Pcg = std.Random.Pcg;
 
 // TODO: Also randomize random optimization once those are implemented
 
@@ -65,10 +65,10 @@ fn simulateCompiler(
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
 
-    const a_size_max: usize = 7;
-    const z_size_max: usize = 6;
-    const y_size_max: usize = 5;
-    const x_size_max: usize = 4;
+    const a_size_max: u32 = 7;
+    const z_size_max: u32 = 6;
+    const y_size_max: u32 = 5;
+    const x_size_max: u32 = 4;
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
@@ -81,35 +81,34 @@ fn simulateCompiler(
         }
     }
 
-    pcg.init(rng);
+    var pcg = Pcg.init(rng);
     std.debug.print("simulate-compiler: rng={}...", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.randF32();
+            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
             tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
         }
     }
 
-    const op_type_max: usize = @typeInfo(OpType).Enum.fields.len;
     var op_type: [op_num]OpType = undefined;
-    var op_out: [op_num]usize = undefined;
-    var op_in: [op_num]usize = undefined;
+    var op_out: [op_num]u32 = undefined;
+    var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
-        op_type[op_idx] = @enumFromInt(pcg.randBelow(op_type_max));
+        op_type[op_idx] = pcg.random().enumValueWithIndex(OpType, u32);
 
         if (op_idx == 0) {
-            op_out[0] = pcg.randBelow(tensor_num);
+            op_out[0] = pcg.random().uintLessThan(u32, tensor_num);
 
-            op_in[0] = pcg.randBelow(tensor_num - 1);
+            op_in[0] = pcg.random().uintLessThan(u32, tensor_num - 1);
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
-            const switch_likelyhood: usize = 10;
-            if (pcg.randBelow(switch_likelyhood) == 0) {
+            const switch_likelyhood: u32 = 10;
+            if (pcg.random().uintLessThan(u32, switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
-                op_out[op_idx] = pcg.randBelow(tensor_num - 1);
+                op_out[op_idx] = pcg.random().uintLessThan(u32, tensor_num - 1);
                 // I think this should get a guaranteed random number different than tensor_in without biasing the result
                 if (op_out[op_idx] >= op_in[op_idx]) {
                     op_out[op_idx] += 1;
@@ -129,23 +128,23 @@ fn simulateCompiler(
             continue;
         }
 
-        const a_size: usize = pcg.randBelow(@truncate(a_size_max)) + 1;
-        const z_size: usize = pcg.randBelow(@truncate(z_size_max)) + 1;
-        const y_size: usize = pcg.randBelow(@truncate(y_size_max)) + 1;
-        const x_size: usize = pcg.randBelow(@truncate(x_size_max)) + 1;
-        const a_off: usize = pcg.randBelow(@truncate(a_size_max - a_size));
-        const z_off: usize = pcg.randBelow(@truncate(z_size_max - z_size));
-        const y_off: usize = pcg.randBelow(@truncate(y_size_max - y_size));
-        const x_off: usize = pcg.randBelow(@truncate(x_size_max - x_size));
-        const a_loop: usize = pcg.randBelow(@truncate(a_size_max - (a_size + a_off))) + 1;
-        const z_loop: usize = pcg.randBelow(@truncate(z_size_max - (z_size + z_off))) + 1;
-        const y_loop: usize = pcg.randBelow(@truncate(y_size_max - (y_size + y_off))) + 1;
-        const x_loop: usize = pcg.randBelow(@truncate(x_size_max - (x_size + x_off))) + 1;
+        const a_size: u32 = pcg.random().uintLessThan(u32, a_size_max) + 1;
+        const z_size: u32 = pcg.random().uintLessThan(u32, z_size_max) + 1;
+        const y_size: u32 = pcg.random().uintLessThan(u32, y_size_max) + 1;
+        const x_size: u32 = pcg.random().uintLessThan(u32, x_size_max) + 1;
+        const a_off: u32 = pcg.random().uintLessThan(u32, a_size_max - a_size);
+        const z_off: u32 = pcg.random().uintLessThan(u32, z_size_max - z_size);
+        const y_off: u32 = pcg.random().uintLessThan(u32, y_size_max - y_size);
+        const x_off: u32 = pcg.random().uintLessThan(u32, x_size_max - x_size);
+        const a_loop: u32 = pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) + 1;
+        const z_loop: u32 = pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) + 1;
+        const y_loop: u32 = pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) + 1;
+        const x_loop: u32 = pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) + 1;
 
         // Putting this out here to make snycing the prng state trivial
-        const u_var: f32 = pcg.randF32();
+        const u_var: f32 = pcg.random().floatNorm(f32);
 
-        const loop_len: usize = pcg.randBelow(@truncate(op_num - op_idx));
+        const loop_len: u32 = pcg.random().uintLessThan(u32, @truncate(op_num - op_idx));
         op_idx_free = op_idx + loop_len;
 
         for (0..a_loop) |a_idx| {
@@ -159,8 +158,8 @@ fn simulateCompiler(
                                 continue;
                             }
 
-                            const tensor_out: usize = op_out[op_idx + loop_idx];
-                            const tensor_in: usize = op_in[op_idx + loop_idx];
+                            const tensor_out: u32 = op_out[op_idx + loop_idx];
+                            const tensor_in: u32 = op_in[op_idx + loop_idx];
 
                             // Essentially free in case no alocattions are necessary
                             try tensor1[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor1[tensor_in].linearized.op_num) * loop_len);
@@ -374,8 +373,8 @@ fn simulateCompiler(
 
     tensor2[op_out[op_num - 1]].realize();
 
-    const size_local: usize = pcg.randBelow(10) + 1;
-    const size_global: usize = size_local * (pcg.randBelow(10) + 1);
+    const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
+    const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);

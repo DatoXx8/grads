@@ -2,9 +2,9 @@ const std = @import("std");
 const grads = @import("grads");
 
 const Tensor = grads.Tensor;
-const pcg = grads.pcg;
 
 const assert = std.debug.assert;
+const Pcg = std.Random.Pcg;
 
 const AssertError = error{
     nan,
@@ -71,11 +71,11 @@ pub fn main() !void {
     };
     std.debug.print("unit-ops: rng={}...", .{rng});
     defer std.debug.print(" passed!\n", .{});
-    pcg.init(rng);
+    var pcg = Pcg.init(rng);
 
     for (0..a_size * z_size * y_size * x_size) |val_idx| {
-        val1[val_idx] = pcg.randF32();
-        val2[val_idx] = pcg.randF32();
+        val1[val_idx] = pcg.random().floatNorm(f32);
+        val2[val_idx] = pcg.random().floatNorm(f32);
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
@@ -183,7 +183,7 @@ pub fn main() !void {
     // back of the envelope calculations that should be rare enough to
     // not really worry about it.
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryRandom();
+    tensor1.unaryRandom(@truncate(rng));
     tensor1.realize();
     var product: f32 = 1;
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {

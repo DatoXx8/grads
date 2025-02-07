@@ -9,4 +9,3 @@ pub const ClDevice = @import("./runtimes/cl.zig").ClDevice;
 pub const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 pub const ClError = @import("./runtimes/cl.zig").ClError;
 pub const Optimisation = @import("./compiler/codegen.zig").Optimisation;
-pub const pcg = @import("./prng.zig").pcg;

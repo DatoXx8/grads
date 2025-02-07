@@ -1,7 +1,5 @@
 const std = @import("std");
 
-const pcg = @import("./prng.zig").pcg;
-
 const assert = std.debug.assert;
 
 const ClMem = @import("./runtimes/cl.zig").ClMem;
@@ -200,8 +198,12 @@ pub const Op = struct {
                 this == .reduce_avg or this == .reduce_min;
         }
     };
+    pub const UVar = union {
+        float: f32,
+        int: u32,
+    };
     type: Type,
-    u_var: f32,
+    u_var: UVar,
     out: Buffer,
     in: Buffer,
     pub fn equal(this: *const @This(), target: Op) bool {
@@ -312,6 +314,8 @@ pub const Op = struct {
             else => {},
         }
 
+        var rng: ?std.Random.Pcg = if (this.type == .unary_random) std.Random.Pcg.init(this.u_var.int) else null;
+
         // TODO: Add SIMD comptime width using @Vector
 
         // Just to be clear: I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
@@ -328,16 +332,16 @@ pub const Op = struct {
                     for (0..x_size) |x| {
                         switch (this.type) {
                             .unary_add => {
-                                this.out.values[this.out.at(a, z, y, x)] += this.u_var;
+                                this.out.values[this.out.at(a, z, y, x)] += this.u_var.float;
                             },
                             .unary_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -= this.u_var;
+                                this.out.values[this.out.at(a, z, y, x)] -= this.u_var.float;
                             },
                             .unary_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *= this.u_var;
+                                this.out.values[this.out.at(a, z, y, x)] *= this.u_var.float;
                             },
                             .unary_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /= this.u_var;
+                                this.out.values[this.out.at(a, z, y, x)] /= this.u_var.float;
                             },
                             .unary_exp => {
                                 this.out.values[this.out.at(a, z, y, x)] = @exp(this.out.values[this.out.at(a, z, y, x)]);
@@ -355,16 +359,16 @@ pub const Op = struct {
                                 this.out.values[this.out.at(a, z, y, x)] = 1 / this.out.values[this.out.at(a, z, y, x)];
                             },
                             .unary_max => {
-                                this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.u_var.float);
                             },
                             .unary_min => {
-                                this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.u_var.float);
                             },
                             .unary_set => {
-                                this.out.values[this.out.at(a, z, y, x)] = this.u_var;
+                                this.out.values[this.out.at(a, z, y, x)] = this.u_var.float;
                             },
                             .unary_random => {
-                                this.out.values[this.out.at(a, z, y, x)] = pcg.randF32();
+                                this.out.values[this.out.at(a, z, y, x)] = rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
                                 this.out.values[this.out.at(a, z, y, x)] = std.math.tanh(this.out.values[this.out.at(a, z, y, x)]);
@@ -481,7 +485,7 @@ pub const Op = struct {
                 this.out.x_size,
                 this.out.offset,
                 this.out.name,
-                this.u_var,
+                this.u_var.float,
             });
         } else {
             const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isLinary()) 'L' else 'R');
@@ -560,7 +564,7 @@ pub const Op = struct {
                 this.out.x_offset,
                 this.out.offset,
                 this.out.name,
-                this.u_var,
+                this.u_var.float,
             });
         } else {
             const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isLinary()) 'L' else 'R');
@@ -758,7 +762,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_add,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unarySubtract(this: *@This(), u_var: f32) void {
@@ -768,7 +772,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_subtract,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unaryMultiply(this: *@This(), u_var: f32) void {
@@ -778,7 +782,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_multiply,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unaryDivide(this: *@This(), u_var: f32) void {
@@ -788,7 +792,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_divide,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unaryExp(this: *@This()) void {
@@ -796,7 +800,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_exp,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unaryLog(this: *@This()) void {
@@ -804,7 +808,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_log,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unarySquare(this: *@This()) void {
@@ -812,7 +816,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_square,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unarySqrt(this: *@This()) void {
@@ -820,7 +824,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sqrt,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unaryReciprocal(this: *@This()) void {
@@ -828,7 +832,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_reciprocal,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unaryMax(this: *@This(), u_var: f32) void {
@@ -838,7 +842,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_max,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unaryMin(this: *@This(), u_var: f32) void {
@@ -848,7 +852,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_min,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
     pub fn unarySet(this: *@This(), u_var: f32) void {
@@ -858,15 +862,16 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_set,
-            .u_var = u_var,
+            .u_var = .{ .float = u_var },
         });
     }
-    pub fn unaryRandom(this: *@This()) void {
+    /// Here u_var is the seed of the prng
+    pub fn unaryRandom(this: *@This(), u_var: u32) void {
         this.linearized.append(&.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_random,
-            .u_var = 0,
+            .u_var = .{ .int = u_var },
         });
     }
     pub fn unaryTanh(this: *@This()) void {
@@ -874,7 +879,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_tanh,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unaryAbsolute(this: *@This()) void {
@@ -882,7 +887,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_absolute,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn unarySign(this: *@This()) void {
@@ -890,7 +895,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sign,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binaryAdd(this: *@This(), source: *@This()) void {
@@ -903,7 +908,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_add,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binarySubtract(this: *@This(), source: *@This()) void {
@@ -916,7 +921,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_subtract,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binaryMultiply(this: *@This(), source: *@This()) void {
@@ -929,7 +934,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_multiply,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binaryDivide(this: *@This(), source: *@This()) void {
@@ -942,7 +947,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_divide,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binaryMax(this: *@This(), source: *@This()) void {
@@ -955,7 +960,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_max,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binaryMin(this: *@This(), source: *@This()) void {
@@ -968,7 +973,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_min,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn binarySet(this: *@This(), source: *@This()) void {
@@ -981,7 +986,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_set,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linaryAdd(this: *@This(), source: *@This()) void {
@@ -994,7 +999,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_add,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linarySubtract(this: *@This(), source: *@This()) void {
@@ -1007,7 +1012,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_subtract,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linaryMultiply(this: *@This(), source: *@This()) void {
@@ -1020,7 +1025,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_multiply,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linaryDivide(this: *@This(), source: *@This()) void {
@@ -1033,7 +1038,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_divide,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linaryMax(this: *@This(), source: *@This()) void {
@@ -1046,7 +1051,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_max,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linaryMin(this: *@This(), source: *@This()) void {
@@ -1059,7 +1064,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_min,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn linarySet(this: *@This(), source: *@This()) void {
@@ -1072,7 +1077,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_set,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn reduceSum(this: *@This(), source: *@This()) void {
@@ -1085,7 +1090,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_sum,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn reduceMax(this: *@This(), source: *@This()) void {
@@ -1098,7 +1103,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_max,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn reduceMin(this: *@This(), source: *@This()) void {
@@ -1111,7 +1116,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_min,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn reduceAvg(this: *@This(), source: *@This()) void {
@@ -1124,7 +1129,7 @@ pub const Tensor = struct {
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_avg,
-            .u_var = 0,
+            .u_var = .{ .float = 0 },
         });
     }
     pub fn moveReshape(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {

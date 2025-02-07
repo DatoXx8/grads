@@ -7,9 +7,10 @@ const std = @import("std");
 //  is no need for going through the switch statement every time
 // TODO: Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
 
-const Tensor = @import("./tensor.zig").Tensor;
-
 const assert = std.debug.assert;
+const Pcg = std.Random.Pcg;
+
+const Tensor = @import("./tensor.zig").Tensor;
 
 const Program = @import("./compiler/program.zig").Program;
 
@@ -23,6 +24,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
+
     const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
@@ -30,7 +32,7 @@ pub fn main() !void {
     var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context);
     defer tensor.free(allocator);
     try tensor.linearized.capacityEnsure(allocator, 1);
-    tensor.unaryRandom();
+    tensor.unaryRandom(0);
     tensor.realize();
     try tensor.buffer.syncToDevice(queue);
     try tensor.buffer.syncWait(queue);
@@ -52,7 +54,7 @@ pub fn main() !void {
         queue,
     );
     defer nn.free(allocator) catch {};
-    nn.init();
+    nn.init(0);
     try nn.forward(.gpu);
     nn.layers[nn.layers.len - 1].values.print(4, 0, null);
 }

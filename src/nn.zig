@@ -1340,30 +1340,40 @@ pub const Neuralnet = struct {
         try this.backward_cl.free(allocator);
         try this.learn_cl.free(allocator);
     }
-    pub fn init(this: *@This()) void {
+    /// This is a linear congruential generator, which is a PRNG itself, although it is sub par statistically speaking.
+    /// But since this only transforms the seed it shouldn't matter at all.
+    inline fn seedTransform(num: u64) u64 {
+        return num *% 2862933555777941757 +% 1;
+    }
+    pub fn init(this: *@This(), seed: u32) void {
+        var seed_next: u64 = seed;
         for (0..this.layers.len) |layer_idx| {
             switch (this.layers[layer_idx].tag) {
                 .dense => {
-                    this.layers[layer_idx].tag.dense.weights.unaryRandom();
-                    this.layers[layer_idx].tag.dense.biases.unaryRandom();
+                    this.layers[layer_idx].tag.dense.weights.unaryRandom(@truncate(seed_next));
+                    seed_next = seedTransform(seed_next);
+                    this.layers[layer_idx].tag.dense.biases.unaryRandom(@truncate(seed_next));
                     this.layers[layer_idx].tag.dense.weights.realize();
                     this.layers[layer_idx].tag.dense.biases.realize();
                 },
                 .convolution => {
-                    this.layers[layer_idx].tag.convolution.weights.unaryRandom();
-                    this.layers[layer_idx].tag.convolution.biases.unaryRandom();
+                    this.layers[layer_idx].tag.convolution.weights.unaryRandom(@truncate(seed_next));
+                    seed_next = seedTransform(seed_next);
+                    this.layers[layer_idx].tag.convolution.biases.unaryRandom(@truncate(seed_next));
                     this.layers[layer_idx].tag.convolution.weights.realize();
                     this.layers[layer_idx].tag.convolution.biases.realize();
                 },
                 .reduce => {},
                 .split => {
-                    this.layers[layer_idx].tag.split.weights.unaryRandom();
-                    this.layers[layer_idx].tag.split.biases.unaryRandom();
+                    this.layers[layer_idx].tag.split.weights.unaryRandom(@truncate(seed_next));
+                    seed_next = seedTransform(seed_next);
+                    this.layers[layer_idx].tag.split.biases.unaryRandom(@truncate(seed_next));
                     this.layers[layer_idx].tag.split.weights.realize();
                     this.layers[layer_idx].tag.split.biases.realize();
                 },
                 .residual => {},
             }
+            seed_next = seedTransform(seed_next);
         }
     }
     /// Have to put the input values in the dedicated struct field

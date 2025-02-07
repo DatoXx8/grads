@@ -266,7 +266,7 @@ pub const Ssa = struct {
             type: Op.Type,
             out: Buffer,
             in: Buffer,
-            u_var: f32,
+            u_var: Op.UVar,
             layer_out: usize,
             layer_in: usize,
             dim_info: DimInfo,
@@ -343,7 +343,7 @@ pub const Ssa = struct {
                     this.base.out.offset,
                     this.base.out.name,
                     this.base.layer_out,
-                    this.base.u_var,
+                    this.base.u_var.float,
                 });
             } else {
                 const op_kind: u8 = if (this.base.type.isBinary()) 'B' else (if (this.base.type.isLinary()) 'L' else 'R');
