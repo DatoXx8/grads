@@ -12,6 +12,9 @@ Right now, there are only 3 dependencies:
 - the Zig standard library
 - OpenCL runtime & headers
 
+I am not planning to add any dependencies, and if anything I will try to get rid of everything but the Zig compiler, though that would be a *LOT* of work. 
+So don't count on that happening anytime soon.
+
 ## Installation
 
 For now Grads only supports being directly included as source code in your projects.
@@ -37,7 +40,7 @@ const grads = @import("grads");
 
 ## Example
 
-An example progam will soon be uploaded.
+An example program will soon be uploaded.
 
 ## Testing
 
