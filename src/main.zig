@@ -6,9 +6,10 @@ const std = @import("std");
 // TODO: Generate linearized at comptime so that the compiler can do all the vectorization and the compiler could possibly inline everything so that there
 //  is no need for going through the switch statement every time
 // TODO: Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
+// TODO: Analyse /usr/lib/libnvidia-opencl.so
+// TODO: Also turns out you can just pass struct without explicit pointers, because that is just implicitly what it does anyways
 
 const assert = std.debug.assert;
-const Pcg = std.Random.Pcg;
 
 const Tensor = @import("./tensor.zig").Tensor;
 

@@ -1175,6 +1175,7 @@ pub const Neuralnet = struct {
     forward_cl: Program,
     backward_cl: Program,
     learn_cl: Program,
+    // TODO: These suckers need to be refactored badly
     // TODO: When allocating from here it should really always just use O3, or at least not allow O0 since that actually *so* slow
     pub fn alloc(
         allocator: std.mem.Allocator,

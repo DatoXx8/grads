@@ -10,6 +10,9 @@ const OpenCl = @import("./runtimes/cl.zig").open_cl;
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
 pub const buffer_name_size: usize = 8;
+/// Valid increment of the char values in the buffer name
+pub const buffer_name_char_options: usize = 'z' - 'a' + 1;
+/// For keeping track of the current number of buffers allocated
 var buffer_name_offset: usize = 0;
 
 pub const Buffer = struct {
@@ -35,15 +38,10 @@ pub const Buffer = struct {
     z_stride: usize,
     y_stride: usize,
     x_stride: usize,
-    a_offset: usize,
-    z_offset: usize,
-    y_offset: usize,
-    x_offset: usize,
     offset: usize,
     values: []f32,
     values_cl: ?ClMem,
     sync: SyncStatus,
-    name: [buffer_name_size]u8,
     name_offset: usize,
     pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
@@ -51,21 +49,9 @@ pub const Buffer = struct {
         assert(y > 0);
         assert(x > 0);
 
-        var name: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-        const divisor: usize = 26;
-        var left: usize = buffer_name_offset;
-        for (0..buffer_name_size) |char_idx| {
-            name[char_idx] += @truncate(left % divisor);
-            left = left / divisor;
-        }
-        // Enforce that you don't generate new tensors beyond 'zzzz...zzz'
-        assert(left == 0);
-
-        // Have to do it this way because there is no such thing as ++ in Zig.
-        buffer_name_offset += 1;
+        defer buffer_name_offset += 1;
         return .{
-            .name_offset = buffer_name_offset - 1,
-            .name = name,
+            .name_offset = buffer_name_offset,
             .sync = SyncStatus.sync_to_none,
             .a_size = a,
             .z_size = z,
@@ -80,10 +66,6 @@ pub const Buffer = struct {
             .y_stride = x,
             .x_stride = 1,
             .offset = 0,
-            .a_offset = 0,
-            .z_offset = 0,
-            .y_offset = 0,
-            .x_offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
             .values_cl = if (context == null) null else try ClMem.alloc(context.?, a, z, y, x),
         };
@@ -91,7 +73,38 @@ pub const Buffer = struct {
     pub fn free(this: *const @This(), allocator: std.mem.Allocator) void {
         allocator.free(this.values);
     }
-    pub fn at(this: *const @This(), a: usize, z: usize, y: usize, x: usize) usize {
+    // PERF: these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
+    //  to reduce memory usage. Like the nameFromOffset function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
+    //  which is ~5x faster than a read from main memory.
+    pub inline fn name(this: @This()) [buffer_name_size]u8 {
+        return nameFromOffset(this.name_offset);
+    }
+    pub inline fn nameFromOffset(name_offset: usize) [buffer_name_size]u8 {
+        var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
+        const divisor: usize = buffer_name_char_options;
+        var left: usize = name_offset;
+        for (0..buffer_name_size) |char_idx| {
+            name_result[char_idx] += @truncate(left % divisor);
+            left = left / divisor;
+        }
+        // NOTE: Enforce that you don't generate new tensors beyond 'zzzz...zzz'
+        assert(left == 0);
+
+        return name_result;
+    }
+    pub inline fn aOffset(this: @This()) usize {
+        return @divFloor(this.offset, this.a_stride);
+    }
+    pub inline fn zOffset(this: @This()) usize {
+        return @divFloor(this.offset, this.z_stride);
+    }
+    pub inline fn yOffset(this: @This()) usize {
+        return @divFloor(this.offset, this.y_stride);
+    }
+    pub inline fn xOffset(this: @This()) usize {
+        return @divFloor(this.offset, this.x_stride);
+    }
+    pub inline fn at(this: *const @This(), a: usize, z: usize, y: usize, x: usize) usize {
         assert(a < this.a_size);
         assert(z < this.z_size);
         assert(y < this.y_size);
@@ -135,7 +148,8 @@ pub const Buffer = struct {
     }
 };
 pub const Op = struct {
-    // Linary is like binary but the in buffer has size [1, 1, 1, 1]
+    // TODO: Linary is a truly terrible name
+    /// Linary is like binary but the in buffer has size [1, 1, 1, 1]
     pub const Type = enum(u8) {
         unary_add,
         unary_subtract,
@@ -172,7 +186,7 @@ pub const Op = struct {
         reduce_avg,
         reduce_min,
         pub inline fn isUnary(this: @This()) bool {
-            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => true,
                 .unary_subtract => true,
@@ -211,7 +225,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isBinary(this: @This()) bool {
-            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -250,7 +264,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isLinary(this: @This()) bool {
-            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -289,7 +303,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isReduce(this: @This()) bool {
-            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -329,7 +343,7 @@ pub const Op = struct {
         }
         // TODO: This is kind of a bad name
         pub inline fn isStandalone(this: @This()) bool {
-            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -368,6 +382,7 @@ pub const Op = struct {
             };
         }
     };
+    // TODO: Could probably get rid of this union with just doing a @bitCast thing, and then undoing that cast when seeding the PRNG
     pub const UVar = union {
         float: f32,
         int: u32,
@@ -376,7 +391,7 @@ pub const Op = struct {
     u_var: UVar,
     out: Buffer,
     in: Buffer,
-    pub fn equal(this: *const @This(), target: Op) bool {
+    pub inline fn equal(this: *const @This(), target: Op) bool {
         return this.type == target.type and this.u_var == this.u_var and
             this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
@@ -384,7 +399,7 @@ pub const Op = struct {
             this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
             this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
     }
-    pub fn overlaps(this: *const @This(), target: Op) bool {
+    pub inline fn overlaps(this: *const @This(), target: Op) bool {
         // TODO: Implement this for non same-size buffers
         assert(this.out.a_size == target.out.a_size);
         assert(this.out.z_size == target.out.z_size);
@@ -654,7 +669,7 @@ pub const Op = struct {
                 this.out.y_size,
                 this.out.x_size,
                 this.out.offset,
-                this.out.name,
+                this.out.name(),
                 this.u_var.float,
             });
         } else {
@@ -687,13 +702,13 @@ pub const Op = struct {
                 this.out.y_size,
                 this.out.x_size,
                 this.out.offset,
-                this.out.name,
+                this.out.name(),
                 this.in.a_size,
                 this.in.z_size,
                 this.in.y_size,
                 this.in.x_size,
                 this.in.offset,
-                this.in.name,
+                this.in.name(),
             });
         }
     }
@@ -728,12 +743,12 @@ pub const Op = struct {
                 this.out.z_size,
                 this.out.y_size,
                 this.out.x_size,
-                this.out.a_offset,
-                this.out.z_offset,
-                this.out.y_offset,
-                this.out.x_offset,
+                this.out.aOffset(),
+                this.out.zOffset(),
+                this.out.yOffset(),
+                this.out.xOffset(),
                 this.out.offset,
-                this.out.name,
+                this.out.name(),
                 this.u_var.float,
             });
         } else {
@@ -765,22 +780,22 @@ pub const Op = struct {
                 this.out.z_size,
                 this.out.y_size,
                 this.out.x_size,
-                this.out.a_offset,
-                this.out.z_offset,
-                this.out.y_offset,
-                this.out.x_offset,
+                this.out.aOffset(),
+                this.out.zOffset(),
+                this.out.yOffset(),
+                this.out.xOffset(),
                 this.out.offset,
-                this.out.name,
+                this.out.name(),
                 this.in.a_size,
                 this.in.z_size,
                 this.in.y_size,
                 this.in.x_size,
-                this.in.a_offset,
-                this.in.z_offset,
-                this.in.y_offset,
-                this.in.x_offset,
+                this.in.aOffset(),
+                this.in.zOffset(),
+                this.in.yOffset(),
+                this.in.xOffset(),
                 this.in.offset,
-                this.in.name,
+                this.in.name(),
             });
         }
     }
@@ -886,9 +901,9 @@ pub const Tensor = struct {
     }
     pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
+            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
-            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name });
+            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
         }
         for (0..this.buffer.a_size) |a| {
             for (0..this.buffer.z_size) |z| {
@@ -906,9 +921,9 @@ pub const Tensor = struct {
     }
     pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name, text });
+            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
-            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name });
+            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
         }
         this.linearized.debug(0, 0, null);
         for (0..this.buffer.a_size) |a| {
@@ -1342,10 +1357,6 @@ pub const Tensor = struct {
         assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
-        this.buffer.a_offset = a;
-        this.buffer.z_offset = z;
-        this.buffer.y_offset = y;
-        this.buffer.x_offset = x;
     }
     pub fn dependOn(this: *@This(), prerequisite: *@This()) void {
         this.linearized.concat(&prerequisite.linearized);

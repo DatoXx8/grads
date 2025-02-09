@@ -86,28 +86,28 @@ pub const Ssa = struct {
             };
 
             for (1..loop_num) |loop_idx| {
-                if (op[dim_info.a_idx_out].out.a_offset > op[loop_idx].out.a_offset) {
+                if (op[dim_info.a_idx_out].out.aOffset() > op[loop_idx].out.aOffset()) {
                     dim_info.a_idx_out = loop_idx;
                 }
-                if (op[dim_info.z_idx_out].out.z_offset > op[loop_idx].out.z_offset) {
+                if (op[dim_info.z_idx_out].out.zOffset() > op[loop_idx].out.zOffset()) {
                     dim_info.z_idx_out = loop_idx;
                 }
-                if (op[dim_info.y_idx_out].out.y_offset > op[loop_idx].out.y_offset) {
+                if (op[dim_info.y_idx_out].out.yOffset() > op[loop_idx].out.yOffset()) {
                     dim_info.y_idx_out = loop_idx;
                 }
-                if (op[dim_info.x_idx_out].out.x_offset > op[loop_idx].out.x_offset) {
+                if (op[dim_info.x_idx_out].out.xOffset() > op[loop_idx].out.xOffset()) {
                     dim_info.x_idx_out = loop_idx;
                 }
-                if (op[dim_info.a_idx_in].in.a_offset > op[loop_idx].in.a_offset) {
+                if (op[dim_info.a_idx_in].in.aOffset() > op[loop_idx].in.aOffset()) {
                     dim_info.a_idx_in = loop_idx;
                 }
-                if (op[dim_info.z_idx_in].in.z_offset > op[loop_idx].in.z_offset) {
+                if (op[dim_info.z_idx_in].in.zOffset() > op[loop_idx].in.zOffset()) {
                     dim_info.z_idx_in = loop_idx;
                 }
-                if (op[dim_info.y_idx_in].in.y_offset > op[loop_idx].in.y_offset) {
+                if (op[dim_info.y_idx_in].in.yOffset() > op[loop_idx].in.yOffset()) {
                     dim_info.y_idx_in = loop_idx;
                 }
-                if (op[dim_info.x_idx_in].in.x_offset > op[loop_idx].in.x_offset) {
+                if (op[dim_info.x_idx_in].in.xOffset() > op[loop_idx].in.xOffset()) {
                     dim_info.x_idx_in = loop_idx;
                 }
             }
@@ -118,120 +118,120 @@ pub const Ssa = struct {
             var a_enter_in, var z_enter_in, var y_enter_in, var x_enter_in = .{ false, false, false, false };
 
             for (1..loop_num) |loop_idx| {
-                if (!a_left_out and op[dim_info.a_idx_out].out.a_offset !=
-                    op[(loop_idx + dim_info.a_idx_out) % loop_num].out.a_offset)
+                if (!a_left_out and op[dim_info.a_idx_out].out.aOffset() !=
+                    op[(loop_idx + dim_info.a_idx_out) % loop_num].out.aOffset())
                 {
                     a_left_out = true;
                     dim_info.a_wait_out = loop_idx;
-                    dim_info.a_stride_out = op[(loop_idx + dim_info.a_idx_out) % loop_num].out.a_offset -
-                        op[dim_info.a_idx_out].out.a_offset;
-                } else if (a_left_out and !a_enter_out and op[dim_info.a_idx_out].out.a_offset ==
-                    op[(loop_idx + dim_info.a_idx_out) % loop_num].out.a_offset)
+                    dim_info.a_stride_out = op[(loop_idx + dim_info.a_idx_out) % loop_num].out.aOffset() -
+                        op[dim_info.a_idx_out].out.aOffset();
+                } else if (a_left_out and !a_enter_out and op[dim_info.a_idx_out].out.aOffset() ==
+                    op[(loop_idx + dim_info.a_idx_out) % loop_num].out.aOffset())
                 {
                     a_enter_out = true;
                     dim_info.a_reset_out = loop_idx;
                 }
-                if (!z_left_out and op[dim_info.z_idx_out].out.z_offset !=
-                    op[(loop_idx + dim_info.z_idx_out) % loop_num].out.z_offset)
+                if (!z_left_out and op[dim_info.z_idx_out].out.zOffset() !=
+                    op[(loop_idx + dim_info.z_idx_out) % loop_num].out.zOffset())
                 {
                     z_left_out = true;
                     dim_info.z_wait_out = loop_idx;
-                    dim_info.z_stride_out = op[(loop_idx + dim_info.z_idx_out) % loop_num].out.z_offset -
-                        op[dim_info.z_idx_out].out.z_offset;
-                } else if (z_left_out and !z_enter_out and op[dim_info.z_idx_out].out.z_offset ==
-                    op[(loop_idx + dim_info.z_idx_out) % loop_num].out.z_offset)
+                    dim_info.z_stride_out = op[(loop_idx + dim_info.z_idx_out) % loop_num].out.zOffset() -
+                        op[dim_info.z_idx_out].out.zOffset();
+                } else if (z_left_out and !z_enter_out and op[dim_info.z_idx_out].out.zOffset() ==
+                    op[(loop_idx + dim_info.z_idx_out) % loop_num].out.zOffset())
                 {
                     z_enter_out = true;
                     dim_info.z_reset_out = loop_idx;
                 }
-                if (!y_left_out and op[dim_info.y_idx_out].out.y_offset !=
-                    op[(loop_idx + dim_info.y_idx_out) % loop_num].out.y_offset)
+                if (!y_left_out and op[dim_info.y_idx_out].out.yOffset() !=
+                    op[(loop_idx + dim_info.y_idx_out) % loop_num].out.yOffset())
                 {
                     y_left_out = true;
                     dim_info.y_wait_out = loop_idx;
-                    dim_info.y_stride_out = op[(loop_idx + dim_info.y_idx_out) % loop_num].out.y_offset -
-                        op[dim_info.y_idx_out].out.y_offset;
-                } else if (y_left_out and !y_enter_out and op[dim_info.y_idx_out].out.y_offset ==
-                    op[(loop_idx + dim_info.y_idx_out) % loop_num].out.y_offset)
+                    dim_info.y_stride_out = op[(loop_idx + dim_info.y_idx_out) % loop_num].out.yOffset() -
+                        op[dim_info.y_idx_out].out.yOffset();
+                } else if (y_left_out and !y_enter_out and op[dim_info.y_idx_out].out.yOffset() ==
+                    op[(loop_idx + dim_info.y_idx_out) % loop_num].out.yOffset())
                 {
                     y_enter_out = true;
                     dim_info.y_reset_out = loop_idx;
                 }
-                if (!x_left_out and op[dim_info.x_idx_out].out.x_offset !=
-                    op[(loop_idx + dim_info.x_idx_out) % loop_num].out.x_offset)
+                if (!x_left_out and op[dim_info.x_idx_out].out.xOffset() !=
+                    op[(loop_idx + dim_info.x_idx_out) % loop_num].out.xOffset())
                 {
                     x_left_out = true;
                     dim_info.x_wait_out = loop_idx;
-                    dim_info.x_stride_out = op[(loop_idx + dim_info.x_idx_out) % loop_num].out.x_offset -
-                        op[dim_info.x_idx_out].out.x_offset;
-                } else if (x_left_out and !x_enter_out and op[dim_info.x_idx_out].out.x_offset ==
-                    op[(loop_idx + dim_info.x_idx_out) % loop_num].out.x_offset)
+                    dim_info.x_stride_out = op[(loop_idx + dim_info.x_idx_out) % loop_num].out.xOffset() -
+                        op[dim_info.x_idx_out].out.xOffset();
+                } else if (x_left_out and !x_enter_out and op[dim_info.x_idx_out].out.xOffset() ==
+                    op[(loop_idx + dim_info.x_idx_out) % loop_num].out.xOffset())
                 {
                     x_enter_out = true;
                     dim_info.x_reset_out = loop_idx;
                 }
-                if (!a_left_in and op[dim_info.a_idx_in].in.a_offset !=
-                    op[(loop_idx + dim_info.a_idx_in) % loop_num].in.a_offset)
+                if (!a_left_in and op[dim_info.a_idx_in].in.aOffset() !=
+                    op[(loop_idx + dim_info.a_idx_in) % loop_num].in.aOffset())
                 {
                     a_left_in = true;
                     dim_info.a_wait_in = loop_idx;
-                    dim_info.a_stride_in = op[(loop_idx + dim_info.a_idx_in) % loop_num].in.a_offset -
-                        op[dim_info.a_idx_in].in.a_offset;
-                } else if (a_left_in and !a_enter_in and op[dim_info.a_idx_in].in.a_offset ==
-                    op[(loop_idx + dim_info.a_idx_in) % loop_num].in.a_offset)
+                    dim_info.a_stride_in = op[(loop_idx + dim_info.a_idx_in) % loop_num].in.aOffset() -
+                        op[dim_info.a_idx_in].in.aOffset();
+                } else if (a_left_in and !a_enter_in and op[dim_info.a_idx_in].in.aOffset() ==
+                    op[(loop_idx + dim_info.a_idx_in) % loop_num].in.aOffset())
                 {
                     a_enter_in = true;
                     dim_info.a_reset_in = loop_idx;
                 }
-                if (!z_left_in and op[dim_info.z_idx_in].in.z_offset !=
-                    op[(loop_idx + dim_info.z_idx_in) % loop_num].in.z_offset)
+                if (!z_left_in and op[dim_info.z_idx_in].in.zOffset() !=
+                    op[(loop_idx + dim_info.z_idx_in) % loop_num].in.zOffset())
                 {
                     z_left_in = true;
                     dim_info.z_wait_in = loop_idx;
-                    dim_info.z_stride_in = op[(loop_idx + dim_info.z_idx_in) % loop_num].in.z_offset -
-                        op[dim_info.z_idx_in].in.z_offset;
-                } else if (z_left_in and !z_enter_in and op[dim_info.z_idx_in].in.z_offset ==
-                    op[(loop_idx + dim_info.z_idx_in) % loop_num].in.z_offset)
+                    dim_info.z_stride_in = op[(loop_idx + dim_info.z_idx_in) % loop_num].in.zOffset() -
+                        op[dim_info.z_idx_in].in.zOffset();
+                } else if (z_left_in and !z_enter_in and op[dim_info.z_idx_in].in.zOffset() ==
+                    op[(loop_idx + dim_info.z_idx_in) % loop_num].in.zOffset())
                 {
                     z_enter_in = true;
                     dim_info.z_reset_in = loop_idx;
                 }
-                if (!y_left_in and op[dim_info.y_idx_in].in.y_offset !=
-                    op[(loop_idx + dim_info.y_idx_in) % loop_num].in.y_offset)
+                if (!y_left_in and op[dim_info.y_idx_in].in.yOffset() !=
+                    op[(loop_idx + dim_info.y_idx_in) % loop_num].in.yOffset())
                 {
                     y_left_in = true;
                     dim_info.y_wait_in = loop_idx;
-                    dim_info.y_stride_in = op[(loop_idx + dim_info.y_idx_in) % loop_num].in.y_offset -
-                        op[dim_info.y_idx_in].in.y_offset;
-                } else if (y_left_in and !y_enter_in and op[dim_info.y_idx_in].in.y_offset ==
-                    op[(loop_idx + dim_info.y_idx_in) % loop_num].in.y_offset)
+                    dim_info.y_stride_in = op[(loop_idx + dim_info.y_idx_in) % loop_num].in.yOffset() -
+                        op[dim_info.y_idx_in].in.yOffset();
+                } else if (y_left_in and !y_enter_in and op[dim_info.y_idx_in].in.yOffset() ==
+                    op[(loop_idx + dim_info.y_idx_in) % loop_num].in.yOffset())
                 {
                     y_enter_in = true;
                     dim_info.y_reset_in = loop_idx;
                 }
-                if (!x_left_in and op[dim_info.x_idx_in].in.x_offset !=
-                    op[(loop_idx + dim_info.x_idx_in) % loop_num].in.x_offset)
+                if (!x_left_in and op[dim_info.x_idx_in].in.xOffset() !=
+                    op[(loop_idx + dim_info.x_idx_in) % loop_num].in.xOffset())
                 {
                     x_left_in = true;
                     dim_info.x_wait_in = loop_idx;
-                    dim_info.x_stride_in = op[(loop_idx + dim_info.x_idx_in) % loop_num].in.x_offset -
-                        op[dim_info.x_idx_in].in.x_offset;
-                } else if (x_left_in and !x_enter_in and op[dim_info.x_idx_in].in.x_offset ==
-                    op[(loop_idx + dim_info.x_idx_in) % loop_num].in.x_offset)
+                    dim_info.x_stride_in = op[(loop_idx + dim_info.x_idx_in) % loop_num].in.xOffset() -
+                        op[dim_info.x_idx_in].in.xOffset();
+                } else if (x_left_in and !x_enter_in and op[dim_info.x_idx_in].in.xOffset() ==
+                    op[(loop_idx + dim_info.x_idx_in) % loop_num].in.xOffset())
                 {
                     x_enter_in = true;
                     dim_info.x_reset_in = loop_idx;
                 }
             }
 
-            dim_info.off_out = op[dim_info.a_idx_out].out.a_offset * op[dim_info.a_idx_out].out.a_stride + //
-                op[dim_info.z_idx_out].out.z_offset * op[dim_info.z_idx_out].out.z_stride + //
-                op[dim_info.y_idx_out].out.y_offset * op[dim_info.y_idx_out].out.y_stride + //
-                op[dim_info.x_idx_out].out.x_offset * op[dim_info.x_idx_out].out.x_stride;
-            dim_info.off_in = op[dim_info.a_idx_in].in.a_offset * op[dim_info.a_idx_in].in.a_stride + //
-                op[dim_info.z_idx_in].in.z_offset * op[dim_info.z_idx_in].in.z_stride + //
-                op[dim_info.y_idx_in].in.y_offset * op[dim_info.y_idx_in].in.y_stride + //
-                op[dim_info.x_idx_in].in.x_offset * op[dim_info.x_idx_in].in.x_stride;
+            dim_info.off_out = op[dim_info.a_idx_out].out.aOffset() * op[dim_info.a_idx_out].out.a_stride + //
+                op[dim_info.z_idx_out].out.zOffset() * op[dim_info.z_idx_out].out.z_stride + //
+                op[dim_info.y_idx_out].out.yOffset() * op[dim_info.y_idx_out].out.y_stride + //
+                op[dim_info.x_idx_out].out.xOffset() * op[dim_info.x_idx_out].out.x_stride;
+            dim_info.off_in = op[dim_info.a_idx_in].in.aOffset() * op[dim_info.a_idx_in].in.a_stride + //
+                op[dim_info.z_idx_in].in.zOffset() * op[dim_info.z_idx_in].in.z_stride + //
+                op[dim_info.y_idx_in].in.yOffset() * op[dim_info.y_idx_in].in.y_stride + //
+                op[dim_info.x_idx_in].in.xOffset() * op[dim_info.x_idx_in].in.x_stride;
 
             return dim_info;
         }
@@ -319,12 +319,12 @@ pub const Ssa = struct {
                         this.out.z_size,
                         this.out.y_size,
                         this.out.x_size,
-                        this.out.a_offset,
-                        this.out.z_offset,
-                        this.out.y_offset,
-                        this.out.x_offset,
+                        this.out.aOffset(),
+                        this.out.zOffset(),
+                        this.out.yOffset(),
+                        this.out.xOffset(),
                         this.out.offset,
-                        this.out.name,
+                        this.out.name(),
                         this.layer_out,
                         this.u_var.float,
                     });
@@ -359,24 +359,24 @@ pub const Ssa = struct {
                         this.out.z_size,
                         this.out.y_size,
                         this.out.x_size,
-                        this.out.a_offset,
-                        this.out.z_offset,
-                        this.out.y_offset,
-                        this.out.x_offset,
+                        this.out.aOffset(),
+                        this.out.zOffset(),
+                        this.out.yOffset(),
+                        this.out.xOffset(),
                         this.out.offset,
                         this.layer_out,
-                        this.out.name,
+                        this.out.name(),
                         this.in.a_size,
                         this.in.z_size,
                         this.in.y_size,
                         this.in.x_size,
-                        this.in.a_offset,
-                        this.in.z_offset,
-                        this.in.y_offset,
-                        this.in.x_offset,
+                        this.in.aOffset(),
+                        this.in.zOffset(),
+                        this.in.yOffset(),
+                        this.in.xOffset(),
                         this.in.offset,
                         this.layer_in,
-                        this.in.name,
+                        this.in.name(),
                     });
                 }
             }
