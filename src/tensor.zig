@@ -67,7 +67,7 @@ pub const Buffer = struct {
             .x_stride = 1,
             .offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
-            .values_cl = if (context == null) null else try ClMem.alloc(context.?, a, z, y, x),
+            .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
         };
     }
     pub fn free(this: *const @This(), allocator: std.mem.Allocator) void {
