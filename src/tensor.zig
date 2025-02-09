@@ -70,7 +70,7 @@ pub const Buffer = struct {
             .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
         };
     }
-    pub fn free(this: *const @This(), allocator: std.mem.Allocator) void {
+    pub fn free(this: @This(), allocator: std.mem.Allocator) void {
         allocator.free(this.values);
     }
     // PERF: these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
@@ -104,7 +104,7 @@ pub const Buffer = struct {
     pub inline fn xOffset(this: @This()) usize {
         return @divFloor(this.offset, this.x_stride);
     }
-    pub inline fn at(this: *const @This(), a: usize, z: usize, y: usize, x: usize) usize {
+    pub inline fn at(this: @This(), a: usize, z: usize, y: usize, x: usize) usize {
         assert(a < this.a_size);
         assert(z < this.z_size);
         assert(y < this.y_size);
@@ -388,7 +388,7 @@ pub const Op = struct {
     u_var: f32,
     out: Buffer,
     in: Buffer,
-    pub inline fn equal(this: *const @This(), target: Op) bool {
+    pub inline fn equal(this: @This(), target: Op) bool {
         return this.type == target.type and this.u_var == this.u_var and
             this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
@@ -396,7 +396,7 @@ pub const Op = struct {
             this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
             this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
     }
-    pub inline fn overlaps(this: *const @This(), target: Op) bool {
+    pub inline fn overlaps(this: @This(), target: Op) bool {
         // TODO: Implement this for non same-size buffers
         assert(this.out.a_size == target.out.a_size);
         assert(this.out.z_size == target.out.z_size);
@@ -418,19 +418,19 @@ pub const Op = struct {
             @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
             @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
     }
-    pub inline fn isUnary(this: *const @This()) bool {
+    pub inline fn isUnary(this: @This()) bool {
         return this.type.isUnary();
     }
-    pub inline fn isBinary(this: *const @This()) bool {
+    pub inline fn isBinary(this: @This()) bool {
         return this.type.isBinary();
     }
-    pub inline fn isLinary(this: *const @This()) bool {
+    pub inline fn isLinary(this: @This()) bool {
         return this.type.isLinary();
     }
-    pub inline fn isReduce(this: *const @This()) bool {
+    pub inline fn isReduce(this: @This()) bool {
         return this.type.isReduce();
     }
-    pub inline fn isOutInlinable(this: *const @This(), target: *const @This()) bool {
+    pub inline fn isOutInlinable(this: @This(), target: @This()) bool {
         return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.out.name_offset and
             this.out.a_size == target.out.a_size and
@@ -442,7 +442,7 @@ pub const Op = struct {
             this.out.y_offset == target.out.y_offset and
             this.out.x_offset == target.out.x_offset;
     }
-    pub inline fn isInInlinable(this: *const @This(), target: *const @This()) bool {
+    pub inline fn isInInlinable(this: @This(), target: @This()) bool {
         return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.in.name_offset and
             this.out.a_size == target.in.a_size and
@@ -454,7 +454,7 @@ pub const Op = struct {
             this.out.y_offset == target.in.y_offset and
             this.out.x_offset == target.in.x_offset;
     }
-    pub fn realize(this: *const @This()) void {
+    pub fn realize(this: @This()) void {
         if (this.isUnary()) {
             // NOTE: In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
@@ -634,7 +634,7 @@ pub const Op = struct {
             this.out.values[this.out.at(0, 0, 0, 0)] /= @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
         }
     }
-    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -709,7 +709,7 @@ pub const Op = struct {
             });
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -825,9 +825,9 @@ pub const Linearized = struct {
             this.op[op_idx].realize();
         }
     }
-    pub fn append(this: *@This(), op: *const Op) void {
+    pub fn append(this: *@This(), op: Op) void {
         assert(this.op_num < this.op.len);
-        this.op[this.op_num] = op.*;
+        this.op[this.op_num] = op;
         this.op_num += 1;
     }
     pub fn concat(this: *@This(), source: *Linearized) void {
@@ -838,7 +838,7 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -853,7 +853,7 @@ pub const Linearized = struct {
             }
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -896,7 +896,7 @@ pub const Tensor = struct {
             this.buffer.syncUpdate(.sync_to_device);
         }
     }
-    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
@@ -916,7 +916,7 @@ pub const Tensor = struct {
             std.debug.print("\n", .{});
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
@@ -940,7 +940,7 @@ pub const Tensor = struct {
     pub fn unaryAdd(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_add,
@@ -950,7 +950,7 @@ pub const Tensor = struct {
     pub fn unarySubtract(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_subtract,
@@ -960,7 +960,7 @@ pub const Tensor = struct {
     pub fn unaryMultiply(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_multiply,
@@ -970,7 +970,7 @@ pub const Tensor = struct {
     pub fn unaryDivide(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_divide,
@@ -978,7 +978,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryExp(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_exp,
@@ -986,7 +986,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryLog(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_log,
@@ -994,7 +994,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unarySquare(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_square,
@@ -1002,7 +1002,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unarySqrt(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sqrt,
@@ -1010,7 +1010,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryReciprocal(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_reciprocal,
@@ -1020,7 +1020,7 @@ pub const Tensor = struct {
     pub fn unaryMax(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_max,
@@ -1030,7 +1030,7 @@ pub const Tensor = struct {
     pub fn unaryMin(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_min,
@@ -1040,7 +1040,7 @@ pub const Tensor = struct {
     pub fn unarySet(this: *@This(), u_var: f32) void {
         assert(!std.math.isNan(u_var));
         assert(!std.math.isInf(u_var));
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_set,
@@ -1051,7 +1051,7 @@ pub const Tensor = struct {
     //  I don't really want to make the user think about it, but the explicit-nes is also nice
     /// Here u_var is the seed of the prng
     pub fn unaryRandom(this: *@This(), u_var: u32) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_random,
@@ -1059,7 +1059,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryTanh(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_tanh,
@@ -1067,7 +1067,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unaryAbsolute(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_absolute,
@@ -1075,7 +1075,7 @@ pub const Tensor = struct {
         });
     }
     pub fn unarySign(this: *@This()) void {
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = this.buffer,
             .type = .unary_sign,
@@ -1088,7 +1088,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_add,
@@ -1101,7 +1101,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_subtract,
@@ -1114,7 +1114,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_multiply,
@@ -1127,7 +1127,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_divide,
@@ -1140,7 +1140,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_max,
@@ -1153,7 +1153,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_min,
@@ -1166,7 +1166,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == source.buffer.y_size);
         assert(this.buffer.x_size == source.buffer.x_size);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .binary_set,
@@ -1179,7 +1179,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_add,
@@ -1192,7 +1192,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_subtract,
@@ -1205,7 +1205,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_multiply,
@@ -1218,7 +1218,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_divide,
@@ -1231,7 +1231,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_max,
@@ -1244,7 +1244,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_min,
@@ -1257,7 +1257,7 @@ pub const Tensor = struct {
         assert(source.buffer.y_size == 1);
         assert(source.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .linary_set,
@@ -1270,7 +1270,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_sum,
@@ -1283,7 +1283,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_max,
@@ -1296,7 +1296,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_min,
@@ -1309,7 +1309,7 @@ pub const Tensor = struct {
         assert(this.buffer.y_size == 1);
         assert(this.buffer.x_size == 1);
         this.linearized.concat(&source.linearized);
-        this.linearized.append(&.{
+        this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
             .type = .reduce_avg,

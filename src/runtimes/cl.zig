@@ -70,7 +70,7 @@ pub const ClDevice = struct {
             return ClError.DeviceNotFreed;
         }
     }
-    pub fn maxSizeLocal(this: *const @This()) !usize {
+    pub fn maxSizeLocal(this: @This()) !usize {
         var size_local: usize = 0;
         if (open_cl.clGetDeviceInfo(this.device, open_cl.CL_DEVICE_MAX_WORK_GROUP_SIZE, @sizeOf(usize), &size_local, null) == 0) {
             return size_local;

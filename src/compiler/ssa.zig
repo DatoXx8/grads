@@ -270,24 +270,24 @@ pub const Ssa = struct {
             layer_out: usize,
             layer_in: usize,
             dim_info: DimInfo,
-            pub inline fn layer(this: *const @This()) usize {
+            pub inline fn layer(this: @This()) usize {
                 return @max(this.layer_out, this.layer_in);
             }
             /// Returns wether the `this` assign overwrites every value in `target` with values not dependant on those in `target`
-            pub inline fn overwrites(this: *const @This(), target: *const @This()) bool {
-                const a_low_this: usize = this.out.a_size + this.out.a_offset;
-                const z_low_this: usize = this.out.z_size + this.out.z_offset;
-                const y_low_this: usize = this.out.y_size + this.out.y_offset;
-                const x_low_this: usize = this.out.x_size + this.out.x_offset;
-                const a_low_target: usize = target.out.a_size + target.out.a_offset;
-                const z_low_target: usize = target.out.z_size + target.out.z_offset;
-                const y_low_target: usize = target.out.y_size + target.out.y_offset;
-                const x_low_target: usize = target.out.x_size + target.out.x_offset;
+            pub inline fn overwrites(this: @This(), target: @This()) bool {
+                const a_low_this: usize = this.out.a_size + this.out.aOffset();
+                const z_low_this: usize = this.out.z_size + this.out.zOffset();
+                const y_low_this: usize = this.out.y_size + this.out.yOffset();
+                const x_low_this: usize = this.out.x_size + this.out.xOffset();
+                const a_low_target: usize = target.out.a_size + target.out.aOffset();
+                const z_low_target: usize = target.out.z_size + target.out.zOffset();
+                const y_low_target: usize = target.out.y_size + target.out.yOffset();
+                const x_low_target: usize = target.out.x_size + target.out.xOffset();
                 return this.out.name_offset == target.out.name_offset and this.type.isStandalone() and
                     a_low_this == a_low_target and z_low_this == z_low_target and
                     y_low_this == y_low_target and x_low_this == x_low_target;
             }
-            pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+            pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
                 // TODO: Also print the dim info
                 if (name) |text| {
                     std.debug.print("{s}Base {s}\n", .{ " " ** (offset), text });
@@ -385,7 +385,7 @@ pub const Ssa = struct {
             pub const Type = enum(u8) { in, out };
             type: []Type,
             base: []Base,
-            pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+            pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
                 // TODO: Also print the dim info
                 if (name) |text| {
                     std.debug.print("{s}Inlined {s}\n", .{ " " ** (offset), text });
@@ -420,7 +420,7 @@ pub const Ssa = struct {
         split: ?Split,
         simd: ?Simd,
         memory: ?Memory,
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             // TODO: Also print the dim info and optimizations
             if (name) |text| {
                 std.debug.print("{s}Assign {s}\n", .{ " " ** (offset), text });
@@ -512,7 +512,7 @@ pub const Ssa = struct {
         }
         try optimization.memoryLayout(allocator, this);
     }
-    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}SSA {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
@@ -523,7 +523,7 @@ pub const Ssa = struct {
             this.assign[assign_idx].print(0, 0, null);
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}SSA {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {

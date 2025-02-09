@@ -338,7 +338,7 @@ pub const Neuralnet = struct {
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -356,7 +356,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -539,7 +539,7 @@ pub const Neuralnet = struct {
             this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, //
                 input.buffer.y_inherent + 2 * this.kernel_padding, input.buffer.x_inherent + 2 * this.kernel_padding);
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -569,7 +569,7 @@ pub const Neuralnet = struct {
                 this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
             });
         }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -630,7 +630,7 @@ pub const Neuralnet = struct {
                 .kernel_stride = kernel_stride,
             };
         }
-        pub fn forward(this: *const @This(), input: *Tensor, output: *Tensor) void {
+        pub fn forward(this: @This(), input: *Tensor, output: *Tensor) void {
             input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             input.moveOffset(0, 0, 0, 0);
             output.moveResize(1, 1, 1, 1);
@@ -659,7 +659,7 @@ pub const Neuralnet = struct {
             }
         }
         /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
-        pub fn backward(this: *const @This(), input_g: *Tensor, output_g: *Tensor) void {
+        pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
             input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
             output_g.moveResize(1, 1, 1, 1);
 
@@ -684,7 +684,7 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, output_g.buffer.z_inherent, output_g.buffer.y_inherent, output_g.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Reduce {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -805,7 +805,7 @@ pub const Neuralnet = struct {
             output_g.moveResize(1, this.filters * this.z, this.y, this.x);
             output_g.moveOffset(0, 0, 0, 0);
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -825,7 +825,7 @@ pub const Neuralnet = struct {
             this.weights_g.print(padding, offset + padding, "weights_g");
             this.temp_input.print(padding, offset + padding, "temp_input");
         }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -967,7 +967,7 @@ pub const Neuralnet = struct {
                 .split => unreachable,
             }
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -983,7 +983,7 @@ pub const Neuralnet = struct {
                 .split => this.connection.split.print(padding, offset + padding, "split"),
             }
         }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
+        pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1132,7 +1132,7 @@ pub const Neuralnet = struct {
             this.values.free(allocator);
             this.values_g.free(allocator);
         }
-        pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
+        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1148,7 +1148,7 @@ pub const Neuralnet = struct {
                 .residual => this.tag.residual.print(padding, offset + padding, null),
             }
         }
-        pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
+        pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]u8) void {
             if (name) |text| {
                 std.debug.print("{s}Layer {s}\n", .{ [1]u8{' '} ** offset, text });
             } else {
@@ -1571,7 +1571,7 @@ pub const Neuralnet = struct {
     }
     /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
     /// Asks for user permission to overwrite the files if it already exists
-    pub fn saveToFile(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
+    pub fn saveToFile(this: @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_arch_ext: []const u8 = ".arch";
         const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
         defer allocator.free(file_arch_name);
@@ -1705,7 +1705,7 @@ pub const Neuralnet = struct {
     }
     /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
     /// Overwrite the files if they already exists without asking for permission
-    pub fn saveToFileOverwrite(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
+    pub fn saveToFileOverwrite(this: @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_arch_ext: []const u8 = ".arch";
         const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
         defer allocator.free(file_arch_name);
@@ -1830,7 +1830,7 @@ pub const Neuralnet = struct {
     }
     /// Load weights and biases from file to already existing net.
     /// Does not explicitly check that the architecture of the values of the file and the provided net match.
-    pub fn readFromFile(this: *const @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
+    pub fn readFromFile(this: @This(), allocator: std.mem.Allocator, filename: []const u8) !void {
         const file_param_ext: []const u8 = ".bin";
         const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
         defer allocator.free(file_param_name);
@@ -1896,7 +1896,7 @@ pub const Neuralnet = struct {
     //     _ = filename;
     //     _ = context;
     // }
-    pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
@@ -1907,7 +1907,7 @@ pub const Neuralnet = struct {
             this.layers[layer_idx].print(padding, padding + offset, null);
         }
     }
-    pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Neuralnet {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
