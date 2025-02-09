@@ -270,17 +270,135 @@ pub const Ssa = struct {
             layer_out: usize,
             layer_in: usize,
             dim_info: DimInfo,
-            pub fn isDependant(this: *const @This()) bool {
-                const t: Op.Type = this.base.type;
-                return !(t == .unary_set or t == .unary_random or t == .binary_set or
-                    t == .linary_set or t == .reduce_avg or t == .reduce_max or
-                    t == .reduce_min or t == .reduce_sum);
+            pub inline fn layer(this: *const @This()) usize {
+                return @max(this.layer_out, this.layer_in);
+            }
+            /// Returns wether the `this` assignment overwrites every value in `target` with values not dependant on those in `target`
+            pub inline fn overwrites(this: *const @This(), target: *const @This()) bool {
+                const a_low_this: usize = this.out.a_size + this.out.a_offset;
+                const z_low_this: usize = this.out.z_size + this.out.z_offset;
+                const y_low_this: usize = this.out.y_size + this.out.y_offset;
+                const x_low_this: usize = this.out.x_size + this.out.x_offset;
+                const a_low_target: usize = target.out.a_size + target.out.a_offset;
+                const z_low_target: usize = target.out.z_size + target.out.z_offset;
+                const y_low_target: usize = target.out.y_size + target.out.y_offset;
+                const x_low_target: usize = target.out.x_size + target.out.x_offset;
+                return this.out.name_offset == target.out.name_offset and this.type.isStandalone() and
+                    a_low_this == a_low_target and z_low_this == z_low_target and
+                    y_low_this == y_low_target and x_low_this == x_low_target;
+            }
+            pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+                // TODO: Also print the dim info
+                if (name) |text| {
+                    std.debug.print("{s}Base {s}\n", .{ " " ** (offset), text });
+                }
+                if (this.type.isUnary()) {
+                    std.debug.print("{s}{} U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {} {d}\n", .{
+                        " " ** (offset + padding),
+                        this.layer(),
+                        switch (this.type) {
+                            .unary_add => "add",
+                            .unary_subtract => "sub",
+                            .unary_multiply => "mul",
+                            .unary_divide => "div",
+                            .unary_exp => "exp",
+                            .unary_log => "log",
+                            .unary_square => "sqr",
+                            .unary_sqrt => "sqt",
+                            .unary_reciprocal => "rcp",
+                            .unary_max => "max",
+                            .unary_min => "min",
+                            .unary_set => "set",
+                            .unary_random => "rng",
+                            .unary_tanh => "tanh",
+                            .unary_absolute => "abs",
+                            .unary_sign => "sgn",
+                            else => unreachable,
+                        },
+                        this.out.a_size,
+                        this.out.z_size,
+                        this.out.y_size,
+                        this.out.x_size,
+                        this.out.a_offset,
+                        this.out.z_offset,
+                        this.out.y_offset,
+                        this.out.x_offset,
+                        this.out.offset,
+                        this.out.name,
+                        this.layer_out,
+                        this.u_var.float,
+                    });
+                } else {
+                    const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isLinary()) 'L' else 'R');
+                    std.debug.print("{s}{} {c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\"\n", .{
+                        " " ** (offset + padding),
+                        this.layer(),
+                        op_kind,
+                        switch (this.type) {
+                            .binary_add => "add",
+                            .binary_subtract => "sub",
+                            .binary_multiply => "mul",
+                            .binary_divide => "div",
+                            .binary_max => "max",
+                            .binary_min => "min",
+                            .binary_set => "set",
+                            .linary_add => "add",
+                            .linary_subtract => "sub",
+                            .linary_multiply => "mul",
+                            .linary_divide => "div",
+                            .linary_max => "max",
+                            .linary_min => "min",
+                            .linary_set => "set",
+                            .reduce_sum => "sum",
+                            .reduce_max => "max",
+                            .reduce_min => "min",
+                            .reduce_avg => "avg",
+                            else => unreachable,
+                        },
+                        this.out.a_size,
+                        this.out.z_size,
+                        this.out.y_size,
+                        this.out.x_size,
+                        this.out.a_offset,
+                        this.out.z_offset,
+                        this.out.y_offset,
+                        this.out.x_offset,
+                        this.out.offset,
+                        this.layer_out,
+                        this.out.name,
+                        this.in.a_size,
+                        this.in.z_size,
+                        this.in.y_size,
+                        this.in.x_size,
+                        this.in.a_offset,
+                        this.in.z_offset,
+                        this.in.y_offset,
+                        this.in.x_offset,
+                        this.in.offset,
+                        this.layer_in,
+                        this.in.name,
+                    });
+                }
             }
         };
         pub const Inlined = struct {
             pub const Type = enum(u8) { in, out };
             type: []Type,
             base: []Base,
+            pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+                // TODO: Also print the dim info
+                if (name) |text| {
+                    std.debug.print("{s}Inlined {s}\n", .{ " " ** (offset), text });
+                }
+                for (0..this.base.len) |inlined_idx| {
+                    const inlined_type: u8 = switch (this.type[inlined_idx]) {
+                        .out => 'o',
+                        .in => 'i',
+                    };
+                    std.debug.print("{s}({}) => {c} ", .{ " " ** (offset + padding), inlined_idx, inlined_type });
+                    this.base[inlined_idx].print(0, 0, null);
+                }
+            }
         };
         pub const Split = struct {
             splittable: bool,
@@ -302,98 +420,15 @@ pub const Ssa = struct {
         split: ?Split,
         simd: ?Simd,
         memory: ?Memory,
-        pub fn layer(this: *const @This()) usize {
-            return @max(this.base.layer_out, this.base.layer_in);
-        }
         pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             // TODO: Also print the dim info and optimizations
             if (name) |text| {
-                std.debug.print("{s}Assignment {s}\n", .{ " " ** (padding + offset), text });
+                std.debug.print("{s}Assignment {s}\n", .{ " " ** (offset), text });
             }
-            if (this.base.type.isUnary()) {
-                std.debug.print("{} U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {} {d}\n", .{
-                    this.layer(),
-                    switch (this.base.type) {
-                        .unary_add => "add",
-                        .unary_subtract => "sub",
-                        .unary_multiply => "mul",
-                        .unary_divide => "div",
-                        .unary_exp => "exp",
-                        .unary_log => "log",
-                        .unary_square => "sqr",
-                        .unary_sqrt => "sqt",
-                        .unary_reciprocal => "rcp",
-                        .unary_max => "max",
-                        .unary_min => "min",
-                        .unary_set => "set",
-                        .unary_random => "rng",
-                        .unary_tanh => "tanh",
-                        .unary_absolute => "abs",
-                        .unary_sign => "sgn",
-                        else => unreachable,
-                    },
-                    this.base.out.a_size,
-                    this.base.out.z_size,
-                    this.base.out.y_size,
-                    this.base.out.x_size,
-                    this.base.out.a_offset,
-                    this.base.out.z_offset,
-                    this.base.out.y_offset,
-                    this.base.out.x_offset,
-                    this.base.out.offset,
-                    this.base.out.name,
-                    this.base.layer_out,
-                    this.base.u_var.float,
-                });
-            } else {
-                const op_kind: u8 = if (this.base.type.isBinary()) 'B' else (if (this.base.type.isLinary()) 'L' else 'R');
-                std.debug.print("{} {c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] {} \"{s}\"\n", .{
-                    this.layer(),
-                    op_kind,
-                    switch (this.base.type) {
-                        .binary_add => "add",
-                        .binary_subtract => "sub",
-                        .binary_multiply => "mul",
-                        .binary_divide => "div",
-                        .binary_max => "max",
-                        .binary_min => "min",
-                        .binary_set => "set",
-                        .linary_add => "add",
-                        .linary_subtract => "sub",
-                        .linary_multiply => "mul",
-                        .linary_divide => "div",
-                        .linary_max => "max",
-                        .linary_min => "min",
-                        .linary_set => "set",
-                        .reduce_sum => "sum",
-                        .reduce_max => "max",
-                        .reduce_min => "min",
-                        .reduce_avg => "avg",
-                        else => unreachable,
-                    },
-                    this.base.out.a_size,
-                    this.base.out.z_size,
-                    this.base.out.y_size,
-                    this.base.out.x_size,
-                    this.base.out.a_offset,
-                    this.base.out.z_offset,
-                    this.base.out.y_offset,
-                    this.base.out.x_offset,
-                    this.base.out.offset,
-                    this.base.layer_out,
-                    this.base.out.name,
-                    this.base.in.a_size,
-                    this.base.in.z_size,
-                    this.base.in.y_size,
-                    this.base.in.x_size,
-                    this.base.in.a_offset,
-                    this.base.in.z_offset,
-                    this.base.in.y_offset,
-                    this.base.in.x_offset,
-                    this.base.in.offset,
-                    this.base.layer_in,
-                    this.base.in.name,
-                });
+            this.base.print(padding, padding + offset, null);
+            if (this.inlined) |inlined| {
+                std.debug.print("{s}Inlined\n", .{" " ** (padding + offset)});
+                inlined.print(padding, padding + offset, null);
             }
         }
     };
@@ -438,9 +473,9 @@ pub const Ssa = struct {
             try assignment_layer_read.put(assignment[op_idx].base.in.name_offset, layer_idx + 1);
 
             if (op_idx == 0) {
-                assert(assignment[0].layer() == 0);
+                assert(assignment[0].base.layer() == 0);
             } else {
-                assert(assignment[op_idx].layer() >= assignment[op_idx - 1].layer());
+                assert(assignment[op_idx].base.layer() >= assignment[op_idx - 1].base.layer());
             }
         }
 
@@ -453,6 +488,7 @@ pub const Ssa = struct {
         for (this.assignment) |*assignment| {
             if (assignment.inlined) |*inlined| {
                 allocator.free(inlined.base);
+                allocator.free(inlined.type);
             }
         }
         allocator.free(this.assignment);
@@ -491,8 +527,8 @@ pub const Ssa = struct {
             std.debug.print("{s}SSA\n", .{[1]u8{' '} ** offset});
         }
         for (0..this.assignment_num) |assignment_idx| {
-            std.debug.print("{s}[{}] => ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
-            this.assignment[assignment_idx].print(0, 0, null);
+            std.debug.print("{s}[{}] => \n", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
+            this.assignment[assignment_idx].print(padding, offset + padding, null);
         }
     }
 };
