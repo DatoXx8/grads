@@ -172,30 +172,200 @@ pub const Op = struct {
         reduce_avg,
         reduce_min,
         pub inline fn isUnary(this: @This()) bool {
-            return this == .unary_add or this == .unary_subtract or
-                this == .unary_multiply or this == .unary_divide or
-                this == .unary_exp or this == .unary_log or
-                this == .unary_square or this == .unary_sqrt or
-                this == .unary_reciprocal or this == .unary_max or
-                this == .unary_min or this == .unary_set or
-                this == .unary_random or this == .unary_tanh or
-                this == .unary_absolute or this == .unary_sign;
+            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            return switch (this) {
+                .unary_add => true,
+                .unary_subtract => true,
+                .unary_multiply => true,
+                .unary_divide => true,
+                .unary_exp => true,
+                .unary_log => true,
+                .unary_square => true,
+                .unary_sqrt => true,
+                .unary_reciprocal => true,
+                .unary_max => true,
+                .unary_min => true,
+                .unary_set => true,
+                .unary_random => true,
+                .unary_tanh => true,
+                .unary_absolute => true,
+                .unary_sign => true,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => false,
+                .linary_add => false,
+                .linary_subtract => false,
+                .linary_multiply => false,
+                .linary_divide => false,
+                .linary_max => false,
+                .linary_min => false,
+                .linary_set => false,
+                .reduce_sum => false,
+                .reduce_max => false,
+                .reduce_avg => false,
+                .reduce_min => false,
+            };
         }
         pub inline fn isBinary(this: @This()) bool {
-            return this == .binary_add or this == .binary_subtract or
-                this == .binary_multiply or this == .binary_divide or
-                this == .binary_max or this == .binary_min or
-                this == .binary_set;
+            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            return switch (this) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => false,
+                .unary_random => false,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => true,
+                .binary_subtract => true,
+                .binary_multiply => true,
+                .binary_divide => true,
+                .binary_max => true,
+                .binary_min => true,
+                .binary_set => true,
+                .linary_add => false,
+                .linary_subtract => false,
+                .linary_multiply => false,
+                .linary_divide => false,
+                .linary_max => false,
+                .linary_min => false,
+                .linary_set => false,
+                .reduce_sum => false,
+                .reduce_max => false,
+                .reduce_avg => false,
+                .reduce_min => false,
+            };
         }
         pub inline fn isLinary(this: @This()) bool {
-            return this == .linary_add or this == .linary_subtract or
-                this == .linary_multiply or this == .linary_divide or
-                this == .linary_max or this == .linary_min or
-                this == .linary_set;
+            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            return switch (this) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => false,
+                .unary_random => false,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => false,
+                .linary_add => true,
+                .linary_subtract => true,
+                .linary_multiply => true,
+                .linary_divide => true,
+                .linary_max => true,
+                .linary_min => true,
+                .linary_set => true,
+                .reduce_sum => false,
+                .reduce_max => false,
+                .reduce_avg => false,
+                .reduce_min => false,
+            };
         }
         pub inline fn isReduce(this: @This()) bool {
-            return this == .reduce_sum or this == .reduce_max or
-                this == .reduce_avg or this == .reduce_min;
+            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            return switch (this) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => false,
+                .unary_random => false,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => false,
+                .linary_add => false,
+                .linary_subtract => false,
+                .linary_multiply => false,
+                .linary_divide => false,
+                .linary_max => false,
+                .linary_min => false,
+                .linary_set => false,
+                .reduce_sum => true,
+                .reduce_max => true,
+                .reduce_avg => true,
+                .reduce_min => true,
+            };
+        }
+        // TODO: This is kind of a bad name
+        pub inline fn isStandalone(this: @This()) bool {
+            // NOTE: I did this with a switch statement to that you are forced to handle this in case you add a new op
+            return switch (this) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => true,
+                .unary_random => false,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => true,
+                .linary_add => false,
+                .linary_subtract => false,
+                .linary_multiply => false,
+                .linary_divide => false,
+                .linary_max => false,
+                .linary_min => false,
+                .linary_set => true,
+                .reduce_sum => true,
+                .reduce_max => true,
+                .reduce_avg => true,
+                .reduce_min => true,
+            };
         }
     };
     pub const UVar = union {
@@ -865,6 +1035,8 @@ pub const Tensor = struct {
             .u_var = .{ .float = u_var },
         });
     }
+    // TODO: Decide if this explicit seed thing is actually any good at all.
+    //  I don't really want to make the user think about it, but the explicit-nes is also nice
     /// Here u_var is the seed of the prng
     pub fn unaryRandom(this: *@This(), u_var: u32) void {
         this.linearized.append(&.{
