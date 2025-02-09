@@ -92,7 +92,7 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
-            const switch_likelyhood: u32 = 10;
+            const switch_likelyhood: usize = 10;
             if (pcg.random().uintLessThan(u32, switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
                 op_out[op_idx] = pcg.random().uintLessThan(u32, tensor_num - 1);
@@ -114,10 +114,10 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
         const z_size: u32 = pcg.random().uintLessThan(u32, z_size_max) + 1;
         const y_size: u32 = pcg.random().uintLessThan(u32, y_size_max) + 1;
         const x_size: u32 = pcg.random().uintLessThan(u32, x_size_max) + 1;
-        const a_off: u32 = pcg.random().uintLessThan(u32, a_size_max - a_size);
-        const z_off: u32 = pcg.random().uintLessThan(u32, z_size_max - z_size);
-        const y_off: u32 = pcg.random().uintLessThan(u32, y_size_max - y_size);
-        const x_off: u32 = pcg.random().uintLessThan(u32, x_size_max - x_size);
+        const a_off: u32 = if (a_size_max > a_size) pcg.random().uintLessThan(u32, a_size_max - a_size) else 0;
+        const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
+        const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
+        const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
 
         // Putting this here to make snycing the prng state trivial
         const u_var: f32 = pcg.random().floatNorm(f32);

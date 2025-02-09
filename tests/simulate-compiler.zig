@@ -132,10 +132,10 @@ fn simulateCompiler(
         const z_size: u32 = pcg.random().uintLessThan(u32, z_size_max) + 1;
         const y_size: u32 = pcg.random().uintLessThan(u32, y_size_max) + 1;
         const x_size: u32 = pcg.random().uintLessThan(u32, x_size_max) + 1;
-        const a_off: u32 = pcg.random().uintLessThan(u32, a_size_max - a_size);
-        const z_off: u32 = pcg.random().uintLessThan(u32, z_size_max - z_size);
-        const y_off: u32 = pcg.random().uintLessThan(u32, y_size_max - y_size);
-        const x_off: u32 = pcg.random().uintLessThan(u32, x_size_max - x_size);
+        const a_off: u32 = if (a_size_max > a_size) pcg.random().uintLessThan(u32, a_size_max - a_size) else 0;
+        const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
+        const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
+        const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
         const a_loop: u32 = pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) + 1;
         const z_loop: u32 = pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) + 1;
         const y_loop: u32 = pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) + 1;
