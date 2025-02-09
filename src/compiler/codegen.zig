@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Ssa = @import("./ssa.zig").Ssa;
 const DimInfo = Ssa.DimInfo;
-const Assignment = Ssa.Assignment;
+const Assign = Ssa.Assign;
 
 const assert = std.debug.assert;
 
@@ -44,46 +44,46 @@ fn generateIndex(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    layer: []Assignment,
+    layer: []Assign,
     loop_idx: usize,
 ) !void {
-    for (0..layer.len) |assignment_idx| {
-        const assignment: Assignment.Base = layer[assignment_idx].base;
-        const dim_info: DimInfo = assignment.dim_info;
+    for (0..layer.len) |assign_idx| {
+        const assign: Assign.Base = layer[assign_idx].base;
+        const dim_info: DimInfo = assign.dim_info;
         try writeBuffer(
             allocator,
             source,
             offset,
             "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
             .{
-                assignment.out.name(), loop_idx, assignment_idx, //
+                assign.out.name(), loop_idx, assign_idx, //
                 dim_info.a_idx_out,  dim_info.a_reset_out, //
-                dim_info.a_wait_out, dim_info.a_stride_out * assignment.out.a_stride,
+                dim_info.a_wait_out, dim_info.a_stride_out * assign.out.a_stride,
                 dim_info.z_idx_out,  dim_info.z_reset_out,
-                dim_info.z_wait_out, dim_info.z_stride_out * assignment.out.z_stride,
+                dim_info.z_wait_out, dim_info.z_stride_out * assign.out.z_stride,
                 dim_info.y_idx_out,  dim_info.y_reset_out,
-                dim_info.y_wait_out, dim_info.y_stride_out * assignment.out.y_stride,
+                dim_info.y_wait_out, dim_info.y_stride_out * assign.out.y_stride,
                 dim_info.x_idx_out,  dim_info.x_reset_out,
-                dim_info.x_wait_out, dim_info.x_stride_out * assignment.out.x_stride,
+                dim_info.x_wait_out, dim_info.x_stride_out * assign.out.x_stride,
                 dim_info.off_out,
             },
         );
-        if (!assignment.type.isUnary()) {
+        if (!assign.type.isUnary()) {
             try writeBuffer(
                 allocator,
                 source,
                 offset,
                 "int {s}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
                 .{
-                    assignment.in.name(), loop_idx, assignment_idx, //
+                    assign.in.name(), loop_idx, assign_idx, //
                     dim_info.a_idx_in,  dim_info.a_reset_in, //
-                    dim_info.a_wait_in, dim_info.a_stride_in * assignment.in.a_stride,
+                    dim_info.a_wait_in, dim_info.a_stride_in * assign.in.a_stride,
                     dim_info.z_idx_in,  dim_info.z_reset_in,
-                    dim_info.z_wait_in, dim_info.z_stride_in * assignment.in.z_stride,
+                    dim_info.z_wait_in, dim_info.z_stride_in * assign.in.z_stride,
                     dim_info.y_idx_in,  dim_info.y_reset_in,
-                    dim_info.y_wait_in, dim_info.y_stride_in * assignment.in.y_stride,
+                    dim_info.y_wait_in, dim_info.y_stride_in * assign.in.y_stride,
                     dim_info.x_idx_in,  dim_info.x_reset_in,
-                    dim_info.x_wait_in, dim_info.x_stride_in * assignment.in.x_stride,
+                    dim_info.x_wait_in, dim_info.x_stride_in * assign.in.x_stride,
                     dim_info.off_in,
                 },
             );
@@ -91,14 +91,14 @@ fn generateIndex(
     }
 }
 
-/// Generate a line of OpenCL code setting up the assignment. Like setting to -INFINITY for reduce_max
+/// Generate a line of OpenCL code setting up the assign. Like setting to -INFINITY for reduce_max
 fn generateHeader(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
 ) !void {
     switch (base.type) {
         .reduce_sum => {
@@ -106,7 +106,7 @@ fn generateHeader(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_avg => {
@@ -114,7 +114,7 @@ fn generateHeader(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_max => {
@@ -122,7 +122,7 @@ fn generateHeader(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_min => {
@@ -130,21 +130,21 @@ fn generateHeader(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         else => {},
     }
 }
 
-/// Do post assignment calculations. Currently only used for dividing by the size of the `in` buffer for reduce_avg
+/// Do post assign calculations. Currently only used for dividing by the size of the `in` buffer for reduce_avg
 fn generateFooter(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
 ) !void {
     switch (base.type) {
         .reduce_avg => {
@@ -152,7 +152,7 @@ fn generateFooter(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 base.in.a_size * base.in.z_size * base.in.y_size * base.in.x_size,
             });
         },
@@ -164,10 +164,10 @@ fn generatePrefix(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     // inline_info: Pir.Inline,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
     offset_out: usize,
 ) !void {
     switch (base.type) {
@@ -238,7 +238,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -251,7 +251,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -264,7 +264,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -277,7 +277,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -290,7 +290,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -303,7 +303,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
                 offset_out,
             });
             // } else {
@@ -319,7 +319,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "(", .{});
@@ -331,7 +331,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "(", .{});
@@ -343,7 +343,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "(", .{});
@@ -355,7 +355,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "(", .{});
@@ -367,7 +367,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "fmax(", .{});
@@ -379,7 +379,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
             // } else {
             //     try writeBuffer(allocator, source, offset, "fmin(", .{});
@@ -393,7 +393,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_avg => {
@@ -401,7 +401,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_max => {
@@ -409,7 +409,7 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
         .reduce_min => {
@@ -417,25 +417,25 @@ fn generatePrefix(
                 base.out.name(),
                 base.out.name(),
                 loop_idx,
-                assignment_idx,
+                assign_idx,
             });
         },
     }
 }
 
-/// Generate a line of OpenCL code computing one entry of `assignment.out`
+/// Generate a line of OpenCL code computing one entry of `assign.out`
 fn generatePostfix(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     // inline_info: Pir.Inline,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
     offset_in: usize,
 ) !void {
     _ = loop_idx;
-    _ = assignment_idx;
+    _ = assign_idx;
     _ = offset_in;
     switch (base.type) {
         .unary_add => {
@@ -494,10 +494,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " + {s}[{s}_{}_{} + {}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //         offset_in,
             //     });
             // }
@@ -507,10 +507,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " - {s}[{s}_{}_{} + {}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //         offset_in,
             //     });
             // }
@@ -524,10 +524,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " / {s}[{s}_{}_{} + {}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //         offset_in,
             //     });
             // }
@@ -537,10 +537,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, ", {s}[{s}_{}_{} + {}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //         offset_in,
             //     });
             // }
@@ -550,10 +550,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, ", {s}[{s}_{}_{} + {}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //         offset_in,
             //     });
             // }
@@ -566,10 +566,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " + {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -578,10 +578,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " - {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -590,10 +590,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " * {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -602,10 +602,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, " / {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -614,10 +614,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, ", {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -626,10 +626,10 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
             // } else {
             //     try writeBuffer(allocator, source, offset, ", {s}[{s}_{}_{}])", .{
-            //         assignment.in.name(),
-            //         assignment.in.name(),
+            //         assign.in.name(),
+            //         assign.in.name(),
             //         loop_idx,
-            //         assignment_idx,
+            //         assign_idx,
             //     });
             // }
         },
@@ -655,9 +655,9 @@ fn generateAssign(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
     offset_out: usize,
 ) !void {
     if (base.type.isReduce()) {
@@ -667,7 +667,7 @@ fn generateAssign(
         base.out.name(),
         base.out.name(),
         loop_idx,
-        assignment_idx,
+        assign_idx,
         offset_out,
     });
 }
@@ -676,9 +676,9 @@ fn generateBody(
     allocator: std.mem.Allocator,
     source: *[]u8,
     offset: *usize,
-    base: Assignment.Base,
+    base: Assign.Base,
     loop_idx: usize,
-    assignment_idx: usize,
+    assign_idx: usize,
     a: usize,
     z: usize,
     y: usize,
@@ -687,13 +687,13 @@ fn generateBody(
     const offset_out: usize = if (base.type.isReduce()) 0 else //
     base.out.at(a, z, y, x) - base.out.offset;
     try generatePrefix(allocator, source, offset, base, //
-        loop_idx, assignment_idx, offset_out);
+        loop_idx, assign_idx, offset_out);
     if (base.type.isLinary()) {
         try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}]", .{
             base.in.name(),
             base.in.name(),
             loop_idx,
-            assignment_idx,
+            assign_idx,
         });
     } else {
         const offset_in: usize = base.in.at(a, z, y, x) - base.in.offset;
@@ -701,21 +701,21 @@ fn generateBody(
             base.in.name(),
             base.in.name(),
             loop_idx,
-            assignment_idx,
+            assign_idx,
             offset_in,
         });
     }
     const offset_in: usize = if (base.type.isLinary()) 0 else //
     base.in.at(a, z, y, x) - base.in.offset;
     try generatePostfix(allocator, source, offset, base, //
-        loop_idx, assignment_idx, offset_in);
+        loop_idx, assign_idx, offset_in);
 }
 
-fn generateOp(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, layer: []Ssa.Assignment, loop_idx: usize) !void {
-    for (0..layer.len) |assignment_idx| {
-        const base: Assignment.Base = layer[assignment_idx].base;
+fn generateOp(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, layer: []Ssa.Assign, loop_idx: usize) !void {
+    for (0..layer.len) |assign_idx| {
+        const base: Assign.Base = layer[assign_idx].base;
         // Every other op can not be a reduce op so it does not have a op header
-        try generateHeader(allocator, source, offset, base, loop_idx, assignment_idx);
+        try generateHeader(allocator, source, offset, base, loop_idx, assign_idx);
 
         // To deal with reduce and linary ops.
         const a_max: usize = if (base.type.isReduce()) base.in.a_size else base.out.a_size;
@@ -730,27 +730,28 @@ fn generateOp(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, layer
                         const offset_assign = if (base.type.isReduce()) 0 else //
                         base.out.at(a, z, y, x) - base.out.offset;
                         try generateAssign(allocator, source, offset, base, loop_idx, //
-                            assignment_idx, offset_assign);
+                            assign_idx, offset_assign);
                         try generateBody(allocator, source, offset, base, //
-                            loop_idx, assignment_idx, a, z, y, x);
+                            loop_idx, assign_idx, a, z, y, x);
                         try writeBuffer(allocator, source, offset, ";\n", .{});
                     }
                 }
             }
         }
 
-        try generateFooter(allocator, source, offset, base, loop_idx, assignment_idx);
+        try generateFooter(allocator, source, offset, base, loop_idx, assign_idx);
     }
 }
 
 // TODO: Clean up the file structure. The way it currently is, it makes little to no sense to have cl.zig in a seperate directory
 // TODO: compileKernel is a bad name
-/// Create the source for a kernel computing all assignments in `layer` if it is a singular layer and otherwise it computes the loop described by the layers
+// TODO: allocate the source to be the max size it could be before hand and then the entire codegen could just be that one allocation
+/// Create the source for a kernel computing all assigns in `layer` if it is a singular layer and otherwise it computes the loop described by the layers
 pub fn compileKernel(
     allocator: std.mem.Allocator,
     source: *[]u8,
     source_len: *usize,
-    layer: []Ssa.Assignment,
+    layer: []Ssa.Assign,
     loop_id: usize,
     loop_num: usize,
     args: Args,
@@ -801,7 +802,7 @@ pub fn compileKernel(
             try writeBuffer(allocator, source, source_len, "id += {};\n", .{size_global});
         }
 
-        // TODO: Reduce allocation by allocating the max size for this assignment
+        // TODO: Reduce allocation by allocating the max size for this assign
         try generateIndex(allocator, source, source_len, layer, loop_idx);
         try generateOp(allocator, source, source_len, layer, loop_idx);
 

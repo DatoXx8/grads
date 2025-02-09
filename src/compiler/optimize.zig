@@ -25,18 +25,21 @@ pub const Optimization = enum(u8) {
     O3,
     pub fn inlineOp(this: @This(), allocator: std.mem.Allocator, ssa: *Ssa) !void {
         assert(this == .O1 or this == .O2 or this == .O3);
-        _ = allocator;
 
-        if (ssa.assignment_num < 2) {
+        if (ssa.assign_num < 2) {
             return;
         }
 
-        for (0..ssa.assignment_num) |assignment_idx_reverse| {
-            const assignment_idx: usize = ssa.assignment_num - (assignment_idx_reverse + 1);
-            for (0..assignment_idx) |assignment_idx_search_reverse| {
-                const assignment_idx_search: usize = assignment_idx - (assignment_idx_search_reverse + 1);
-                _ = assignment_idx_search;
-                // std.debug.print("{} {}\n", .{ assignment_idx, assignment_idx_search });
+        const assign_used: []bool = try allocator.alloc(bool, ssa.assign_num);
+        errdefer allocator.free(assign_used);
+        defer allocator.free(assign_used);
+
+        for (0..ssa.assign_num) |assign_idx_reverse| {
+            const assign_idx: usize = ssa.assign_num - (assign_idx_reverse + 1);
+            for (0..assign_idx) |assign_idx_search_reverse| {
+                const assign_idx_search: usize = assign_idx - (assign_idx_search_reverse + 1);
+                _ = assign_idx_search;
+                // std.debug.print("{} {}\n", .{ assign_idx, assign_idx_search });
             }
         }
     }

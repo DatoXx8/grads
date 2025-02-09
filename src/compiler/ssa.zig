@@ -261,7 +261,7 @@ pub const Ssa = struct {
             });
         }
     };
-    pub const Assignment = struct {
+    pub const Assign = struct {
         pub const Base = struct {
             type: Op.Type,
             out: Buffer,
@@ -273,7 +273,7 @@ pub const Ssa = struct {
             pub inline fn layer(this: *const @This()) usize {
                 return @max(this.layer_out, this.layer_in);
             }
-            /// Returns wether the `this` assignment overwrites every value in `target` with values not dependant on those in `target`
+            /// Returns wether the `this` assign overwrites every value in `target` with values not dependant on those in `target`
             pub inline fn overwrites(this: *const @This(), target: *const @This()) bool {
                 const a_low_this: usize = this.out.a_size + this.out.a_offset;
                 const z_low_this: usize = this.out.z_size + this.out.z_offset;
@@ -423,7 +423,7 @@ pub const Ssa = struct {
         pub fn print(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
             // TODO: Also print the dim info and optimizations
             if (name) |text| {
-                std.debug.print("{s}Assignment {s}\n", .{ " " ** (offset), text });
+                std.debug.print("{s}Assign {s}\n", .{ " " ** (offset), text });
             }
             this.base.print(padding, padding + offset, null);
             if (this.inlined) |inlined| {
@@ -432,27 +432,30 @@ pub const Ssa = struct {
             }
         }
     };
-    assignment: []Assignment,
-    assignment_num: usize,
+    assign: []Assign,
+    assign_num: usize,
     pub fn alloc(allocator: std.mem.Allocator, linearized: Linearized) !Ssa {
         // Don't think hashmaps are avoidable sadly :^(
-        var assignment_layer_write = std.AutoHashMap(usize, usize).init(allocator);
-        defer assignment_layer_write.deinit();
+        var assign_layer_write = std.AutoHashMap(usize, usize).init(allocator);
+        errdefer assign_layer_write.deinit();
+        defer assign_layer_write.deinit();
 
-        var assignment_layer_read = std.AutoHashMap(usize, usize).init(allocator);
-        defer assignment_layer_read.deinit();
+        var assign_layer_read = std.AutoHashMap(usize, usize).init(allocator);
+        errdefer assign_layer_read.deinit();
+        defer assign_layer_read.deinit();
 
-        var assignment: []Assignment = try allocator.alloc(Assignment, linearized.op_num);
+        var assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
+        errdefer allocator.free(assign);
 
         for (0..linearized.op_num) |op_idx| {
             const layer_out: usize = @max(
-                assignment_layer_write.get(linearized.op[op_idx].out.name_offset) orelse 0,
-                assignment_layer_read.get(linearized.op[op_idx].out.name_offset) orelse 0,
+                assign_layer_write.get(linearized.op[op_idx].out.name_offset) orelse 0,
+                assign_layer_read.get(linearized.op[op_idx].out.name_offset) orelse 0,
             );
-            const layer_in: usize = assignment_layer_write.get(linearized.op[op_idx].in.name_offset) orelse 0;
+            const layer_in: usize = assign_layer_write.get(linearized.op[op_idx].in.name_offset) orelse 0;
             const layer_idx: usize = @max(layer_out, layer_in);
 
-            assignment[op_idx] = .{
+            assign[op_idx] = .{
                 .base = .{
                     .type = linearized.op[op_idx].type,
                     .u_var = linearized.op[op_idx].u_var,
@@ -469,29 +472,29 @@ pub const Ssa = struct {
             };
 
             // This overwrites the data if it already existed
-            try assignment_layer_write.put(assignment[op_idx].base.out.name_offset, layer_idx + 1);
-            try assignment_layer_read.put(assignment[op_idx].base.in.name_offset, layer_idx + 1);
+            try assign_layer_write.put(assign[op_idx].base.out.name_offset, layer_idx + 1);
+            try assign_layer_read.put(assign[op_idx].base.in.name_offset, layer_idx + 1);
 
             if (op_idx == 0) {
-                assert(assignment[0].base.layer() == 0);
+                assert(assign[0].base.layer() == 0);
             } else {
-                assert(assignment[op_idx].base.layer() >= assignment[op_idx - 1].base.layer());
+                assert(assign[op_idx].base.layer() >= assign[op_idx - 1].base.layer());
             }
         }
 
         return .{
-            .assignment = assignment,
-            .assignment_num = assignment.len,
+            .assign = assign,
+            .assign_num = assign.len,
         };
     }
     pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
-        for (this.assignment) |*assignment| {
-            if (assignment.inlined) |*inlined| {
+        for (this.assign) |*assign| {
+            if (assign.inlined) |*inlined| {
                 allocator.free(inlined.base);
                 allocator.free(inlined.type);
             }
         }
-        allocator.free(this.assignment);
+        allocator.free(this.assign);
     }
     pub fn optimize(this: *@This(), allocator: std.mem.Allocator, optimization: Optimization) !void {
         if (optimization == .O0) {
@@ -515,9 +518,9 @@ pub const Ssa = struct {
         } else {
             std.debug.print("{s}SSA\n", .{[1]u8{' '} ** offset});
         }
-        for (0..this.assignment_num) |assignment_idx| {
-            std.debug.print("{s}[{}] => ", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
-            this.assignment[assignment_idx].print(0, 0, null);
+        for (0..this.assign_num) |assign_idx| {
+            std.debug.print("{s}[{}] => ", .{ [1]u8{' '} ** (offset + padding), assign_idx });
+            this.assign[assign_idx].print(0, 0, null);
         }
     }
     pub fn debug(this: *const @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
@@ -526,9 +529,9 @@ pub const Ssa = struct {
         } else {
             std.debug.print("{s}SSA\n", .{[1]u8{' '} ** offset});
         }
-        for (0..this.assignment_num) |assignment_idx| {
-            std.debug.print("{s}[{}] => \n", .{ [1]u8{' '} ** (offset + padding), assignment_idx });
-            this.assignment[assignment_idx].print(padding, offset + padding, null);
+        for (0..this.assign_num) |assign_idx| {
+            std.debug.print("{s}[{}] => \n", .{ [1]u8{' '} ** (offset + padding), assign_idx });
+            this.assign[assign_idx].print(padding, offset + padding, null);
         }
     }
 };

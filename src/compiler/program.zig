@@ -52,28 +52,28 @@ pub const Program = struct {
         var source: []u8 = try allocator.alloc(u8, source_capacity_min);
         var source_len: usize = 0;
         @memset(source, 0);
-        var kernel_args: []Args = try allocator.alloc(Args, ssa.assignment_num);
-        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.assignment_num);
+        var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
+        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.assign_num);
         defer allocator.free(kernel_args);
         defer allocator.free(kernel_name);
 
         var kernel_num: usize = 0;
-        var assignment_idx: usize = 0;
-        for (0..ssa.assignment_num) |_| {
-            if (assignment_idx == ssa.assignment_num) {
+        var assign_idx: usize = 0;
+        for (0..ssa.assign_num) |_| {
+            if (assign_idx == ssa.assign_num) {
                 break;
             }
-            assert(assignment_idx < ssa.assignment_num);
+            assert(assign_idx < ssa.assign_num);
 
-            var assignment_idx_top: usize = assignment_idx + 1;
-            for (assignment_idx + 1..ssa.assignment_num) |assignment_search_idx| {
-                if (ssa.assignment[assignment_idx].base.layer() == ssa.assignment[assignment_search_idx].base.layer()) {
-                    assignment_idx_top += 1;
+            var assign_idx_top: usize = assign_idx + 1;
+            for (assign_idx + 1..ssa.assign_num) |assign_search_idx| {
+                if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_search_idx].base.layer()) {
+                    assign_idx_top += 1;
                 } else {
                     break;
                 }
             }
-            const layer: []Ssa.Assignment = ssa.assignment;
+            const layer: []Ssa.Assign = ssa.assign;
 
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering
@@ -87,7 +87,7 @@ pub const Program = struct {
                 kernel_args[kernel_num], kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
 
             kernel_num += 1;
-            assignment_idx = assignment_idx_top;
+            assign_idx = assign_idx_top;
         }
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);

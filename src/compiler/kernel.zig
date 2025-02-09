@@ -20,17 +20,17 @@ pub const Args = struct {
     arg_name_offset: []usize,
     arg_mem: []ClMem,
     arg_num: usize,
-    pub fn alloc(allocator: std.mem.Allocator, layer: []Ssa.Assignment) !Args {
+    pub fn alloc(allocator: std.mem.Allocator, layer: []Ssa.Assign) !Args {
         // TODO: Refactor this to use either hashtables or some other clever thing
         const arg_initial: usize = 4;
         var arg_name_offset: []usize = try allocator.alloc(usize, arg_initial);
         var arg_mem: []ClMem = try allocator.alloc(ClMem, arg_initial);
         var arg_num: usize = 0;
 
-        for (0..layer.len) |assignment_idx| {
+        for (0..layer.len) |assign_idx| {
             var arg_found_out: bool = false;
             for (0..arg_num) |arg_idx| {
-                if (!arg_found_out and arg_name_offset[arg_idx] == layer[assignment_idx].base.out.name_offset) {
+                if (!arg_found_out and arg_name_offset[arg_idx] == layer[assign_idx].base.out.name_offset) {
                     arg_found_out = true;
                     break;
                 }
@@ -41,15 +41,15 @@ pub const Args = struct {
                     arg_name_offset = try allocator.realloc(arg_name_offset, arg_name_offset.len * 2);
                     arg_mem = try allocator.realloc(arg_mem, arg_name_offset.len);
                 }
-                arg_name_offset[arg_num] = layer[assignment_idx].base.out.name_offset;
-                arg_mem[arg_num] = layer[assignment_idx].base.out.values_cl.?;
+                arg_name_offset[arg_num] = layer[assign_idx].base.out.name_offset;
+                arg_mem[arg_num] = layer[assign_idx].base.out.values_cl.?;
                 arg_num += 1;
             }
             // Split because saving on string comparisons saves a lot of computation
-            if (!layer[assignment_idx].base.type.isUnary()) {
+            if (!layer[assign_idx].base.type.isUnary()) {
                 var arg_found_in: bool = false;
                 for (0..arg_num) |arg_idx| {
-                    if (!arg_found_in and arg_name_offset[arg_idx] == layer[assignment_idx].base.in.name_offset) {
+                    if (!arg_found_in and arg_name_offset[arg_idx] == layer[assign_idx].base.in.name_offset) {
                         arg_found_in = true;
                         break;
                     }
@@ -59,8 +59,8 @@ pub const Args = struct {
                         arg_name_offset = try allocator.realloc(arg_name_offset, arg_name_offset.len * 2);
                         arg_mem = try allocator.realloc(arg_mem, arg_name_offset.len);
                     }
-                    arg_name_offset[arg_num] = layer[assignment_idx].base.in.name_offset;
-                    arg_mem[arg_num] = layer[assignment_idx].base.in.values_cl.?;
+                    arg_name_offset[arg_num] = layer[assign_idx].base.in.name_offset;
+                    arg_mem[arg_num] = layer[assign_idx].base.in.values_cl.?;
                     arg_num += 1;
                 }
             }
