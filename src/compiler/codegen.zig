@@ -447,7 +447,7 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_divide => {
-            try writeBuffer(allocator, source, offset, "/ {})", .{base.u_var});
+            try writeBuffer(allocator, source, offset, "/ {})", .{base.u_var.float});
         },
         .unary_exp => {
             try writeBuffer(allocator, source, offset, ")", .{});

@@ -67,7 +67,7 @@ pub const Program = struct {
 
             var assignment_idx_top: usize = assignment_idx + 1;
             for (assignment_idx + 1..ssa.assignment_num) |assignment_search_idx| {
-                if (ssa.assignment[assignment_idx].layer() == ssa.assignment[assignment_search_idx].layer()) {
+                if (ssa.assignment[assignment_idx].base.layer() == ssa.assignment[assignment_search_idx].base.layer()) {
                     assignment_idx_top += 1;
                 } else {
                     break;

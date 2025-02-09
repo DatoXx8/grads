@@ -25,18 +25,19 @@ pub const Optimization = enum(u8) {
     O3,
     pub fn inlineOp(this: @This(), allocator: std.mem.Allocator, ssa: *Ssa) !void {
         assert(this == .O1 or this == .O2 or this == .O3);
-        var inlined_temp_num: usize = 0;
-        var inlined_temp: []Ssa.Assignment = try allocator.alloc(Ssa.Assignment, ssa.assignment_num);
-        defer allocator.free(inlined_temp);
-        var inlined_temp_used: []bool = try allocator.alloc(bool, ssa.assignment_num);
-        defer allocator.free(inlined_temp_used);
-        @memset(inlined_temp_used, false);
+        _ = allocator;
 
-        for (0..ssa.assignment_num) |assignment_idx| {
-            inlined_temp[inlined_temp_num] = ssa.assignment[assignment_idx];
-            inlined_temp_used[inlined_temp_num] = true;
-            inlined_temp[inlined_temp_num].print(4, 0, null);
-            inlined_temp_num += 1;
+        if (ssa.assignment_num < 2) {
+            return;
+        }
+
+        for (0..ssa.assignment_num) |assignment_idx_reverse| {
+            const assignment_idx: usize = ssa.assignment_num - (assignment_idx_reverse + 1);
+            for (0..assignment_idx) |assignment_idx_search_reverse| {
+                const assignment_idx_search: usize = assignment_idx - (assignment_idx_search_reverse + 1);
+                _ = assignment_idx_search;
+                // std.debug.print("{} {}\n", .{ assignment_idx, assignment_idx_search });
+            }
         }
     }
     pub fn parallelize(this: @This(), allocator: std.mem.Allocator, ssa: *Ssa) !void {
