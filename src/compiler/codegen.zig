@@ -173,17 +173,17 @@ fn generatePrefix(
     switch (base.type) {
         .unary_add => {
             try writeBuffer(allocator, source, offset, "({d} + ", .{
-                base.u_var.float,
+                base.u_var,
             });
         },
         .unary_subtract => {
             try writeBuffer(allocator, source, offset, "({d} - ", .{
-                base.u_var.float,
+                base.u_var,
             });
         },
         .unary_multiply => {
             try writeBuffer(allocator, source, offset, "({d} * ", .{
-                base.u_var.float,
+                base.u_var,
             });
         },
         .unary_divide => {
@@ -207,12 +207,12 @@ fn generatePrefix(
         },
         .unary_max => {
             try writeBuffer(allocator, source, offset, "fmax((float){d}, ", .{
-                base.u_var.float,
+                base.u_var,
             });
         },
         .unary_min => {
             try writeBuffer(allocator, source, offset, "fmin((float){d}, ", .{
-                base.u_var.float,
+                base.u_var,
             });
         },
         .unary_set => {
@@ -448,7 +448,7 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_divide => {
-            try writeBuffer(allocator, source, offset, "/ {})", .{base.u_var.float});
+            try writeBuffer(allocator, source, offset, "/ {})", .{base.u_var});
         },
         .unary_exp => {
             try writeBuffer(allocator, source, offset, ")", .{});
