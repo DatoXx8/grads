@@ -108,7 +108,6 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
         }
     }
 
-    // TODO: Come up with a better name. This is basically the last op that isn't in the last loop
     for (0..op_num) |op_idx| {
         const a_size: u32 = pcg.random().uintLessThan(u32, a_size_max) + 1;
         const z_size: u32 = pcg.random().uintLessThan(u32, z_size_max) + 1;

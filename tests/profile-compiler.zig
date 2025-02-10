@@ -147,10 +147,9 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         }
     }
 
-    // TODO: Come up with a better name. This is basically the first op that isn't in the last loop
-    var op_idx_free: usize = 0;
+    var op_idx_used: usize = 0;
     for (0..op_num) |op_idx| {
-        if (op_idx < op_idx_free) {
+        if (op_idx < op_idx_used) {
             continue;
         }
 
@@ -170,7 +169,7 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         const u_var: f32 = pcg.random().floatNorm(f32);
 
         const loop_len: u32 = pcg.random().uintLessThan(u32, @truncate(op_num - op_idx));
-        op_idx_free = op_idx + loop_len;
+        op_idx_used = op_idx + loop_len;
 
         for (0..a_loop) |a_idx| {
             for (0..z_loop) |z_idx| {
