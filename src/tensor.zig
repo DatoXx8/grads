@@ -146,6 +146,22 @@ pub const Buffer = struct {
             return SyncError.FailedWait;
         }
     }
+    /// Checks for equal size, offset and name.
+    /// Does *not* check for inherent buffer size.
+    pub fn equal(this: @This(), target: @This()) bool {
+        return this.name_offset == target.name_offset and
+            this.a_size == target.a_size and this.z_size == target.z_size and
+            this.y_size == target.y_size and this.x_size == target.x_size and
+            this.aOffset() == target.aOffset() and this.zOffset() == target.zOffset() and
+            this.yOffset() == target.yOffset() and this.xOffset() == target.xOffset();
+    }
+    /// Checks for equal size and name.
+    /// Does *not* check for inherent buffer size or offsets.
+    pub fn equalNoOffset(this: @This(), target: @This()) bool {
+        return this.name_offset == target.name_offset and
+            this.a_size == target.a_size and this.z_size == target.z_size and
+            this.y_size == target.y_size and this.x_size == target.x_size;
+    }
 };
 pub const Op = struct {
     // TODO: Linary is a truly terrible name

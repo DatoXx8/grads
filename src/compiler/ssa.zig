@@ -377,18 +377,7 @@ pub const Ssa = struct {
             /// Does not check the buffers inherent size.
             pub inline fn equal(this: @This(), target: @This()) bool {
                 return this.type == target.type and this.u_var == this.u_var and
-                    this.out.name_offset == target.out.name_offset and
-                    this.out.a_size == target.out.a_size and this.out.z_size == target.out.z_size and
-                    this.out.y_size == target.out.y_size and this.out.x_size == target.out.x_size and
-                    this.in.name_offset == target.in.name_offset and
-                    this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
-                    this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
-            }
-            /// Checks for equal size, offset and name only in the `out` buffers.
-            pub inline fn equalOut(this: @This(), target: @This()) bool {
-                return this.out.name_offset == target.out.name_offset and
-                    this.out.a_size == target.out.a_size and this.out.z_size == target.out.z_size and
-                    this.out.y_size == target.out.y_size and this.out.x_size == target.out.x_size;
+                    this.out.equal(target.out) and this.in.equal(target.in);
             }
             pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
                 // TODO: Also print the dim info
