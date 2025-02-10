@@ -38,8 +38,31 @@ pub const Optimization = enum(u8) {
             const assign_idx: usize = ssa.assign_num - (assign_idx_reverse + 1);
             for (0..assign_idx) |assign_idx_search_reverse| {
                 const assign_idx_search: usize = assign_idx - (assign_idx_search_reverse + 1);
-                // std.debug.print("{} {}\n", .{ assign_idx, assign_idx_search });
 
+                std.debug.print("{} {}\n", .{ assign_idx, assign_idx_search });
+
+                if (assign_used[assign_idx_search]) {
+                    std.debug.print("SKIP\n", .{});
+                    continue;
+                }
+
+                // TODO: Make it possible to inline reduce ops
+                if (ssa.assign[assign_idx_search].base.type.isReduce()) {
+                    std.debug.print("SKIP REDUCE\n", .{});
+                    continue;
+                }
+
+                if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
+                    assign_used[assign_idx_search] = true;
+                    std.debug.print("INLINED\n", .{});
+                } else if (ssa.assign[assign_idx].base.in.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
+                    std.debug.print("INLINED\n", .{});
+                    assign_used[assign_idx_search] = true;
+                } else {
+                    std.debug.print("BRUG\n", .{});
+                }
+
+                // TODO: Need to check that the ops operate on the same values, break if it only partially overlaps
                 if (ssa.assign[assign_idx_search].base.overwrites(ssa.assign[assign_idx].base) and
                     (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset or
                     ssa.assign[assign_idx].base.in.name_offset == ssa.assign[assign_idx_search].base.out.name_offset))

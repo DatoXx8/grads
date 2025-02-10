@@ -287,6 +287,75 @@ pub const Ssa = struct {
                     a_low_this == a_low_target and z_low_this == z_low_target and
                     y_low_this == y_low_target and x_low_this == x_low_target;
             }
+            /// Return wether the `this` assign writes to *any* value of `target`
+            pub inline fn overlaps(this: @This(), target: @This()) bool {
+                // TODO: Implement this for non same-size buffers
+                assert(this.out.a_size == target.out.a_size);
+                assert(this.out.z_size == target.out.z_size);
+                assert(this.out.y_size == target.out.y_size);
+                assert(this.out.x_size == target.out.x_size);
+
+                const a_1: usize = this.out.aOffset();
+                const z_1: usize = this.out.zOffset();
+                const y_1: usize = this.out.yOffset();
+                const x_1: usize = this.out.xOffset();
+
+                const a_2: usize = target.out.aOffset();
+                const z_2: usize = target.out.zOffset();
+                const y_2: usize = target.out.yOffset();
+                const x_2: usize = target.out.xOffset();
+
+                return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
+                    @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
+                    @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
+                    @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
+            }
+            /// Return wether the `this` assign writes to *all* value of `target`
+            pub inline fn overlapsAll(this: @This(), target: @This()) bool {
+                // TODO: Implement this for non same-size buffers
+                assert(this.out.a_size == target.out.a_size);
+                assert(this.out.z_size == target.out.z_size);
+                assert(this.out.y_size == target.out.y_size);
+                assert(this.out.x_size == target.out.x_size);
+
+                return this.out.aOffset() == target.out.aOffset() and
+                    this.out.zOffset() == target.out.zOffset() and
+                    this.out.yOffset() == target.out.yOffset() and
+                    this.out.xOffset() == target.out.xOffset();
+            }
+            /// Return wether the `this` assign writes to *some* but not *all* value of `target`
+            pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
+                // TODO: Implement this for non same-size buffers
+                assert(this.out.a_size == target.out.a_size);
+                assert(this.out.z_size == target.out.z_size);
+                assert(this.out.y_size == target.out.y_size);
+                assert(this.out.x_size == target.out.x_size);
+
+                const a_1: usize = this.out.aOffset();
+                const z_1: usize = this.out.zOffset();
+                const y_1: usize = this.out.yOffset();
+                const x_1: usize = this.out.xOffset();
+
+                const a_2: usize = target.out.aOffset();
+                const z_2: usize = target.out.zOffset();
+                const y_2: usize = target.out.yOffset();
+                const x_2: usize = target.out.xOffset();
+
+                return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and a_1 != a_2 and
+                    @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and z_1 != z_2 and
+                    @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and y_1 != y_2 and
+                    @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size and x_1 != x_2;
+            }
+            /// Return wether two ops have equal: Size, offsets, name, unary op variable and name_offsets.
+            /// Does not check the buffers inherent size.
+            pub inline fn equal(this: @This(), target: @This()) bool {
+                return this.type == target.type and this.u_var == this.u_var and
+                    this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
+                    this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
+                    this.out.x_size == target.out.x_size and this.in.name_offset == target.in.name_offset and
+                    this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
+                    this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
+            }
             pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
                 // TODO: Also print the dim info
                 if (name) |text| {

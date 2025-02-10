@@ -83,8 +83,8 @@ pub const Program = struct {
 
             // NOTE: the len - 1 business here is to not pass in the 0-byte at the end of the string. I am doing it like this to avoid having to allocate a version
             //  with the null terminator and one without
-            try compileKernel(allocator, &source, &source_len, layer, 0, 1, //
-                kernel_args[kernel_num], kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
+            try compileKernel(allocator, &source, &source_len, layer, 0, 1, kernel_args[kernel_num], //
+                kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
 
             kernel_num += 1;
             assign_idx = assign_idx_top;

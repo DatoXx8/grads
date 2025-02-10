@@ -388,36 +388,6 @@ pub const Op = struct {
     u_var: f32,
     out: Buffer,
     in: Buffer,
-    pub inline fn equal(this: @This(), target: Op) bool {
-        return this.type == target.type and this.u_var == this.u_var and
-            this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
-            this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
-            this.out.x_size == target.out.x_size and this.in.name_offset == target.in.name_offset and
-            this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
-            this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
-    }
-    pub inline fn overlaps(this: @This(), target: Op) bool {
-        // TODO: Implement this for non same-size buffers
-        assert(this.out.a_size == target.out.a_size);
-        assert(this.out.z_size == target.out.z_size);
-        assert(this.out.y_size == target.out.y_size);
-        assert(this.out.x_size == target.out.x_size);
-
-        const a_1: usize = this.out.a_offset;
-        const z_1: usize = this.out.z_offset;
-        const y_1: usize = this.out.y_offset;
-        const x_1: usize = this.out.x_offset;
-
-        const a_2: usize = target.out.a_offset;
-        const z_2: usize = target.out.z_offset;
-        const y_2: usize = target.out.y_offset;
-        const x_2: usize = target.out.x_offset;
-
-        return @max(a_1, a_2) - @min(a_1, a_2) < this.out.a_size and
-            @max(z_1, z_2) - @min(z_1, z_2) < this.out.z_size and
-            @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
-            @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
-    }
     pub inline fn isUnary(this: @This()) bool {
         return this.type.isUnary();
     }
