@@ -310,7 +310,7 @@ pub const Ssa = struct {
                     @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and
                     @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size;
             }
-            /// Return wether the `this` assign writes to *all* value of `target`
+            /// Return wether the `this` assign writes to *all* values of `target`
             pub inline fn overlapsAll(this: @This(), target: @This()) bool {
                 // TODO: Implement this for non same-size buffers
                 assert(this.out.a_size == target.out.a_size);
@@ -323,7 +323,7 @@ pub const Ssa = struct {
                     this.out.yOffset() == target.out.yOffset() and
                     this.out.xOffset() == target.out.xOffset();
             }
-            /// Return wether the `this` assign writes to *some* but not *all* value of `target`
+            /// Return wether the `this` assign writes to *some* but not *all* values of `target`
             pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
                 // TODO: Implement this for non same-size buffers
                 assert(this.out.a_size == target.out.a_size);
