@@ -63,7 +63,8 @@ pub const Optimization = enum(u8) {
                 }
 
                 // TODO: Need to check that the ops operate on the same values, break if it only partially overlaps
-                if (ssa.assign[assign_idx_search].base.overwrites(ssa.assign[assign_idx].base) and
+                if (ssa.assign[assign_idx_search].base.overwrites() and ssa.assign[assign_idx_search].base.equalOut(ssa.assign[assign_idx].base) and
+                    ssa.assign[assign_idx_search].base.overlaps(ssa.assign[assign_idx].base) and
                     (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset or
                     ssa.assign[assign_idx].base.in.name_offset == ssa.assign[assign_idx_search].base.out.name_offset))
                 {

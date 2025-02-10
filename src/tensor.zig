@@ -341,46 +341,6 @@ pub const Op = struct {
                 .reduce_min => true,
             };
         }
-        // TODO: This is kind of a bad name
-        pub inline fn isStandalone(this: @This()) bool {
-            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
-            return switch (this) {
-                .unary_add => false,
-                .unary_subtract => false,
-                .unary_multiply => false,
-                .unary_divide => false,
-                .unary_exp => false,
-                .unary_log => false,
-                .unary_square => false,
-                .unary_sqrt => false,
-                .unary_reciprocal => false,
-                .unary_max => false,
-                .unary_min => false,
-                .unary_set => true,
-                .unary_random => false,
-                .unary_tanh => false,
-                .unary_absolute => false,
-                .unary_sign => false,
-                .binary_add => false,
-                .binary_subtract => false,
-                .binary_multiply => false,
-                .binary_divide => false,
-                .binary_max => false,
-                .binary_min => false,
-                .binary_set => true,
-                .linary_add => false,
-                .linary_subtract => false,
-                .linary_multiply => false,
-                .linary_divide => false,
-                .linary_max => false,
-                .linary_min => false,
-                .linary_set => true,
-                .reduce_sum => true,
-                .reduce_max => true,
-                .reduce_avg => true,
-                .reduce_min => true,
-            };
-        }
     };
     type: Type,
     // NOTE: When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,

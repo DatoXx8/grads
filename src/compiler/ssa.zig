@@ -273,19 +273,46 @@ pub const Ssa = struct {
             pub inline fn layer(this: @This()) usize {
                 return @max(this.layer_out, this.layer_in);
             }
-            /// Returns wether the `this` assign overwrites every value in `target` with values not dependant on those in `target`
-            pub inline fn overwrites(this: @This(), target: @This()) bool {
-                const a_low_this: usize = this.out.a_size + this.out.aOffset();
-                const z_low_this: usize = this.out.z_size + this.out.zOffset();
-                const y_low_this: usize = this.out.y_size + this.out.yOffset();
-                const x_low_this: usize = this.out.x_size + this.out.xOffset();
-                const a_low_target: usize = target.out.a_size + target.out.aOffset();
-                const z_low_target: usize = target.out.z_size + target.out.zOffset();
-                const y_low_target: usize = target.out.y_size + target.out.yOffset();
-                const x_low_target: usize = target.out.x_size + target.out.xOffset();
-                return this.out.name_offset == target.out.name_offset and this.type.isStandalone() and
-                    a_low_this == a_low_target and z_low_this == z_low_target and
-                    y_low_this == y_low_target and x_low_this == x_low_target;
+            // TODO: This is kind of a bad name
+            /// Returns wether the `this` is a assignment that depends on previous values in the out buffer
+            pub inline fn overwrites(this: @This()) bool {
+                // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+                return switch (this.type) {
+                    .unary_add => false,
+                    .unary_subtract => false,
+                    .unary_multiply => false,
+                    .unary_divide => false,
+                    .unary_exp => false,
+                    .unary_log => false,
+                    .unary_square => false,
+                    .unary_sqrt => false,
+                    .unary_reciprocal => false,
+                    .unary_max => false,
+                    .unary_min => false,
+                    .unary_set => true,
+                    .unary_random => false,
+                    .unary_tanh => false,
+                    .unary_absolute => false,
+                    .unary_sign => false,
+                    .binary_add => false,
+                    .binary_subtract => false,
+                    .binary_multiply => false,
+                    .binary_divide => false,
+                    .binary_max => false,
+                    .binary_min => false,
+                    .binary_set => true,
+                    .linary_add => false,
+                    .linary_subtract => false,
+                    .linary_multiply => false,
+                    .linary_divide => false,
+                    .linary_max => false,
+                    .linary_min => false,
+                    .linary_set => true,
+                    .reduce_sum => true,
+                    .reduce_max => true,
+                    .reduce_avg => true,
+                    .reduce_min => true,
+                };
             }
             /// Return wether the `this` assign writes to *any* value of `target`
             pub inline fn overlaps(this: @This(), target: @This()) bool {
@@ -346,15 +373,22 @@ pub const Ssa = struct {
                     @max(y_1, y_2) - @min(y_1, y_2) < this.out.y_size and y_1 != y_2 and
                     @max(x_1, x_2) - @min(x_1, x_2) < this.out.x_size and x_1 != x_2;
             }
-            /// Return wether two ops have equal: Size, offsets, name, unary op variable and name_offsets.
+            /// Return wether two ops have equal: Size, offsets, unary op variable and name_offsets.
             /// Does not check the buffers inherent size.
             pub inline fn equal(this: @This(), target: @This()) bool {
                 return this.type == target.type and this.u_var == this.u_var and
-                    this.out.name_offset == target.out.name_offset and this.out.a_size == target.out.a_size and
-                    this.out.z_size == target.out.z_size and this.out.y_size == target.out.y_size and
-                    this.out.x_size == target.out.x_size and this.in.name_offset == target.in.name_offset and
+                    this.out.name_offset == target.out.name_offset and
+                    this.out.a_size == target.out.a_size and this.out.z_size == target.out.z_size and
+                    this.out.y_size == target.out.y_size and this.out.x_size == target.out.x_size and
+                    this.in.name_offset == target.in.name_offset and
                     this.in.a_size == target.in.a_size and this.in.z_size == target.in.z_size and
                     this.in.y_size == target.in.y_size and this.in.x_size == target.in.x_size;
+            }
+            /// Checks for equal size, offset and name only in the `out` buffers.
+            pub inline fn equalOut(this: @This(), target: @This()) bool {
+                return this.out.name_offset == target.out.name_offset and
+                    this.out.a_size == target.out.a_size and this.out.z_size == target.out.z_size and
+                    this.out.y_size == target.out.y_size and this.out.x_size == target.out.x_size;
             }
             pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
                 // TODO: Also print the dim info
