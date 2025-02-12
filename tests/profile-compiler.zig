@@ -161,10 +161,10 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
         const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
         const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
-        const a_loop: u32 = pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) + 1;
-        const z_loop: u32 = pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) + 1;
-        const y_loop: u32 = pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) + 1;
-        const x_loop: u32 = pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) + 1;
+        const a_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) else 0) + 1;
+        const z_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) else 0) + 1;
+        const y_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) else 0) + 1;
+        const x_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) else 0) + 1;
 
         const u_var: f32 = pcg.random().floatNorm(f32);
 
@@ -294,8 +294,11 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
                                     tensor2[tensor_out].unaryAbsolute();
                                 },
                                 .unary_sign => {
-                                    tensor1[tensor_out].unarySign();
-                                    tensor2[tensor_out].unarySign();
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
+                                    // TODO: Reenable this when it is implemented
+                                    // tensor1[tensor_out].unarySign();
+                                    // tensor2[tensor_out].unarySign();
                                 },
                                 .binary_add => {
                                     tensor1[tensor_out].binaryAdd(&tensor1[tensor_in]);

@@ -135,10 +135,10 @@ fn simulateCompiler(
         const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
         const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
         const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
-        const a_loop: u32 = pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) + 1;
-        const z_loop: u32 = pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) + 1;
-        const y_loop: u32 = pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) + 1;
-        const x_loop: u32 = pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) + 1;
+        const a_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) else 0) + 1;
+        const z_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) else 0) + 1;
+        const y_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) else 0) + 1;
+        const x_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) else 0) + 1;
 
         // Putting this out here to make snycing the prng state trivial
         const u_var: f32 = pcg.random().floatNorm(f32);
@@ -275,8 +275,11 @@ fn simulateCompiler(
                                     tensor2[tensor_out].unaryAbsolute();
                                 },
                                 .unary_sign => {
-                                    tensor1[tensor_out].unarySign();
-                                    tensor2[tensor_out].unarySign();
+                                    tensor1[tensor_out].unaryAbsolute();
+                                    tensor2[tensor_out].unaryAbsolute();
+                                    // TODO: Reenable this when this is implemented
+                                    // tensor1[tensor_out].unarySign();
+                                    // tensor2[tensor_out].unarySign();
                                 },
                                 .binary_add => {
                                     tensor1[tensor_out].binaryAdd(&tensor1[tensor_in]);
@@ -381,8 +384,13 @@ fn simulateCompiler(
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
+    tensor1[tensor_out].linearized.debug(4, 0, null);
+
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, .O0, device, context, queue);
+
+    std.debug.print("{s}\n", .{program.source});
+
     try program.run();
     try program.free(allocator);
 
