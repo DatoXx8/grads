@@ -194,9 +194,7 @@ fn generatePrefix(
             });
         },
         .unary_subtract => {
-            try writeBuffer(allocator, source, offset, "({d} - ", .{
-                base.u_var,
-            });
+            try writeBuffer(allocator, source, offset, "(", .{});
         },
         .unary_multiply => {
             try writeBuffer(allocator, source, offset, "({d} * ", .{
@@ -338,12 +336,13 @@ fn generatePrefix(
         },
         .linary_add => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{}] + ", .{
+                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{} + {}] + ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "(", .{});
@@ -351,12 +350,13 @@ fn generatePrefix(
         },
         .linary_subtract => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{}] - ", .{
+                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{} + {}] - ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "(", .{});
@@ -364,12 +364,13 @@ fn generatePrefix(
         },
         .linary_multiply => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{}] * ", .{
+                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{} + {}] * ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "(", .{});
@@ -377,12 +378,13 @@ fn generatePrefix(
         },
         .linary_divide => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{}] / ", .{
+                try writeBuffer(allocator, source, offset, "({s}[{s}_{}_{}_{} + {}] / ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "(", .{});
@@ -390,12 +392,13 @@ fn generatePrefix(
         },
         .linary_max => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "fmax({s}[{s}_{}_{}_{}], ", .{
+                try writeBuffer(allocator, source, offset, "fmax({s}[{s}_{}_{}_{} + {}], ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "fmax(", .{});
@@ -403,12 +406,13 @@ fn generatePrefix(
         },
         .linary_min => {
             if (inlined_type == .none or inlined_type == .out) {
-                try writeBuffer(allocator, source, offset, "fmin({s}[{s}_{}_{}_{}], ", .{
+                try writeBuffer(allocator, source, offset, "fmin({s}[{s}_{}_{}_{} + {}], ", .{
                     base.out.name(),
                     base.out.name(),
                     loop_idx,
                     assign_idx,
                     inlined_idx,
+                    offset_out,
                 });
             } else {
                 try writeBuffer(allocator, source, offset, "fmin(", .{});
@@ -473,13 +477,13 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_subtract => {
-            try writeBuffer(allocator, source, offset, ")", .{});
+            try writeBuffer(allocator, source, offset, " - ({d}))", .{base.u_var});
         },
         .unary_multiply => {
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_divide => {
-            try writeBuffer(allocator, source, offset, "/ {})", .{base.u_var});
+            try writeBuffer(allocator, source, offset, " / ({d}))", .{base.u_var});
         },
         .unary_exp => {
             try writeBuffer(allocator, source, offset, ")", .{});
@@ -760,15 +764,19 @@ fn generateBody(
             assign_num - 1,
         });
     } else {
-        const offset_in: usize = root.in.at(a, z, y, x) - root.in.offset;
-        try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}_{} + {}]", .{
-            root.in.name(),
-            root.in.name(),
-            loop_idx,
-            assign_idx,
-            assign_num - 1,
-            offset_in,
-        });
+        if (root.type == .unary_set) {
+            try writeBuffer(allocator, source, offset, "{d}", .{root.u_var});
+        } else {
+            const offset_in: usize = root.in.at(a, z, y, x) - root.in.offset;
+            try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}_{} + {}]", .{
+                root.in.name(),
+                root.in.name(),
+                loop_idx,
+                assign_idx,
+                assign_num - 1,
+                offset_in,
+            });
+        }
     }
 
     for (0..assign_num) |inlined_idx_reverse| {
