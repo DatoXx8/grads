@@ -66,7 +66,6 @@ pub const Args = struct {
 
 pub const Kernel = struct {
     args: Args,
-    name_c: []u8,
     kernel: ClKernel,
     pub fn alloc(
         program: ClProgram,
@@ -89,12 +88,10 @@ pub const Kernel = struct {
         return .{
             .args = args,
             .kernel = kernel,
-            .name_c = name_c,
         };
     }
     pub fn free(this: *@This(), allocator: std.mem.Allocator) !void {
         try this.kernel.free();
         this.args.free(allocator);
-        allocator.free(this.name_c);
     }
 };

@@ -51,8 +51,11 @@ pub const Program = struct {
         var source_len: usize = 0;
         @memset(source, 0);
         var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
-        var kernel_name: [][]u8 = try allocator.alloc([]u8, ssa.assign_num);
         defer allocator.free(kernel_args);
+
+        const kernel_name: []u8 = try allocator.alloc(u8, (kernel_base_name.len - "{}"[0..].len) +
+            if (ssa.assign_num == 0) 0 else std.math.log10_int(ssa.assign_num) + 2);
+        errdefer allocator.free(kernel_name);
         defer allocator.free(kernel_name);
 
         var kernel_num: usize = 0;
@@ -77,12 +80,11 @@ pub const Program = struct {
             // TODO: Rethink this when I refactor the args gathering
             kernel_args[kernel_num] = try Args.alloc(allocator, layer);
             // NOTE: The \x00 is to make the string 0-terminated
-            kernel_name[kernel_num] = try std.fmt.allocPrint(allocator, kernel_base_name ++ "\x00", .{kernel_num});
+            @memset(kernel_name, 0);
+            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{kernel_num})).len;
 
-            // NOTE: the len - 1 business here is to not pass in the 0-byte at the end of the string. I am doing it like this to avoid having to allocate a version
-            //  with the null terminator and one without
             try compileKernel(allocator, &source, &source_len, layer, 0, 1, kernel_args[kernel_num], //
-                kernel_name[kernel_num][0 .. kernel_name[kernel_num].len - 1], size_global, size_local);
+                kernel_name[0..kernel_name_len], size_global, size_local);
 
             kernel_num += 1;
             assign_idx = assign_idx_top;
@@ -92,7 +94,9 @@ pub const Program = struct {
         var kernel: []Kernel = try allocator.alloc(Kernel, kernel_num);
 
         for (0..kernel_num) |kernel_idx| {
-            kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[kernel_idx], kernel_args[kernel_idx]);
+            @memset(kernel_name, 0);
+            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name ++ "\x00", .{kernel_idx})).len;
+            kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
         }
 
         return .{
