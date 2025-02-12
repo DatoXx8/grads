@@ -42,12 +42,10 @@ pub const Program = struct {
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
-        linearized.debug(4, 0, null);
         var ssa: Ssa = try Ssa.alloc(allocator, linearized);
         defer ssa.free(allocator);
 
         try ssa.optimize(allocator, optimization);
-        ssa.debug(4, 0, null);
 
         var source: []u8 = try allocator.alloc(u8, source_capacity_min);
         var source_len: usize = 0;
@@ -73,7 +71,7 @@ pub const Program = struct {
                     break;
                 }
             }
-            const layer: []Ssa.Assign = ssa.assign;
+            const layer: []Ssa.Assign = ssa.assign[assign_idx..assign_idx_top];
 
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering

@@ -415,7 +415,8 @@ pub const Ssa = struct {
             }
         };
         pub const Inlined = struct {
-            pub const Type = enum(u8) { in, out };
+            /// This is what buffer the inlined op acts as
+            pub const Type = enum(u8) { none, in, out };
             type: []Type,
             base: []Base,
             pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
@@ -427,6 +428,7 @@ pub const Ssa = struct {
                     const inlined_type: u8 = switch (this.type[inlined_idx]) {
                         .out => 'o',
                         .in => 'i',
+                        .none => unreachable,
                     };
                     std.debug.print("{s}({}) => {c} ", .{ " " ** (offset + padding), inlined_idx, inlined_type });
                     this.base[inlined_idx].print(0, 0, null);
