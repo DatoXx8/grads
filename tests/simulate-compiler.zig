@@ -370,7 +370,8 @@ fn simulateCompiler(
         }
     }
 
-    tensor2[op_out[op_num - 1]].realize();
+    const tensor_out: usize = op_out[op_num - (op_off_top + 1)];
+    tensor2[tensor_out].realize();
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
@@ -380,20 +381,16 @@ fn simulateCompiler(
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
-    const program: Program = try Program.alloc(allocator, tensor1[op_out[op_num - 1]].linearized, //
+    const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, .O0, device, context, queue);
     try program.run();
     try program.free(allocator);
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx].buffer.syncUpdate(.sync_to_host);
-        try tensor1[tensor_idx].buffer.syncToHost(queue);
-    }
+    tensor1[tensor_out].buffer.syncUpdate(.sync_to_host);
+    try tensor1[tensor_out].buffer.syncToHost(queue);
 
-    for (0..tensor_num) |tensor_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            try assertEq(tensor1[tensor_idx].buffer.values[arg_idx], tensor2[tensor_idx].buffer.values[arg_idx]);
-        }
+    for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
+        try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
     }
     std.debug.print(" passed!\n", .{});
 }

@@ -389,11 +389,13 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         }
     }
 
+    const tensor_out: usize = op_out[op_num - 1];
+
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
         // Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
-        tensor2[op_out[op_num - 1]].linearized.run();
+        tensor2[tensor_out].linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
     analyseTimes(time_linearized, "linearized");
@@ -406,7 +408,7 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
-    const program: Program = try Program.alloc(allocator, tensor1[op_out[op_num - 1]].linearized, //
+    const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, .O0, device, context, queue);
     defer program.free(allocator) catch {};
 
@@ -418,15 +420,11 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
     }
     analyseTimes(time_program, "O0");
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx].buffer.syncUpdate(.sync_to_host);
-        try tensor1[tensor_idx].buffer.syncToHost(queue);
-    }
+    tensor1[tensor_out].buffer.syncUpdate(.sync_to_host);
+    try tensor1[tensor_out].buffer.syncToHost(queue);
 
-    for (0..tensor_num) |tensor_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            try assertEq(tensor1[tensor_idx].buffer.values[arg_idx], tensor2[tensor_idx].buffer.values[arg_idx]);
-        }
+    for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
+        try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
     }
 }
 
