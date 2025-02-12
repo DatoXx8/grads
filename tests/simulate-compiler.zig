@@ -135,10 +135,10 @@ fn simulateCompiler(
         const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
         const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
         const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
-        const a_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off)) else 0) + 1;
-        const z_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off)) else 0) + 1;
-        const y_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off)) else 0) + 1;
-        const x_loop: u32 = (if (a_size + a_off == a_size_max) pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off)) else 0) + 1;
+        const a_loop: u32 = (if (a_size + a_off == a_size_max) 0 else pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off))) + 1;
+        const z_loop: u32 = (if (z_size + z_off == z_size_max) 0 else pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off))) + 1;
+        const y_loop: u32 = (if (y_size + y_off == y_size_max) 0 else pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off))) + 1;
+        const x_loop: u32 = (if (x_size + x_off == x_size_max) 0 else pcg.random().uintLessThan(u32, x_size_max - (x_size + x_off))) + 1;
 
         // Putting this out here to make snycing the prng state trivial
         const u_var: f32 = pcg.random().floatNorm(f32);
