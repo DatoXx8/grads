@@ -384,12 +384,8 @@ fn simulateCompiler(
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
-    tensor1[tensor_out].linearized.debug(4, 0, null);
-
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, .O0, device, context, queue);
-
-    std.debug.print("{s}\n", .{program.source});
 
     try program.run();
     try program.free(allocator);
