@@ -124,6 +124,10 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
         const tensor_out: u32 = op_out[op_idx];
         const tensor_in: u32 = op_in[op_idx];
 
+        // Essentially free in case no alocattions are necessary
+        try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor1[tensor_in].linearized.op_num);
+        try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor2[tensor_in].linearized.op_num);
+
         if (tensor1[tensor_in].linearized.op_num != 0) {
             tensor1[tensor_out].linearized.concat(&tensor1[tensor_in].linearized);
         }
@@ -131,10 +135,6 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
         if (op_idx < op_off_low or op_idx >= op_num - op_off_top) {
             continue;
         }
-
-        // Essentially free in case no alocattions are necessary
-        try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor1[tensor_in].linearized.op_num);
-        try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor2[tensor_in].linearized.op_num);
 
         if (op_type[op_idx].isReduce()) {
             tensor1[tensor_out].moveResize(1, 1, 1, 1);
