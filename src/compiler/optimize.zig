@@ -54,26 +54,29 @@ pub const Optimization = enum(u8) {
             for (0..assign_idx) |assign_idx_search_reverse| {
                 const assign_idx_search: usize = assign_idx - (assign_idx_search_reverse + 1);
 
-                std.debug.print("{} {}\n", .{ assign_idx, assign_idx_search });
-
                 // TODO: Make it possible to inline reduce ops
                 if (ssa.assign[assign_idx_search].base.type.isReduce()) {
-                    std.debug.print("SKIP REDUCE\n", .{});
                     continue;
                 }
 
                 if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
-                    assert(ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out));
-                    assign_used[assign_idx_search] = true;
-                    assign_temp[assign_temp_num] = ssa.assign[assign_idx_search].base;
-                    assign_type[assign_temp_num] = .out;
-                    assign_temp_num += 1;
+                    if (ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out)) {
+                        assign_used[assign_idx_search] = true;
+                        assign_temp[assign_temp_num] = ssa.assign[assign_idx_search].base;
+                        assign_type[assign_temp_num] = .out;
+                        assign_temp_num += 1;
+                    } else {
+                        break;
+                    }
                 } else if (ssa.assign[assign_idx].base.in.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
-                    assert(ssa.assign[assign_idx].base.in.overlapsAll(ssa.assign[assign_idx_search].base.out));
-                    assign_used[assign_idx_search] = true;
-                    assign_temp[assign_temp_num] = ssa.assign[assign_idx_search].base;
-                    assign_type[assign_temp_num] = .in;
-                    assign_temp_num += 1;
+                    if (ssa.assign[assign_idx].base.in.overlapsAll(ssa.assign[assign_idx_search].base.out)) {
+                        assign_used[assign_idx_search] = true;
+                        assign_temp[assign_temp_num] = ssa.assign[assign_idx_search].base;
+                        assign_type[assign_temp_num] = .in;
+                        assign_temp_num += 1;
+                    } else {
+                        break;
+                    }
                 } else {
                     continue;
                 }
