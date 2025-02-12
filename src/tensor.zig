@@ -138,8 +138,7 @@ pub const Buffer = struct {
         assert(sync != .sync_to_none);
         this.sync = sync;
     }
-    pub fn syncWait(this: *@This(), queue: ClCommandQueue) !void {
-        _ = this;
+    pub fn syncWait(_: *@This(), queue: ClCommandQueue) !void {
         if (OpenCl.clFinish(queue.queue) == 0) {
             return;
         } else {

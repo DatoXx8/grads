@@ -469,6 +469,9 @@ pub const Ssa = struct {
     };
     assign: []Assign,
     assign_num: usize,
+    fn layerLessThan(_: void, lhs: Assign, rhs: Assign) bool {
+        return lhs.base.layer() < rhs.base.layer();
+    }
     pub fn alloc(allocator: std.mem.Allocator, linearized: Linearized) !Ssa {
         // Don't think hashmaps are avoidable sadly :^(
         var assign_layer_write = std.AutoHashMap(usize, usize).init(allocator);
@@ -506,16 +509,13 @@ pub const Ssa = struct {
                 .memory = null,
             };
 
-            // This overwrites the data if it already existed
+            // NOTE: This overwrites the data if it already existed
             try assign_layer_write.put(assign[op_idx].base.out.name_offset, layer_idx + 1);
             try assign_layer_read.put(assign[op_idx].base.in.name_offset, layer_idx + 1);
-
-            if (op_idx == 0) {
-                assert(assign[0].base.layer() == 0);
-            } else {
-                assert(assign[op_idx].base.layer() >= assign[op_idx - 1].base.layer());
-            }
         }
+
+        // TODO: Test if it is faster to use a binary search on the already existing ops and then just insert in the right place immediatly
+        std.mem.sort(Assign, assign, {}, layerLessThan);
 
         return .{
             .assign = assign,
