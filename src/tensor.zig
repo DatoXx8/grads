@@ -96,13 +96,13 @@ pub const Buffer = struct {
         return @divFloor(this.offset, this.a_stride);
     }
     pub inline fn zOffset(this: @This()) usize {
-        return @divFloor(this.offset, this.z_stride);
+        return @divFloor(this.offset % this.a_stride, this.z_stride);
     }
     pub inline fn yOffset(this: @This()) usize {
-        return @divFloor(this.offset, this.y_stride);
+        return @divFloor(this.offset % this.z_stride, this.y_stride);
     }
     pub inline fn xOffset(this: @This()) usize {
-        return @divFloor(this.offset, this.x_stride);
+        return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
     pub inline fn at(this: @This(), a: usize, z: usize, y: usize, x: usize) usize {
         assert(a < this.a_size);
