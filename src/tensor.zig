@@ -162,6 +162,65 @@ pub const Buffer = struct {
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size;
     }
+    /// Return wether the two buffers overlap in any place
+    pub inline fn overlaps(this: @This(), target: @This()) bool {
+        // TODO: Implement this for non same-size buffers
+        assert(this.a_size == target.a_size);
+        assert(this.z_size == target.z_size);
+        assert(this.y_size == target.y_size);
+        assert(this.x_size == target.x_size);
+
+        const a_1: usize = this.aOffset();
+        const z_1: usize = this.zOffset();
+        const y_1: usize = this.yOffset();
+        const x_1: usize = this.xOffset();
+
+        const a_2: usize = target.aOffset();
+        const z_2: usize = target.zOffset();
+        const y_2: usize = target.yOffset();
+        const x_2: usize = target.xOffset();
+
+        return @max(a_1, a_2) - @min(a_1, a_2) < this.a_size and
+            @max(z_1, z_2) - @min(z_1, z_2) < this.z_size and
+            @max(y_1, y_2) - @min(y_1, y_2) < this.y_size and
+            @max(x_1, x_2) - @min(x_1, x_2) < this.x_size;
+    }
+    /// Return wether the two buffers overlap in all places
+    pub inline fn overlapsAll(this: @This(), target: @This()) bool {
+        // TODO: Implement this for non same-size buffers
+        assert(this.a_size == target.a_size);
+        assert(this.z_size == target.z_size);
+        assert(this.y_size == target.y_size);
+        assert(this.x_size == target.x_size);
+
+        return this.aOffset() == target.aOffset() and
+            this.zOffset() == target.zOffset() and
+            this.yOffset() == target.yOffset() and
+            this.xOffset() == target.xOffset();
+    }
+    /// Return wether the two buffers overlap in some, but not all places
+    pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
+        // TODO: Implement this for non same-size buffers
+        assert(this.a_size == target.a_size);
+        assert(this.z_size == target.z_size);
+        assert(this.y_size == target.y_size);
+        assert(this.x_size == target.x_size);
+
+        const a_1: usize = this.aOffset();
+        const z_1: usize = this.zOffset();
+        const y_1: usize = this.yOffset();
+        const x_1: usize = this.xOffset();
+
+        const a_2: usize = target.aOffset();
+        const z_2: usize = target.zOffset();
+        const y_2: usize = target.yOffset();
+        const x_2: usize = target.xOffset();
+
+        return @max(a_1, a_2) - @min(a_1, a_2) < this.a_size and a_1 != a_2 and
+            @max(z_1, z_2) - @min(z_1, z_2) < this.z_size and z_1 != z_2 and
+            @max(y_1, y_2) - @min(y_1, y_2) < this.y_size and y_1 != y_2 and
+            @max(x_1, x_2) - @min(x_1, x_2) < this.x_size and x_1 != x_2;
+    }
 };
 pub const Op = struct {
     // TODO: Linary is a truly terrible name
