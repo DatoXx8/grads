@@ -8,8 +8,11 @@ const ClContext = grads.ClContext;
 const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
 
-const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
+
+const Optimization = grads.Optimization;
+
+const assert = std.debug.assert;
 
 // TODO: Also randomize random optimization once those are implemented
 
@@ -54,6 +57,7 @@ fn simulateCompiler(
     op_off_low: usize,
     op_off_top: usize,
     rng: u64,
+    optimization: Optimization,
     device: ClDevice,
     context: ClContext,
     queue: ClCommandQueue,
@@ -82,7 +86,6 @@ fn simulateCompiler(
     }
 
     var pcg = Pcg.init(rng);
-    std.debug.print("simulate-compiler: rng={}...", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
@@ -385,7 +388,7 @@ fn simulateCompiler(
     }
 
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
-        size_global, size_local, .O0, device, context, queue);
+        size_global, size_local, optimization, device, context, queue);
 
     try program.run();
     try program.free(allocator);
@@ -396,12 +399,12 @@ fn simulateCompiler(
     for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
         try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
     }
-    std.debug.print(" passed!\n", .{});
 }
 
 fn minifyCompiler(
     allocator: std.mem.Allocator,
     rng: u64,
+    optimization: Optimization,
     err: anytype,
     device: ClDevice,
     context: ClContext,
@@ -413,7 +416,7 @@ fn minifyCompiler(
     var op_top: usize = 1;
     for (1..op_num) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, 0, op_removed, rng, device, context, queue) catch {
+        simulateCompiler(allocator, 0, op_removed, rng, optimization, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
@@ -428,7 +431,7 @@ fn minifyCompiler(
     var op_low: usize = 0;
     for (1..op_num - op_top) |op_removed| {
         var failed: bool = false;
-        simulateCompiler(allocator, op_removed, op_top, rng, device, context, queue) catch {
+        simulateCompiler(allocator, op_removed, op_top, rng, optimization, device, context, queue) catch {
             failed = true;
         };
         if (failed) {
@@ -453,6 +456,7 @@ pub fn main() !void {
     var rng_saved: ?u64 = null;
     var loop_infinite: bool = false;
     var loop_count: u64 = 1;
+    var opt_saved: ?Optimization = null;
     // Skip the executable call
     _ = args.next();
     if (args.next()) |arg| {
@@ -467,8 +471,32 @@ pub fn main() !void {
             }
             // Iff the loop is infinite then the loop count has to be 0
             assert(loop_infinite == (loop_count == 0));
+        } else if (std.mem.startsWith(u8, arg, "opt=")) {
+            const offset = "opt="[0..].len;
+            const parse: []const u8 = arg[offset..];
+            opt_saved = std.meta.stringToEnum(Optimization, parse);
+
+            if (opt_saved == null) {
+                std.log.err("Found unrecognized optimization {s}, expected opt=[", .{parse});
+                inline for (@typeInfo(Optimization).Enum.fields, 0..) |optimization, optimization_idx| {
+                    if (optimization_idx == 0) {
+                        std.debug.print("{s} ", .{optimization.name});
+                    } else {
+                        std.debug.print("|{s} ", .{optimization.name});
+                    }
+                }
+                std.log.err("]\n", .{});
+            }
         } else {
-            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
+            std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[", .{arg});
+            inline for (@typeInfo(Optimization).Enum.fields, 0..) |optimization, optimization_idx| {
+                if (optimization_idx == 0) {
+                    std.debug.print("{s} ", .{optimization.name});
+                } else {
+                    std.debug.print("|{s} ", .{optimization.name});
+                }
+            }
+            std.log.err("]\n", .{});
             unreachable;
         }
     }
@@ -487,18 +515,58 @@ pub fn main() !void {
         // rng + loop_idx "wastes" the least seeds but it could cause issues
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
-            std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
-            };
+            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
+            if (opt_saved) |opt| {
+                simulateCompiler(allocator, 0, 0, rng + loop_idx, opt, device, context, queue) catch |err| {
+                    try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
+                };
+                std.debug.print("{s} ", .{
+                    switch (opt) {
+                        .O0 => "O0",
+                        .O1 => "O1",
+                        .O2 => "O2",
+                        .O3 => "O3",
+                    },
+                });
+            } else {
+                inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+                    const name: []const u8 = optimization.name;
+                    const value: Optimization = @enumFromInt(optimization.value);
+                    simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
+                        try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
+                    };
+                    std.debug.print("{s} ", .{name});
+                }
+            }
             loop_idx += 1;
+            std.debug.print("passed!\n", .{});
         }
     } else {
         for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => ", .{loop_idx});
-            simulateCompiler(allocator, 0, 0, rng + loop_idx, device, context, queue) catch |err| {
-                try minifyCompiler(allocator, rng + loop_idx, err, device, context, queue);
-            };
+            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
+            if (opt_saved) |opt| {
+                simulateCompiler(allocator, 0, 0, rng + loop_idx, opt, device, context, queue) catch |err| {
+                    try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
+                };
+                std.debug.print("{s} ", .{
+                    switch (opt) {
+                        .O0 => "O0",
+                        .O1 => "O1",
+                        .O2 => "O2",
+                        .O3 => "O3",
+                    },
+                });
+            } else {
+                inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+                    const name: []const u8 = optimization.name;
+                    const value: Optimization = @enumFromInt(optimization.value);
+                    simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
+                        try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
+                    };
+                    std.debug.print("{s} ", .{name});
+                }
+            }
+            std.debug.print("passed!\n", .{});
         }
     }
 }
