@@ -104,6 +104,7 @@ pub const Buffer = struct {
     pub inline fn xOffset(this: @This()) usize {
         return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
+    // TODO: Could also just return a single item pointer here. Not decided yet.
     pub inline fn at(this: @This(), a: usize, z: usize, y: usize, x: usize) usize {
         assert(a < this.a_size);
         assert(z < this.z_size);
@@ -147,7 +148,7 @@ pub const Buffer = struct {
     }
     /// Checks for equal size, offset and name.
     /// Does *not* check for inherent buffer size.
-    pub fn equal(this: @This(), target: @This()) bool {
+    pub inline fn equal(this: @This(), target: @This()) bool {
         return this.name_offset == target.name_offset and
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size and
@@ -156,7 +157,7 @@ pub const Buffer = struct {
     }
     /// Checks for equal size and name.
     /// Does *not* check for inherent buffer size or offsets.
-    pub fn equalNoOffset(this: @This(), target: @This()) bool {
+    pub inline fn equalNoOffset(this: @This(), target: @This()) bool {
         return this.name_offset == target.name_offset and
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size;
