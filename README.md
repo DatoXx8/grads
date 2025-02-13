@@ -58,10 +58,17 @@ In case a test fails, you can open an issue on the GitHub with the random seed a
 
 I will not work on these in optimal order, because this just a hobby project.
 
-| Step                      | Expected work | Expected gain |
-| ------------------------- | ------------- | ------------- |
-| Compiler optimizations    | High          | Very high     |
-| Get rid of stdlib         | Moderate      | Low           |
-| Write OpenCl debug impl   | Very high     | High          |
-| Autograd                  | Moderate      | High          |
-| Multi GPU                 | High (?)      | Very high     |
+| Step                      | Expected work | Expected gain                             |
+| ------------------------- | ------------- | ----------------------------------------- |
+| Compiler optimizations    | High          | Very high                                 |
+| Get rid of stdlib         | Moderate      | Low                                       |
+| Write OpenCl debug impl   | Very high     | High                                      |
+| Autograd                  | Moderate      | None (Performance), Moderate (Dev time)   |
+| Multi GPU                 | High (?)      | Very high                                 |
+| Completely custom OpenCL  | Extreme       | High to extreme                           |
+
+To provide some context on the custom OpenCL implementation: compiling a kernel in profile-compiler with O0 and op_num set to 10 takes about 1–2 seconds on average.
+More than 99% of that time is spent by the Nvidia OpenCL compiler.
+
+Seeing this makes me worry that the actual computation might be hilariously slow as well, but I’m not really sure how to measure it.
+This is why the expected gain has such a wide range.
