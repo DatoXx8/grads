@@ -1,6 +1,6 @@
 # Grads
 
-Grads is a deep learning framework written in Zig. It is mainly a recreational project, though you can use it for serious projects if you want to.
+Grads is a deep learning framework written in Zig. It is a recreational project, though you can use it for serious projects if you want to.
 It is essentialy an optimizing transpiler to OpenCL.
 
 Grads is currently licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/).
@@ -40,7 +40,7 @@ const grads = @import("grads");
 
 ## Example
 
-An example program will soon be uploaded.
+An example program will be uploaded soon.
 
 ## Testing
 
@@ -51,3 +51,15 @@ To run the simulation tests for the compiler run `zig build test-compiler`.
 To profile the optimizer you can run `zig build profile-compiler`. (The optimizer does not yet deserve it's name as an optimizer)
 
 In case a test fails, you can open an issue on the GitHub with the random seed and because the tests are deterministic that means me and others can then fix that bug.
+
+## Coming up
+
+I will not work on these in optimal order, because this just a hobby project.
+
+| Step                      | Expected work | Expected gain |
+| ------------------------- | ------------- | ------------- |
+| Compiler optimizations    | High          | Very high     |
+| Get rid of stdlib         | Moderate      | Low           |
+| Write OpenCl debug impl   | Very high     | High          |
+| Autograd                  | Moderate      | High          |
+| Multi GPU                 | High (?)      | Very high     |
