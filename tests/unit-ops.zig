@@ -42,7 +42,7 @@ pub fn main() !void {
     var rng_saved: ?u64 = null;
     // Skip the executable call
     _ = args.next();
-    if (args.next()) |arg| {
+    while (args.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "rng=")) {
             const offset = "rng="[0..].len;
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);

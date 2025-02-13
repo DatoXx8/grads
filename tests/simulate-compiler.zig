@@ -459,7 +459,7 @@ pub fn main() !void {
     var opt_saved: ?Optimization = null;
     // Skip the executable call
     _ = args.next();
-    if (args.next()) |arg| {
+    while (args.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "rng=")) {
             const offset = "rng="[0..].len;
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
@@ -475,17 +475,19 @@ pub fn main() !void {
             const offset = "opt="[0..].len;
             const parse: []const u8 = arg[offset..];
             opt_saved = std.meta.stringToEnum(Optimization, parse);
+            std.debug.print("{s} {?}\n", .{ parse, opt_saved });
 
             if (opt_saved == null) {
-                std.log.err("Found unrecognized optimization {s}, expected opt=[", .{parse});
+                std.debug.print("Found unrecognized optimization {s}, expected opt=[", .{parse});
                 inline for (@typeInfo(Optimization).Enum.fields, 0..) |optimization, optimization_idx| {
                     if (optimization_idx == 0) {
                         std.debug.print("{s} ", .{optimization.name});
                     } else {
-                        std.debug.print("|{s} ", .{optimization.name});
+                        std.debug.print("| {s} ", .{optimization.name});
                     }
                 }
-                std.log.err("]\n", .{});
+                std.debug.print("]\n", .{});
+                unreachable;
             }
         } else {
             std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[", .{arg});
@@ -493,7 +495,7 @@ pub fn main() !void {
                 if (optimization_idx == 0) {
                     std.debug.print("{s} ", .{optimization.name});
                 } else {
-                    std.debug.print("|{s} ", .{optimization.name});
+                    std.debug.print("| {s} ", .{optimization.name});
                 }
             }
             std.log.err("]\n", .{});
