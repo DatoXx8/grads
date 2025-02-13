@@ -475,7 +475,6 @@ pub fn main() !void {
             const offset = "opt="[0..].len;
             const parse: []const u8 = arg[offset..];
             opt_saved = std.meta.stringToEnum(Optimization, parse);
-            std.debug.print("{s} {?}\n", .{ parse, opt_saved });
 
             if (opt_saved == null) {
                 std.debug.print("Found unrecognized optimization {s}, expected opt=[", .{parse});
