@@ -45,7 +45,9 @@ An example program will be uploaded soon.
 ## Testing
 
 To run the unit tests for singular ops run `zig build test-op`.
+
 To run the simulation tests for linearized ops run `zig build test-linearized`.
+
 To run the simulation tests for the compiler run `zig build test-compiler`.
 
 To profile the optimizer you can run `zig build profile-compiler`. (The optimizer does not yet deserve it's name as an optimizer)
