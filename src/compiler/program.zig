@@ -19,6 +19,7 @@ const Optimization = @import("./optimize.zig").Optimization;
 const compileKernel = @import("./codegen.zig").compileKernel;
 const source_capacity_min = @import("./codegen.zig").capacity_min;
 const kernel_base_name = @import("./codegen.zig").kernel_base_name;
+const sourceSizeMax = @import("./codegen.zig").sourceSizeMax;
 
 const Args = @import("./kernel.zig").Args;
 
@@ -42,10 +43,18 @@ pub const Program = struct {
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
+        const now_1: i128 = std.time.nanoTimestamp();
         var ssa: Ssa = try Ssa.alloc(allocator, linearized);
+        std.debug.print("{}us ssa alloc\n", .{@divFloor(std.time.nanoTimestamp() - now_1, 1000)});
         defer ssa.free(allocator);
 
+        const now__: i128 = std.time.nanoTimestamp();
+        const result: usize = sourceSizeMax(ssa);
+        std.debug.print("{}us for sourceSizeMax\n", .{@divFloor(std.time.nanoTimestamp() - now__, 1000)});
+
+        const now_3: i128 = std.time.nanoTimestamp();
         try ssa.optimize(allocator, optimization);
+        std.debug.print("{}us ssa optimize\n", .{@divFloor(std.time.nanoTimestamp() - now_3, 1000)});
 
         var source: []u8 = try allocator.alloc(u8, source_capacity_min);
         var source_len: usize = 0;
@@ -83,14 +92,19 @@ pub const Program = struct {
             @memset(kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{kernel_num})).len;
 
+            const prev: usize = source_len;
+            const now: i128 = std.time.nanoTimestamp();
             try compileKernel(allocator, &source, &source_len, layer, 0, 1, kernel_args[kernel_num], //
                 kernel_name[0..kernel_name_len], size_global, size_local);
+            std.debug.print("{}us codegen kernel {} add {}\n", .{ @divFloor(std.time.nanoTimestamp() - now, 1000), kernel_num, source_len - prev });
 
             kernel_num += 1;
             assign_idx = assign_idx_top;
         }
 
+        const now_2: i128 = std.time.nanoTimestamp();
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
+        std.debug.print("{}us nvidia\n", .{@divFloor(std.time.nanoTimestamp() - now_2, 1000)});
         var kernel: []Kernel = try allocator.alloc(Kernel, kernel_num);
 
         for (0..kernel_num) |kernel_idx| {
@@ -98,6 +112,17 @@ pub const Program = struct {
             const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name ++ "\x00", .{kernel_idx})).len;
             kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
         }
+
+        const last_written: usize = blk: {
+            for (0..source.len) |char_idx| {
+                if (source[char_idx] == 0) {
+                    break :blk char_idx;
+                }
+            }
+            break :blk source.len;
+        };
+
+        std.debug.print("{} vs {} heuristic vs {} actual\n", .{ source.len, result, last_written });
 
         return .{
             .size_global = size_global,

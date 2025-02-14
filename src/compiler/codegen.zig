@@ -30,7 +30,84 @@ fn capacityEnsure(allocator: std.mem.Allocator, source: []u8, offset: usize) ![]
     }
 }
 
-// TODO: Might need to make my own format string in case the std lib does allocations in formatting and on top of that I could translate the entire kernel in one allocation and format
+fn baseSize(base: Assign.Base, assign_times: usize, index_max: usize) usize {
+    const base_size_unary: usize = switch(base.type) {
+                    .unary_add => false,
+                    .unary_subtract => false,
+                    .unary_multiply => false,
+                    .unary_divide => false,
+                    .unary_exp => false,
+                    .unary_log => false,
+                    .unary_square => false,
+                    .unary_sqrt => false,
+                    .unary_reciprocal => false,
+                    .unary_max => false,
+                    .unary_min => false,
+                    .unary_set => true,
+                    .unary_random => false,
+                    .unary_tanh => false,
+                    .unary_absolute => false,
+                    .unary_sign => false,
+                    .binary_add => false,
+                    .binary_subtract => false,
+                    .binary_multiply => false,
+                    .binary_divide => false,
+                    .binary_max => false,
+                    .binary_min => false,
+                    .binary_set => true,
+                    .linary_add => false,
+                    .linary_subtract => false,
+                    .linary_multiply => false,
+                    .linary_divide => false,
+                    .linary_max => false,
+                    .linary_min => false,
+                    .linary_set => true,
+                    .reduce_sum => true,
+                    .reduce_max => true,
+                    .reduce_avg => true,
+                    .reduce_min => true,
+    };
+}
+fn inlinedSize(base: Assign.Base, assign_times: usize, index_max: usize) usize {
+
+}
+    
+
+// TODO: Make upper bound more accurate
+/// Returns the max number of bytes that could be used in compiling the source for `ssa`.
+pub fn sourceSizeMax(ssa: Ssa) usize {
+    if (ssa.assign_num == 0) {
+        return (
+            \\__kernel void kern0() {
+            \\__const int gid = get_global_id(0);
+            \\int id;
+            \\}
+            \\
+        )[0..].len;
+    }
+
+    var source_size_max: usize = 0;
+    for (0..ssa.assign_num) |assign_idx| {
+        const it: Assign = ssa.assign[assign_idx];
+        const index_max: usize = std.math.log10_int(if (it.base.type.isReduce())
+            it.base.in.a_inherent * it.base.in.z_inherent * it.base.in.y_inherent * it.base.in.x_inherent
+        else
+            it.base.out.a_inherent * it.base.out.z_inherent * it.base.out.y_inherent * it.base.out.x_inherent);
+        const assign_times: usize = if (it.base.type.isReduce())
+            it.base.in.a_size * it.base.in.z_size * it.base.in.y_size * it.base.in.x_size
+        else
+            it.base.out.a_size * it.base.out.z_size * it.base.out.y_size * it.base.out.x_size;
+        const assign_num_pretend: usize = (if(it.base.type.isUnary()) 1 else 2) + (if (it.inlined) |inlined| inlined.base.len else 0);
+
+        const kernel_idx_max: usize = 2 * assign_num_pretend * (buffer_name_size + 16 * index_max);
+        const kernel_assign_max: usize = assign_times * (4 * assign_num_pretend) * (3 * (buffer_name_size + 3 * index_max));
+
+        source_size_max += kernel_idx_max + kernel_assign_max;
+        std.debug.print("{} => {}\n", .{ assign_idx, kernel_idx_max + kernel_assign_max });
+    }
+
+    return source_size_max;
+}
 
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeBuffer(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) !void {
@@ -189,7 +266,7 @@ fn generatePrefix(
 ) !void {
     switch (base.type) {
         .unary_add => {
-            try writeBuffer(allocator, source, offset, "({d} + ", .{
+            try writeBuffer(allocator, source, offset, "({d:16} + ", .{
                 base.u_var,
             });
         },
@@ -197,7 +274,7 @@ fn generatePrefix(
             try writeBuffer(allocator, source, offset, "(", .{});
         },
         .unary_multiply => {
-            try writeBuffer(allocator, source, offset, "({d} * ", .{
+            try writeBuffer(allocator, source, offset, "({d:16} * ", .{
                 base.u_var,
             });
         },
@@ -221,12 +298,12 @@ fn generatePrefix(
             try writeBuffer(allocator, source, offset, "1 / (", .{});
         },
         .unary_max => {
-            try writeBuffer(allocator, source, offset, "fmax((float){d}, ", .{
+            try writeBuffer(allocator, source, offset, "fmax((float){d:16}, ", .{
                 base.u_var,
             });
         },
         .unary_min => {
-            try writeBuffer(allocator, source, offset, "fmin((float){d}, ", .{
+            try writeBuffer(allocator, source, offset, "fmin((float){d:16}, ", .{
                 base.u_var,
             });
         },
@@ -477,13 +554,13 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_subtract => {
-            try writeBuffer(allocator, source, offset, " - ({d}))", .{base.u_var});
+            try writeBuffer(allocator, source, offset, " - ({d:16}))", .{base.u_var});
         },
         .unary_multiply => {
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_divide => {
-            try writeBuffer(allocator, source, offset, " / ({d}))", .{base.u_var});
+            try writeBuffer(allocator, source, offset, " / ({d:16}))", .{base.u_var});
         },
         .unary_exp => {
             try writeBuffer(allocator, source, offset, ")", .{});
