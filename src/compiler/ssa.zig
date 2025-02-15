@@ -235,7 +235,7 @@ pub const Ssa = struct {
 
             return dim_info;
         }
-        pub fn print(this: *@This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: *@This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
             if (name) |text| {
                 std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
             }
@@ -320,7 +320,7 @@ pub const Ssa = struct {
                 return this.type == target.type and this.u_var == this.u_var and
                     this.out.equal(target.out) and this.in.equal(target.in);
             }
-            pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+            pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
                 // TODO: Also print the dim info
                 if (name) |text| {
                     std.debug.print("{s}Base {s}\n", .{ " " ** (offset), text });
@@ -419,7 +419,7 @@ pub const Ssa = struct {
             pub const Type = enum(u8) { none, in, out };
             type: []Type,
             base: []Base,
-            pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+            pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
                 // TODO: Also print the dim info
                 if (name) |text| {
                     std.debug.print("{s}Inlined {s}\n", .{ " " ** (offset), text });
@@ -455,7 +455,7 @@ pub const Ssa = struct {
         split: ?Split,
         simd: ?Simd,
         memory: ?Memory,
-        pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
             // TODO: Also print the dim info and optimizations
             if (name) |text| {
                 std.debug.print("{s}Assign {s}\n", .{ " " ** (offset), text });
@@ -547,7 +547,7 @@ pub const Ssa = struct {
         }
         try optimization.memoryLayout(allocator, this);
     }
-    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}SSA {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {
@@ -558,7 +558,7 @@ pub const Ssa = struct {
             this.assign[assign_idx].print(0, 0, null);
         }
     }
-    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}SSA {s}\n", .{ [1]u8{' '} ** offset, text });
         } else {

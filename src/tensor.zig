@@ -625,7 +625,7 @@ pub const Op = struct {
             this.out.values[this.out.at(0, 0, 0, 0)] /= @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
         }
     }
-    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -700,7 +700,7 @@ pub const Op = struct {
             });
         }
     }
-    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -829,7 +829,7 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -844,7 +844,7 @@ pub const Linearized = struct {
             }
         }
     }
-    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -887,7 +887,7 @@ pub const Tensor = struct {
             this.buffer.syncUpdate(.sync_to_device);
         }
     }
-    pub fn print(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
@@ -907,7 +907,7 @@ pub const Tensor = struct {
             std.debug.print("\n", .{});
         }
     }
-    pub fn debug(this: @This(), comptime padding: usize, comptime offset: usize, name: ?[]const u8) void {
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
         } else {
