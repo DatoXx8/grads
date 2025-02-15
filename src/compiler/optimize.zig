@@ -54,12 +54,18 @@ pub const Optimization = enum(u8) {
             for (0..assign_idx) |assign_idx_search_reverse| {
                 const assign_idx_search: usize = assign_idx - (assign_idx_search_reverse + 1);
 
-                // TODO: Make it possible to inline reduce ops
                 if (ssa.assign[assign_idx_search].base.type.isReduce()) {
                     continue;
                 }
 
-                if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
+                if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset and
+                    ssa.assign[assign_idx].base.in.name_offset == ssa.assign[assign_idx_search].base.in.name_offset)
+                {
+                    ssa.assign[assign_idx_search].inlined = .{
+                        .base = try allocator.dupe(Ssa.Assign.Base, assign_temp[0..assign_temp_num]),
+                        .type = try allocator.dupe(Ssa.Assign.Inlined.Type, assign_type[0..assign_temp_num]),
+                    };
+                } else if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.out.name_offset) {
                     if (ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out)) {
                         assign_used[assign_idx_search] = true;
                         assign_temp[assign_temp_num] = ssa.assign[assign_idx_search].base;
