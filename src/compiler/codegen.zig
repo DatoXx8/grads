@@ -187,7 +187,7 @@ fn generatePrefix(
 ) !void {
     switch (base.type) {
         .unary_add => {
-            try writeBuffer(allocator, source, offset, "({d:16} + ", .{
+            try writeBuffer(allocator, source, offset, "({d} + ", .{
                 base.u_var,
             });
         },
@@ -195,7 +195,7 @@ fn generatePrefix(
             try writeBuffer(allocator, source, offset, "(", .{});
         },
         .unary_multiply => {
-            try writeBuffer(allocator, source, offset, "({d:16} * ", .{
+            try writeBuffer(allocator, source, offset, "({d} * ", .{
                 base.u_var,
             });
         },
@@ -219,12 +219,12 @@ fn generatePrefix(
             try writeBuffer(allocator, source, offset, "1 / (", .{});
         },
         .unary_max => {
-            try writeBuffer(allocator, source, offset, "fmax((float){d:16}, ", .{
+            try writeBuffer(allocator, source, offset, "fmax((float){d}, ", .{
                 base.u_var,
             });
         },
         .unary_min => {
-            try writeBuffer(allocator, source, offset, "fmin((float){d:16}, ", .{
+            try writeBuffer(allocator, source, offset, "fmin((float){d}, ", .{
                 base.u_var,
             });
         },
@@ -475,13 +475,13 @@ fn generatePostfix(
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_subtract => {
-            try writeBuffer(allocator, source, offset, " - ({d:16}))", .{base.u_var});
+            try writeBuffer(allocator, source, offset, " - ({d}))", .{base.u_var});
         },
         .unary_multiply => {
             try writeBuffer(allocator, source, offset, ")", .{});
         },
         .unary_divide => {
-            try writeBuffer(allocator, source, offset, " / ({d:16}))", .{base.u_var});
+            try writeBuffer(allocator, source, offset, " / ({d}))", .{base.u_var});
         },
         .unary_exp => {
             try writeBuffer(allocator, source, offset, ")", .{});
@@ -738,6 +738,7 @@ fn generateBody(
     y: usize,
     x: usize,
 ) !void {
+    // TODO: Refactor this. It sucks bad.
     const assign_num: usize = 1 + if (assign.inlined) |inlined| inlined.base.len else 0;
     for (0..assign_num) |inlined_idx| {
         if (inlined_idx == 0) {
