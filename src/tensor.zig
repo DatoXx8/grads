@@ -672,7 +672,7 @@ pub const Op = struct {
                 this.out.x_size,
                 this.out.offset,
                 this.out.name(),
-                this.u_var.float,
+                this.u_var,
             });
         } else {
             const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isLinary()) 'L' else 'R');
