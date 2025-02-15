@@ -7,6 +7,7 @@ const Program = grads.Program;
 const ClContext = grads.ClContext;
 const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
+const Optimization = grads.Optimization;
 
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
@@ -414,17 +415,22 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
-    const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
-        size_global, size_local, .O0, device, context, queue);
-    defer program.free(allocator) catch {};
+    inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+        const name: []const u8 = optimization.name;
+        const value: Optimization = @enumFromInt(optimization.value);
 
-    var time_program: [iterations]i128 = undefined;
-    for (0..iterations) |interation_idx| {
-        const time_start: i128 = std.time.nanoTimestamp();
-        try program.run();
-        time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
+        const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
+            size_global, size_local, value, device, context, queue);
+        defer program.free(allocator) catch {};
+
+        var time_program: [iterations]i128 = undefined;
+        for (0..iterations) |interation_idx| {
+            const time_start: i128 = std.time.nanoTimestamp();
+            try program.run();
+            time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
+        }
+        analyseTimes(time_program, name);
     }
-    analyseTimes(time_program, "O0");
 }
 
 pub fn main() !void {
