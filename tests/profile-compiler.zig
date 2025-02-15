@@ -83,7 +83,8 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
     std.debug.print(" {s}\n", .{name});
 }
 
-// If this fails then you can use the rng seed from here in the simulator and get then same ops (At least if I don't break it in the future)
+// WARN: This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
+// TODO: The above warning should not need to exist
 fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -396,7 +397,8 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
 
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
-        // Not using realize here because that clears the linearized
+
+        // NOTE: Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
         tensor2[tensor_out].linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
@@ -406,6 +408,7 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
+    // TODO: For loop over all optimization things here, also save the initial values
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
@@ -422,13 +425,6 @@ fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, con
         time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
     analyseTimes(time_program, "O0");
-
-    tensor1[tensor_out].buffer.syncUpdate(.sync_to_host);
-    try tensor1[tensor_out].buffer.syncToHost(queue);
-
-    for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-        try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
-    }
 }
 
 pub fn main() !void {
