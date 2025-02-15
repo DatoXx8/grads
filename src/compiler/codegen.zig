@@ -745,9 +745,14 @@ fn generateBody(
             const offset_out: usize = if (base.type.isReduce()) 0 else base.out.at(a, z, y, x) - base.out.offset;
             try generatePrefix(allocator, source, offset, base, .none, loop_idx, assign_idx, inlined_idx, offset_out);
         } else {
-            const base: Assign.Base = if (inlined_idx == 0) assign.base else assign.inlined.?.base[inlined_idx - 1];
+            const base: Assign.Base = assign.inlined.?.base[inlined_idx - 1];
             const inlined_type: Assign.Inlined.Type = assign.inlined.?.type[inlined_idx - 1];
-            const offset_out: usize = if (base.type.isReduce()) 0 else base.out.at(a, z, y, x) - base.out.offset;
+
+            const offset_out: usize = if (assign.base.type.isReduce() and assign.inlined.?.type[inlined_idx - 1] == .out or
+                assign.base.type.isLinary() and assign.inlined.?.type[inlined_idx - 1] == .in)
+                0
+            else
+                base.out.at(a, z, y, x) - base.out.offset;
             try generatePrefix(allocator, source, offset, base, inlined_type, loop_idx, assign_idx, inlined_idx, offset_out);
         }
     }
@@ -765,15 +770,30 @@ fn generateBody(
         if (root.type == .unary_set) {
             try writeBuffer(allocator, source, offset, "{d}", .{root.u_var});
         } else {
-            const offset_in: usize = root.in.at(a, z, y, x) - root.in.offset;
-            try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}_{} + {}]", .{
-                root.in.name(),
-                root.in.name(),
-                loop_idx,
-                assign_idx,
-                assign_num - 1,
-                offset_in,
-            });
+            if (assign_num == 1) {
+                const offset_in: usize = root.in.at(a, z, y, x) - root.in.offset;
+                try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}_{} + {}]", .{
+                    root.in.name(),
+                    root.in.name(),
+                    loop_idx,
+                    assign_idx,
+                    assign_num - 1,
+                    offset_in,
+                });
+            } else {
+                const offset_in: usize = if (assign.base.type.isLinary() and assign.inlined.?.type[assign_num - 2] == .in)
+                    0
+                else
+                    root.in.at(a, z, y, x) - root.in.offset;
+                try writeBuffer(allocator, source, offset, "{s}[{s}_{}_{}_{} + {}]", .{
+                    root.in.name(),
+                    root.in.name(),
+                    loop_idx,
+                    assign_idx,
+                    assign_num - 1,
+                    offset_in,
+                });
+            }
         }
     }
 
@@ -786,7 +806,11 @@ fn generateBody(
         } else {
             const base: Assign.Base = assign.inlined.?.base[inlined_idx - 1];
             const inlined_type: Assign.Inlined.Type = assign.inlined.?.type[inlined_idx - 1];
-            const offset_in: usize = if (base.type.isLinary()) 0 else base.in.at(a, z, y, x) - base.in.offset;
+            const offset_in: usize = if (assign.base.type.isLinary() and inlined_type == .in or
+                base.type.isLinary() and inlined_type == .out)
+                0
+            else
+                base.in.at(a, z, y, x) - base.in.offset;
             try generatePostfix(allocator, source, offset, base, inlined_type, loop_idx, assign_idx, inlined_idx, offset_in);
         }
     }
