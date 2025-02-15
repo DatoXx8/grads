@@ -42,7 +42,7 @@ fn assertEq(val1: f32, val2: f32) !void {
 }
 const tensor_num: usize = 10;
 const op_num: usize = 10;
-const iterations: usize = 1000;
+const iterations: usize = 10000;
 // This is 1 + max ops to avoid NaNs
 const max_ops_per_specified = 3;
 comptime {
