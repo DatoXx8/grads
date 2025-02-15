@@ -389,9 +389,9 @@ fn simulateCompiler(
 
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, optimization, device, context, queue);
+    defer program.free(allocator) catch {};
 
     try program.run();
-    try program.free(allocator);
 
     tensor1[tensor_out].buffer.syncUpdate(.sync_to_host);
     try tensor1[tensor_out].buffer.syncToHost(queue);
