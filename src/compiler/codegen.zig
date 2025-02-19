@@ -1,14 +1,16 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
 
 const Ssa = @import("./ssa.zig").Ssa;
 const DimInfo = Ssa.DimInfo;
 const Assign = Ssa.Assign;
 
-const assert = std.debug.assert;
-
 const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 const Op = @import("../tensor.zig").Op;
 const nameFromOffset = @import("../tensor.zig").Buffer.nameFromOffset;
+
+const bufPrint = std.fmt.bufPrint;
 
 const ClMem = @import("../runtimes/cl.zig").ClMem;
 
@@ -19,7 +21,7 @@ pub const capacity_min: usize = 2048;
 const padding: usize = 1024;
 
 /// Expand buffer if necessary and set new bytes to 0
-fn capacityEnsure(allocator: std.mem.Allocator, source: []u8, offset: usize) ![]u8 {
+fn capacityEnsure(allocator: Allocator, source: []u8, offset: usize) ![]u8 {
     if (source.len - offset < padding) {
         const len_old: usize = source.len;
         const new: []u8 = try allocator.realloc(source, len_old * 2);
@@ -31,15 +33,16 @@ fn capacityEnsure(allocator: std.mem.Allocator, source: []u8, offset: usize) ![]
 }
 
 /// Write format string to buffer and ensure there is at least `padding` bytes left
-fn writeBuffer(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) !void {
+fn writeBuffer(allocator: Allocator, source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) !void {
     // TODO: Validate that there is enough space for this and expand if there isn't
-    offset.* += (try std.fmt.bufPrint(source.*[offset.*..], fmt, args)).len;
+    const written = try bufPrint(source.*[offset.*..], fmt, args);
+    offset.* += written.len;
     source.* = try capacityEnsure(allocator, source.*, offset.*);
 }
 
 /// Generate computation for per-op indices
 fn generateIndexSingular(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -89,7 +92,7 @@ fn generateIndexSingular(
 }
 /// Generate computation for per-op indices for an entire layer
 fn generateIndex(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     layer: []Assign,
@@ -107,7 +110,7 @@ fn generateIndex(
 
 /// Generate a line of OpenCL code setting up the assign. Like setting to -INFINITY for reduce_max
 fn generateHeader(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -153,7 +156,7 @@ fn generateHeader(
 
 /// Do post assign calculations. Currently only used for dividing by the size of the `in` buffer for reduce_avg
 fn generateFooter(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -175,7 +178,7 @@ fn generateFooter(
 }
 
 fn generatePrefix(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -460,7 +463,7 @@ fn generatePrefix(
 
 /// Generate a line of OpenCL code computing one entry of `assign.out`
 fn generatePostfix(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -706,7 +709,7 @@ fn generatePostfix(
 }
 
 fn generateAssign(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     base: Assign.Base,
@@ -727,7 +730,7 @@ fn generateAssign(
 }
 
 fn generateBody(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     assign: Assign,
@@ -817,7 +820,7 @@ fn generateBody(
     }
 }
 
-fn generateOp(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, layer: []Ssa.Assign, loop_idx: usize) !void {
+fn generateOp(allocator: Allocator, source: *[]u8, offset: *usize, layer: []Ssa.Assign, loop_idx: usize) !void {
     for (0..layer.len) |assign_idx| {
         const base: Assign.Base = layer[assign_idx].base;
         // Every other op can not be a reduce op so it does not have a op header
@@ -851,7 +854,7 @@ fn generateOp(allocator: std.mem.Allocator, source: *[]u8, offset: *usize, layer
 // TODO: allocate the source to be the max size it could be before hand and then the entire codegen could just be that one allocation
 /// Create the source for a kernel computing all assigns in `layer` if it is a singular layer and otherwise it computes the loop described by the layers
 pub fn compileKernel(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     source: *[]u8,
     source_len: *usize,
     layer: []Ssa.Assign,

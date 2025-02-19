@@ -1338,7 +1338,6 @@ pub const Neuralnet = struct {
             try this.layers[layer_idx].free(allocator);
         }
         allocator.free(this.layers);
-        // this.input.free(allocator);
         this.forward_cpu.free(allocator);
         this.backward_cpu.free(allocator);
         this.learn_cpu.free(allocator);

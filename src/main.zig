@@ -1,13 +1,13 @@
 const std = @import("std");
 
-// TODO: Don't use usize where possible to get rid of platform dependant code
+// TODO: Make my own format string implementation, can't really get faster trivially without changing behaviour, which I don't really mind
+// TODO: Don't use  where possible to get rid of platform dependant code
 // TODO: Maybe I should to an actual Sea-Of-Nodes SSA using a graph instead of whatever I am doing now
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible
 // TODO: Add autograd
 // TODO: Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
 // TODO: Analyse /usr/lib/libnvidia-opencl.so
-// TODO: Make my own format string implementation (Get rid of std-lib entirely?)
 
 const assert = std.debug.assert;
 
@@ -26,6 +26,7 @@ pub fn main() !void {
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
 
+    // TODO: Should probably free these explicitly huh
     const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
