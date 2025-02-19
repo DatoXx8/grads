@@ -421,8 +421,10 @@ fn minifyCompiler(
         };
         if (failed) {
             op_top = op_removed;
+            std.debug.print("failed!\n", .{});
             continue;
         } else {
+            std.debug.print("passed!\n", .{});
             break;
         }
     }
@@ -436,8 +438,10 @@ fn minifyCompiler(
         };
         if (failed) {
             op_low = op_removed;
+            std.debug.print("failed!\n", .{});
             continue;
         } else {
+            std.debug.print("passed!\n", .{});
             break;
         }
     }
