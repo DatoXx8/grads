@@ -47,12 +47,12 @@ pub const Neuralnet = struct {
                 .t = t,
                 .intermediary = switch (t) {
                     .none => null,
-                    .relu => try Tensor.alloc(allocator, a, z, y, x, context),
-                    .sigmoid => try Tensor.alloc(allocator, a, z, y, x, context),
+                    .relu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                    .sigmoid => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
                     .tanh => null,
-                    .silu => try Tensor.alloc(allocator, a, z, y, x, context),
-                    .gelu => try Tensor.alloc(allocator, a, z, y, x, context),
-                    .leaky => try Tensor.alloc(allocator, a, z, y, x, context),
+                    .silu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                    .gelu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                    .leaky => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
                 },
             };
         }
@@ -157,28 +157,28 @@ pub const Neuralnet = struct {
                 },
                 .layer => .{
                     .type = t,
-                    .mean = try Tensor.alloc(allocator, a, z, y, x, context),
-                    .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                    .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
                     .max = null,
                 },
                 .batch => .{
                     .type = t,
-                    .mean = try Tensor.alloc(allocator, a, z, y, x, context),
-                    .variance = try Tensor.alloc(allocator, a, z, y, x, context),
+                    .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                    .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
                     .max = null,
                 },
                 .simple => .{
                     .type = t,
                     .mean = null,
                     .variance = null,
-                    .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+                    .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
                 },
                 .softmax => .{
                     .type = t,
                     // Repurposed to be the place in which to exp the values
                     .mean = null,
                     .variance = null,
-                    .max = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+                    .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
                 },
             };
         }
@@ -264,9 +264,9 @@ pub const Neuralnet = struct {
                 .biases = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
                 .weights_g = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
                 .biases_g = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
-                .temp_input = try Tensor.alloc(allocator, 1, 1, size_input, 1, context),
-                .temp_output = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
-                .temp_full = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
+                .temp_input = try Tensor.allocIntermediary(allocator, 1, 1, size_input, 1, context),
+                .temp_output = try Tensor.allocIntermediary(allocator, 1, 1, 1, size_output, context),
+                .temp_full = try Tensor.allocIntermediary(allocator, 1, 1, size_input, size_output, context),
             };
         }
         pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
@@ -423,12 +423,12 @@ pub const Neuralnet = struct {
                 .biases_g = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
                 .weights = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
                 .weights_g = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
-                .temp_input_padded = try Tensor.alloc(allocator, 1, z, y + 2 * kernel_padding, //
+                .temp_input_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
                     x + 2 * kernel_padding, context),
-                .temp_grad_padded = try Tensor.alloc(allocator, 1, z, y + 2 * kernel_padding, //
+                .temp_grad_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
                     x + 2 * kernel_padding, context),
-                .temp_kernel = try Tensor.alloc(allocator, 1, z, kernel_size, kernel_size, context),
-                .temp_single = try Tensor.alloc(allocator, 1, 1, 1, 1, context),
+                .temp_kernel = try Tensor.allocIntermediary(allocator, 1, z, kernel_size, kernel_size, context),
+                .temp_single = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
             };
         }
         pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
@@ -729,7 +729,7 @@ pub const Neuralnet = struct {
                 .weights_g = try Tensor.alloc(allocator, filters, z, y, x, context),
                 .biases = try Tensor.alloc(allocator, filters, z, y, x, context),
                 .biases_g = try Tensor.alloc(allocator, filters, z, y, x, context),
-                .temp_input = try Tensor.alloc(allocator, 1, z, y, x, context),
+                .temp_input = try Tensor.allocIntermediary(allocator, 1, z, y, x, context),
             };
         }
         pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
@@ -1255,7 +1255,8 @@ pub const Neuralnet = struct {
             const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
 
             // TODO: capacityEnsure needs to happen here
-            // Just to force the correct order of operations
+
+            // NOTE: Just to force the correct order of operations
             layers[layer_idx - 1].values_g.dependOn(&layers[layer_idx].values_g);
 
             // TODO: Norming

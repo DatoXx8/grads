@@ -43,6 +43,7 @@ pub const Buffer = struct {
     values_cl: ?ClMem,
     sync: SyncStatus,
     name_offset: usize,
+    intermediary: bool,
     pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
@@ -68,10 +69,45 @@ pub const Buffer = struct {
             .offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
             .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
+            .intermediary = false,
+        };
+    }
+    pub fn allocIntermediary(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+        assert(a > 0);
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+
+        defer buffer_name_offset += 1;
+        return .{
+            .name_offset = buffer_name_offset,
+            .sync = SyncStatus.sync_to_none,
+            .a_size = a,
+            .z_size = z,
+            .y_size = y,
+            .x_size = x,
+            .a_inherent = a,
+            .z_inherent = z,
+            .y_inherent = y,
+            .x_inherent = x,
+            .a_stride = z * y * x,
+            .z_stride = y * x,
+            .y_stride = x,
+            .x_stride = 1,
+            .offset = 0,
+            .values = try allocator.alloc(f32, a * z * y * x),
+            .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
+            .intermediary = true,
         };
     }
     pub fn free(this: @This(), allocator: std.mem.Allocator) void {
         allocator.free(this.values);
+        if (this.values_cl) |values_cl| {
+            // NOTE: I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
+            values_cl.free() catch |err| {
+                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.name_offset, err });
+            };
+        }
     }
     // PERF: these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
     //  to reduce memory usage. Like the nameFromOffset function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
@@ -872,6 +908,17 @@ pub const Tensor = struct {
 
         return .{
             .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
+            .linearized = try Linearized.alloc(allocator),
+        };
+    }
+    pub fn allocIntermediary(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+        assert(a > 0);
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+
+        return .{
+            .buffer = try Buffer.allocIntermediary(allocator, a, z, y, x, context),
             .linearized = try Linearized.alloc(allocator),
         };
     }
