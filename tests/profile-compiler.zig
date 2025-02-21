@@ -11,6 +11,7 @@ const Optimization = grads.Optimization;
 
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
+const Allocator = std.mem.Allocator;
 
 const AssertError = error{
     nan,
@@ -40,9 +41,9 @@ fn assertEq(val1: f32, val2: f32) !void {
         return AssertError.difference;
     }
 }
-const tensor_num: usize = 10;
-const op_num: usize = 10;
-const iterations: usize = 10000;
+const tensor_num = 10;
+const op_num = 10;
+const iterations = 10000;
 // This is 1 + max ops to avoid NaNs
 const max_ops_per_specified = 3;
 comptime {
@@ -86,7 +87,7 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
 
 // WARN: This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
 // TODO: The above warning should not need to exist
-fn profileCompiler(allocator: std.mem.Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
+fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
 

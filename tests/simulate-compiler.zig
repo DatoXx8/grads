@@ -13,6 +13,7 @@ const Pcg = std.Random.Pcg;
 const Optimization = grads.Optimization;
 
 const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
 
 // TODO: Also randomize random optimization once those are implemented
 
@@ -45,15 +46,15 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-const tensor_num: usize = 10;
-const op_num: usize = 10;
+const tensor_num = 10;
+const op_num = 10;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
 }
 
 fn simulateCompiler(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     op_off_low: usize,
     op_off_top: usize,
     rng: u64,
@@ -402,7 +403,7 @@ fn simulateCompiler(
 }
 
 fn minifyCompiler(
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     rng: u64,
     optimization: Optimization,
     err: anytype,

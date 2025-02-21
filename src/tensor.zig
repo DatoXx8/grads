@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
 
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
@@ -9,11 +10,11 @@ const OpenCl = @import("./runtimes/cl.zig").open_cl;
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
-pub const buffer_name_size: usize = 8;
+pub const buffer_name_size: u64 = 8;
 /// Valid increment of the char values in the buffer name
-pub const buffer_name_char_options: usize = 'z' - 'a' + 1;
+pub const buffer_name_char_options: u64 = 'z' - 'a' + 1;
 /// For keeping track of the current number of buffers allocated
-var buffer_name_offset: usize = 0;
+var buffer_name_offset: u64 = 0;
 
 pub const Buffer = struct {
     pub const SyncStatus = enum(u8) {
@@ -42,9 +43,9 @@ pub const Buffer = struct {
     values: []f32,
     values_cl: ?ClMem,
     sync: SyncStatus,
-    name_offset: usize,
+    name_offset: u64,
     intermediary: bool,
-    pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+    pub fn alloc(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -72,7 +73,7 @@ pub const Buffer = struct {
             .intermediary = false,
         };
     }
-    pub fn allocIntermediary(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+    pub fn allocIntermediary(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -100,7 +101,7 @@ pub const Buffer = struct {
             .intermediary = true,
         };
     }
-    pub fn free(this: @This(), allocator: std.mem.Allocator) void {
+    pub fn free(this: @This(), allocator: Allocator) void {
         allocator.free(this.values);
         if (this.values_cl) |values_cl| {
             // NOTE: I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
@@ -115,10 +116,10 @@ pub const Buffer = struct {
     pub inline fn name(this: @This()) [buffer_name_size]u8 {
         return nameFromOffset(this.name_offset);
     }
-    pub inline fn nameFromOffset(name_offset: usize) [buffer_name_size]u8 {
+    pub inline fn nameFromOffset(name_offset: u64) [buffer_name_size]u8 {
         var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-        const divisor: usize = buffer_name_char_options;
-        var left: usize = name_offset;
+        const divisor: u64 = buffer_name_char_options;
+        var left: u64 = name_offset;
         for (0..buffer_name_size) |char_idx| {
             name_result[char_idx] += @truncate(left % divisor);
             left = left / divisor;
@@ -200,10 +201,10 @@ pub const Buffer = struct {
     }
     /// Return wether the two buffers overlap in any place
     pub inline fn overlaps(this: @This(), target: @This()) bool {
-        const a_1: usize = target.aOffset();
-        const z_1: usize = target.zOffset();
-        const y_1: usize = target.yOffset();
-        const x_1: usize = target.xOffset();
+        const a_1: usize = this.aOffset();
+        const z_1: usize = this.zOffset();
+        const y_1: usize = this.yOffset();
+        const x_1: usize = this.xOffset();
 
         const a_2: usize = target.aOffset();
         const z_2: usize = target.zOffset();
@@ -481,6 +482,7 @@ pub const Op = struct {
             this.out.y_offset == target.in.y_offset and
             this.out.x_offset == target.in.x_offset;
     }
+    // TODO: Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
         if (this.isUnary()) {
             // NOTE: In buffer is just a copy of out buffer, basically just a sanity check.
@@ -577,6 +579,7 @@ pub const Op = struct {
                                 this.out.values[this.out.at(a, z, y, x)] = this.u_var;
                             },
                             .unary_random => {
+                                // TODO: Make my own PCG implementation that can do SIMD
                                 this.out.values[this.out.at(a, z, y, x)] = rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
@@ -597,6 +600,16 @@ pub const Op = struct {
                                 } else {
                                     this.out.values[this.out.at(a, z, y, x)] = 0;
                                 }
+                                // fn signVector(comptime T: type, vector: @Vector(4, T)) @Vector(4, i32) {
+                                //     const zero = @splat(4, @as(T, 0));
+                                //     const one = @splat(4, @as(T, 1));
+                                //     const neg_one = @splat(4, @as(T, -1));
+                                //
+                                //     const cmp_lt = @Vector(4, bool)(vector < zero);
+                                //     const cmp_gt = @Vector(4, bool)(vector > zero);
+                                //
+                                //     return @select(cmp_lt, neg_one, @select(cmp_gt, one, @splat(4, @as(i32, 0))));
+                                // }
                             },
                             .binary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(a, z, y, x)];
@@ -829,18 +842,18 @@ const op_cap_base: usize = 4;
 pub const Linearized = struct {
     op: []Op,
     op_num: usize,
-    pub fn alloc(allocator: std.mem.Allocator) !Linearized {
+    pub fn alloc(allocator: Allocator) !Linearized {
         return .{
             .op_num = 0,
             .op = try allocator.alloc(Op, op_cap_base),
         };
     }
-    pub fn capacityEnsure(this: *@This(), allocator: std.mem.Allocator, capacity: usize) !void {
+    pub fn capacityEnsure(this: *@This(), allocator: Allocator, capacity: usize) !void {
         if (this.op.len - this.op_num < capacity) {
             this.op = try allocator.realloc(this.op, this.op_num + capacity);
         }
     }
-    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
+    pub fn free(this: *@This(), allocator: Allocator) void {
         this.op_num = 0;
         allocator.free(this.op);
     }
@@ -900,7 +913,7 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+    pub fn alloc(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -911,7 +924,7 @@ pub const Tensor = struct {
             .linearized = try Linearized.alloc(allocator),
         };
     }
-    pub fn allocIntermediary(allocator: std.mem.Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+    pub fn allocIntermediary(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -922,7 +935,7 @@ pub const Tensor = struct {
             .linearized = try Linearized.alloc(allocator),
         };
     }
-    pub fn free(this: *@This(), allocator: std.mem.Allocator) void {
+    pub fn free(this: *@This(), allocator: Allocator) void {
         this.buffer.free(allocator);
         this.linearized.free(allocator);
     }

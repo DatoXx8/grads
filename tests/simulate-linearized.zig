@@ -6,6 +6,7 @@ const OpType = grads.Op.Type;
 
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
+const Allocator = std.mem.Allocator;
 
 const AssertError = error{
     nan,
@@ -35,14 +36,14 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-const tensor_num: usize = 10;
-const op_num: usize = 20;
+const tensor_num = 10;
+const op_num = 20;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
 }
 
-fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_top: usize, rng: u64) !void {
+fn simulateLinearized(allocator: Allocator, op_off_low: usize, op_off_top: usize, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off_low);
@@ -394,7 +395,7 @@ fn simulateLinearized(allocator: std.mem.Allocator, op_off_low: usize, op_off_to
     std.debug.print(" passed!\n", .{});
 }
 
-fn minifyLinearized(allocator: std.mem.Allocator, rng: u64, err: anytype) !void {
+fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);

@@ -52,10 +52,10 @@ pub fn main() !void {
         }
     }
 
-    const a_size: usize = 6;
-    const z_size: usize = 5;
-    const y_size: usize = 4;
-    const x_size: usize = 3;
+    const a_size: u32 = 6;
+    const z_size: u32 = 5;
+    const y_size: u32 = 4;
+    const x_size: u32 = 3;
     var tensor1 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null);
     var tensor2 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null);
     const val1 = try allocator.alloc(f32, a_size * z_size * y_size * x_size);
