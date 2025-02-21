@@ -1,3 +1,8 @@
+const std = @import("std");
+
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
+
 const Kernel = @import("./kernel.zig").Kernel;
 
 const Cl = @import("../runtimes/cl.zig");
@@ -11,18 +16,15 @@ const open_cl = Cl.open_cl;
 const Linearized = @import("../tensor.zig").Linearized;
 
 const Ssa = @import("./ssa.zig").Ssa;
-
-const assert = std.debug.assert;
+const Assign = @import("./ssa.zig").Assign;
 
 const Optimization = @import("./optimize.zig").Optimization;
 
-const compileKernel = @import("./codegen.zig").compileKernel;
-const source_capacity_min = @import("./codegen.zig").capacity_min;
+const source_padding = @import("./codegen.zig").source_padding;
 const kernel_base_name = @import("./codegen.zig").kernel_base_name;
+const compileKernel = @import("./codegen.zig").compileKernel;
 
 const Args = @import("./kernel.zig").Args;
-
-const std = @import("std");
 
 pub const Program = struct {
     size_global: usize,
@@ -30,10 +32,10 @@ pub const Program = struct {
     kernel: []Kernel,
     program: ClProgram,
     // Convert to [*:0]u8 with source[0.. :0]
-    source: []u8,
+    source: []const u8,
     queue: ClCommandQueue,
     pub fn alloc(
-        allocator: std.mem.Allocator,
+        allocator: Allocator,
         linearized: Linearized,
         size_global: usize,
         size_local: usize,
@@ -42,20 +44,42 @@ pub const Program = struct {
         context: ClContext,
         queue: ClCommandQueue,
     ) !Program {
+        assert(size_global >= size_local);
+        assert(size_global % size_local == 0);
+
+        if (linearized.op_num == 0) {
+            const source: []const u8 = try allocator.dupe(u8, "__kernel void unused() {}\n\x00");
+            const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
+            var kernel: []Kernel = try allocator.alloc(Kernel, 1);
+            kernel[0] = try Kernel.alloc(program, "unused\x00", .{ .arg_mem = &.{}, .arg_name_offset = &.{} });
+
+            return .{
+                .size_global = size_global,
+                .size_local = size_local,
+                .kernel = kernel,
+                .program = program,
+                .source = source,
+                .queue = queue,
+            };
+        }
+
         var ssa: Ssa = try Ssa.alloc(allocator, linearized);
         defer ssa.free(allocator);
 
         try ssa.optimize(allocator, optimization);
 
-        var source: []u8 = try allocator.alloc(u8, source_capacity_min);
-        var source_len: usize = 0;
+        ssa.print(4, 0, ":)");
+
+        var source: []u8 = try allocator.alloc(u8, source_padding);
+        errdefer allocator.free(source);
         @memset(source, 0);
+        var source_len: usize = 0;
+
         var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
         defer allocator.free(kernel_args);
 
         const kernel_name: []u8 = try allocator.alloc(u8, (kernel_base_name.len - "{}"[0..].len) +
             if (ssa.assign_num == 0) 0 else std.math.log10_int(ssa.assign_num) + 2);
-        errdefer allocator.free(kernel_name);
         defer allocator.free(kernel_name);
 
         var kernel_num: usize = 0;
@@ -74,7 +98,7 @@ pub const Program = struct {
                     break;
                 }
             }
-            const layer: []Ssa.Assign = ssa.assign[assign_idx..assign_idx_top];
+            const layer: []Assign = ssa.assign[assign_idx..assign_idx_top];
 
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering
@@ -83,8 +107,8 @@ pub const Program = struct {
             @memset(kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{kernel_num})).len;
 
-            try compileKernel(allocator, &source, &source_len, layer, 0, 1, kernel_args[kernel_num], //
-                kernel_name[0..kernel_name_len], size_global, size_local);
+            try compileKernel(allocator, &source, &source_len, layer, kernel_name[0..kernel_name_len], //
+                kernel_args[kernel_num], size_global, size_local);
 
             kernel_num += 1;
             assign_idx = assign_idx_top;
@@ -108,7 +132,7 @@ pub const Program = struct {
             .queue = queue,
         };
     }
-    pub fn free(this: @This(), allocator: std.mem.Allocator) !void {
+    pub fn free(this: @This(), allocator: Allocator) !void {
         for (this.kernel) |*kernel| {
             try kernel.free(allocator);
         }
