@@ -1,6 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
+
 const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
 // It is just this followed by the index of the kernel
@@ -123,13 +125,13 @@ pub const ClCommandQueue = struct {
 
 pub const ClProgram = struct {
     program: open_cl.cl_program,
-    pub fn alloc(allocator: std.mem.Allocator, context: ClContext, device: ClDevice, source: []u8) !ClProgram {
+    pub fn alloc(allocator: Allocator, context: ClContext, device: ClDevice, source: []const u8) !ClProgram {
         var log_size: usize = 0;
         var err: i32 = 0;
         // TODO: Get rid of this optional stuff
         var log: ?[]u8 = null;
         var log_c: ?[*:0]u8 = null;
-        var source_c: [*c]u8 = source[0 .. source.len - 1 :0];
+        var source_c: [*c]const u8 = source[0 .. source.len - 1 :0];
         const program: open_cl.cl_program = open_cl.clCreateProgramWithSource(context.context, 1, &source_c, &source.len, &err);
         if (err != 0) {
             return ClError.ProgramNotCreated;
@@ -166,6 +168,7 @@ pub const ClKernel = struct {
         if (err == 0) {
             return .{ .kernel = kernel };
         } else {
+            std.log.err("Could not build kernel with name {s} because of error {}\n", .{ name_c, err });
             return ClError.KernelNotBuilt;
         }
     }
