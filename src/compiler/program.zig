@@ -47,6 +47,7 @@ pub const Program = struct {
         assert(size_global >= size_local);
         assert(size_global % size_local == 0);
 
+        // Return default program that does nothing
         if (linearized.op_num == 0) {
             const source: []const u8 = try allocator.dupe(u8, "__kernel void unused() {}\n\x00");
             const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
@@ -67,8 +68,6 @@ pub const Program = struct {
         defer ssa.free(allocator);
 
         try ssa.optimize(allocator, optimization);
-
-        ssa.print(4, 0, ":)");
 
         var source: []u8 = try allocator.alloc(u8, source_padding);
         errdefer allocator.free(source);

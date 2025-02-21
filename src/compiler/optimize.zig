@@ -111,8 +111,6 @@ pub const Optimization = enum(u8) {
                     ssa.assign[assign_idx + inner_idx].base.dim_info = DimInfo.init(base_temp[0..loop_len]);
                     ssa.assign_loop_id[assign_idx + inner_idx] = loop_id;
                     ssa.assign_loop_num[loop_id] = loop_num;
-                    ssa.assign[assign_idx + inner_idx].base.dim_info.print(4, 0, null);
-                    std.debug.print("\n", .{});
                 }
 
                 loop_id += 1;
