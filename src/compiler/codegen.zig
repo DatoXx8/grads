@@ -40,7 +40,7 @@ pub fn compileKernel(
     allocator: Allocator,
     source: *[]u8,
     offset: *usize,
-    assign: []Assign,
+    assign: []const Assign,
     kernel_name: []const u8,
     kernel_args: Args,
     size_global: usize,
@@ -59,7 +59,8 @@ pub fn compileKernel(
             try writeSource(allocator, source, offset, ", __global float *{s}", .{nameFromOffset(kernel_args.arg_name_offset[arg_idx])});
         }
     }
-    try writeSource(allocator, source, offset, ") {{}}\n", .{});
+    try writeSource(allocator, source, offset, ") {{\n", .{});
 
+    try writeSource(allocator, source, offset, "}}\n", .{});
     try capacityEnsure(allocator, source, offset.*);
 }

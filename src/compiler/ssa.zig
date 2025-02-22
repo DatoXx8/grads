@@ -277,9 +277,49 @@ pub const Assign = struct {
             return @max(this.layer_out, this.layer_in);
         }
         // TODO: Unsure how to check the layer things
-        pub fn equals(this: @This(), target: @This()) bool {
+        pub inline fn equals(this: @This(), target: @This()) bool {
             return this.out.equalNoOffset(target.out) and this.in.equalNoOffset(target.in) and
                 this.type == target.type and this.u_var == target.u_var;
+        }
+        /// Not a great name. Essentialy this returns wether the op has a different result depending on what was in the buffer before.
+        pub inline fn overwrites(this: @This()) bool {
+            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+            return switch (this.type) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => true,
+                .unary_random => true,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => true,
+                .linary_add => false,
+                .linary_subtract => false,
+                .linary_multiply => false,
+                .linary_divide => false,
+                .linary_max => false,
+                .linary_min => false,
+                .linary_set => true,
+                .reduce_sum => true,
+                .reduce_max => true,
+                .reduce_avg => true,
+                .reduce_min => true,
+            };
         }
         pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
             if (name) |text| {
@@ -360,14 +400,17 @@ pub const Assign = struct {
             }
         }
     };
+    // TODO: Maybe make all these slices from a global buffer
     /// Tree representation of inlined ops
     pub const Inlined = struct {
         base: []Base,
         inlined_out: []?usize,
         inlined_in: []?usize,
+        inlined_out_base: ?usize,
+        inlined_in_base: ?usize,
         inlined_num: usize,
     };
-    /// Wether or not to split a single operations across kernels
+    /// Wether or not to split a single operation across kernels
     pub const Split = struct {
         //
     };
@@ -388,8 +431,9 @@ pub const Assign = struct {
         if (name) |text| {
             std.debug.print("{s}Assign {s}\n", .{ " " ** offset, text });
         }
-        this.base.print(padding, padding + offset, null);
+        this.base.print(padding, offset, null);
         if (this.inlined) |inlined| {
+            std.debug.print("{s}Inlined out_base {?} in_base {?}\n", .{ " " ** (offset + padding), inlined.inlined_out_base, inlined.inlined_in_base });
             for (0..inlined.inlined_num) |inlined_idx| {
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
@@ -487,7 +531,7 @@ pub const Ssa = struct {
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
         for (0..this.assign_num) |assign_idx| {
-            if (this.assign[assign_idx].inlined) |inlined| {
+            if (this.assign[assign_idx].inlined) |*inlined| {
                 allocator.free(inlined.base);
                 allocator.free(inlined.inlined_in);
                 allocator.free(inlined.inlined_out);
