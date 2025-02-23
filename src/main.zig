@@ -2,7 +2,8 @@ const std = @import("std");
 
 // TODO: Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread
 // TODO: Maybe give a list of tensor names to the compiler that do have to hold the right values
-//  and should not be inlined away instead of the other way around
+//  and should not be inlined away instead of the other way around.
+//  I like this solution a lot because it also makes the compiler simulator more interesting when randomizing the "relevant" tensors.
 // TODO: Don't use usize where possible to get rid of platform dependant code
 // TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
 // TODO: Actual error handling where it is possible

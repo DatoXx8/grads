@@ -5,6 +5,9 @@ const bufPrint = std.fmt.bufPrint;
 
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
+const Base = @import("./ssa.zig").Base;
+const DimInfo = @import("./ssa.zig").DimInfo;
+const Inlined = @import("./ssa.zig").Inlined;
 
 const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 const Op = @import("../tensor.zig").Op;
