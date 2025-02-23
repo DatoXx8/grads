@@ -399,7 +399,7 @@ pub const Base = struct {
     }
 };
 
-// TODO: Maybe make all these slices from a global buffer
+// TODO: Maybe make all these slices from a global / per ssa buffer
 /// Tree representation of inlined ops
 pub const Inlined = struct {
     base: []Base,

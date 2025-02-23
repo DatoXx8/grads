@@ -9,7 +9,7 @@ const std = @import("std");
 // TODO: Actual error handling where it is possible
 // TODO: Add autograd
 // TODO: Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
-// TODO: Analyse /usr/lib/libnvidia-opencl.so
+// TODO: Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
 
 const assert = std.debug.assert;
 

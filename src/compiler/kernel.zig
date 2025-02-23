@@ -30,6 +30,16 @@ pub const Args = struct {
             if (!layer[assign_idx].base.type.isUnary()) {
                 try arg_unique.put(layer[assign_idx].base.in.name_offset, layer[assign_idx].base.in.values_cl.?);
             }
+
+            if (layer[assign_idx].inlined) |inlined| {
+                // TODO: If the thing is inlined then don't there is no need to pass it to the kernel
+                for (0..inlined.inlined_num) |inlined_idx| {
+                    try arg_unique.put(inlined.base[inlined_idx].out.name_offset, inlined.base[inlined_idx].out.values_cl.?);
+                    if (!layer[assign_idx].base.type.isUnary()) {
+                        try arg_unique.put(inlined.base[inlined_idx].in.name_offset, inlined.base[inlined_idx].in.values_cl.?);
+                    }
+                }
+            }
         }
 
         const arg_num: usize = arg_unique.count();
