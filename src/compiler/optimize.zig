@@ -19,13 +19,16 @@ const Op = @import("../tensor.zig").Op;
 
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
+const Base = @import("./ssa.zig").Base;
 const DimInfo = @import("./ssa.zig").DimInfo;
+const Inlined = @import("./ssa.zig").Inlined;
 
 pub const Optimization = enum(u8) {
     O0,
     O1,
     O2,
     O3,
+    // TODO: Either make the order irrelevant here or assert the right order
     // TODO: This memory management is horrible. Refactor refactor refactor
     //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
     pub fn inlineOp(this: @This(), allocator: Allocator, ssa: *Ssa) !void {
@@ -64,7 +67,7 @@ pub const Optimization = enum(u8) {
         }
 
         // TODO: I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
-        const inlined_temp: []Assign.Base = try allocator.alloc(Assign.Base, ssa.assign_num);
+        const inlined_temp: []Base = try allocator.alloc(Base, ssa.assign_num);
         const inlined_temp_out: []?usize = try allocator.alloc(?usize, ssa.assign_num);
         const inlined_temp_in: []?usize = try allocator.alloc(?usize, ssa.assign_num);
         const inlined_temp_idx: []?usize = try allocator.alloc(?usize, ssa.assign_num);
@@ -141,7 +144,7 @@ pub const Optimization = enum(u8) {
                         inlined.inlined_in_base = inlined.inlined_num + (inlined_temp_num - 1);
                     } else {
                         ssa.assign[assign_idx_search].inlined = .{
-                            .base = try allocator.alloc(Assign.Base, inlined_temp_num),
+                            .base = try allocator.alloc(Base, inlined_temp_num),
                             .inlined_out = try allocator.alloc(?usize, inlined_temp_num),
                             .inlined_in = try allocator.alloc(?usize, inlined_temp_num),
                             .inlined_out_base = null,
@@ -188,7 +191,7 @@ pub const Optimization = enum(u8) {
                     inlined.inlined_out_base = inlined.inlined_num + (inlined_temp_num - 1);
                 } else {
                     ssa.assign[target_idx].inlined = .{
-                        .base = try allocator.alloc(Assign.Base, inlined_temp_num),
+                        .base = try allocator.alloc(Base, inlined_temp_num),
                         .inlined_out = try allocator.alloc(?usize, inlined_temp_num),
                         .inlined_in = try allocator.alloc(?usize, inlined_temp_num),
                         .inlined_out_base = inlined_temp_num - 1,
@@ -230,7 +233,7 @@ pub const Optimization = enum(u8) {
     pub fn parallelize(this: @This(), allocator: Allocator, ssa: *Ssa) !void {
         assert(this == .O1 or this == .O2 or this == .O3);
 
-        var base_temp: []Assign.Base = try allocator.alloc(Assign.Base, ssa.assign_num);
+        var base_temp: []Base = try allocator.alloc(Base, ssa.assign_num);
         errdefer allocator.free(base_temp);
         defer allocator.free(base_temp);
 
@@ -301,7 +304,7 @@ pub const Optimization = enum(u8) {
                             remove_temp[assign_idx + inner_idx + loop_idx * loop_len] = true;
                         }
                     }
-                    ssa.assign[assign_idx + inner_idx].base.dim_info = DimInfo.init(base_temp[0..loop_len]);
+                    ssa.assign[assign_idx + inner_idx].base.dim_info = DimInfo.init(base_temp[0..loop_num]);
                     ssa.assign_loop_id[assign_idx + inner_idx] = loop_id;
                     ssa.assign_loop_num[loop_id] = loop_num;
                 }
