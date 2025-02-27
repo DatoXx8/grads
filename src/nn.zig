@@ -278,6 +278,15 @@ pub const Neuralnet = struct {
             this.temp_full.free(allocator);
         }
         pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
+            assert(input.buffer.a_size == 1);
+
+            const z_in: usize = input.buffer.z_size;
+            const y_in: usize = input.buffer.y_size;
+            const x_in: usize = input.buffer.x_size;
+            const z_out: usize = output.buffer.z_size;
+            const y_out: usize = output.buffer.y_size;
+            const x_out: usize = output.buffer.x_size;
+
             input.moveReshape(1, 1, this.size_input, 1);
             this.weights.moveResize(1, 1, this.size_input, 1);
             output.moveResize(1, 1, 1, 1);
@@ -291,9 +300,9 @@ pub const Neuralnet = struct {
                 output.reduceSum(&this.temp_input);
             }
 
-            input.moveReshape(input.buffer.a_inherent, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            input.moveReshape(1, z_in, y_in, x_in);
             input.moveOffset(0, 0, 0, 0);
-            output.moveResize(output.buffer.a_inherent, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output.moveResize(1, z_out, y_out, x_out);
             output.moveOffset(0, 0, 0, 0);
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
@@ -301,6 +310,9 @@ pub const Neuralnet = struct {
             output.binaryAdd(&this.biases);
         }
         pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
+            const z_in: usize = input.buffer.z_size;
+            const y_in: usize = input.buffer.y_size;
+            const x_in: usize = input.buffer.x_size;
             // Biases
             this.biases_g.binaryAdd(output_g);
             // Weights
@@ -317,7 +329,7 @@ pub const Neuralnet = struct {
             }
             this.temp_full.moveResize(1, 1, this.size_input, this.size_output);
             this.temp_full.moveOffset(0, 0, 0, 0);
-            input.moveReshape(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            input.moveReshape(1, z_in, y_in, x_in);
             this.weights_g.binaryAdd(&this.temp_full);
             // Previous activation
             input_g.moveReshape(1, 1, this.size_input, 1);
@@ -332,7 +344,7 @@ pub const Neuralnet = struct {
                 input_g.reduceSum(&this.temp_output);
                 // input_g.reduceAvg(this.temp_output);
             }
-            input_g.moveReshape(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            input_g.moveReshape(1, z_in, y_in, x_in);
             input_g.moveOffset(0, 0, 0, 0);
             this.weights.moveResize(1, 1, this.size_input, this.size_output);
             this.weights.moveOffset(0, 0, 0, 0);
@@ -441,8 +453,18 @@ pub const Neuralnet = struct {
             this.temp_single.free(allocator);
         }
         pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            const x_in_max = input.buffer.x_inherent + this.kernel_padding - 1;
-            const y_in_max = input.buffer.y_inherent + this.kernel_padding - 1;
+            assert(input.buffer.a_size == 1);
+            assert(input.buffer.a_size == output.buffer.a_size);
+
+            const z_in: usize = input.buffer.y_size;
+            const y_in: usize = input.buffer.y_size;
+            const x_in: usize = input.buffer.x_size;
+            const z_out: usize = output.buffer.y_size;
+            const y_out: usize = output.buffer.y_size;
+            const x_out: usize = output.buffer.x_size;
+
+            const x_in_max = input.buffer.x_size + this.kernel_padding - 1;
+            const y_in_max = input.buffer.y_size + this.kernel_padding - 1;
             var x_out_idx: usize = 0;
             var y_out_idx: usize = 0;
 
@@ -450,12 +472,12 @@ pub const Neuralnet = struct {
 
             input.moveOffset(0, 0, 0, 0);
             this.biases.moveResize(1, 1, 1, 1);
-            this.weights.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
+            this.weights.moveResize(1, z_in, this.kernel_size, this.kernel_size);
             output.moveResize(1, 1, 1, 1);
-            this.temp_input_padded.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.temp_input_padded.moveResize(1, z_in, y_in, x_in);
             this.temp_input_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
             this.temp_input_padded.binarySet(input);
-            this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
+            this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
 
             for (0..this.filters) |filter_idx| {
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
@@ -479,18 +501,23 @@ pub const Neuralnet = struct {
             this.biases.moveOffset(0, 0, 0, 0);
             this.weights.moveResize(this.filters, this.z, this.kernel_size, this.kernel_size);
             this.weights.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output.moveResize(1, z_out, y_out, x_out);
             output.moveOffset(0, 0, 0, 0);
-            this.temp_input_padded.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent + 2 * this.kernel_padding, //
-                output.buffer.x_inherent + 2 * this.kernel_padding);
+            this.temp_input_padded.moveResize(1, z_out, y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
             this.temp_input_padded.moveOffset(0, 0, 0, 0);
         }
         // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
         // That would remove the need for temp_full
         pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output: *Tensor, output_g: *Tensor) void {
+            const z_out: usize = output.buffer.z_size;
+            const y_out: usize = output.buffer.y_size;
+            const x_out: usize = output.buffer.x_size;
+            const z_in: usize = input.buffer.z_size;
+            const y_in: usize = input.buffer.y_size;
+            const x_in: usize = input.buffer.x_size;
             // Biases
             this.biases_g.moveResize(1, 1, 1, 1);
-            output_g.moveResize(1, 1, output.buffer.y_inherent, output.buffer.x_inherent);
+            output_g.moveResize(1, 1, y_out, x_out);
             for (0..this.filters) |filter_idx| {
                 this.biases_g.moveOffset(filter_idx, 0, 0, 0);
                 output_g.moveOffset(0, filter_idx, 0, 0);
@@ -500,23 +527,23 @@ pub const Neuralnet = struct {
             }
             this.biases_g.moveResize(this.filters, 1, 1, 1);
             this.biases_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output_g.moveResize(1, z_out, y_out, x_out);
             output_g.moveOffset(0, 0, 0, 0);
             // Weights
             var x_in_idx: usize = 0;
             var y_in_idx: usize = 0;
             output_g.moveResize(1, 1, 1, 1);
             output_g.moveOffset(0, 0, 0, 0);
-            this.weights_g.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
+            this.weights_g.moveResize(1, z_in, this.kernel_size, this.kernel_size);
             this.weights_g.moveOffset(0, 0, 0, 0);
-            this.temp_input_padded.moveResize(1, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
+            this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
             this.temp_input_padded.moveOffset(0, 0, 0, 0);
             for (0..this.filters) |filter_idx| {
                 this.weights_g.moveOffset(filter_idx, 0, 0, 0);
                 y_in_idx = 0;
-                for (0..output.buffer.y_inherent) |y_out_idx| {
+                for (0..y_out) |y_out_idx| {
                     x_in_idx = 0;
-                    for (0..output.buffer.x_inherent) |x_out_idx| {
+                    for (0..x_out) |x_out_idx| {
                         output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                         this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
                         this.temp_kernel.binarySet(&this.temp_input_padded);
@@ -528,17 +555,17 @@ pub const Neuralnet = struct {
                     y_in_idx += this.kernel_stride;
                 }
             }
-            output.moveResize(1, output.buffer.z_inherent, output_g.buffer.y_inherent, output_g.buffer.x_inherent);
+            output.moveResize(1, z_out, y_out, x_out);
             output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(this.filters, input.buffer.z_inherent, this.kernel_size, this.kernel_size);
+            this.weights.moveResize(this.filters, z_in, this.kernel_size, this.kernel_size);
             this.weights.moveOffset(0, 0, 0, 0);
-            this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.temp_grad_padded.moveResize(1, z_in, y_in, x_in);
             this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
 
             input_g.binarySet(&this.temp_grad_padded);
 
-            this.temp_grad_padded.moveResize(1, input.buffer.z_inherent, //
-                input.buffer.y_inherent + 2 * this.kernel_padding, input.buffer.x_inherent + 2 * this.kernel_padding);
+            this.temp_grad_padded.moveResize(1, z_in, //
+                y_in + 2 * this.kernel_padding, x_in + 2 * this.kernel_padding);
         }
         pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
             if (name) |text| {
@@ -632,7 +659,13 @@ pub const Neuralnet = struct {
             };
         }
         pub fn forward(this: @This(), input: *Tensor, output: *Tensor) void {
-            input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            assert(input.buffer.a_size == 1);
+            assert(input.buffer.a_size == 1);
+
+            const z_out: usize = output.buffer.z_size;
+            const y_out: usize = output.buffer.y_size;
+            const x_out: usize = output.buffer.x_size;
+
             input.moveOffset(0, 0, 0, 0);
             output.moveResize(1, 1, 1, 1);
             output.moveOffset(0, 0, 0, 0);
@@ -658,9 +691,19 @@ pub const Neuralnet = struct {
                     y_out_idx += 1;
                 }
             }
+
+            input.moveOffset(0, 0, 0, 0);
+            output.moveResize(1, z_out, y_out, x_out);
+            output.moveOffset(0, 0, 0, 0);
         }
         /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
         pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
+            const z_in: usize = input_g.buffer.z_size;
+            const y_in: usize = input_g.buffer.y_size;
+            const x_in: usize = input_g.buffer.x_size;
+            const z_out: usize = output_g.buffer.z_size;
+            const y_out: usize = output_g.buffer.y_size;
+            const x_out: usize = output_g.buffer.x_size;
             input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
             output_g.moveResize(1, 1, 1, 1);
 
@@ -680,9 +723,9 @@ pub const Neuralnet = struct {
                 }
             }
 
-            input_g.moveResize(1, input_g.buffer.z_inherent, input_g.buffer.y_inherent, input_g.buffer.x_inherent);
+            input_g.moveResize(1, z_in, y_in, x_in);
             input_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, output_g.buffer.z_inherent, output_g.buffer.y_inherent, output_g.buffer.x_inherent);
+            output_g.moveResize(1, z_out, y_out, x_out);
             output_g.moveOffset(0, 0, 0, 0);
         }
         pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -741,20 +784,29 @@ pub const Neuralnet = struct {
             this.temp_input.free(allocator);
         }
         pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.z_inherent * this.filters == output.buffer.z_inherent);
-            assert(input.buffer.y_inherent == output.buffer.y_inherent);
-            assert(input.buffer.x_inherent == output.buffer.x_inherent);
-            input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            assert(input.buffer.a_size == 1);
+            assert(input.buffer.a_size == output.buffer.a_size);
+            assert(input.buffer.z_size * this.filters == output.buffer.z_size);
+            assert(input.buffer.y_size == output.buffer.y_size);
+            assert(input.buffer.x_size == output.buffer.x_size);
+
+            const z_out: usize = output.buffer.z_size;
+            const y_out: usize = output.buffer.y_size;
+            const x_out: usize = output.buffer.x_size;
+            const z_in: usize = input.buffer.z_size;
+            const y_in: usize = input.buffer.y_size;
+            const x_in: usize = input.buffer.x_size;
+
             input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, input.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output.moveResize(1, z_in, y_out, x_out);
             output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.weights.moveResize(1, z_in, y_in, x_in);
             this.weights.moveOffset(0, 0, 0, 0);
-            this.biases.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.biases.moveResize(1, z_in, y_in, x_in);
             this.biases.moveOffset(0, 0, 0, 0);
 
             for (0..this.filters) |filter_idx| {
-                output.moveOffset(0, filter_idx * input.buffer.z_inherent, 0, 0);
+                output.moveOffset(0, filter_idx * z_in, 0, 0);
                 this.weights.moveOffset(filter_idx, 0, 0, 0);
                 this.biases.moveOffset(filter_idx, 0, 0, 0);
                 output.binarySet(input);
@@ -762,13 +814,13 @@ pub const Neuralnet = struct {
                 output.binaryAdd(&this.biases);
             }
 
-            input.moveResize(1, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            input.moveResize(1, z_in, y_in, x_in);
             input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, output.buffer.z_inherent, output.buffer.y_inherent, output.buffer.x_inherent);
+            output.moveResize(1, z_out, y_out, x_out);
             output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(this.filters, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.weights.moveResize(this.filters, z_in, y_in, x_in);
             this.weights.moveOffset(0, 0, 0, 0);
-            this.biases.moveResize(this.filters, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
+            this.biases.moveResize(this.filters, z_in, y_in, x_in);
             this.biases.moveOffset(0, 0, 0, 0);
         }
         pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
@@ -931,14 +983,13 @@ pub const Neuralnet = struct {
             }
         }
         pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_inherent == output.buffer.a_inherent);
-            assert(input.buffer.z_inherent == output.buffer.z_inherent);
-            assert(input.buffer.y_inherent == output.buffer.y_inherent);
-            assert(input.buffer.x_inherent == output.buffer.x_inherent);
+            assert(input.buffer.a_size == 1);
+            assert(input.buffer.a_size == output.buffer.a_size);
+            assert(input.buffer.z_size == output.buffer.z_size);
+            assert(input.buffer.y_size == output.buffer.y_size);
+            assert(input.buffer.x_size == output.buffer.x_size);
 
-            input.moveResize(input.buffer.a_inherent, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             input.moveOffset(0, 0, 0, 0);
-            output.moveResize(input.buffer.a_inherent, input.buffer.z_inherent, input.buffer.y_inherent, input.buffer.x_inherent);
             output.moveOffset(0, 0, 0, 0);
 
             switch (this.t) {
@@ -950,14 +1001,13 @@ pub const Neuralnet = struct {
             }
         }
         pub fn backward(this: *@This(), input_g: *Tensor, output_g: *Tensor) void {
-            assert(input_g.buffer.a_inherent == output_g.buffer.a_inherent);
-            assert(input_g.buffer.z_inherent == output_g.buffer.z_inherent);
-            assert(input_g.buffer.y_inherent == output_g.buffer.y_inherent);
-            assert(input_g.buffer.x_inherent == output_g.buffer.x_inherent);
+            assert(input_g.buffer.a_size == 1);
+            assert(input_g.buffer.a_size == output_g.buffer.a_size);
+            assert(input_g.buffer.z_size == output_g.buffer.z_size);
+            assert(input_g.buffer.y_size == output_g.buffer.y_size);
+            assert(input_g.buffer.x_size == output_g.buffer.x_size);
 
-            input_g.moveResize(input_g.buffer.a_inherent, input_g.buffer.z_inherent, input_g.buffer.y_inherent, input_g.buffer.x_inherent);
             input_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(input_g.buffer.a_inherent, input_g.buffer.z_inherent, input_g.buffer.y_inherent, input_g.buffer.x_inherent);
             output_g.moveOffset(0, 0, 0, 0);
 
             switch (this.t) {
@@ -1195,14 +1245,14 @@ pub const Neuralnet = struct {
         assert(size_global % size_local == 0);
 
         var layers: []Layer = try allocator.alloc(Layer, config.len);
-        var z_previous: usize = input.buffer.z_inherent;
-        var y_previous: usize = input.buffer.y_inherent;
-        var x_previous: usize = input.buffer.x_inherent;
+        var z_previous: usize = input.buffer.z_size;
+        var y_previous: usize = input.buffer.y_size;
+        var x_previous: usize = input.buffer.x_size;
         for (0..layers.len) |layer_idx| {
             layers[layer_idx] = try Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
-            z_previous = layers[layer_idx].values.buffer.z_inherent;
-            y_previous = layers[layer_idx].values.buffer.y_inherent;
-            x_previous = layers[layer_idx].values.buffer.x_inherent;
+            z_previous = layers[layer_idx].values.buffer.z_size;
+            y_previous = layers[layer_idx].values.buffer.y_size;
+            x_previous = layers[layer_idx].values.buffer.x_size;
         }
         var previous_values: Tensor = input;
         for (0..layers.len) |layer_idx| {
@@ -1212,10 +1262,10 @@ pub const Neuralnet = struct {
                 allocator,
                 previous_values.linearized.op_num + switch (layers[layer_idx].tag) {
                     .dense => 3 * layers[layer_idx].tag.dense.size_output + 1,
-                    .convolution => 4 * layers[layer_idx].values.buffer.z_inherent * //
-                        layers[layer_idx].values.buffer.y_inherent * layers[layer_idx].values.buffer.x_inherent + 1,
-                    .reduce => layers[layer_idx].values.buffer.z_inherent * //
-                        layers[layer_idx].values.buffer.y_inherent * layers[layer_idx].values.buffer.x_inherent,
+                    .convolution => 4 * layers[layer_idx].values.buffer.z_size * //
+                        layers[layer_idx].values.buffer.y_size * layers[layer_idx].values.buffer.x_size + 1,
+                    .reduce => layers[layer_idx].values.buffer.z_size * //
+                        layers[layer_idx].values.buffer.y_size * layers[layer_idx].values.buffer.x_size,
                     .split => 3 * layers[layer_idx].tag.split.filters,
                     .residual => 1,
                 } + switch (layers[layer_idx].activation.t) {

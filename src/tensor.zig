@@ -27,10 +27,10 @@ pub const Buffer = struct {
         FailedToDevice,
         FailedWait,
     };
-    a_inherent: usize,
-    z_inherent: usize,
-    y_inherent: usize,
-    x_inherent: usize,
+
+    // NOTE: I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
+    //  necessary and that is already saved in values.len
+
     a_size: usize,
     z_size: usize,
     y_size: usize,
@@ -59,10 +59,6 @@ pub const Buffer = struct {
             .z_size = z,
             .y_size = y,
             .x_size = x,
-            .a_inherent = a,
-            .z_inherent = z,
-            .y_inherent = y,
-            .x_inherent = x,
             .a_stride = z * y * x,
             .z_stride = y * x,
             .y_stride = x,
@@ -87,10 +83,6 @@ pub const Buffer = struct {
             .z_size = z,
             .y_size = y,
             .x_size = x,
-            .a_inherent = a,
-            .z_inherent = z,
-            .y_inherent = y,
-            .x_inherent = x,
             .a_stride = z * y * x,
             .z_stride = y * x,
             .y_stride = x,
@@ -151,7 +143,7 @@ pub const Buffer = struct {
     }
     pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
-            const size: usize = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const size: usize = this.values.len * @sizeOf(f32);
             if (OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
@@ -162,7 +154,7 @@ pub const Buffer = struct {
     }
     pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_device) {
-            const size: usize = this.a_inherent * this.z_inherent * this.y_inherent * this.x_inherent * @sizeOf(f32);
+            const size: usize = this.values.len * @sizeOf(f32);
             if (OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
                 OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
@@ -1372,10 +1364,12 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        assert(a <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(z <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(y <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(x <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        assert(a <= this.buffer.values.len);
+        assert(z <= this.buffer.values.len);
+        assert(y <= this.buffer.values.len);
+        assert(x <= this.buffer.values.len);
+        assert(a * z * y * x <= this.buffer.values.len);
         this.buffer.a_size = a;
         this.buffer.z_size = z;
         this.buffer.y_size = y;
@@ -1390,20 +1384,25 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        assert(a <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(z <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(y <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(x <= this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        assert(a <= this.buffer.values.len);
+        assert(z <= this.buffer.values.len);
+        assert(y <= this.buffer.values.len);
+        assert(x <= this.buffer.values.len);
+        assert(a * z * y * x <= this.buffer.values.len);
         this.buffer.a_size = a;
         this.buffer.z_size = z;
         this.buffer.y_size = y;
         this.buffer.x_size = x;
     }
     pub fn moveOffset(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
-        assert(a < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(z < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(y < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
-        assert(x < this.buffer.a_inherent * this.buffer.z_inherent * this.buffer.y_inherent * this.buffer.x_inherent);
+        assert(a < this.buffer.values.len);
+        assert(z < this.buffer.values.len);
+        assert(y < this.buffer.values.len);
+        assert(x < this.buffer.values.len);
+        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        assert(a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride +
+            x * this.buffer.x_stride < this.buffer.values.len);
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
     }
     pub fn dependOn(this: *@This(), prerequisite: *@This()) void {
