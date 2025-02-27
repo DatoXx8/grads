@@ -94,19 +94,19 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
             try writeSource(allocator, source, offset, "(", .{});
         },
         .unary_exp => {
-            try writeSource(allocator, source, offset, "fexp", .{});
+            try writeSource(allocator, source, offset, "exp(", .{});
         },
         .unary_log => {
-            try writeSource(allocator, source, offset, "flog", .{});
+            try writeSource(allocator, source, offset, "log(", .{});
         },
         .unary_square => {
             try writeSource(allocator, source, offset, "pow(", .{});
         },
         .unary_sqrt => {
-            try writeSource(allocator, source, offset, "fsqrt(", .{});
+            try writeSource(allocator, source, offset, "sqrt(", .{});
         },
         .unary_reciprocal => {
-            try writeSource(allocator, source, offset, "(", .{});
+            try writeSource(allocator, source, offset, "(1/", .{});
         },
         .unary_max => {
             try writeSource(allocator, source, offset, "fmax(", .{});
@@ -153,8 +153,16 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         .linary_set => {
             try writeSource(allocator, source, offset, "(", .{});
         },
-        .reduce_sum, .reduce_max, .reduce_avg, .reduce_min => {
+        .reduce_sum,
+        .reduce_avg,
+        => {
             try writeSource(allocator, source, offset, "(", .{});
+        },
+        .reduce_min => {
+            try writeSource(allocator, source, offset, "fmin(", .{});
+        },
+        .reduce_max => {
+            try writeSource(allocator, source, offset, "fmax(", .{});
         },
     }
 }
@@ -185,16 +193,12 @@ fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         => {
             try writeSource(allocator, source, offset, "/", .{});
         },
-        .unary_reciprocal => {
-            try writeSource(allocator, source, offset, "1/", .{});
-        },
+        .unary_reciprocal,
         .unary_exp,
         .unary_log,
         .unary_square,
         .unary_sqrt,
-        => {
-            try writeSource(allocator, source, offset, ",", .{});
-        },
+        => {},
         .unary_max,
         .binary_max,
         .linary_max,
@@ -239,14 +243,20 @@ fn writeAssignPostfix(allocator: Allocator, source: *[]u8, offset: *usize, base:
         .unary_subtract,
         .unary_multiply,
         .unary_divide,
-        .unary_exp,
-        .unary_log,
-        .unary_square,
-        .unary_sqrt,
-        .unary_reciprocal,
         .unary_max,
         .unary_min,
+        => {
+            try writeSource(allocator, source, offset, "({d}))", .{base.u_var});
+        },
+        .unary_square,
+        => {
+            try writeSource(allocator, source, offset, ",2)", .{});
+        },
         .unary_set,
+        .unary_exp,
+        .unary_log,
+        .unary_sqrt,
+        .unary_reciprocal,
         .unary_random,
         .unary_tanh,
         .unary_absolute,
@@ -331,7 +341,9 @@ fn writeAssignOutBase(
                 offset_out,
             });
         },
-        .unary_set,
+        .unary_set => {
+            try writeSource(allocator, source, offset, "({d})", .{base.u_var});
+        },
         .binary_set,
         .linary_set,
         => {},
@@ -352,21 +364,6 @@ fn writeAssignInBase(
         assert(offset_in == 0);
     }
     switch (base.type) {
-        .unary_add,
-        .unary_subtract,
-        .unary_multiply,
-        .unary_divide,
-        .unary_exp,
-        .unary_log,
-        .unary_square,
-        .unary_sqrt,
-        .unary_reciprocal,
-        .unary_max,
-        .unary_min,
-        .unary_random,
-        .unary_tanh,
-        .unary_absolute,
-        .unary_sign,
         .binary_add,
         .binary_subtract,
         .binary_multiply,
@@ -395,9 +392,23 @@ fn writeAssignInBase(
                 offset_in,
             });
         },
-        .unary_set => {
-            try writeSource(allocator, source, offset, "({d})", .{base.u_var});
-        },
+        .unary_add,
+        .unary_subtract,
+        .unary_multiply,
+        .unary_divide,
+        .unary_max,
+        .unary_min,
+        .unary_set,
+        .unary_exp,
+        .unary_log,
+        .unary_square,
+        .unary_sqrt,
+        .unary_reciprocal,
+        .unary_random,
+        .unary_tanh,
+        .unary_absolute,
+        .unary_sign,
+        => unreachable,
     }
 }
 
@@ -484,6 +495,25 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
     const z_size: usize = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
     const y_size: usize = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
     const x_size: usize = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+
+    if (assign.base.type.isReduce()) {
+        try writeSource(allocator, source, offset, "{s}[{s}_{}_{}_{}+{}]={s};\n", .{
+            assign.base.out.name(),
+            assign.base.out.name(),
+            kernel_loop_idx,
+            assign_idx,
+            0,
+            0,
+            switch (assign.base.type) {
+                .reduce_sum => "0",
+                .reduce_avg => "0",
+                .reduce_max => "-INFINITY",
+                .reduce_min => "INFINITY",
+                else => unreachable,
+            },
+        });
+    }
+
     for (0..a_size) |a| {
         for (0..z_size) |z| {
             for (0..y_size) |y| {
@@ -517,12 +547,14 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
                         if (inlined.inlined_in_base) |inlined_in| {
                             try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_in + 1, a, z, y, x);
                         } else {
-                            const offset_in: usize = if (assign.base.type.isReduce()) 0 else assign.base.in.at(a, z, y, x) - assign.base.in.offset;
+                            const offset_in: usize = if (assign.base.type.isLinary()) 0 else assign.base.in.at(a, z, y, x) - assign.base.in.offset;
                             try writeAssignInBase(allocator, source, offset, assign.base, kernel_loop_idx, assign_idx, 0, offset_in);
                         }
                     } else {
-                        const offset_in: usize = if (assign.base.type.isReduce()) 0 else assign.base.in.at(a, z, y, x) - assign.base.in.offset;
-                        try writeAssignInBase(allocator, source, offset, assign.base, kernel_loop_idx, assign_idx, 0, offset_in);
+                        if (!assign.base.type.isUnary()) {
+                            const offset_in: usize = if (assign.base.type.isLinary()) 0 else assign.base.in.at(a, z, y, x) - assign.base.in.offset;
+                            try writeAssignInBase(allocator, source, offset, assign.base, kernel_loop_idx, assign_idx, 0, offset_in);
+                        }
                     }
 
                     try writeAssignPostfix(allocator, source, offset, assign.base);
@@ -531,6 +563,18 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
                 }
             }
         }
+    }
+
+    if (assign.base.type == .reduce_avg) {
+        try writeSource(allocator, source, offset, "{s}[{s}_{}_{}_{}+{}]/={d};\n", .{
+            assign.base.out.name(),
+            assign.base.out.name(),
+            kernel_loop_idx,
+            assign_idx,
+            0,
+            0,
+            @as(f64, @floatFromInt(a_size * z_size * y_size * x_size)),
+        });
     }
 }
 
