@@ -1218,6 +1218,14 @@ pub const Neuralnet = struct {
                         layers[layer_idx].values.buffer.y_inherent * layers[layer_idx].values.buffer.x_inherent,
                     .split => 3 * layers[layer_idx].tag.split.filters,
                     .residual => 1,
+                } + switch (layers[layer_idx].activation.t) {
+                    .none => @as(usize, 0),
+                    .relu => @as(usize, 1),
+                    .sigmoid => @as(usize, 4),
+                    .tanh => @as(usize, 1),
+                    .silu => @as(usize, 6),
+                    .gelu => @as(usize, 6),
+                    .leaky => @as(usize, 3),
                 },
             );
 
