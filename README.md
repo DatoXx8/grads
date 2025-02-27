@@ -3,7 +3,7 @@
 Grads is a deep learning framework written in Zig. It is a recreational project, though you can use it for serious projects if you want to.
 It is essentialy an optimizing transpiler to OpenCL.
 
-Grads is currently licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/).
+Grads is currently licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/), but I am unsure if it will stay like this forever.
 
 ## Dependencies
 
