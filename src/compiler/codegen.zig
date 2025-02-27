@@ -246,7 +246,7 @@ fn writeAssignPostfix(allocator: Allocator, source: *[]u8, offset: *usize, base:
         .unary_max,
         .unary_min,
         => {
-            try writeSource(allocator, source, offset, "({d}))", .{base.u_var});
+            try writeSource(allocator, source, offset, "((float){d}))", .{base.u_var});
         },
         .unary_square,
         => {
