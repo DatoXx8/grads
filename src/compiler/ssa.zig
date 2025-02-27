@@ -241,22 +241,22 @@ pub const DimInfo = struct {
         std.debug.print("{s}str => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
             this.a_stride_out, this.z_stride_out, this.y_stride_out, this.x_stride_out, //
-            this.a_stride_out, this.z_stride_out, this.y_stride_out, this.x_stride_out,
+            this.a_stride_in,  this.z_stride_in,  this.y_stride_in,  this.x_stride_in,
         });
         std.debug.print("{s}res => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
             this.a_reset_out, this.z_reset_out, this.y_reset_out, this.x_reset_out, //
-            this.a_reset_out, this.z_reset_out, this.y_reset_out, this.x_reset_out,
+            this.a_reset_in,  this.z_reset_in,  this.y_reset_in,  this.x_reset_in,
         });
         std.debug.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
             this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out, //
-            this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out,
+            this.a_wait_in,  this.z_wait_in,  this.y_wait_in,  this.x_wait_in,
         });
         std.debug.print("{s}idx => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
             this.a_idx_out, this.z_idx_out, this.y_idx_out, this.x_idx_out, //
-            this.a_idx_out, this.z_idx_out, this.y_idx_out, this.x_idx_out,
+            this.a_idx_in,  this.z_idx_in,  this.y_idx_in,  this.x_idx_in,
         });
     }
 };

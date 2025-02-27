@@ -422,7 +422,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
         const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
             size_global, size_local, value, device, context, queue);
-        defer program.free(allocator) catch {};
+        defer program.free(allocator);
 
         var time_program: [iterations]i128 = undefined;
         for (0..iterations) |interation_idx| {

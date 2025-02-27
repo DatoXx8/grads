@@ -44,9 +44,12 @@ pub const Args = struct {
 
         const arg_num: usize = arg_unique.count();
         const arg_name: []usize = try allocator.alloc(usize, arg_num);
-        errdefer allocator.free(arg_name);
         const arg_mem: []ClMem = try allocator.alloc(ClMem, arg_num);
-        errdefer allocator.free(arg_mem);
+
+        errdefer {
+            allocator.free(arg_name);
+            allocator.free(arg_mem);
+        }
 
         var arg_name_iterator = arg_unique.keyIterator();
         for (0..arg_num) |arg_idx| {
@@ -93,8 +96,10 @@ pub const Kernel = struct {
             .kernel = kernel,
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) !void {
-        try this.kernel.free();
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        this.kernel.free() catch |err| {
+            std.log.err("Could not free kernel because of error {!}\n", .{err});
+        };
         this.args.free(allocator);
     }
 };

@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// FIXME: Some diminfo bug in the weigths for dense layers
+
 // TODO: Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread
 // TODO: Maybe give a list of tensor names to the compiler that do have to hold the right values
 //  and should not be inlined away instead of the other way around.
@@ -57,7 +59,8 @@ pub fn main() !void {
         device,
         queue,
     );
-    defer nn.free(allocator) catch {};
+    errdefer nn.free(allocator);
+    defer nn.free(allocator);
     nn.init(0);
     try nn.forward(.gpu);
     nn.layers[nn.layers.len - 1].values.print(4, 0, null);

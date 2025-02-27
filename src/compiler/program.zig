@@ -37,8 +37,8 @@ pub const Program = struct {
     pub fn alloc(
         allocator: Allocator,
         linearized: Linearized,
-        size_global: usize,
-        size_local: usize,
+        size_global: u32,
+        size_local: u32,
         optimization: Optimization,
         device: ClDevice,
         context: ClContext,
@@ -90,8 +90,9 @@ pub const Program = struct {
             assert(assign_idx < ssa.assign_num);
 
             var assign_idx_top: usize = assign_idx + 1;
-            for (assign_idx + 1..ssa.assign_num) |assign_search_idx| {
-                if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_search_idx].base.layer()) {
+            for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
+                if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_idx_search].base.layer()) {
+                    assert(ssa.assign_loop_id[assign_idx] == ssa.assign_loop_id[assign_idx_search]);
                     assign_idx_top += 1;
                 } else {
                     break;
@@ -102,12 +103,12 @@ pub const Program = struct {
             // NOTE: This should be enough work to justify storing it in memory
             // TODO: Rethink this when I refactor the args gathering
             kernel_args[kernel_num] = try Args.alloc(allocator, layer);
-            // NOTE: The \x00 is to make the string 0-terminated
+
             @memset(kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{kernel_num})).len;
 
-            try compileKernel(allocator, &source, &source_len, layer, kernel_name[0..kernel_name_len], //
-                kernel_args[kernel_num], size_global, size_local);
+            try compileKernel(allocator, &source, &source_len, layer, ssa.assign_loop_num[ssa.assign_loop_id[assign_idx]], //
+                kernel_name[0..kernel_name_len], kernel_args[kernel_num], size_global, size_local);
 
             kernel_num += 1;
             assign_idx = assign_idx_top;
@@ -131,13 +132,15 @@ pub const Program = struct {
             .queue = queue,
         };
     }
-    pub fn free(this: @This(), allocator: Allocator) !void {
+    pub fn free(this: @This(), allocator: Allocator) void {
         for (this.kernel) |*kernel| {
-            try kernel.free(allocator);
+            kernel.free(allocator);
         }
         allocator.free(this.kernel);
         allocator.free(this.source);
-        try this.program.free();
+        this.program.free() catch |err| {
+            std.log.err("Could not free program because of error {!}\n", .{err});
+        };
     }
     pub fn run(this: @This()) !void {
         for (this.kernel) |kernel| {

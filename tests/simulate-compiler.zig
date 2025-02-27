@@ -390,7 +390,7 @@ fn simulateCompiler(
 
     const program: Program = try Program.alloc(allocator, tensor1[tensor_out].linearized, //
         size_global, size_local, optimization, device, context, queue);
-    defer program.free(allocator) catch {};
+    defer program.free(allocator);
 
     try program.run();
 

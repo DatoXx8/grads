@@ -1119,7 +1119,7 @@ pub const Neuralnet = struct {
                 },
             }
         }
-        pub fn free(this: *@This(), allocator: Allocator) !void {
+        pub fn free(this: *@This(), allocator: Allocator) void {
             switch (this.tag) {
                 .dense => this.tag.dense.free(allocator),
                 .convolution => this.tag.convolution.free(allocator),
@@ -1182,8 +1182,8 @@ pub const Neuralnet = struct {
         allocator: Allocator,
         input: Tensor,
         config: []const Layer.Config,
-        size_global: usize,
-        size_local: usize,
+        size_global: u32,
+        size_local: u32,
         optimization: Optimization,
         context: ClContext,
         device: ClDevice,
@@ -1206,6 +1206,8 @@ pub const Neuralnet = struct {
         }
         var previous_values: Tensor = input;
         for (0..layers.len) |layer_idx| {
+            // TODO: Just in case I search for TODO more than FIXME!!!!! FIXME FIXME FIXME
+            // FIXME: Need to add the capacity for the activation function
             try layers[layer_idx].values.linearized.capacityEnsure(
                 allocator,
                 previous_values.linearized.op_num + switch (layers[layer_idx].tag) {
@@ -1335,17 +1337,17 @@ pub const Neuralnet = struct {
             .learn_cl = learn_cl,
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) !void {
+    pub fn free(this: *@This(), allocator: Allocator) void {
         for (0..this.layers.len) |layer_idx| {
-            try this.layers[layer_idx].free(allocator);
+            this.layers[layer_idx].free(allocator);
         }
         allocator.free(this.layers);
         this.forward_cpu.free(allocator);
         this.backward_cpu.free(allocator);
         this.learn_cpu.free(allocator);
-        try this.forward_cl.free(allocator);
-        try this.backward_cl.free(allocator);
-        try this.learn_cl.free(allocator);
+        this.forward_cl.free(allocator);
+        this.backward_cl.free(allocator);
+        this.learn_cl.free(allocator);
     }
     /// This is a linear congruential generator, which is a PRNG itself, although it is sub par statistically speaking.
     /// But since this only transforms the seed it shouldn't matter at all.
