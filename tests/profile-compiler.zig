@@ -399,7 +399,6 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
-
         // NOTE: Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
         tensor2[tensor_out].linearized.run();
@@ -410,7 +409,6 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
-    // TODO: For loop over all optimization things here, also save the initial values
     for (0..tensor_num) |tensor_idx| {
         tensor1[tensor_idx].buffer.syncUpdate(.sync_to_device);
         try tensor1[tensor_idx].buffer.syncToDevice(queue);

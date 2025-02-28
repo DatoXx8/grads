@@ -90,7 +90,24 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
 
 fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: Base) WriteSourceError!void {
     switch (base.type) {
-        .unary_add, .unary_subtract, .unary_multiply, .unary_divide => {
+        .unary_add,
+        .unary_subtract,
+        .unary_multiply,
+        .unary_divide,
+        .unary_set,
+        .binary_add,
+        .binary_subtract,
+        .binary_multiply,
+        .binary_divide,
+        .binary_set,
+        .linary_add,
+        .linary_subtract,
+        .linary_multiply,
+        .linary_divide,
+        .linary_set,
+        .reduce_sum,
+        .reduce_avg,
+        => {
             try writeSource(allocator, source, offset, "(", .{});
         },
         .unary_exp => {
@@ -108,14 +125,19 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         .unary_reciprocal => {
             try writeSource(allocator, source, offset, "(1/", .{});
         },
-        .unary_max => {
+        .unary_max,
+        .binary_max,
+        .linary_max,
+        .reduce_max,
+        => {
             try writeSource(allocator, source, offset, "fmax(", .{});
         },
-        .unary_min => {
+        .unary_min,
+        .binary_min,
+        .linary_min,
+        .reduce_min,
+        => {
             try writeSource(allocator, source, offset, "fmin(", .{});
-        },
-        .unary_set => {
-            try writeSource(allocator, source, offset, "(", .{});
         },
         .unary_random => {
             todo();
@@ -129,41 +151,6 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         .unary_sign => {
             todo();
         },
-        .binary_add, .binary_subtract, .binary_multiply, .binary_divide => {
-            try writeSource(allocator, source, offset, "(", .{});
-        },
-        .binary_max => {
-            try writeSource(allocator, source, offset, "fmax(", .{});
-        },
-        .binary_min => {
-            try writeSource(allocator, source, offset, "fmin(", .{});
-        },
-        .binary_set => {
-            try writeSource(allocator, source, offset, "(", .{});
-        },
-        .linary_add, .linary_subtract, .linary_multiply, .linary_divide => {
-            try writeSource(allocator, source, offset, "(", .{});
-        },
-        .linary_max => {
-            try writeSource(allocator, source, offset, "fmax(", .{});
-        },
-        .linary_min => {
-            try writeSource(allocator, source, offset, "fmin(", .{});
-        },
-        .linary_set => {
-            try writeSource(allocator, source, offset, "(", .{});
-        },
-        .reduce_sum,
-        .reduce_avg,
-        => {
-            try writeSource(allocator, source, offset, "(", .{});
-        },
-        .reduce_min => {
-            try writeSource(allocator, source, offset, "fmin(", .{});
-        },
-        .reduce_max => {
-            try writeSource(allocator, source, offset, "fmax(", .{});
-        },
     }
 }
 
@@ -172,6 +159,8 @@ fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         .unary_add,
         .binary_add,
         .linary_add,
+        .reduce_sum,
+        .reduce_avg,
         => {
             try writeSource(allocator, source, offset, "+", .{});
         },
@@ -198,32 +187,19 @@ fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
         .unary_log,
         .unary_square,
         .unary_sqrt,
-        => {},
-        .unary_max,
-        .binary_max,
-        .linary_max,
-        => {
-            try writeSource(allocator, source, offset, ",", .{});
-        },
-        .unary_min,
-        .binary_min,
-        .linary_min,
-        => {
-            try writeSource(allocator, source, offset, ",", .{});
-        },
         .unary_tanh,
         .unary_absolute,
-        => {},
         .unary_set,
         .binary_set,
         .linary_set,
         => {},
-        .reduce_sum,
-        .reduce_avg,
-        => {
-            try writeSource(allocator, source, offset, "+", .{});
-        },
+        .unary_max,
+        .binary_max,
+        .linary_max,
         .reduce_max,
+        .unary_min,
+        .binary_min,
+        .linary_min,
         .reduce_min,
         => {
             try writeSource(allocator, source, offset, ",", .{});
@@ -491,11 +467,6 @@ fn writeAssignIn(
 }
 
 fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: usize, assign_idx: usize) WriteSourceError!void {
-    const a_size: usize = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-    const z_size: usize = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-    const y_size: usize = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-    const x_size: usize = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
-
     if (assign.base.type.isReduce()) {
         try writeSource(allocator, source, offset, "{s}[{s}_{}_{}_{}+{}]={s};\n", .{
             assign.base.out.name(),
@@ -513,6 +484,11 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
             },
         });
     }
+
+    const a_size: usize = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: usize = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: usize = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: usize = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
 
     for (0..a_size) |a| {
         for (0..z_size) |z| {

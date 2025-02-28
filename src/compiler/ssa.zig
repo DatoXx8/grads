@@ -261,6 +261,7 @@ pub const DimInfo = struct {
     }
 };
 
+/// The basic thing the Assignment does without any funny business
 pub const Base = struct {
     out: Buffer,
     in: Buffer,
@@ -427,7 +428,6 @@ pub const Simd = struct {
 
 /// Essentialy this is one unit of work
 pub const Assign = struct {
-    /// The basic thing the Assignment does without any funny business
     base: Base,
     inlined: ?Inlined,
     split: ?Split,
