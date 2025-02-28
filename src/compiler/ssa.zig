@@ -409,6 +409,27 @@ pub const Inlined = struct {
     inlined_out_base: ?usize,
     inlined_in_base: ?usize,
     inlined_num: usize,
+    // TODO: Check wether it is faster to break when first difference is found or just loop through everything
+    /// Check for equal sizes, assign types, u_vars but not offsets.
+    pub inline fn equal(this: @This(), target: @This()) bool {
+        if (this.inlined_num == target.inlined_num and this.inlined_in_base == target.inlined_in_base and
+            this.inlined_out_base == target.inlined_out_base)
+        {
+            for (0..this.inlined_num) |inlined_idx| {
+                if (this.base[inlined_idx].equals(target.base[inlined_idx]) and
+                    this.inlined_out[inlined_idx] == target.inlined_out[inlined_idx] and
+                    this.inlined_in[inlined_idx] == this.inlined_in[inlined_idx])
+                {
+                    continue;
+                } else {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 
 /// Wether or not to split a single operation across kernels

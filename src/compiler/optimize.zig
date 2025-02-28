@@ -244,7 +244,6 @@ pub const Optimization = enum(u8) {
 
         var loop_id: u32 = 1;
 
-        // TODO: Check for equality of inlined trees
         var assign_idx: u32 = 0;
         while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
             var loop_len: u32 = 0;
@@ -252,13 +251,44 @@ pub const Optimization = enum(u8) {
 
             var assign_idx_search: u32 = assign_idx + 1;
             while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
+                const inlined_equal_outer: bool = blk: {
+                    if (ssa.assign[assign_idx].inlined) |inlined| {
+                        if (ssa.assign[assign_idx_search].inlined) |inlined_search| {
+                            break :blk inlined.equal(inlined_search);
+                        } else {
+                            break :blk false;
+                        }
+                    } else {
+                        if (ssa.assign[assign_idx_search].inlined) |_| {
+                            break :blk false;
+                        } else {
+                            break :blk true;
+                        }
+                    }
+                };
+
                 if (ssa.assign[assign_idx].base.equals(ssa.assign[assign_idx_search].base) and
-                    !ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.out))
+                    !ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.out) and inlined_equal_outer)
                 {
                     var equal: bool = true;
                     for (0..(assign_idx_search - assign_idx)) |assign_off| {
+                        const inlined_equal_inner: bool = blk: {
+                            if (ssa.assign[assign_idx + assign_off].inlined) |inlined| {
+                                if (ssa.assign[assign_idx_search + assign_off].inlined) |inlined_search| {
+                                    break :blk inlined.equal(inlined_search);
+                                } else {
+                                    break :blk false;
+                                }
+                            } else {
+                                if (ssa.assign[assign_idx_search + assign_off].inlined) |_| {
+                                    break :blk false;
+                                } else {
+                                    break :blk true;
+                                }
+                            }
+                        };
                         if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx_search + assign_off].base) or
-                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
+                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out) or !inlined_equal_inner)
                         {
                             equal = false;
                             break;
@@ -283,8 +313,24 @@ pub const Optimization = enum(u8) {
                     var assign_off: usize = 0;
                     // TODO: Might need to check for overlap between every single iterations... yikes...
                     while (assign_off < loop_len) : (assign_off += 1) {
+                        const inlined_equal: bool = blk: {
+                            if (ssa.assign[assign_idx + assign_off].inlined) |inlined| {
+                                if (ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined) |inlined_search| {
+                                    break :blk inlined.equal(inlined_search);
+                                } else {
+                                    break :blk false;
+                                }
+                            } else {
+                                if (ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined) |_| {
+                                    break :blk false;
+                                } else {
+                                    break :blk true;
+                                }
+                            }
+                        };
                         if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
-                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out) or
+                            !inlined_equal)
                         {
                             equal = false;
                             break;
