@@ -406,7 +406,7 @@ fn writeAssignOut(
 
     try writeAssignPrefix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    if (inlined.inlined_out[inlined_idx_actual]) |inlined_out| {
+    if (inlined.out[inlined_idx_actual]) |inlined_out| {
         try writeAssignOut(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_out + 1, a, z, y, x);
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
@@ -416,7 +416,7 @@ fn writeAssignOut(
 
     try writeAssignMidfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    if (inlined.inlined_in[inlined_idx_actual]) |inlined_in| {
+    if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_in + 1, a, z, y, x);
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
@@ -445,7 +445,7 @@ fn writeAssignIn(
 
     try writeAssignPrefix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    if (inlined.inlined_out[inlined_idx_actual]) |inlined_out| {
+    if (inlined.out[inlined_idx_actual]) |inlined_out| {
         try writeAssignOut(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_out + 1, a, z, y, x);
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
@@ -455,7 +455,7 @@ fn writeAssignIn(
 
     try writeAssignMidfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    if (inlined.inlined_in[inlined_idx_actual]) |inlined_in| {
+    if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_in + 1, a, z, y, x);
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
@@ -508,7 +508,7 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
                     try writeAssignPrefix(allocator, source, offset, assign.base);
 
                     if (assign.inlined) |inlined| {
-                        if (inlined.inlined_out_base) |inlined_out| {
+                        if (inlined.out_root) |inlined_out| {
                             try writeAssignOut(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_out + 1, a, z, y, x);
                         } else {
                             try writeAssignOutBase(allocator, source, offset, assign.base, kernel_loop_idx, assign_idx, 0, offset_out);
@@ -520,7 +520,7 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
                     try writeAssignMidfix(allocator, source, offset, assign.base);
 
                     if (assign.inlined) |inlined| {
-                        if (inlined.inlined_in_base) |inlined_in| {
+                        if (inlined.in_root) |inlined_in| {
                             try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, assign_idx, inlined_in + 1, a, z, y, x);
                         } else {
                             const offset_in: usize = if (assign.base.type.isLinary()) 0 else assign.base.in.at(a, z, y, x) - assign.base.in.offset;

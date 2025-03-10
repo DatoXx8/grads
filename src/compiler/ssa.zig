@@ -404,10 +404,10 @@ pub const Base = struct {
 /// Tree representation of inlined ops
 pub const Inlined = struct {
     base: []Base,
-    inlined_out: []?usize,
-    inlined_in: []?usize,
-    inlined_out_base: ?usize,
-    inlined_in_base: ?usize,
+    out: []?usize,
+    in: []?usize,
+    out_root: ?usize,
+    in_root: ?usize,
     inlined_num: usize,
 };
 
@@ -439,7 +439,7 @@ pub const Assign = struct {
         }
         this.base.print(padding, offset, null);
         if (this.inlined) |inlined| {
-            std.debug.print("{s}Inlined out_base {?} in_base {?}\n", .{ " " ** (offset + padding), inlined.inlined_out_base, inlined.inlined_in_base });
+            std.debug.print("{s}Inlined out_base {?} in_base {?}\n", .{ " " ** (offset + padding), inlined.out_root, inlined.in_root });
             for (0..inlined.inlined_num) |inlined_idx| {
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
@@ -539,8 +539,8 @@ pub const Ssa = struct {
         for (0..this.assign_num) |assign_idx| {
             if (this.assign[assign_idx].inlined) |*inlined| {
                 allocator.free(inlined.base);
-                allocator.free(inlined.inlined_in);
-                allocator.free(inlined.inlined_out);
+                allocator.free(inlined.in);
+                allocator.free(inlined.out);
             }
             if (this.assign[assign_idx].split) |split| {
                 _ = split;

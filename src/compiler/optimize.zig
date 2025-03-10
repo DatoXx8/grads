@@ -38,8 +38,6 @@ pub const Optimization = enum(u8) {
         errdefer allocator.free(inlined_eligible);
         defer allocator.free(inlined_eligible);
 
-        var inlined_temp_num: usize = 0;
-
         for (0..ssa.assign_num) |assign_idx| {
             inlined_eligible[assign_idx] = if (ssa.assign[assign_idx].base.type.isReduce() or
                 !ssa.assign[assign_idx].base.out.intermediary)
@@ -67,40 +65,41 @@ pub const Optimization = enum(u8) {
         }
 
         // TODO: I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
-        const inlined_temp: []Base = try allocator.alloc(Base, ssa.assign_num);
-        const inlined_temp_out: []?usize = try allocator.alloc(?usize, ssa.assign_num);
-        const inlined_temp_in: []?usize = try allocator.alloc(?usize, ssa.assign_num);
-        const inlined_temp_idx: []?usize = try allocator.alloc(?usize, ssa.assign_num);
-        const inlined_already: []bool = try allocator.alloc(bool, ssa.assign_num);
+        const temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
+        const temp_out: []?usize = try allocator.alloc(?usize, ssa.assign_num);
+        const temp_in: []?usize = try allocator.alloc(?usize, ssa.assign_num);
+        const temp_idx: []?usize = try allocator.alloc(?usize, ssa.assign_num);
+        const temp_already: []bool = try allocator.alloc(bool, ssa.assign_num);
         errdefer {
-            allocator.free(inlined_temp);
-            allocator.free(inlined_temp_out);
-            allocator.free(inlined_temp_in);
-            allocator.free(inlined_temp_idx);
-            allocator.free(inlined_already);
+            allocator.free(temp_base);
+            allocator.free(temp_out);
+            allocator.free(temp_in);
+            allocator.free(temp_idx);
+            allocator.free(temp_already);
         }
         defer {
-            allocator.free(inlined_temp);
-            allocator.free(inlined_temp_out);
-            allocator.free(inlined_temp_in);
-            allocator.free(inlined_temp_idx);
-            allocator.free(inlined_already);
+            allocator.free(temp_base);
+            allocator.free(temp_out);
+            allocator.free(temp_in);
+            allocator.free(temp_idx);
+            allocator.free(temp_already);
         }
-        @memset(inlined_already, false);
+        @memset(temp_already, false);
 
+        var temp_num: usize = 0;
         for (0..ssa.assign_num) |assign_idx| {
-            if (!inlined_eligible[assign_idx] or inlined_already[assign_idx]) {
+            if (!inlined_eligible[assign_idx] or temp_already[assign_idx]) {
                 continue;
             }
 
-            inlined_temp[0] = ssa.assign[assign_idx].base;
-            inlined_temp_num = 1;
-            inlined_temp_in[0] = null;
-            inlined_temp_out[0] = null;
-            inlined_temp_idx[0] = assign_idx;
+            temp_base[0] = ssa.assign[assign_idx].base;
+            temp_num = 1;
+            temp_in[0] = null;
+            temp_out[0] = null;
+            temp_idx[0] = assign_idx;
 
             for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
-                if (inlined_already[assign_idx_search]) {
+                if (temp_already[assign_idx_search]) {
                     continue;
                 }
 
@@ -111,116 +110,116 @@ pub const Optimization = enum(u8) {
                     ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out))
                 {
                     if (ssa.assign[assign_idx_search].inlined) |*inlined| {
-                        assert(inlined.inlined_out_base == null);
-                        assert(inlined.inlined_in_base != null);
+                        assert(inlined.out_root == null);
+                        assert(inlined.in_root != null);
 
                         for (0..inlined.inlined_num) |inlined_idx| {
-                            inlined_temp_in[inlined_temp_num + inlined_idx] = if (inlined.inlined_in[inlined_idx]) |in| in + inlined_temp_num else null;
-                            inlined_temp_out[inlined_temp_num + inlined_idx] = if (inlined.inlined_out[inlined_idx]) |out| out + inlined_temp_num else null;
-                            inlined_temp[inlined_temp_num + inlined_idx] = inlined.base[inlined_idx];
+                            temp_in[temp_num + inlined_idx] = if (inlined.in[inlined_idx]) |in| in + temp_num else null;
+                            temp_out[temp_num + inlined_idx] = if (inlined.out[inlined_idx]) |out| out + temp_num else null;
+                            temp_base[temp_num + inlined_idx] = inlined.base[inlined_idx];
                             // NOTE: It's fine that this information is lost because it's already marked for deletion anyways
-                            inlined_temp_idx[inlined_temp_num + inlined_idx] = null;
+                            temp_idx[temp_num + inlined_idx] = null;
                         }
-                        inlined_temp_num += inlined.inlined_num;
-                        inlined_temp_in[inlined_temp_num] = inlined.inlined_in_base.? + inlined_temp_num;
+                        temp_num += inlined.inlined_num;
+                        temp_in[temp_num] = inlined.in_root.? + temp_num;
                     } else {
-                        inlined_temp_in[inlined_temp_num] = null;
+                        temp_in[temp_num] = null;
                     }
 
-                    inlined_temp[inlined_temp_num] = ssa.assign[assign_idx_search].base;
-                    inlined_temp_out[inlined_temp_num] = if (inlined_temp_num == 0) null else inlined_temp_num - 1;
-                    inlined_temp_idx[inlined_temp_num] = assign_idx_search;
-                    inlined_temp_num += 1;
+                    temp_base[temp_num] = ssa.assign[assign_idx_search].base;
+                    temp_out[temp_num] = if (temp_num == 0) null else temp_num - 1;
+                    temp_idx[temp_num] = assign_idx_search;
+                    temp_num += 1;
                 } else if (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.in) and
                     ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.in))
                 {
                     if (ssa.assign[assign_idx_search].inlined) |*inlined| {
-                        assert(inlined.inlined_in_base == null);
-                        assert(inlined.inlined_out_base == null or inlined.inlined_out_base != null); // Just to make it explicit what is expected here
+                        assert(inlined.in_root == null);
+                        assert(inlined.out_root == null or inlined.out_root != null); // Just to make it explicit what is expected here
 
-                        inlined.inlined_out = try allocator.realloc(inlined.inlined_out, inlined.inlined_num + inlined_temp_num);
-                        inlined.inlined_in = try allocator.realloc(inlined.inlined_in, inlined.inlined_num + inlined_temp_num);
-                        inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + inlined_temp_num);
-                        inlined.inlined_in_base = inlined.inlined_num + (inlined_temp_num - 1);
+                        inlined.out = try allocator.realloc(inlined.out, inlined.inlined_num + temp_num);
+                        inlined.in = try allocator.realloc(inlined.in, inlined.inlined_num + temp_num);
+                        inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + temp_num);
+                        inlined.in_root = inlined.inlined_num + (temp_num - 1);
                     } else {
                         ssa.assign[assign_idx_search].inlined = .{
-                            .base = try allocator.alloc(Base, inlined_temp_num),
-                            .inlined_out = try allocator.alloc(?usize, inlined_temp_num),
-                            .inlined_in = try allocator.alloc(?usize, inlined_temp_num),
-                            .inlined_out_base = null,
-                            .inlined_in_base = inlined_temp_num - 1,
+                            .base = try allocator.alloc(Base, temp_num),
+                            .out = try allocator.alloc(?usize, temp_num),
+                            .in = try allocator.alloc(?usize, temp_num),
+                            .out_root = null,
+                            .in_root = temp_num - 1,
                             .inlined_num = 0,
                         };
                     }
 
-                    for (0..inlined_temp_num) |inlined_idx| {
+                    for (0..temp_num) |inlined_idx| {
                         const inlined_num: usize = ssa.assign[assign_idx_search].inlined.?.inlined_num;
-                        if (inlined_temp_idx[inlined_idx]) |idx| {
-                            inlined_already[idx] = true;
+                        if (temp_idx[inlined_idx]) |idx| {
+                            temp_already[idx] = true;
                         }
 
-                        ssa.assign[assign_idx_search].inlined.?.base[inlined_num + inlined_idx] = inlined_temp[inlined_idx];
-                        ssa.assign[assign_idx_search].inlined.?.inlined_in[inlined_num + inlined_idx] = inlined_temp_in[inlined_idx];
-                        ssa.assign[assign_idx_search].inlined.?.inlined_out[inlined_num + inlined_idx] = inlined_temp_out[inlined_idx];
+                        ssa.assign[assign_idx_search].inlined.?.base[inlined_num + inlined_idx] = temp_base[inlined_idx];
+                        ssa.assign[assign_idx_search].inlined.?.in[inlined_num + inlined_idx] = temp_in[inlined_idx];
+                        ssa.assign[assign_idx_search].inlined.?.out[inlined_num + inlined_idx] = temp_out[inlined_idx];
                     }
-                    ssa.assign[assign_idx_search].inlined.?.inlined_num += inlined_temp_num;
+                    ssa.assign[assign_idx_search].inlined.?.inlined_num += temp_num;
                 }
             }
 
-            if (inlined_temp_num == 1) continue;
+            if (temp_num == 1) continue;
 
-            if (inlined_already[inlined_temp_idx[inlined_temp_num - 1].?]) {
+            if (temp_already[temp_idx[temp_num - 1].?]) {
                 // Do nothing I guess?
             } else {
                 // TODO: Come to think of it if this case is hit then I guess the ops are completely redundant and can be deleted
-                const target_idx: usize = inlined_temp_idx[inlined_temp_num - 1].?;
+                const target_idx: usize = temp_idx[temp_num - 1].?;
 
-                inlined_temp[inlined_temp_num - 1] = undefined;
-                inlined_temp_out[inlined_temp_num - 1] = null;
-                inlined_temp_in[inlined_temp_num - 1] = null;
-                inlined_temp_idx[inlined_temp_num - 1] = null;
-                inlined_temp_num -= 1;
+                temp_base[temp_num - 1] = undefined;
+                temp_out[temp_num - 1] = null;
+                temp_in[temp_num - 1] = null;
+                temp_idx[temp_num - 1] = null;
+                temp_num -= 1;
 
                 if (ssa.assign[target_idx].inlined) |*inlined| {
-                    assert(inlined.inlined_out_base == null);
-                    assert(inlined.inlined_in_base == null or inlined.inlined_in_base != null); // Just to make it explicit what is expected here
+                    assert(inlined.out_root == null);
+                    assert(inlined.in_root == null or inlined.in_root != null); // Just to make it explicit what is expected here
 
-                    inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + inlined_temp_num);
-                    inlined.inlined_out = try allocator.realloc(inlined.inlined_out, inlined.inlined_num + inlined_temp_num);
-                    inlined.inlined_in = try allocator.realloc(inlined.inlined_in, inlined.inlined_num + inlined_temp_num);
-                    inlined.inlined_out_base = inlined.inlined_num + (inlined_temp_num - 1);
+                    inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + temp_num);
+                    inlined.out = try allocator.realloc(inlined.out, inlined.inlined_num + temp_num);
+                    inlined.in = try allocator.realloc(inlined.in, inlined.inlined_num + temp_num);
+                    inlined.out_root = inlined.inlined_num + (temp_num - 1);
                 } else {
                     ssa.assign[target_idx].inlined = .{
-                        .base = try allocator.alloc(Base, inlined_temp_num),
-                        .inlined_out = try allocator.alloc(?usize, inlined_temp_num),
-                        .inlined_in = try allocator.alloc(?usize, inlined_temp_num),
-                        .inlined_out_base = inlined_temp_num - 1,
-                        .inlined_in_base = null,
+                        .base = try allocator.alloc(Base, temp_num),
+                        .out = try allocator.alloc(?usize, temp_num),
+                        .in = try allocator.alloc(?usize, temp_num),
+                        .out_root = temp_num - 1,
+                        .in_root = null,
                         .inlined_num = 0,
                     };
                 }
 
                 const target_num: usize = ssa.assign[target_idx].inlined.?.inlined_num;
-                for (0..inlined_temp_num) |inlined_idx| {
-                    ssa.assign[target_idx].inlined.?.base[target_num + inlined_idx] = inlined_temp[inlined_idx];
-                    ssa.assign[target_idx].inlined.?.inlined_out[target_num + inlined_idx] = inlined_temp_out[inlined_idx];
-                    ssa.assign[target_idx].inlined.?.inlined_in[target_num + inlined_idx] = inlined_temp_in[inlined_idx];
-                    if (inlined_temp_idx[inlined_idx]) |idx| {
-                        inlined_already[idx] = true;
+                for (0..temp_num) |inlined_idx| {
+                    ssa.assign[target_idx].inlined.?.base[target_num + inlined_idx] = temp_base[inlined_idx];
+                    ssa.assign[target_idx].inlined.?.out[target_num + inlined_idx] = temp_out[inlined_idx];
+                    ssa.assign[target_idx].inlined.?.in[target_num + inlined_idx] = temp_in[inlined_idx];
+                    if (temp_idx[inlined_idx]) |idx| {
+                        temp_already[idx] = true;
                     }
                 }
 
-                ssa.assign[target_idx].inlined.?.inlined_num += inlined_temp_num;
+                ssa.assign[target_idx].inlined.?.inlined_num += temp_num;
             }
         }
 
         var assign_num_new: usize = 0;
         for (0..ssa.assign_num) |assign_idx| {
-            if (inlined_already[assign_idx]) {
+            if (temp_already[assign_idx]) {
                 if (ssa.assign[assign_idx].inlined) |*inlined| {
                     allocator.free(inlined.base);
-                    allocator.free(inlined.inlined_out);
-                    allocator.free(inlined.inlined_in);
+                    allocator.free(inlined.out);
+                    allocator.free(inlined.in);
                 }
             } else {
                 ssa.assign[assign_num_new] = ssa.assign[assign_idx];
@@ -329,8 +328,8 @@ pub const Optimization = enum(u8) {
             if (remove_temp[assign_idx]) {
                 if (ssa.assign[assign_idx].inlined) |*inlined| {
                     allocator.free(inlined.base);
-                    allocator.free(inlined.inlined_out);
-                    allocator.free(inlined.inlined_in);
+                    allocator.free(inlined.out);
+                    allocator.free(inlined.in);
                 }
             } else {
                 ssa.assign[assign_num_new] = ssa.assign[assign_idx];
