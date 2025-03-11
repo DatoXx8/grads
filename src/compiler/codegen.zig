@@ -140,7 +140,7 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
             try writeSource(allocator, source, offset, "fmin(", .{});
         },
         .unary_random => {
-            todo();
+            todo(@src());
         },
         .unary_tanh => {
             try writeSource(allocator, source, offset, "tanh(", .{});
@@ -149,7 +149,7 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
             try writeSource(allocator, source, offset, "fabs(", .{});
         },
         .unary_sign => {
-            todo();
+            todo(@src());
         },
     }
 }
@@ -205,10 +205,10 @@ fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
             try writeSource(allocator, source, offset, ",", .{});
         },
         .unary_random => {
-            todo();
+            todo(@src());
         },
         .unary_sign => {
-            todo();
+            todo(@src());
         },
     }
 }
