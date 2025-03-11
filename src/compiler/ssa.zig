@@ -467,9 +467,9 @@ pub const Ssa = struct {
     assign_loop_id: []u32,
     /// Indexed by the id from above
     assign_loop_num: []u32,
-    fn layerLessThan(_: void, lhs: Assign, rhs: Assign) bool {
-        return lhs.base.layer() < rhs.base.layer();
-    }
+    // fn layerLessThan(_: void, lhs: Assign, rhs: Assign) bool {
+    //     return lhs.base.layer() < rhs.base.layer();
+    // }
     pub fn alloc(allocator: Allocator, linearized: Linearized) !Ssa {
         assert(linearized.op_num > 0);
 
@@ -527,8 +527,9 @@ pub const Ssa = struct {
             try layer_read.put(assign[op_idx].base.in.name_offset, layer_idx + 1);
         }
 
-        // TODO: Test if it is faster to use a binary search on the already existing ops and then just insert in the right place immediatly
-        std.mem.sort(Assign, assign, {}, layerLessThan);
+        // NOTE: Why was this ever here? Just to group assignments that could be on the same layer?
+        // FIX: Sorting here can cause issues with loop finding. I need to sort this myself and only swap if the out buffers have a lower layer and are the same name
+        // std.mem.sort(Assign, assign, {}, layerLessThan);
 
         return .{
             .assign = assign,

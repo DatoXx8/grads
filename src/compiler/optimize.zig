@@ -280,7 +280,7 @@ pub const Optimization = enum(u8) {
                 for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                     var equal: bool = true;
                     var assign_off: usize = 0;
-                    // TODO: Might need to check for overlap between every single iterations... yikes...
+                    // FIX: Need to check for overlap between every single iterations... yikes...
                     while (assign_off < loop_len) : (assign_off += 1) {
                         if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
                             ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
