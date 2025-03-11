@@ -324,7 +324,7 @@ pub const Base = struct {
             std.debug.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
         if (this.type.isUnary()) {
-            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" {d}\n", .{
+            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" {d} {}\n", .{
                 " " ** (offset + padding),
                 switch (this.type) {
                     .unary_add => "add",
@@ -353,10 +353,11 @@ pub const Base = struct {
                 this.out.intermediary,
                 this.out.name(),
                 this.u_var,
+                this.layer(),
             });
         } else {
             const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isLinary()) 'L' else (if (this.type.isReduce()) 'R' else unreachable));
-            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}] {} \"{s}\"\n", .{
+            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}] {} \"{s}\" {}\n", .{
                 " " ** (offset + padding),
                 op_kind,
                 switch (this.type) {
@@ -394,6 +395,7 @@ pub const Base = struct {
                 this.in.offset,
                 this.in.intermediary,
                 this.in.name(),
+                this.layer(),
             });
         }
         this.dim_info.print(padding, padding + offset, null);
