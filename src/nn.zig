@@ -15,8 +15,1030 @@ const Program = @import("./compiler/program.zig").Program;
 
 const Optimization = @import("./compiler/optimize.zig").Optimization;
 
-const Ssa = @import("./compiler/ssa.zig").Ssa;
+// TODO: Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
+/// Has to be `none` for reduce layers
+pub const Activation = struct {
+    const leaky_factor: f32 = 0.1;
+    pub const Type = enum(u8) {
+        none,
+        relu,
+        sigmoid,
+        tanh,
+        silu,
+        gelu,
+        leaky,
+    };
+    t: Activation.Type,
+    intermediary: ?Tensor,
+    pub fn alloc(allocator: Allocator, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
+        return .{
+            .t = t,
+            .intermediary = switch (t) {
+                .none => null,
+                .relu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .sigmoid => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .tanh => null,
+                .silu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .gelu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .leaky => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+            },
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        if (this.intermediary) |intermediary| {
+            intermediary.free(allocator);
+        }
+    }
+    pub fn forward(this: *@This(), input: *Tensor) void {
+        switch (this.t) {
+            .none => {},
+            .relu => {
+                input.unaryMax(0);
+            },
+            .sigmoid => {
+                input.unaryMultiply(-1);
+                input.unaryExp();
+                input.unaryAdd(1);
+                input.unaryReciprocal();
+            },
+            .tanh => {
+                input.unaryTanh();
+            },
+            .silu => {
+                this.intermediary.?.binarySet(input);
+                input.unaryMultiply(-1);
+                input.unaryExp();
+                input.unaryAdd(1);
+                input.unaryReciprocal();
+                input.binaryMultiply(&this.intermediary.?);
+            },
+            .gelu => {
+                this.intermediary.?.binarySet(input);
+                input.unaryMultiply(-1.702);
+                input.unaryExp();
+                input.unaryAdd(1);
+                input.unaryReciprocal();
+                input.binaryMultiply(&this.intermediary.?);
+            },
+            .leaky => {
+                this.intermediary.?.binarySet(input);
+                this.intermediary.?.unaryMultiply(Activation.leaky_factor);
+                input.binaryMax(&this.intermediary.?);
+            },
+        }
+    }
+    pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor) void {
+        switch (this.t) {
+            .none => {},
+            .relu => {
+                this.intermediary.?.binarySet(input);
+                this.intermediary.?.unarySign();
+                input_g.binaryMultiply(&this.intermediary.?);
+            },
+            .sigmoid => {
+                this.intermediary.?.binarySet(input);
+                this.intermediary.?.unaryMultiply(-1);
+                this.intermediary.?.unaryAdd(1);
+                this.intermediary.?.binaryMultiply(input);
+                input_g.binaryMultiply(&this.intermediary.?);
+            },
+            .tanh => {
+                input_g.unarySquare();
+                input_g.unaryMultiply(-1);
+                input_g.unaryAdd(1);
+            },
+            .silu => {
+                unreachable;
+            },
+            .gelu => {
+                unreachable;
+            },
+            .leaky => {
+                this.intermediary.?.binarySet(input);
+                this.intermediary.?.unarySign();
+                this.intermediary.?.unaryMax(Activation.leaky_factor);
+                input_g.binaryMultiply(&this.intermediary.?);
+            },
+        }
+    }
+};
+pub const Norm = struct {
+    pub const Type = enum(u8) {
+        none,
+        layer,
+        batch,
+        simple,
+        softmax,
+    };
+    type: Norm.Type,
+    mean: ?Tensor,
+    variance: ?Tensor,
+    max: ?Tensor,
+    pub fn alloc(allocator: Allocator, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
+        return switch (t) {
+            .none => .{
+                .type = t,
+                .mean = null,
+                .variance = null,
+                .max = null,
+            },
+            .layer => .{
+                .type = t,
+                .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .max = null,
+            },
+            .batch => .{
+                .type = t,
+                .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
+                .max = null,
+            },
+            .simple => .{
+                .type = t,
+                .mean = null,
+                .variance = null,
+                .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
+            },
+            .softmax => .{
+                .type = t,
+                // Repurposed to be the place in which to exp the values
+                .mean = null,
+                .variance = null,
+                .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
+            },
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                this.mean.?.free(allocator);
+                this.variance.?.free(allocator);
+            },
+            .batch => {
+                this.mean.?.free(allocator);
+                this.variance.?.free(allocator);
+            },
+            .simple => {
+                this.max.?.free(allocator);
+            },
+            .softmax => {
+                this.max.?.free(allocator);
+            },
+        }
+    }
+    pub fn forward(this: *@This(), allocator: Allocator, input: Tensor) !void {
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                unreachable;
+            },
+            .batch => {
+                unreachable;
+            },
+            .simple => {
+                this.max.?.reduceMax(allocator, input);
+                input.linaryDivide(allocator, this.max.?);
+            },
+            .softmax => {
+                input.unaryExp(allocator);
+                this.max.?.reduceSum(allocator, input);
+                input.linaryDivide(allocator, this.max.?);
+            },
+        }
+    }
+    pub fn backward(this: *@This(), allocator: Allocator, input: Tensor, input_g: Tensor) !void {
+        _ = allocator;
+        _ = input;
+        _ = input_g;
+        switch (this.type) {
+            .none => {},
+            .layer => {
+                unreachable;
+            },
+            .batch => {
+                unreachable;
+            },
+            .simple => {},
+            .softmax => {
+                unreachable;
+            },
+        }
+    }
+};
+pub const Dense = struct {
+    size_input: usize,
+    size_output: usize,
 
+    weights: Tensor,
+    biases: Tensor,
+    weights_g: Tensor,
+    biases_g: Tensor,
+
+    temp_input: Tensor,
+    temp_output: Tensor,
+    temp_full: Tensor,
+
+    pub fn alloc(allocator: Allocator, size_input: usize, size_output: usize, context: ClContext) !Dense {
+        assert(size_input > 0);
+        assert(size_output > 0);
+
+        return .{
+            .size_input = size_input,
+            .size_output = size_output,
+            .weights = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
+            .biases = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
+            .weights_g = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
+            .biases_g = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
+            .temp_input = try Tensor.allocIntermediary(allocator, 1, 1, size_input, 1, context),
+            .temp_output = try Tensor.allocIntermediary(allocator, 1, 1, 1, size_output, context),
+            .temp_full = try Tensor.allocIntermediary(allocator, 1, 1, size_input, size_output, context),
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        this.weights.free(allocator);
+        this.biases.free(allocator);
+        this.weights_g.free(allocator);
+        this.biases_g.free(allocator);
+        this.temp_input.free(allocator);
+        this.temp_output.free(allocator);
+        this.temp_full.free(allocator);
+    }
+    pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
+        assert(input.buffer.a_size == 1);
+
+        const z_in: usize = input.buffer.z_size;
+        const y_in: usize = input.buffer.y_size;
+        const x_in: usize = input.buffer.x_size;
+        const z_out: usize = output.buffer.z_size;
+        const y_out: usize = output.buffer.y_size;
+        const x_out: usize = output.buffer.x_size;
+
+        input.moveReshape(1, 1, this.size_input, 1);
+        this.weights.moveResize(1, 1, this.size_input, 1);
+        output.moveResize(1, 1, 1, 1);
+
+        for (0..this.size_output) |row_idx| {
+            this.weights.moveOffset(0, 0, 0, row_idx);
+            output.moveOffset(0, 0, 0, row_idx);
+
+            this.temp_input.binarySet(&this.weights);
+            this.temp_input.binaryMultiply(input);
+            output.reduceSum(&this.temp_input);
+        }
+
+        input.moveReshape(1, z_in, y_in, x_in);
+        input.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, z_out, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(1, 1, this.size_input, this.size_output);
+        this.weights.moveOffset(0, 0, 0, 0);
+
+        output.binaryAdd(&this.biases);
+    }
+    pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
+        const z_in: usize = input.buffer.z_size;
+        const y_in: usize = input.buffer.y_size;
+        const x_in: usize = input.buffer.x_size;
+        // Biases
+        this.biases_g.binaryAdd(output_g);
+        // Weights
+        this.temp_full.moveResize(1, 1, 1, this.size_output);
+        for (0..this.size_input) |column_idx| {
+            this.temp_full.moveOffset(0, 0, column_idx, 0);
+            this.temp_full.binarySet(output_g);
+        }
+        this.temp_full.moveResize(1, 1, this.size_input, 1);
+        input.moveReshape(1, 1, this.size_input, 1);
+        for (0..this.size_output) |row_idx| {
+            this.temp_full.moveOffset(0, 0, 0, row_idx);
+            this.temp_full.binaryMultiply(input);
+        }
+        this.temp_full.moveResize(1, 1, this.size_input, this.size_output);
+        this.temp_full.moveOffset(0, 0, 0, 0);
+        input.moveReshape(1, z_in, y_in, x_in);
+        this.weights_g.binaryAdd(&this.temp_full);
+        // Previous activation
+        input_g.moveReshape(1, 1, this.size_input, 1);
+        input_g.moveResize(1, 1, 1, 1);
+        this.weights.moveReshape(1, 1, 1, this.size_output);
+        for (0..this.size_input) |column_idx| {
+            input_g.moveOffset(0, 0, column_idx, 0);
+            this.weights.moveOffset(0, 0, column_idx, 0);
+            this.temp_output.binarySet(&this.weights);
+            this.temp_output.binaryMultiply(output_g);
+            // Could use sum or avg here, sum it technically more accurate but avg is more stable
+            input_g.reduceSum(&this.temp_output);
+            // input_g.reduceAvg(this.temp_output);
+        }
+        input_g.moveReshape(1, z_in, y_in, x_in);
+        input_g.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(1, 1, this.size_input, this.size_output);
+        this.weights.moveOffset(0, 0, 0, 0);
+    }
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Dense\n", .{[1]u8{' '} ** offset});
+        }
+        std.debug.print("{s}In {} Out {}\n", .{ [1]u8{' '} ** (offset + padding), this.size_input, this.size_output });
+        std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
+            this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
+        });
+        std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
+            this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
+        });
+    }
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Dense\n", .{[1]u8{' '} ** offset});
+        }
+        std.debug.print("{s}In {} Out {}\n", .{ [1]u8{' '} ** (offset + padding), this.size_input, this.size_output });
+        this.biases.print(padding, offset + padding, "biases");
+        this.biases_g.print(padding, offset + padding, "biases_g");
+        this.weights.print(padding, offset + padding, "weights");
+        this.weights_g.print(padding, offset + padding, "weights_g");
+        this.temp_input.print(padding, offset + padding, "temp_input");
+        this.temp_output.print(padding, offset + padding, "temp_output");
+        this.temp_full.print(padding, offset + padding, "temp_full");
+    }
+};
+pub const Convolution = struct {
+    z: usize,
+    y: usize,
+    x: usize,
+
+    filters: usize,
+    kernel_size: usize,
+    kernel_stride: usize,
+    kernel_padding: usize,
+
+    weights: Tensor,
+    biases: Tensor,
+    weights_g: Tensor,
+    biases_g: Tensor,
+
+    temp_input_padded: Tensor,
+    temp_grad_padded: Tensor,
+    temp_kernel: Tensor,
+    temp_single: Tensor,
+
+    pub fn alloc(
+        allocator: Allocator,
+        z: usize,
+        y: usize,
+        x: usize,
+        filters: usize,
+        kernel_size: usize,
+        kernel_stride: usize,
+        kernel_padding: usize,
+        context: ClContext,
+    ) !Convolution {
+        assert(filters > 0);
+        assert(kernel_size > 0);
+        assert(kernel_stride > 0);
+        assert(kernel_padding >= 0);
+        assert(z > 0);
+        assert(y == x);
+        assert(y >= kernel_size);
+        assert(x >= kernel_size);
+        return .{
+            .z = z,
+            .y = y,
+            .x = x,
+            .filters = filters,
+            .kernel_size = kernel_size,
+            .kernel_padding = kernel_padding,
+            .kernel_stride = kernel_stride,
+            .biases = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
+            .biases_g = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
+            .weights = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
+            .weights_g = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
+            .temp_input_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
+                x + 2 * kernel_padding, context),
+            .temp_grad_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
+                x + 2 * kernel_padding, context),
+            .temp_kernel = try Tensor.allocIntermediary(allocator, 1, z, kernel_size, kernel_size, context),
+            .temp_single = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        this.biases.free(allocator);
+        this.biases_g.free(allocator);
+        this.weights.free(allocator);
+        this.weights_g.free(allocator);
+        this.temp_input_padded.free(allocator);
+        this.temp_grad_padded.free(allocator);
+        this.temp_kernel.free(allocator);
+        this.temp_single.free(allocator);
+    }
+    pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
+        assert(input.buffer.a_size == 1);
+        assert(input.buffer.a_size == output.buffer.a_size);
+
+        const z_in: usize = input.buffer.y_size;
+        const y_in: usize = input.buffer.y_size;
+        const x_in: usize = input.buffer.x_size;
+        const z_out: usize = output.buffer.y_size;
+        const y_out: usize = output.buffer.y_size;
+        const x_out: usize = output.buffer.x_size;
+
+        const x_in_max = input.buffer.x_size + this.kernel_padding - 1;
+        const y_in_max = input.buffer.y_size + this.kernel_padding - 1;
+        var x_out_idx: usize = 0;
+        var y_out_idx: usize = 0;
+
+        // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
+
+        input.moveOffset(0, 0, 0, 0);
+        this.biases.moveResize(1, 1, 1, 1);
+        this.weights.moveResize(1, z_in, this.kernel_size, this.kernel_size);
+        output.moveResize(1, 1, 1, 1);
+        this.temp_input_padded.moveResize(1, z_in, y_in, x_in);
+        this.temp_input_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
+        this.temp_input_padded.binarySet(input);
+        this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
+
+        for (0..this.filters) |filter_idx| {
+            this.biases.moveOffset(filter_idx, 0, 0, 0);
+            this.weights.moveOffset(filter_idx, 0, 0, 0);
+            y_out_idx = 0;
+            for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx| {
+                x_out_idx = 0;
+                for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx| {
+                    output.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
+                    this.temp_input_padded.moveOffset(0, 0, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
+                    this.temp_kernel.binarySet(&this.temp_input_padded);
+                    this.temp_kernel.binaryMultiply(&this.weights);
+                    output.reduceSum(&this.temp_kernel);
+                    output.binaryAdd(&this.biases);
+                    x_out_idx += 1;
+                }
+                y_out_idx += 1;
+            }
+        }
+        this.biases.moveResize(this.filters, 1, 1, 1);
+        this.biases.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(this.filters, this.z, this.kernel_size, this.kernel_size);
+        this.weights.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, z_out, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+        this.temp_input_padded.moveResize(1, z_out, y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
+        this.temp_input_padded.moveOffset(0, 0, 0, 0);
+    }
+    // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
+    // That would remove the need for temp_full
+    pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output: *Tensor, output_g: *Tensor) void {
+        const z_out: usize = output.buffer.z_size;
+        const y_out: usize = output.buffer.y_size;
+        const x_out: usize = output.buffer.x_size;
+        const z_in: usize = input.buffer.z_size;
+        const y_in: usize = input.buffer.y_size;
+        const x_in: usize = input.buffer.x_size;
+        // Biases
+        this.biases_g.moveResize(1, 1, 1, 1);
+        output_g.moveResize(1, 1, y_out, x_out);
+        for (0..this.filters) |filter_idx| {
+            this.biases_g.moveOffset(filter_idx, 0, 0, 0);
+            output_g.moveOffset(0, filter_idx, 0, 0);
+            // Could do avg here for better numerical stability
+            this.temp_single.reduceSum(output_g);
+            this.biases_g.binaryAdd(&this.temp_single);
+        }
+        this.biases_g.moveResize(this.filters, 1, 1, 1);
+        this.biases_g.moveOffset(0, 0, 0, 0);
+        output_g.moveResize(1, z_out, y_out, x_out);
+        output_g.moveOffset(0, 0, 0, 0);
+        // Weights
+        var x_in_idx: usize = 0;
+        var y_in_idx: usize = 0;
+        output_g.moveResize(1, 1, 1, 1);
+        output_g.moveOffset(0, 0, 0, 0);
+        this.weights_g.moveResize(1, z_in, this.kernel_size, this.kernel_size);
+        this.weights_g.moveOffset(0, 0, 0, 0);
+        this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
+        this.temp_input_padded.moveOffset(0, 0, 0, 0);
+        for (0..this.filters) |filter_idx| {
+            this.weights_g.moveOffset(filter_idx, 0, 0, 0);
+            y_in_idx = 0;
+            for (0..y_out) |y_out_idx| {
+                x_in_idx = 0;
+                for (0..x_out) |x_out_idx| {
+                    output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
+                    this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
+                    this.temp_kernel.binarySet(&this.temp_input_padded);
+                    this.temp_kernel.linaryMultiply(output_g);
+                    this.weights_g.binaryAdd(&this.temp_kernel);
+
+                    x_in_idx += this.kernel_stride;
+                }
+                y_in_idx += this.kernel_stride;
+            }
+        }
+        output.moveResize(1, z_out, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(this.filters, z_in, this.kernel_size, this.kernel_size);
+        this.weights.moveOffset(0, 0, 0, 0);
+        this.temp_grad_padded.moveResize(1, z_in, y_in, x_in);
+        this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
+
+        input_g.binarySet(&this.temp_grad_padded);
+
+        this.temp_grad_padded.moveResize(1, z_in, //
+            y_in + 2 * this.kernel_padding, x_in + 2 * this.kernel_padding);
+    }
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
+        }
+        const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding, this.kernel_stride);
+        const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding, this.kernel_stride);
+        const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding, this.kernel_stride);
+        std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.z, this.y, this.x, //
+            out_z,  out_y,  out_x,
+        });
+        std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.filters,       this.kernel_size, //
+            this.kernel_stride, this.kernel_padding,
+        });
+        std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
+            this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
+        });
+        std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
+            this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
+        });
+    }
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
+        }
+        const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+        const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+        const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+
+        std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.z, this.y, this.x, //
+            out_z,  out_y,  out_x,
+        });
+        std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.filters,       this.kernel_size, //
+            this.kernel_stride, this.kernel_padding,
+        });
+        this.biases.print(padding + offset, offset, "biases");
+        this.biases_g.print(padding + offset, offset, "biases_g");
+        this.weights.print(padding + offset, offset, "weights");
+        this.weights_g.print(padding + offset, offset, "weights_g");
+        this.temp_input_padded.print(padding + offset, offset, "temp_input_padded");
+        this.temp_grad_padded.print(padding + offset, offset, "temp_grad_padded");
+        this.temp_kernel.print(padding + offset, offset, "temp_kernel");
+        this.temp_single.print(padding + offset, offset, "temp_single");
+    }
+};
+pub const Reduce = struct {
+    pub const Type = enum(u8) {
+        sum,
+        avg,
+        max,
+        min,
+    };
+    t: Reduce.Type,
+    z: usize,
+    y: usize,
+    x: usize,
+    kernel_size: usize,
+    kernel_stride: usize,
+    // The point of the init is only to check that the initialisation uses valid values
+    pub fn init(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+        assert(kernel_size > 0);
+        assert(kernel_stride > 0);
+        assert(kernel_size <= y);
+        assert(kernel_size <= x);
+        return .{
+            .t = t,
+            .z = z,
+            .y = y,
+            .x = x,
+            .kernel_size = kernel_size,
+            .kernel_stride = kernel_stride,
+        };
+    }
+    pub fn forward(this: @This(), input: *Tensor, output: *Tensor) void {
+        assert(input.buffer.a_size == 1);
+        assert(input.buffer.a_size == 1);
+
+        const z_out: usize = output.buffer.z_size;
+        const y_out: usize = output.buffer.y_size;
+        const x_out: usize = output.buffer.x_size;
+
+        input.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, 1, 1, 1);
+        output.moveOffset(0, 0, 0, 0);
+
+        var x_out_idx: usize = 0;
+        var y_out_idx: usize = 0;
+        for (0..this.z) |channel_idx| {
+            y_out_idx = 0;
+            for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx| {
+                x_out_idx = 0;
+                for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx| {
+                    input.moveOffset(0, channel_idx, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
+                    output.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
+                    // If you really want to you can move this switch outside the loops in case you care about every nanosecond
+                    switch (this.t) {
+                        .sum => output.reduceSum(input),
+                        .avg => output.reduceAvg(input),
+                        .max => output.reduceMax(input),
+                        .min => output.reduceMin(input),
+                    }
+                    x_out_idx += 1;
+                }
+                y_out_idx += 1;
+            }
+        }
+
+        input.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, z_out, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+    }
+    /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
+    pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
+        const z_in: usize = input_g.buffer.z_size;
+        const y_in: usize = input_g.buffer.y_size;
+        const x_in: usize = input_g.buffer.x_size;
+        const z_out: usize = output_g.buffer.z_size;
+        const y_out: usize = output_g.buffer.y_size;
+        const x_out: usize = output_g.buffer.x_size;
+        input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
+        output_g.moveResize(1, 1, 1, 1);
+
+        var x_in_idx: usize = 0;
+        var y_in_idx: usize = 0;
+        for (0..this.z) |channel_idx| {
+            y_in_idx = 0;
+            for (0..this.y) |y_out_idx| {
+                x_in_idx = 0;
+                for (0..this.x) |x_out_idx| {
+                    input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
+                    output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
+                    input_g.linaryAdd(output_g);
+                    x_in_idx += this.kernel_stride;
+                }
+                y_in_idx += this.kernel_stride;
+            }
+        }
+
+        input_g.moveResize(1, z_in, y_in, x_in);
+        input_g.moveOffset(0, 0, 0, 0);
+        output_g.moveResize(1, z_out, y_out, x_out);
+        output_g.moveOffset(0, 0, 0, 0);
+    }
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Reduce {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Reduce\n", .{[1]u8{' '} ** offset});
+        }
+        const z_out: usize = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
+        const y_out: usize = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
+        const x_out: usize = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
+        std.debug.print("{s}Size {} Stride {} In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.kernel_size, this.kernel_stride, //
+            this.z,           this.y,
+            this.x,           z_out,
+            y_out,            x_out,
+        });
+    }
+};
+pub const Split = struct {
+    filters: usize,
+    z: usize,
+    y: usize,
+    x: usize,
+
+    weights: Tensor,
+    biases: Tensor,
+    weights_g: Tensor,
+    biases_g: Tensor,
+
+    temp_input: Tensor,
+
+    pub fn alloc(allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
+        assert(filters > 0);
+        assert(z > 0);
+        assert(y > 0);
+        assert(x > 0);
+        return .{
+            .filters = filters,
+            .z = z,
+            .y = y,
+            .x = x,
+            .weights = try Tensor.alloc(allocator, filters, z, y, x, context),
+            .weights_g = try Tensor.alloc(allocator, filters, z, y, x, context),
+            .biases = try Tensor.alloc(allocator, filters, z, y, x, context),
+            .biases_g = try Tensor.alloc(allocator, filters, z, y, x, context),
+            .temp_input = try Tensor.allocIntermediary(allocator, 1, z, y, x, context),
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        this.weights.free(allocator);
+        this.weights_g.free(allocator);
+        this.biases.free(allocator);
+        this.biases_g.free(allocator);
+        this.temp_input.free(allocator);
+    }
+    pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
+        assert(input.buffer.a_size == 1);
+        assert(input.buffer.a_size == output.buffer.a_size);
+        assert(input.buffer.z_size * this.filters == output.buffer.z_size);
+        assert(input.buffer.y_size == output.buffer.y_size);
+        assert(input.buffer.x_size == output.buffer.x_size);
+
+        const z_out: usize = output.buffer.z_size;
+        const y_out: usize = output.buffer.y_size;
+        const x_out: usize = output.buffer.x_size;
+        const z_in: usize = input.buffer.z_size;
+        const y_in: usize = input.buffer.y_size;
+        const x_in: usize = input.buffer.x_size;
+
+        input.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, z_in, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(1, z_in, y_in, x_in);
+        this.weights.moveOffset(0, 0, 0, 0);
+        this.biases.moveResize(1, z_in, y_in, x_in);
+        this.biases.moveOffset(0, 0, 0, 0);
+
+        for (0..this.filters) |filter_idx| {
+            output.moveOffset(0, filter_idx * z_in, 0, 0);
+            this.weights.moveOffset(filter_idx, 0, 0, 0);
+            this.biases.moveOffset(filter_idx, 0, 0, 0);
+            output.binarySet(input);
+            output.binaryMultiply(&this.weights);
+            output.binaryAdd(&this.biases);
+        }
+
+        input.moveResize(1, z_in, y_in, x_in);
+        input.moveOffset(0, 0, 0, 0);
+        output.moveResize(1, z_out, y_out, x_out);
+        output.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(this.filters, z_in, y_in, x_in);
+        this.weights.moveOffset(0, 0, 0, 0);
+        this.biases.moveResize(this.filters, z_in, y_in, x_in);
+        this.biases.moveOffset(0, 0, 0, 0);
+    }
+    pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
+        this.biases_g.moveResize(1, this.z * this.filters, this.y, this.x);
+        this.biases_g.moveOffset(0, 0, 0, 0);
+        this.biases_g.binarySet(output_g);
+        this.biases_g.moveResize(this.filters, this.z, this.y, this.x);
+        this.biases_g.moveOffset(0, 0, 0, 0);
+
+        this.weights_g.moveResize(1, this.z, this.y, this.x);
+        output_g.moveResize(1, this.z, this.y, this.x);
+        for (0..this.filters) |filter_idx| {
+            this.weights_g.moveOffset(filter_idx, 0, 0, 0);
+            output_g.moveOffset(0, filter_idx * this.z, 0, 0);
+            this.temp_input.binarySet(output_g);
+            this.temp_input.binaryMultiply(input);
+            this.weights_g.binaryAdd(&this.temp_input);
+        }
+        this.weights_g.moveResize(this.filters, this.z, this.y, this.x);
+        this.weights_g.moveOffset(0, 0, 0, 0);
+        output_g.moveResize(1, this.filters * this.z, this.y, this.x);
+        output_g.moveOffset(0, 0, 0, 0);
+
+        output_g.moveResize(1, this.z, this.y, this.x);
+        this.weights.moveResize(1, this.z, this.y, this.x);
+        for (0..this.filters) |filter_idx| {
+            this.weights.moveOffset(filter_idx, 0, 0, 0);
+            output_g.moveOffset(0, filter_idx * this.z, 0, 0);
+            this.temp_input.binarySet(output_g);
+            this.temp_input.binaryMultiply(&this.weights);
+            input_g.binaryAdd(&this.temp_input);
+        }
+        this.weights.moveResize(this.filters, this.z, this.y, this.x);
+        this.weights.moveOffset(0, 0, 0, 0);
+        output_g.moveResize(1, this.filters * this.z, this.y, this.x);
+        output_g.moveOffset(0, 0, 0, 0);
+    }
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Split\n", .{[1]u8{' '} ** offset});
+        }
+
+        std.debug.print("{s}Z {} Y {} X {} Filters {}\n", .{
+            [1]u8{' '} ** (offset + padding),
+            this.z,
+            this.y,
+            this.x,
+            this.filters,
+        });
+        this.biases.print(padding, offset + padding, "biases");
+        this.biases_g.print(padding, offset + padding, "biases_g");
+        this.weights.print(padding, offset + padding, "weights");
+        this.weights_g.print(padding, offset + padding, "weights_g");
+        this.temp_input.print(padding, offset + padding, "temp_input");
+    }
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Split\n", .{[1]u8{' '} ** offset});
+        }
+
+        std.debug.print("{s}Z {} Y {} X {} Filters {}\n", .{
+            [1]u8{' '} ** (offset + padding), //
+            this.z,
+            this.y,
+            this.x,
+            this.filters,
+        });
+        this.biases.print(padding, offset + padding, "biases");
+        this.biases_g.print(padding, offset + padding, "biases_g");
+        this.weights.print(padding, offset + padding, "weights");
+        this.weights_g.print(padding, offset + padding, "weights_g");
+        this.temp_input.print(padding, offset + padding, "temp_input");
+    }
+};
+pub const Residual = struct {
+    pub const Type = enum(u8) {
+        identity,
+        convolution,
+        dense,
+        reduce,
+        split,
+    };
+    const Connection = union(Residual.Type) {
+        identity: void,
+        convolution: Convolution,
+        dense: Dense,
+        reduce: Reduce,
+        split: Split,
+    };
+    t: Residual.Type,
+    connection: Residual.Connection,
+    layer: usize,
+    pub fn allocIdentity(layer: usize) Residual {
+        return .{
+            .layer = layer,
+            .t = .identity,
+            .connection = .{
+                .identity = @as(void, {}),
+            },
+        };
+    }
+    pub fn allocDense(layer: usize, allocator: Allocator, size_in: usize, size_out: usize, context: ClContext) !Residual {
+        return .{
+            .layer = layer,
+            .t = .dense,
+            .connection = .{
+                .dense = try Dense.alloc(allocator, size_in, size_out, context),
+            },
+        };
+    }
+    pub fn allocConvolution(
+        layer: usize,
+        allocator: Allocator,
+        z: usize,
+        y: usize,
+        x: usize,
+        filters: usize,
+        kernel_size: usize,
+        kernel_stride: usize,
+        kernel_padding: usize,
+        context: ClContext,
+    ) !Residual {
+        return .{
+            .layer = layer,
+            .t = .convolution,
+            .connection = .{
+                .convolution = try Convolution.alloc(allocator, z, y, x, filters, kernel_size, kernel_stride, kernel_padding, context),
+            },
+        };
+    }
+    pub fn allocReduce(layer: usize, t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) !Residual {
+        return .{
+            .layer = layer,
+            .t = .reduce,
+            .connection = .{
+                .reduce = Reduce.init(t, z, y, x, kernel_size, kernel_stride),
+            },
+        };
+    }
+    pub fn allocSplit(layer: usize, allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
+        return .{
+            .layer = layer,
+            .t = .split,
+            .connection = .{
+                .split = try Split.alloc(allocator, filters, z, y, x, context),
+            },
+        };
+    }
+    pub fn free(this: *@This(), allocator: Allocator) void {
+        switch (this.connection) {
+            .identity => {},
+            .convolution => this.connection.convolution.free(allocator),
+            .dense => this.connection.dense.free(allocator),
+            .reduce => {},
+            .split => {},
+        }
+    }
+    pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
+        assert(input.buffer.a_size == 1);
+        assert(input.buffer.a_size == output.buffer.a_size);
+        assert(input.buffer.z_size == output.buffer.z_size);
+        assert(input.buffer.y_size == output.buffer.y_size);
+        assert(input.buffer.x_size == output.buffer.x_size);
+
+        input.moveOffset(0, 0, 0, 0);
+        output.moveOffset(0, 0, 0, 0);
+
+        switch (this.t) {
+            .identity => output.binaryAdd(input),
+            .convolution => unreachable,
+            .dense => unreachable,
+            .reduce => unreachable,
+            .split => unreachable,
+        }
+    }
+    pub fn backward(this: *@This(), input_g: *Tensor, output_g: *Tensor) void {
+        assert(input_g.buffer.a_size == 1);
+        assert(input_g.buffer.a_size == output_g.buffer.a_size);
+        assert(input_g.buffer.z_size == output_g.buffer.z_size);
+        assert(input_g.buffer.y_size == output_g.buffer.y_size);
+        assert(input_g.buffer.x_size == output_g.buffer.x_size);
+
+        input_g.moveOffset(0, 0, 0, 0);
+        output_g.moveOffset(0, 0, 0, 0);
+
+        switch (this.t) {
+            .identity => input_g.binaryAdd(output_g),
+            .convolution => unreachable,
+            .dense => unreachable,
+            .reduce => unreachable,
+            .split => unreachable,
+        }
+    }
+    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
+        }
+
+        std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
+        switch (this.connection) {
+            .identity => {},
+            .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"),
+            .dense => this.connection.dense.print(padding, offset + padding, "dense"),
+            .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
+            .split => this.connection.split.print(padding, offset + padding, "split"),
+        }
+    }
+    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]u8) void {
+        if (name) |text| {
+            std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
+        } else {
+            std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
+        }
+
+        std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
+        switch (this.connection) {
+            .identity => {},
+            .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"),
+            .dense => this.connection.dense.debug(padding, offset + padding, "dense"),
+            .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
+            .split => this.connection.split.debug(padding, offset + padding, "split"),
+        }
+    }
+};
 pub const Neuralnet = struct {
     pub const Type = enum(u8) {
         dense,
@@ -24,1032 +1046,6 @@ pub const Neuralnet = struct {
         reduce,
         split,
         residual,
-    };
-
-    // TODO: Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
-    /// Has to be `none` for reduce layers
-    pub const Activation = struct {
-        const leaky_factor: f32 = 0.1;
-        pub const Type = enum(u8) {
-            none,
-            relu,
-            sigmoid,
-            tanh,
-            silu,
-            gelu,
-            leaky,
-        };
-        t: Activation.Type,
-        intermediary: ?Tensor,
-        pub fn alloc(allocator: Allocator, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
-            return .{
-                .t = t,
-                .intermediary = switch (t) {
-                    .none => null,
-                    .relu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .sigmoid => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .tanh => null,
-                    .silu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .gelu => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .leaky => try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                },
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            if (this.intermediary) |intermediary| {
-                intermediary.free(allocator);
-            }
-        }
-        pub fn forward(this: *@This(), input: *Tensor) void {
-            switch (this.t) {
-                .none => {},
-                .relu => {
-                    input.unaryMax(0);
-                },
-                .sigmoid => {
-                    input.unaryMultiply(-1);
-                    input.unaryExp();
-                    input.unaryAdd(1);
-                    input.unaryReciprocal();
-                },
-                .tanh => {
-                    input.unaryTanh();
-                },
-                .silu => {
-                    this.intermediary.?.binarySet(input);
-                    input.unaryMultiply(-1);
-                    input.unaryExp();
-                    input.unaryAdd(1);
-                    input.unaryReciprocal();
-                    input.binaryMultiply(&this.intermediary.?);
-                },
-                .gelu => {
-                    this.intermediary.?.binarySet(input);
-                    input.unaryMultiply(-1.702);
-                    input.unaryExp();
-                    input.unaryAdd(1);
-                    input.unaryReciprocal();
-                    input.binaryMultiply(&this.intermediary.?);
-                },
-                .leaky => {
-                    this.intermediary.?.binarySet(input);
-                    this.intermediary.?.unaryMultiply(Activation.leaky_factor);
-                    input.binaryMax(&this.intermediary.?);
-                },
-            }
-        }
-        pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor) void {
-            switch (this.t) {
-                .none => {},
-                .relu => {
-                    this.intermediary.?.binarySet(input);
-                    this.intermediary.?.unarySign();
-                    input_g.binaryMultiply(&this.intermediary.?);
-                },
-                .sigmoid => {
-                    this.intermediary.?.binarySet(input);
-                    this.intermediary.?.unaryMultiply(-1);
-                    this.intermediary.?.unaryAdd(1);
-                    this.intermediary.?.binaryMultiply(input);
-                    input_g.binaryMultiply(&this.intermediary.?);
-                },
-                .tanh => {
-                    input_g.unarySquare();
-                    input_g.unaryMultiply(-1);
-                    input_g.unaryAdd(1);
-                },
-                .silu => {
-                    unreachable;
-                },
-                .gelu => {
-                    unreachable;
-                },
-                .leaky => {
-                    this.intermediary.?.binarySet(input);
-                    this.intermediary.?.unarySign();
-                    this.intermediary.?.unaryMax(Activation.leaky_factor);
-                    input_g.binaryMultiply(&this.intermediary.?);
-                },
-            }
-        }
-    };
-
-    pub const Norm = struct {
-        pub const Type = enum(u8) {
-            none,
-            layer,
-            batch,
-            simple,
-            softmax,
-        };
-        type: Norm.Type,
-        mean: ?Tensor,
-        variance: ?Tensor,
-        max: ?Tensor,
-        pub fn alloc(allocator: Allocator, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
-            return switch (t) {
-                .none => .{
-                    .type = t,
-                    .mean = null,
-                    .variance = null,
-                    .max = null,
-                },
-                .layer => .{
-                    .type = t,
-                    .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .max = null,
-                },
-                .batch => .{
-                    .type = t,
-                    .mean = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .variance = try Tensor.allocIntermediary(allocator, a, z, y, x, context),
-                    .max = null,
-                },
-                .simple => .{
-                    .type = t,
-                    .mean = null,
-                    .variance = null,
-                    .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
-                },
-                .softmax => .{
-                    .type = t,
-                    // Repurposed to be the place in which to exp the values
-                    .mean = null,
-                    .variance = null,
-                    .max = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
-                },
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            switch (this.type) {
-                .none => {},
-                .layer => {
-                    this.mean.?.free(allocator);
-                    this.variance.?.free(allocator);
-                },
-                .batch => {
-                    this.mean.?.free(allocator);
-                    this.variance.?.free(allocator);
-                },
-                .simple => {
-                    this.max.?.free(allocator);
-                },
-                .softmax => {
-                    this.max.?.free(allocator);
-                },
-            }
-        }
-        pub fn forward(this: *@This(), allocator: Allocator, input: Tensor) !void {
-            switch (this.type) {
-                .none => {},
-                .layer => {
-                    unreachable;
-                },
-                .batch => {
-                    unreachable;
-                },
-                .simple => {
-                    this.max.?.reduceMax(allocator, input);
-                    input.linaryDivide(allocator, this.max.?);
-                },
-                .softmax => {
-                    input.unaryExp(allocator);
-                    this.max.?.reduceSum(allocator, input);
-                    input.linaryDivide(allocator, this.max.?);
-                },
-            }
-        }
-        pub fn backward(this: *@This(), allocator: Allocator, input: Tensor, input_g: Tensor) !void {
-            _ = allocator;
-            _ = input;
-            _ = input_g;
-            switch (this.type) {
-                .none => {},
-                .layer => {
-                    unreachable;
-                },
-                .batch => {
-                    unreachable;
-                },
-                .simple => {},
-                .softmax => {
-                    unreachable;
-                },
-            }
-        }
-    };
-    pub const Dense = struct {
-        size_input: usize,
-        size_output: usize,
-
-        weights: Tensor,
-        biases: Tensor,
-        weights_g: Tensor,
-        biases_g: Tensor,
-
-        temp_input: Tensor,
-        temp_output: Tensor,
-        temp_full: Tensor,
-
-        pub fn alloc(allocator: Allocator, size_input: usize, size_output: usize, context: ClContext) !Dense {
-            assert(size_input > 0);
-            assert(size_output > 0);
-
-            return .{
-                .size_input = size_input,
-                .size_output = size_output,
-                .weights = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
-                .biases = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
-                .weights_g = try Tensor.alloc(allocator, 1, 1, size_input, size_output, context),
-                .biases_g = try Tensor.alloc(allocator, 1, 1, 1, size_output, context),
-                .temp_input = try Tensor.allocIntermediary(allocator, 1, 1, size_input, 1, context),
-                .temp_output = try Tensor.allocIntermediary(allocator, 1, 1, 1, size_output, context),
-                .temp_full = try Tensor.allocIntermediary(allocator, 1, 1, size_input, size_output, context),
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            this.weights.free(allocator);
-            this.biases.free(allocator);
-            this.weights_g.free(allocator);
-            this.biases_g.free(allocator);
-            this.temp_input.free(allocator);
-            this.temp_output.free(allocator);
-            this.temp_full.free(allocator);
-        }
-        pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_size == 1);
-
-            const z_in: usize = input.buffer.z_size;
-            const y_in: usize = input.buffer.y_size;
-            const x_in: usize = input.buffer.x_size;
-            const z_out: usize = output.buffer.z_size;
-            const y_out: usize = output.buffer.y_size;
-            const x_out: usize = output.buffer.x_size;
-
-            input.moveReshape(1, 1, this.size_input, 1);
-            this.weights.moveResize(1, 1, this.size_input, 1);
-            output.moveResize(1, 1, 1, 1);
-
-            for (0..this.size_output) |row_idx| {
-                this.weights.moveOffset(0, 0, 0, row_idx);
-                output.moveOffset(0, 0, 0, row_idx);
-
-                this.temp_input.binarySet(&this.weights);
-                this.temp_input.binaryMultiply(input);
-                output.reduceSum(&this.temp_input);
-            }
-
-            input.moveReshape(1, z_in, y_in, x_in);
-            input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, z_out, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(1, 1, this.size_input, this.size_output);
-            this.weights.moveOffset(0, 0, 0, 0);
-
-            output.binaryAdd(&this.biases);
-        }
-        pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
-            const z_in: usize = input.buffer.z_size;
-            const y_in: usize = input.buffer.y_size;
-            const x_in: usize = input.buffer.x_size;
-            // Biases
-            this.biases_g.binaryAdd(output_g);
-            // Weights
-            this.temp_full.moveResize(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx| {
-                this.temp_full.moveOffset(0, 0, column_idx, 0);
-                this.temp_full.binarySet(output_g);
-            }
-            this.temp_full.moveResize(1, 1, this.size_input, 1);
-            input.moveReshape(1, 1, this.size_input, 1);
-            for (0..this.size_output) |row_idx| {
-                this.temp_full.moveOffset(0, 0, 0, row_idx);
-                this.temp_full.binaryMultiply(input);
-            }
-            this.temp_full.moveResize(1, 1, this.size_input, this.size_output);
-            this.temp_full.moveOffset(0, 0, 0, 0);
-            input.moveReshape(1, z_in, y_in, x_in);
-            this.weights_g.binaryAdd(&this.temp_full);
-            // Previous activation
-            input_g.moveReshape(1, 1, this.size_input, 1);
-            input_g.moveResize(1, 1, 1, 1);
-            this.weights.moveReshape(1, 1, 1, this.size_output);
-            for (0..this.size_input) |column_idx| {
-                input_g.moveOffset(0, 0, column_idx, 0);
-                this.weights.moveOffset(0, 0, column_idx, 0);
-                this.temp_output.binarySet(&this.weights);
-                this.temp_output.binaryMultiply(output_g);
-                // Could use sum or avg here, sum it technically more accurate but avg is more stable
-                input_g.reduceSum(&this.temp_output);
-                // input_g.reduceAvg(this.temp_output);
-            }
-            input_g.moveReshape(1, z_in, y_in, x_in);
-            input_g.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(1, 1, this.size_input, this.size_output);
-            this.weights.moveOffset(0, 0, 0, 0);
-        }
-        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Dense\n", .{[1]u8{' '} ** offset});
-            }
-            std.debug.print("{s}In {} Out {}\n", .{ [1]u8{' '} ** (offset + padding), this.size_input, this.size_output });
-            std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
-                this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
-            });
-            std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
-                this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
-            });
-        }
-        pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Dense {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Dense\n", .{[1]u8{' '} ** offset});
-            }
-            std.debug.print("{s}In {} Out {}\n", .{ [1]u8{' '} ** (offset + padding), this.size_input, this.size_output });
-            this.biases.print(padding, offset + padding, "biases");
-            this.biases_g.print(padding, offset + padding, "biases_g");
-            this.weights.print(padding, offset + padding, "weights");
-            this.weights_g.print(padding, offset + padding, "weights_g");
-            this.temp_input.print(padding, offset + padding, "temp_input");
-            this.temp_output.print(padding, offset + padding, "temp_output");
-            this.temp_full.print(padding, offset + padding, "temp_full");
-        }
-    };
-    pub const Convolution = struct {
-        z: usize,
-        y: usize,
-        x: usize,
-
-        filters: usize,
-        kernel_size: usize,
-        kernel_stride: usize,
-        kernel_padding: usize,
-
-        weights: Tensor,
-        biases: Tensor,
-        weights_g: Tensor,
-        biases_g: Tensor,
-
-        temp_input_padded: Tensor,
-        temp_grad_padded: Tensor,
-        temp_kernel: Tensor,
-        temp_single: Tensor,
-
-        pub fn alloc(
-            allocator: Allocator,
-            z: usize,
-            y: usize,
-            x: usize,
-            filters: usize,
-            kernel_size: usize,
-            kernel_stride: usize,
-            kernel_padding: usize,
-            context: ClContext,
-        ) !Convolution {
-            assert(filters > 0);
-            assert(kernel_size > 0);
-            assert(kernel_stride > 0);
-            assert(kernel_padding >= 0);
-            assert(z > 0);
-            assert(y == x);
-            assert(y >= kernel_size);
-            assert(x >= kernel_size);
-            return .{
-                .z = z,
-                .y = y,
-                .x = x,
-                .filters = filters,
-                .kernel_size = kernel_size,
-                .kernel_padding = kernel_padding,
-                .kernel_stride = kernel_stride,
-                .biases = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
-                .biases_g = try Tensor.alloc(allocator, filters, 1, 1, 1, context),
-                .weights = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
-                .weights_g = try Tensor.alloc(allocator, filters, z, kernel_size, kernel_size, context),
-                .temp_input_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
-                    x + 2 * kernel_padding, context),
-                .temp_grad_padded = try Tensor.allocIntermediary(allocator, 1, z, y + 2 * kernel_padding, //
-                    x + 2 * kernel_padding, context),
-                .temp_kernel = try Tensor.allocIntermediary(allocator, 1, z, kernel_size, kernel_size, context),
-                .temp_single = try Tensor.allocIntermediary(allocator, 1, 1, 1, 1, context),
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            this.biases.free(allocator);
-            this.biases_g.free(allocator);
-            this.weights.free(allocator);
-            this.weights_g.free(allocator);
-            this.temp_input_padded.free(allocator);
-            this.temp_grad_padded.free(allocator);
-            this.temp_kernel.free(allocator);
-            this.temp_single.free(allocator);
-        }
-        pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_size == 1);
-            assert(input.buffer.a_size == output.buffer.a_size);
-
-            const z_in: usize = input.buffer.y_size;
-            const y_in: usize = input.buffer.y_size;
-            const x_in: usize = input.buffer.x_size;
-            const z_out: usize = output.buffer.y_size;
-            const y_out: usize = output.buffer.y_size;
-            const x_out: usize = output.buffer.x_size;
-
-            const x_in_max = input.buffer.x_size + this.kernel_padding - 1;
-            const y_in_max = input.buffer.y_size + this.kernel_padding - 1;
-            var x_out_idx: usize = 0;
-            var y_out_idx: usize = 0;
-
-            // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
-
-            input.moveOffset(0, 0, 0, 0);
-            this.biases.moveResize(1, 1, 1, 1);
-            this.weights.moveResize(1, z_in, this.kernel_size, this.kernel_size);
-            output.moveResize(1, 1, 1, 1);
-            this.temp_input_padded.moveResize(1, z_in, y_in, x_in);
-            this.temp_input_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
-            this.temp_input_padded.binarySet(input);
-            this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
-
-            for (0..this.filters) |filter_idx| {
-                this.biases.moveOffset(filter_idx, 0, 0, 0);
-                this.weights.moveOffset(filter_idx, 0, 0, 0);
-                y_out_idx = 0;
-                for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx| {
-                    x_out_idx = 0;
-                    for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx| {
-                        output.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                        this.temp_input_padded.moveOffset(0, 0, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
-                        this.temp_kernel.binarySet(&this.temp_input_padded);
-                        this.temp_kernel.binaryMultiply(&this.weights);
-                        output.reduceSum(&this.temp_kernel);
-                        output.binaryAdd(&this.biases);
-                        x_out_idx += 1;
-                    }
-                    y_out_idx += 1;
-                }
-            }
-            this.biases.moveResize(this.filters, 1, 1, 1);
-            this.biases.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(this.filters, this.z, this.kernel_size, this.kernel_size);
-            this.weights.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, z_out, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-            this.temp_input_padded.moveResize(1, z_out, y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
-            this.temp_input_padded.moveOffset(0, 0, 0, 0);
-        }
-        // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
-        // That would remove the need for temp_full
-        pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output: *Tensor, output_g: *Tensor) void {
-            const z_out: usize = output.buffer.z_size;
-            const y_out: usize = output.buffer.y_size;
-            const x_out: usize = output.buffer.x_size;
-            const z_in: usize = input.buffer.z_size;
-            const y_in: usize = input.buffer.y_size;
-            const x_in: usize = input.buffer.x_size;
-            // Biases
-            this.biases_g.moveResize(1, 1, 1, 1);
-            output_g.moveResize(1, 1, y_out, x_out);
-            for (0..this.filters) |filter_idx| {
-                this.biases_g.moveOffset(filter_idx, 0, 0, 0);
-                output_g.moveOffset(0, filter_idx, 0, 0);
-                // Could do avg here for better numerical stability
-                this.temp_single.reduceSum(output_g);
-                this.biases_g.binaryAdd(&this.temp_single);
-            }
-            this.biases_g.moveResize(this.filters, 1, 1, 1);
-            this.biases_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, z_out, y_out, x_out);
-            output_g.moveOffset(0, 0, 0, 0);
-            // Weights
-            var x_in_idx: usize = 0;
-            var y_in_idx: usize = 0;
-            output_g.moveResize(1, 1, 1, 1);
-            output_g.moveOffset(0, 0, 0, 0);
-            this.weights_g.moveResize(1, z_in, this.kernel_size, this.kernel_size);
-            this.weights_g.moveOffset(0, 0, 0, 0);
-            this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
-            this.temp_input_padded.moveOffset(0, 0, 0, 0);
-            for (0..this.filters) |filter_idx| {
-                this.weights_g.moveOffset(filter_idx, 0, 0, 0);
-                y_in_idx = 0;
-                for (0..y_out) |y_out_idx| {
-                    x_in_idx = 0;
-                    for (0..x_out) |x_out_idx| {
-                        output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                        this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
-                        this.temp_kernel.binarySet(&this.temp_input_padded);
-                        this.temp_kernel.linaryMultiply(output_g);
-                        this.weights_g.binaryAdd(&this.temp_kernel);
-
-                        x_in_idx += this.kernel_stride;
-                    }
-                    y_in_idx += this.kernel_stride;
-                }
-            }
-            output.moveResize(1, z_out, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(this.filters, z_in, this.kernel_size, this.kernel_size);
-            this.weights.moveOffset(0, 0, 0, 0);
-            this.temp_grad_padded.moveResize(1, z_in, y_in, x_in);
-            this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
-
-            input_g.binarySet(&this.temp_grad_padded);
-
-            this.temp_grad_padded.moveResize(1, z_in, //
-                y_in + 2 * this.kernel_padding, x_in + 2 * this.kernel_padding);
-        }
-        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
-            }
-            const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding, this.kernel_stride);
-            const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding, this.kernel_stride);
-            const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding, this.kernel_stride);
-            std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.z, this.y, this.x, //
-                out_z,  out_y,  out_x,
-            });
-            std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.filters,       this.kernel_size, //
-                this.kernel_stride, this.kernel_padding,
-            });
-            std.debug.print("{s}Biases ({}, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.biases.buffer.a_inherent, this.biases.buffer.z_inherent, //
-                this.biases.buffer.y_inherent, this.biases.buffer.x_inherent,
-            });
-            std.debug.print("{s}Weights ({}, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.weights.buffer.a_inherent, this.weights.buffer.z_inherent, //
-                this.weights.buffer.y_inherent, this.weights.buffer.x_inherent,
-            });
-        }
-        pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Convolution {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
-            }
-            const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
-            const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
-            const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
-
-            std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.z, this.y, this.x, //
-                out_z,  out_y,  out_x,
-            });
-            std.debug.print("{s}Filters {} Size {} Stride {} Padding {}\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.filters,       this.kernel_size, //
-                this.kernel_stride, this.kernel_padding,
-            });
-            this.biases.print(padding + offset, offset, "biases");
-            this.biases_g.print(padding + offset, offset, "biases_g");
-            this.weights.print(padding + offset, offset, "weights");
-            this.weights_g.print(padding + offset, offset, "weights_g");
-            this.temp_input_padded.print(padding + offset, offset, "temp_input_padded");
-            this.temp_grad_padded.print(padding + offset, offset, "temp_grad_padded");
-            this.temp_kernel.print(padding + offset, offset, "temp_kernel");
-            this.temp_single.print(padding + offset, offset, "temp_single");
-        }
-    };
-    pub const Reduce = struct {
-        pub const Type = enum(u8) {
-            sum,
-            avg,
-            max,
-            min,
-        };
-        t: Reduce.Type,
-        z: usize,
-        y: usize,
-        x: usize,
-        kernel_size: usize,
-        kernel_stride: usize,
-        // The point of the init is only to check that the initialisation uses valid values
-        pub fn init(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
-            assert(z > 0);
-            assert(y > 0);
-            assert(x > 0);
-            assert(kernel_size > 0);
-            assert(kernel_stride > 0);
-            assert(kernel_size <= y);
-            assert(kernel_size <= x);
-            return .{
-                .t = t,
-                .z = z,
-                .y = y,
-                .x = x,
-                .kernel_size = kernel_size,
-                .kernel_stride = kernel_stride,
-            };
-        }
-        pub fn forward(this: @This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_size == 1);
-            assert(input.buffer.a_size == 1);
-
-            const z_out: usize = output.buffer.z_size;
-            const y_out: usize = output.buffer.y_size;
-            const x_out: usize = output.buffer.x_size;
-
-            input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, 1, 1, 1);
-            output.moveOffset(0, 0, 0, 0);
-
-            var x_out_idx: usize = 0;
-            var y_out_idx: usize = 0;
-            for (0..this.z) |channel_idx| {
-                y_out_idx = 0;
-                for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx| {
-                    x_out_idx = 0;
-                    for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx| {
-                        input.moveOffset(0, channel_idx, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
-                        output.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
-                        // If you really want to you can move this switch outside the loops in case you care about every nanosecond
-                        switch (this.t) {
-                            .sum => output.reduceSum(input),
-                            .avg => output.reduceAvg(input),
-                            .max => output.reduceMax(input),
-                            .min => output.reduceMin(input),
-                        }
-                        x_out_idx += 1;
-                    }
-                    y_out_idx += 1;
-                }
-            }
-
-            input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, z_out, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-        }
-        /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
-        pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
-            const z_in: usize = input_g.buffer.z_size;
-            const y_in: usize = input_g.buffer.y_size;
-            const x_in: usize = input_g.buffer.x_size;
-            const z_out: usize = output_g.buffer.z_size;
-            const y_out: usize = output_g.buffer.y_size;
-            const x_out: usize = output_g.buffer.x_size;
-            input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
-            output_g.moveResize(1, 1, 1, 1);
-
-            var x_in_idx: usize = 0;
-            var y_in_idx: usize = 0;
-            for (0..this.z) |channel_idx| {
-                y_in_idx = 0;
-                for (0..this.y) |y_out_idx| {
-                    x_in_idx = 0;
-                    for (0..this.x) |x_out_idx| {
-                        input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
-                        output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
-                        input_g.linaryAdd(output_g);
-                        x_in_idx += this.kernel_stride;
-                    }
-                    y_in_idx += this.kernel_stride;
-                }
-            }
-
-            input_g.moveResize(1, z_in, y_in, x_in);
-            input_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, z_out, y_out, x_out);
-            output_g.moveOffset(0, 0, 0, 0);
-        }
-        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Reduce {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Reduce\n", .{[1]u8{' '} ** offset});
-            }
-            const z_out: usize = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
-            const y_out: usize = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
-            const x_out: usize = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
-            std.debug.print("{s}Size {} Stride {} In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.kernel_size, this.kernel_stride, //
-                this.z,           this.y,
-                this.x,           z_out,
-                y_out,            x_out,
-            });
-        }
-    };
-    pub const Split = struct {
-        filters: usize,
-        z: usize,
-        y: usize,
-        x: usize,
-
-        weights: Tensor,
-        biases: Tensor,
-        weights_g: Tensor,
-        biases_g: Tensor,
-
-        temp_input: Tensor,
-
-        pub fn alloc(allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
-            assert(filters > 0);
-            assert(z > 0);
-            assert(y > 0);
-            assert(x > 0);
-            return .{
-                .filters = filters,
-                .z = z,
-                .y = y,
-                .x = x,
-                .weights = try Tensor.alloc(allocator, filters, z, y, x, context),
-                .weights_g = try Tensor.alloc(allocator, filters, z, y, x, context),
-                .biases = try Tensor.alloc(allocator, filters, z, y, x, context),
-                .biases_g = try Tensor.alloc(allocator, filters, z, y, x, context),
-                .temp_input = try Tensor.allocIntermediary(allocator, 1, z, y, x, context),
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            this.weights.free(allocator);
-            this.weights_g.free(allocator);
-            this.biases.free(allocator);
-            this.biases_g.free(allocator);
-            this.temp_input.free(allocator);
-        }
-        pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_size == 1);
-            assert(input.buffer.a_size == output.buffer.a_size);
-            assert(input.buffer.z_size * this.filters == output.buffer.z_size);
-            assert(input.buffer.y_size == output.buffer.y_size);
-            assert(input.buffer.x_size == output.buffer.x_size);
-
-            const z_out: usize = output.buffer.z_size;
-            const y_out: usize = output.buffer.y_size;
-            const x_out: usize = output.buffer.x_size;
-            const z_in: usize = input.buffer.z_size;
-            const y_in: usize = input.buffer.y_size;
-            const x_in: usize = input.buffer.x_size;
-
-            input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, z_in, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(1, z_in, y_in, x_in);
-            this.weights.moveOffset(0, 0, 0, 0);
-            this.biases.moveResize(1, z_in, y_in, x_in);
-            this.biases.moveOffset(0, 0, 0, 0);
-
-            for (0..this.filters) |filter_idx| {
-                output.moveOffset(0, filter_idx * z_in, 0, 0);
-                this.weights.moveOffset(filter_idx, 0, 0, 0);
-                this.biases.moveOffset(filter_idx, 0, 0, 0);
-                output.binarySet(input);
-                output.binaryMultiply(&this.weights);
-                output.binaryAdd(&this.biases);
-            }
-
-            input.moveResize(1, z_in, y_in, x_in);
-            input.moveOffset(0, 0, 0, 0);
-            output.moveResize(1, z_out, y_out, x_out);
-            output.moveOffset(0, 0, 0, 0);
-            this.weights.moveResize(this.filters, z_in, y_in, x_in);
-            this.weights.moveOffset(0, 0, 0, 0);
-            this.biases.moveResize(this.filters, z_in, y_in, x_in);
-            this.biases.moveOffset(0, 0, 0, 0);
-        }
-        pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
-            this.biases_g.moveResize(1, this.z * this.filters, this.y, this.x);
-            this.biases_g.moveOffset(0, 0, 0, 0);
-            this.biases_g.binarySet(output_g);
-            this.biases_g.moveResize(this.filters, this.z, this.y, this.x);
-            this.biases_g.moveOffset(0, 0, 0, 0);
-
-            this.weights_g.moveResize(1, this.z, this.y, this.x);
-            output_g.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx| {
-                this.weights_g.moveOffset(filter_idx, 0, 0, 0);
-                output_g.moveOffset(0, filter_idx * this.z, 0, 0);
-                this.temp_input.binarySet(output_g);
-                this.temp_input.binaryMultiply(input);
-                this.weights_g.binaryAdd(&this.temp_input);
-            }
-            this.weights_g.moveResize(this.filters, this.z, this.y, this.x);
-            this.weights_g.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, this.filters * this.z, this.y, this.x);
-            output_g.moveOffset(0, 0, 0, 0);
-
-            output_g.moveResize(1, this.z, this.y, this.x);
-            this.weights.moveResize(1, this.z, this.y, this.x);
-            for (0..this.filters) |filter_idx| {
-                this.weights.moveOffset(filter_idx, 0, 0, 0);
-                output_g.moveOffset(0, filter_idx * this.z, 0, 0);
-                this.temp_input.binarySet(output_g);
-                this.temp_input.binaryMultiply(&this.weights);
-                input_g.binaryAdd(&this.temp_input);
-            }
-            this.weights.moveResize(this.filters, this.z, this.y, this.x);
-            this.weights.moveOffset(0, 0, 0, 0);
-            output_g.moveResize(1, this.filters * this.z, this.y, this.x);
-            output_g.moveOffset(0, 0, 0, 0);
-        }
-        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Split\n", .{[1]u8{' '} ** offset});
-            }
-
-            std.debug.print("{s}Z {} Y {} X {} Filters {}\n", .{
-                [1]u8{' '} ** (offset + padding),
-                this.z,
-                this.y,
-                this.x,
-                this.filters,
-            });
-            this.biases.print(padding, offset + padding, "biases");
-            this.biases_g.print(padding, offset + padding, "biases_g");
-            this.weights.print(padding, offset + padding, "weights");
-            this.weights_g.print(padding, offset + padding, "weights_g");
-            this.temp_input.print(padding, offset + padding, "temp_input");
-        }
-        pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Split {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Split\n", .{[1]u8{' '} ** offset});
-            }
-
-            std.debug.print("{s}Z {} Y {} X {} Filters {}\n", .{
-                [1]u8{' '} ** (offset + padding), //
-                this.z,
-                this.y,
-                this.x,
-                this.filters,
-            });
-            this.biases.print(padding, offset + padding, "biases");
-            this.biases_g.print(padding, offset + padding, "biases_g");
-            this.weights.print(padding, offset + padding, "weights");
-            this.weights_g.print(padding, offset + padding, "weights_g");
-            this.temp_input.print(padding, offset + padding, "temp_input");
-        }
-    };
-    pub const Residual = struct {
-        pub const Type = enum(u8) {
-            identity,
-            convolution,
-            dense,
-            reduce,
-            split,
-        };
-        const Connection = union(Residual.Type) {
-            identity: void,
-            convolution: Convolution,
-            dense: Dense,
-            reduce: Reduce,
-            split: Split,
-        };
-        t: Residual.Type,
-        connection: Residual.Connection,
-        layer: usize,
-        pub fn allocIdentity(layer: usize) Residual {
-            return .{
-                .layer = layer,
-                .t = .identity,
-                .connection = .{
-                    .identity = @as(void, {}),
-                },
-            };
-        }
-        pub fn allocDense(layer: usize, allocator: Allocator, size_in: usize, size_out: usize, context: ClContext) !Residual {
-            return .{
-                .layer = layer,
-                .t = .dense,
-                .connection = .{
-                    .dense = try Dense.alloc(allocator, size_in, size_out, context),
-                },
-            };
-        }
-        pub fn allocConvolution(
-            layer: usize,
-            allocator: Allocator,
-            z: usize,
-            y: usize,
-            x: usize,
-            filters: usize,
-            kernel_size: usize,
-            kernel_stride: usize,
-            kernel_padding: usize,
-            context: ClContext,
-        ) !Residual {
-            return .{
-                .layer = layer,
-                .t = .convolution,
-                .connection = .{
-                    .convolution = try Convolution.alloc(allocator, z, y, x, filters, kernel_size, kernel_stride, kernel_padding, context),
-                },
-            };
-        }
-        pub fn allocReduce(layer: usize, t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) !Residual {
-            return .{
-                .layer = layer,
-                .t = .reduce,
-                .connection = .{
-                    .reduce = Reduce.init(t, z, y, x, kernel_size, kernel_stride),
-                },
-            };
-        }
-        pub fn allocSplit(layer: usize, allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
-            return .{
-                .layer = layer,
-                .t = .split,
-                .connection = .{
-                    .split = try Split.alloc(allocator, filters, z, y, x, context),
-                },
-            };
-        }
-        pub fn free(this: *@This(), allocator: Allocator) void {
-            switch (this.connection) {
-                .identity => {},
-                .convolution => this.connection.convolution.free(allocator),
-                .dense => this.connection.dense.free(allocator),
-                .reduce => {},
-                .split => {},
-            }
-        }
-        pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
-            assert(input.buffer.a_size == 1);
-            assert(input.buffer.a_size == output.buffer.a_size);
-            assert(input.buffer.z_size == output.buffer.z_size);
-            assert(input.buffer.y_size == output.buffer.y_size);
-            assert(input.buffer.x_size == output.buffer.x_size);
-
-            input.moveOffset(0, 0, 0, 0);
-            output.moveOffset(0, 0, 0, 0);
-
-            switch (this.t) {
-                .identity => output.binaryAdd(input),
-                .convolution => unreachable,
-                .dense => unreachable,
-                .reduce => unreachable,
-                .split => unreachable,
-            }
-        }
-        pub fn backward(this: *@This(), input_g: *Tensor, output_g: *Tensor) void {
-            assert(input_g.buffer.a_size == 1);
-            assert(input_g.buffer.a_size == output_g.buffer.a_size);
-            assert(input_g.buffer.z_size == output_g.buffer.z_size);
-            assert(input_g.buffer.y_size == output_g.buffer.y_size);
-            assert(input_g.buffer.x_size == output_g.buffer.x_size);
-
-            input_g.moveOffset(0, 0, 0, 0);
-            output_g.moveOffset(0, 0, 0, 0);
-
-            switch (this.t) {
-                .identity => input_g.binaryAdd(output_g),
-                .convolution => unreachable,
-                .dense => unreachable,
-                .reduce => unreachable,
-                .split => unreachable,
-            }
-        }
-        pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
-            }
-
-            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
-            switch (this.connection) {
-                .identity => {},
-                .convolution => this.connection.convolution.print(padding, offset + padding, "convolution"),
-                .dense => this.connection.dense.print(padding, offset + padding, "dense"),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
-                .split => this.connection.split.print(padding, offset + padding, "split"),
-            }
-        }
-        pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]u8) void {
-            if (name) |text| {
-                std.debug.print("{s}Residual {s}\n", .{ [1]u8{' '} ** offset, text });
-            } else {
-                std.debug.print("{s}Residual\n", .{[1]u8{' '} ** offset});
-            }
-
-            std.debug.print("{s}Type {}\n", .{ [1]u8{' '} ** (offset + padding), this.t });
-            switch (this.connection) {
-                .identity => {},
-                .convolution => this.connection.convolution.debug(padding, offset + padding, "convolution"),
-                .dense => this.connection.dense.debug(padding, offset + padding, "dense"),
-                .reduce => this.connection.reduce.print(padding, offset + padding, "reduce"),
-                .split => this.connection.split.debug(padding, offset + padding, "split"),
-            }
-        }
     };
     pub const Layer = struct {
         /// The config is to only have the info needed when provided with the previous layer
