@@ -83,6 +83,7 @@ pub const Program = struct {
 
         var kernel_num: usize = 0;
         var assign_idx: usize = 0;
+
         for (0..ssa.assign_num) |_| {
             if (assign_idx == ssa.assign_num) {
                 break;
@@ -92,8 +93,11 @@ pub const Program = struct {
             var assign_idx_top: usize = assign_idx + 1;
             for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
                 if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_idx_search].base.layer()) {
-                    assert(ssa.assign_loop_id[assign_idx] == ssa.assign_loop_id[assign_idx_search]);
-                    assign_idx_top += 1;
+                    if (ssa.assign_loop_id[assign_idx] == ssa.assign_loop_id[assign_idx_search]) {
+                        assign_idx_top += 1;
+                    } else {
+                        break;
+                    }
                 } else {
                     break;
                 }
