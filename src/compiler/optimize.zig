@@ -281,9 +281,9 @@ pub const Optimization = enum(u8) {
                 loop_num = 1;
                 for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                     var equal: bool = true;
-                    var assign_off: usize = 0;
                     // TODO: There just has to be a faster way of doing this
                     for (0..loop_num) |loop_idx_search| {
+                        var assign_off: usize = 0;
                         while (assign_off < loop_len) : (assign_off += 1) {
                             if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
                                 ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
