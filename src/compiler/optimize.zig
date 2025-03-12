@@ -248,7 +248,7 @@ pub const Optimization = enum(u8) {
 
         // FIX: Check for equality of inlined trees
         var assign_idx: u32 = 0;
-        while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+        while (assign_idx < ssa.assign_num) {
             var loop_len: u32 = 0;
             var loop_num: u32 = 0;
 
@@ -331,8 +331,11 @@ pub const Optimization = enum(u8) {
                 }
 
                 loop_id += 1;
-                assign_idx += (loop_len * loop_num) - 1;
             }
+
+            assert(loop_len >= 1);
+            assert(loop_num >= 1);
+            assign_idx += loop_len * loop_num;
         }
         var assign_num_new: u32 = 0;
         assign_idx = 0;
