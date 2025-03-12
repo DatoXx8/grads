@@ -15,7 +15,7 @@ const Optimization = grads.Optimization;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-// TODO: Also randomize random optimization once those are implemented
+// TODO: Randomize intermediary buffers, but make sure the final out tensor is not intermediary
 
 const AssertError = error{
     nan,

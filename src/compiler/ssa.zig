@@ -528,7 +528,6 @@ pub const Ssa = struct {
         }
 
         // NOTE: Why was this ever here? Just to group assignments that could be on the same layer?
-        // FIX: Sorting here can cause issues with loop finding. I need to sort this myself and only swap if the out buffers have a lower layer and are the same name
         // std.mem.sort(Assign, assign, {}, layerLessThan);
 
         return .{

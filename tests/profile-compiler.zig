@@ -85,6 +85,8 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
     std.debug.print(" {s}\n", .{name});
 }
 
+// TODO: Randomize intermediary buffers, but make sure the final out tensor is not intermediary
+
 // WARN: This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
 // TODO: The above warning should not need to exist
 fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {

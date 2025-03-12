@@ -251,23 +251,26 @@ pub const Optimization = enum(u8) {
 
             var assign_idx_search: u32 = assign_idx + 1;
             while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
-                if (ssa.assign[assign_idx].base.equals(ssa.assign[assign_idx_search].base) and
-                    !ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.out))
-                {
-                    var equal: bool = true;
-                    for (0..(assign_idx_search - assign_idx)) |assign_off| {
-                        if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx_search + assign_off].base) or
-                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
-                        {
-                            equal = false;
-                            break;
-                        }
-                    }
-                    if (equal) {
-                        loop_len = assign_idx_search - assign_idx;
+                if (ssa.assign[assign_idx].base.equals(ssa.assign[assign_idx_search].base)) {
+                    if (ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.out)) {
+                        // TODO: There should be a way to still parallelize this.
                         break;
                     } else {
-                        continue;
+                        var equal: bool = true;
+                        for (0..(assign_idx_search - assign_idx)) |assign_off| {
+                            if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx_search + assign_off].base) or
+                                ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
+                            {
+                                equal = false;
+                                break;
+                            }
+                        }
+                        if (equal) {
+                            loop_len = assign_idx_search - assign_idx;
+                            break;
+                        } else {
+                            continue;
+                        }
                     }
                 }
             }
