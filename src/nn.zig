@@ -30,7 +30,7 @@ pub const Activation = struct {
     };
     t: Activation.Type,
     intermediary: ?Tensor,
-    pub fn alloc(allocator: Allocator, t: Activation.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Activation {
+    pub fn alloc(allocator: Allocator, t: Activation.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Activation {
         return .{
             .t = t,
             .intermediary = switch (t) {
@@ -134,7 +134,7 @@ pub const Norm = struct {
     mean: ?Tensor,
     variance: ?Tensor,
     max: ?Tensor,
-    pub fn alloc(allocator: Allocator, t: Norm.Type, a: usize, z: usize, y: usize, x: usize, context: ClContext) !Norm {
+    pub fn alloc(allocator: Allocator, t: Norm.Type, a: u32, z: u32, y: u32, x: u32, context: ClContext) !Norm {
         return switch (t) {
             .none => .{
                 .type = t,
@@ -228,8 +228,8 @@ pub const Norm = struct {
     }
 };
 pub const Dense = struct {
-    size_input: usize,
-    size_output: usize,
+    size_input: u32,
+    size_output: u32,
 
     weights: Tensor,
     biases: Tensor,
@@ -240,7 +240,7 @@ pub const Dense = struct {
     temp_output: Tensor,
     temp_full: Tensor,
 
-    pub fn alloc(allocator: Allocator, size_input: usize, size_output: usize, context: ClContext) !Dense {
+    pub fn alloc(allocator: Allocator, size_input: u32, size_output: u32, context: ClContext) !Dense {
         assert(size_input > 0);
         assert(size_output > 0);
 
@@ -268,18 +268,19 @@ pub const Dense = struct {
     pub fn forward(this: *@This(), input: *Tensor, output: *Tensor) void {
         assert(input.buffer.a_size == 1);
 
-        const z_in: usize = input.buffer.z_size;
-        const y_in: usize = input.buffer.y_size;
-        const x_in: usize = input.buffer.x_size;
-        const z_out: usize = output.buffer.z_size;
-        const y_out: usize = output.buffer.y_size;
-        const x_out: usize = output.buffer.x_size;
+        const z_in: u32 = input.buffer.z_size;
+        const y_in: u32 = input.buffer.y_size;
+        const x_in: u32 = input.buffer.x_size;
+        const z_out: u32 = output.buffer.z_size;
+        const y_out: u32 = output.buffer.y_size;
+        const x_out: u32 = output.buffer.x_size;
 
         input.moveReshape(1, 1, this.size_input, 1);
         this.weights.moveResize(1, 1, this.size_input, 1);
         output.moveResize(1, 1, 1, 1);
 
-        for (0..this.size_output) |row_idx| {
+        var row_idx: u32 = 0;
+        while (row_idx < this.size_output) : (row_idx += 1) {
             this.weights.moveOffset(0, 0, 0, row_idx);
             output.moveOffset(0, 0, 0, row_idx);
 
@@ -298,20 +299,22 @@ pub const Dense = struct {
         output.binaryAdd(&this.biases);
     }
     pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output_g: *Tensor) void {
-        const z_in: usize = input.buffer.z_size;
-        const y_in: usize = input.buffer.y_size;
-        const x_in: usize = input.buffer.x_size;
+        const z_in: u32 = input.buffer.z_size;
+        const y_in: u32 = input.buffer.y_size;
+        const x_in: u32 = input.buffer.x_size;
         // Biases
         this.biases_g.binaryAdd(output_g);
         // Weights
         this.temp_full.moveResize(1, 1, 1, this.size_output);
-        for (0..this.size_input) |column_idx| {
+        var column_idx: u32 = 0;
+        while (column_idx < this.size_input) : (column_idx += 1) {
             this.temp_full.moveOffset(0, 0, column_idx, 0);
             this.temp_full.binarySet(output_g);
         }
         this.temp_full.moveResize(1, 1, this.size_input, 1);
         input.moveReshape(1, 1, this.size_input, 1);
-        for (0..this.size_output) |row_idx| {
+        var row_idx: u32 = 0;
+        while (row_idx < this.size_output) : (row_idx += 1) {
             this.temp_full.moveOffset(0, 0, 0, row_idx);
             this.temp_full.binaryMultiply(input);
         }
@@ -323,7 +326,8 @@ pub const Dense = struct {
         input_g.moveReshape(1, 1, this.size_input, 1);
         input_g.moveResize(1, 1, 1, 1);
         this.weights.moveReshape(1, 1, 1, this.size_output);
-        for (0..this.size_input) |column_idx| {
+        column_idx = 0;
+        while (column_idx < this.size_input) : (column_idx += 1) {
             input_g.moveOffset(0, 0, column_idx, 0);
             this.weights.moveOffset(0, 0, column_idx, 0);
             this.temp_output.binarySet(&this.weights);
@@ -372,14 +376,14 @@ pub const Dense = struct {
     }
 };
 pub const Convolution = struct {
-    z: usize,
-    y: usize,
-    x: usize,
+    z: u32,
+    y: u32,
+    x: u32,
 
-    filters: usize,
-    kernel_size: usize,
-    kernel_stride: usize,
-    kernel_padding: usize,
+    filters: u32,
+    kernel_size: u32,
+    kernel_stride: u32,
+    kernel_padding: u32,
 
     weights: Tensor,
     biases: Tensor,
@@ -393,13 +397,13 @@ pub const Convolution = struct {
 
     pub fn alloc(
         allocator: Allocator,
-        z: usize,
-        y: usize,
-        x: usize,
-        filters: usize,
-        kernel_size: usize,
-        kernel_stride: usize,
-        kernel_padding: usize,
+        z: u32,
+        y: u32,
+        x: u32,
+        filters: u32,
+        kernel_size: u32,
+        kernel_stride: u32,
+        kernel_padding: u32,
         context: ClContext,
     ) !Convolution {
         assert(filters > 0);
@@ -444,17 +448,15 @@ pub const Convolution = struct {
         assert(input.buffer.a_size == 1);
         assert(input.buffer.a_size == output.buffer.a_size);
 
-        const z_in: usize = input.buffer.y_size;
-        const y_in: usize = input.buffer.y_size;
-        const x_in: usize = input.buffer.x_size;
-        const z_out: usize = output.buffer.y_size;
-        const y_out: usize = output.buffer.y_size;
-        const x_out: usize = output.buffer.x_size;
+        const z_in: u32 = input.buffer.y_size;
+        const y_in: u32 = input.buffer.y_size;
+        const x_in: u32 = input.buffer.x_size;
+        const z_out: u32 = output.buffer.y_size;
+        const y_out: u32 = output.buffer.y_size;
+        const x_out: u32 = output.buffer.x_size;
 
-        const x_in_max = input.buffer.x_size + this.kernel_padding - 1;
-        const y_in_max = input.buffer.y_size + this.kernel_padding - 1;
-        var x_out_idx: usize = 0;
-        var y_out_idx: usize = 0;
+        const x_in_max: u32 = input.buffer.x_size + this.kernel_padding - 1;
+        const y_in_max: u32 = input.buffer.y_size + this.kernel_padding - 1;
 
         // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
 
@@ -467,15 +469,18 @@ pub const Convolution = struct {
         this.temp_input_padded.binarySet(input);
         this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
 
-        for (0..this.filters) |filter_idx| {
+        var filter_idx: u32 = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             this.biases.moveOffset(filter_idx, 0, 0, 0);
             this.weights.moveOffset(filter_idx, 0, 0, 0);
-            y_out_idx = 0;
-            for (0..@divFloor(y_in_max, this.kernel_stride)) |y_in_idx| {
-                x_out_idx = 0;
-                for (0..@divFloor(x_in_max, this.kernel_stride)) |x_in_idx| {
+            var y_out_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
+            while (y_in_idx < @divFloor(y_in_max, this.kernel_stride)) : (y_in_idx += this.kernel_stride) {
+                var x_out_idx: u32 = 0;
+                var x_in_idx: u32 = 0;
+                while (x_in_idx < @divFloor(x_in_max, this.kernel_stride)) : (x_in_idx += this.kernel_stride) {
                     output.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_input_padded.moveOffset(0, 0, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
+                    this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
                     this.temp_kernel.binarySet(&this.temp_input_padded);
                     this.temp_kernel.binaryMultiply(&this.weights);
                     output.reduceSum(&this.temp_kernel);
@@ -497,16 +502,17 @@ pub const Convolution = struct {
     // This backprop is per sample, but I guess if i iterate over the a dimension in the training output then I can do all of this with a singular function call.
     // That would remove the need for temp_full
     pub fn backward(this: *@This(), input: *Tensor, input_g: *Tensor, output: *Tensor, output_g: *Tensor) void {
-        const z_out: usize = output.buffer.z_size;
-        const y_out: usize = output.buffer.y_size;
-        const x_out: usize = output.buffer.x_size;
-        const z_in: usize = input.buffer.z_size;
-        const y_in: usize = input.buffer.y_size;
-        const x_in: usize = input.buffer.x_size;
+        const z_out: u32 = output.buffer.z_size;
+        const y_out: u32 = output.buffer.y_size;
+        const x_out: u32 = output.buffer.x_size;
+        const z_in: u32 = input.buffer.z_size;
+        const y_in: u32 = input.buffer.y_size;
+        const x_in: u32 = input.buffer.x_size;
         // Biases
         this.biases_g.moveResize(1, 1, 1, 1);
         output_g.moveResize(1, 1, y_out, x_out);
-        for (0..this.filters) |filter_idx| {
+        var filter_idx: u32 = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             this.biases_g.moveOffset(filter_idx, 0, 0, 0);
             output_g.moveOffset(0, filter_idx, 0, 0);
             // Could do avg here for better numerical stability
@@ -518,20 +524,21 @@ pub const Convolution = struct {
         output_g.moveResize(1, z_out, y_out, x_out);
         output_g.moveOffset(0, 0, 0, 0);
         // Weights
-        var x_in_idx: usize = 0;
-        var y_in_idx: usize = 0;
         output_g.moveResize(1, 1, 1, 1);
         output_g.moveOffset(0, 0, 0, 0);
         this.weights_g.moveResize(1, z_in, this.kernel_size, this.kernel_size);
         this.weights_g.moveOffset(0, 0, 0, 0);
         this.temp_input_padded.moveResize(1, z_in, this.kernel_size, this.kernel_size);
         this.temp_input_padded.moveOffset(0, 0, 0, 0);
-        for (0..this.filters) |filter_idx| {
+        filter_idx = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             this.weights_g.moveOffset(filter_idx, 0, 0, 0);
-            y_in_idx = 0;
-            for (0..y_out) |y_out_idx| {
-                x_in_idx = 0;
-                for (0..x_out) |x_out_idx| {
+            var y_out_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
+            while (y_out_idx < y_out) : (y_out_idx += 1) {
+                var x_out_idx: u32 = 0;
+                var x_in_idx: u32 = 0;
+                while (x_out_idx < x_out) : (x_out_idx += 1) {
                     output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                     this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
                     this.temp_kernel.binarySet(&this.temp_input_padded);
@@ -561,9 +568,9 @@ pub const Convolution = struct {
         } else {
             std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
         }
-        const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding, this.kernel_stride);
-        const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding, this.kernel_stride);
-        const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding, this.kernel_stride);
+        const out_z: u32 = @divFloor(this.z + 2 * this.kernel_padding, this.kernel_stride);
+        const out_y: u32 = @divFloor(this.y + 2 * this.kernel_padding, this.kernel_stride);
+        const out_x: u32 = @divFloor(this.x + 2 * this.kernel_padding, this.kernel_stride);
         std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
             [1]u8{' '} ** (offset + padding), //
             this.z, this.y, this.x, //
@@ -591,9 +598,9 @@ pub const Convolution = struct {
         } else {
             std.debug.print("{s}Convolution\n", .{[1]u8{' '} ** offset});
         }
-        const out_z: usize = @divFloor(this.z + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
-        const out_y: usize = @divFloor(this.y + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
-        const out_x: usize = @divFloor(this.x + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+        const out_z: u32 = @divFloor(this.z + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+        const out_y: u32 = @divFloor(this.y + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
+        const out_x: u32 = @divFloor(this.x + 2 * this.kernel_padding - 2 * this.kernel_size, this.kernel_stride);
 
         std.debug.print("{s}In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
             [1]u8{' '} ** (offset + padding), //
@@ -623,13 +630,13 @@ pub const Reduce = struct {
         min,
     };
     t: Reduce.Type,
-    z: usize,
-    y: usize,
-    x: usize,
-    kernel_size: usize,
-    kernel_stride: usize,
+    z: u32,
+    y: u32,
+    x: u32,
+    kernel_size: u32,
+    kernel_stride: u32,
     // The point of the init is only to check that the initialisation uses valid values
-    pub fn init(t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) Reduce {
+    pub fn init(t: Reduce.Type, z: u32, y: u32, x: u32, kernel_size: u32, kernel_stride: u32) Reduce {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
@@ -650,24 +657,24 @@ pub const Reduce = struct {
         assert(input.buffer.a_size == 1);
         assert(input.buffer.a_size == 1);
 
-        const z_out: usize = output.buffer.z_size;
-        const y_out: usize = output.buffer.y_size;
-        const x_out: usize = output.buffer.x_size;
+        const z_out: u32 = output.buffer.z_size;
+        const y_out: u32 = output.buffer.y_size;
+        const x_out: u32 = output.buffer.x_size;
 
         input.moveOffset(0, 0, 0, 0);
         output.moveResize(1, 1, 1, 1);
         output.moveOffset(0, 0, 0, 0);
 
-        var x_out_idx: usize = 0;
-        var y_out_idx: usize = 0;
-        for (0..this.z) |channel_idx| {
-            y_out_idx = 0;
-            for (0..@divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) |y_in_idx| {
-                x_out_idx = 0;
-                for (0..@divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) |x_in_idx| {
-                    input.moveOffset(0, channel_idx, y_in_idx * this.kernel_stride, x_in_idx * this.kernel_stride);
+        var channel_idx: u32 = 0;
+        while (channel_idx < this.z) : (channel_idx += 1) {
+            var y_out_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
+            while (y_in_idx < @divFloor(this.y - this.kernel_size + 1, this.kernel_stride)) : (y_in_idx += this.kernel_stride) {
+                var x_out_idx: u32 = 0;
+                var x_in_idx: u32 = 0;
+                while (x_in_idx < @divFloor(this.x - this.kernel_size + 1, this.kernel_stride)) : (x_in_idx += this.kernel_stride) {
+                    input.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
                     output.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
-                    // If you really want to you can move this switch outside the loops in case you care about every nanosecond
                     switch (this.t) {
                         .sum => output.reduceSum(input),
                         .avg => output.reduceAvg(input),
@@ -686,22 +693,23 @@ pub const Reduce = struct {
     }
     /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
     pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
-        const z_in: usize = input_g.buffer.z_size;
-        const y_in: usize = input_g.buffer.y_size;
-        const x_in: usize = input_g.buffer.x_size;
-        const z_out: usize = output_g.buffer.z_size;
-        const y_out: usize = output_g.buffer.y_size;
-        const x_out: usize = output_g.buffer.x_size;
+        const z_in: u32 = input_g.buffer.z_size;
+        const y_in: u32 = input_g.buffer.y_size;
+        const x_in: u32 = input_g.buffer.x_size;
+        const z_out: u32 = output_g.buffer.z_size;
+        const y_out: u32 = output_g.buffer.y_size;
+        const x_out: u32 = output_g.buffer.x_size;
         input_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
         output_g.moveResize(1, 1, 1, 1);
 
-        var x_in_idx: usize = 0;
-        var y_in_idx: usize = 0;
-        for (0..this.z) |channel_idx| {
-            y_in_idx = 0;
-            for (0..this.y) |y_out_idx| {
-                x_in_idx = 0;
-                for (0..this.x) |x_out_idx| {
+        var channel_idx: u32 = 0;
+        while (channel_idx < this.z) : (channel_idx += 1) {
+            var y_out_idx: u32 = 0;
+            var y_in_idx: u32 = 0;
+            while (y_out_idx < this.y) : (y_out_idx += 1) {
+                var x_out_idx: u32 = 0;
+                var x_in_idx: u32 = 0;
+                while (x_out_idx < this.x) : (x_out_idx += 1) {
                     input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
                     output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
                     input_g.linaryAdd(output_g);
@@ -722,9 +730,9 @@ pub const Reduce = struct {
         } else {
             std.debug.print("{s}Reduce\n", .{[1]u8{' '} ** offset});
         }
-        const z_out: usize = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
-        const y_out: usize = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
-        const x_out: usize = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
+        const z_out: u32 = @divFloor(this.z - 2 * this.kernel_size, this.kernel_stride);
+        const y_out: u32 = @divFloor(this.y - 2 * this.kernel_size, this.kernel_stride);
+        const x_out: u32 = @divFloor(this.x - 2 * this.kernel_size, this.kernel_stride);
         std.debug.print("{s}Size {} Stride {} In (1, {}, {}, {}) Out (1, {}, {}, {})\n", .{
             [1]u8{' '} ** (offset + padding), //
             this.kernel_size, this.kernel_stride, //
@@ -735,10 +743,10 @@ pub const Reduce = struct {
     }
 };
 pub const Split = struct {
-    filters: usize,
-    z: usize,
-    y: usize,
-    x: usize,
+    filters: u32,
+    z: u32,
+    y: u32,
+    x: u32,
 
     weights: Tensor,
     biases: Tensor,
@@ -747,7 +755,7 @@ pub const Split = struct {
 
     temp_input: Tensor,
 
-    pub fn alloc(allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Split {
+    pub fn alloc(allocator: Allocator, filters: u32, z: u32, y: u32, x: u32, context: ClContext) !Split {
         assert(filters > 0);
         assert(z > 0);
         assert(y > 0);
@@ -778,12 +786,12 @@ pub const Split = struct {
         assert(input.buffer.y_size == output.buffer.y_size);
         assert(input.buffer.x_size == output.buffer.x_size);
 
-        const z_out: usize = output.buffer.z_size;
-        const y_out: usize = output.buffer.y_size;
-        const x_out: usize = output.buffer.x_size;
-        const z_in: usize = input.buffer.z_size;
-        const y_in: usize = input.buffer.y_size;
-        const x_in: usize = input.buffer.x_size;
+        const z_out: u32 = output.buffer.z_size;
+        const y_out: u32 = output.buffer.y_size;
+        const x_out: u32 = output.buffer.x_size;
+        const z_in: u32 = input.buffer.z_size;
+        const y_in: u32 = input.buffer.y_size;
+        const x_in: u32 = input.buffer.x_size;
 
         input.moveOffset(0, 0, 0, 0);
         output.moveResize(1, z_in, y_out, x_out);
@@ -793,7 +801,8 @@ pub const Split = struct {
         this.biases.moveResize(1, z_in, y_in, x_in);
         this.biases.moveOffset(0, 0, 0, 0);
 
-        for (0..this.filters) |filter_idx| {
+        var filter_idx: u32 = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             output.moveOffset(0, filter_idx * z_in, 0, 0);
             this.weights.moveOffset(filter_idx, 0, 0, 0);
             this.biases.moveOffset(filter_idx, 0, 0, 0);
@@ -820,7 +829,8 @@ pub const Split = struct {
 
         this.weights_g.moveResize(1, this.z, this.y, this.x);
         output_g.moveResize(1, this.z, this.y, this.x);
-        for (0..this.filters) |filter_idx| {
+        var filter_idx: u32 = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             this.weights_g.moveOffset(filter_idx, 0, 0, 0);
             output_g.moveOffset(0, filter_idx * this.z, 0, 0);
             this.temp_input.binarySet(output_g);
@@ -834,7 +844,8 @@ pub const Split = struct {
 
         output_g.moveResize(1, this.z, this.y, this.x);
         this.weights.moveResize(1, this.z, this.y, this.x);
-        for (0..this.filters) |filter_idx| {
+        filter_idx = 0;
+        while (filter_idx < this.filters) : (filter_idx += 1) {
             this.weights.moveOffset(filter_idx, 0, 0, 0);
             output_g.moveOffset(0, filter_idx * this.z, 0, 0);
             this.temp_input.binarySet(output_g);
@@ -904,8 +915,8 @@ pub const Residual = struct {
     };
     t: Residual.Type,
     connection: Residual.Connection,
-    layer: usize,
-    pub fn allocIdentity(layer: usize) Residual {
+    layer: u32,
+    pub fn allocIdentity(layer: u32) Residual {
         return .{
             .layer = layer,
             .t = .identity,
@@ -914,7 +925,7 @@ pub const Residual = struct {
             },
         };
     }
-    pub fn allocDense(layer: usize, allocator: Allocator, size_in: usize, size_out: usize, context: ClContext) !Residual {
+    pub fn allocDense(layer: u32, allocator: Allocator, size_in: u32, size_out: u32, context: ClContext) !Residual {
         return .{
             .layer = layer,
             .t = .dense,
@@ -924,15 +935,15 @@ pub const Residual = struct {
         };
     }
     pub fn allocConvolution(
-        layer: usize,
+        layer: u32,
         allocator: Allocator,
-        z: usize,
-        y: usize,
-        x: usize,
-        filters: usize,
-        kernel_size: usize,
-        kernel_stride: usize,
-        kernel_padding: usize,
+        z: u32,
+        y: u32,
+        x: u32,
+        filters: u32,
+        kernel_size: u32,
+        kernel_stride: u32,
+        kernel_padding: u32,
         context: ClContext,
     ) !Residual {
         return .{
@@ -943,7 +954,7 @@ pub const Residual = struct {
             },
         };
     }
-    pub fn allocReduce(layer: usize, t: Reduce.Type, z: usize, y: usize, x: usize, kernel_size: usize, kernel_stride: usize) !Residual {
+    pub fn allocReduce(layer: u32, t: Reduce.Type, z: u32, y: u32, x: u32, kernel_size: u32, kernel_stride: u32) !Residual {
         return .{
             .layer = layer,
             .t = .reduce,
@@ -952,7 +963,7 @@ pub const Residual = struct {
             },
         };
     }
-    pub fn allocSplit(layer: usize, allocator: Allocator, filters: usize, z: usize, y: usize, x: usize, context: ClContext) !Residual {
+    pub fn allocSplit(layer: u32, allocator: Allocator, filters: u32, z: u32, y: u32, x: u32, context: ClContext) !Residual {
         return .{
             .layer = layer,
             .t = .split,
@@ -1051,34 +1062,34 @@ pub const Neuralnet = struct {
         /// The config is to only have the info needed when provided with the previous layer
         pub const Config = union(Neuralnet.Type) {
             dense: struct {
-                size_out: usize,
+                size_out: u32,
                 activation: Activation.Type,
             },
             convolution: struct {
-                filters: usize,
-                kernel_size: usize,
-                kernel_stride: usize,
-                kernel_padding: usize,
+                filters: u32,
+                kernel_size: u32,
+                kernel_stride: u32,
+                kernel_padding: u32,
                 activation: Activation.Type,
             },
             reduce: struct {
-                kernel_size: usize,
-                kernel_stride: usize,
+                kernel_size: u32,
+                kernel_stride: u32,
                 t: Reduce.Type,
                 // activation: Activation.Type,
             },
             split: struct {
-                filters: usize,
+                filters: u32,
                 activation: Activation.Type,
             },
             residual: struct {
                 t: Residual.Type,
-                layer: usize,
-                filters: usize,
-                kernel_padding: usize,
-                kernel_stride: usize,
-                kernel_size: usize,
-                size_out: usize,
+                layer: u32,
+                filters: u32,
+                kernel_padding: u32,
+                kernel_stride: u32,
+                kernel_size: u32,
+                size_out: u32,
                 reduce_t: Reduce.Type,
                 // activation: Activation.Type,
             },
@@ -1093,7 +1104,7 @@ pub const Neuralnet = struct {
         values: Tensor,
         values_g: Tensor,
         activation: Activation,
-        pub fn alloc(allocator: Allocator, z: usize, y: usize, x: usize, config: Config, context: ClContext) !Layer {
+        pub fn alloc(allocator: Allocator, z: u32, y: u32, x: u32, config: Config, context: ClContext) !Layer {
             switch (config) {
                 .dense => {
                     return .{
@@ -1104,10 +1115,10 @@ pub const Neuralnet = struct {
                     };
                 },
                 .convolution => {
-                    const z_new: usize = config.convolution.filters;
-                    const y_new: usize = @divFloor(y + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
+                    const z_new: u32 = config.convolution.filters;
+                    const y_new: u32 = @divFloor(y + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
                         config.convolution.kernel_stride) + 1;
-                    const x_new: usize = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
+                    const x_new: u32 = @divFloor(x + 2 * config.convolution.kernel_padding - config.convolution.kernel_size, //
                         config.convolution.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, config.convolution.activation, 1, z_new, y_new, x_new, context),
@@ -1121,9 +1132,9 @@ pub const Neuralnet = struct {
                     };
                 },
                 .reduce => {
-                    const z_new: usize = z;
-                    const y_new: usize = @divFloor(y - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
-                    const x_new: usize = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
+                    const z_new: u32 = z;
+                    const y_new: u32 = @divFloor(y - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
+                    const x_new: u32 = @divFloor(x - config.reduce.kernel_size, config.reduce.kernel_stride) + 1;
                     return .{
                         .activation = try Activation.alloc(allocator, .none, 1, z_new, y_new, x_new, context),
                         .tag = .{
@@ -1241,9 +1252,9 @@ pub const Neuralnet = struct {
         assert(size_global % size_local == 0);
 
         var layers: []Layer = try allocator.alloc(Layer, config.len);
-        var z_previous: usize = input.buffer.z_size;
-        var y_previous: usize = input.buffer.y_size;
-        var x_previous: usize = input.buffer.x_size;
+        var z_previous: u32 = input.buffer.z_size;
+        var y_previous: u32 = input.buffer.y_size;
+        var x_previous: u32 = input.buffer.x_size;
         for (0..layers.len) |layer_idx| {
             layers[layer_idx] = try Layer.alloc(allocator, z_previous, y_previous, x_previous, config[layer_idx], context);
             z_previous = layers[layer_idx].values.buffer.z_size;
@@ -1265,13 +1276,13 @@ pub const Neuralnet = struct {
                     .split => 3 * layers[layer_idx].tag.split.filters,
                     .residual => 1,
                 } + switch (layers[layer_idx].activation.t) {
-                    .none => @as(usize, 0),
-                    .relu => @as(usize, 1),
-                    .sigmoid => @as(usize, 4),
-                    .tanh => @as(usize, 1),
-                    .silu => @as(usize, 6),
-                    .gelu => @as(usize, 6),
-                    .leaky => @as(usize, 3),
+                    .none => @as(u32, 0),
+                    .relu => @as(u32, 1),
+                    .sigmoid => @as(u32, 4),
+                    .tanh => @as(u32, 1),
+                    .silu => @as(u32, 6),
+                    .gelu => @as(u32, 6),
+                    .leaky => @as(u32, 3),
                 },
             );
 
@@ -1308,8 +1319,10 @@ pub const Neuralnet = struct {
         forward_cpu.concat(&layers[layers.len - 1].values.linearized);
 
         // TODO: Is it needed to clear the gradients?
-        for (0..layers.len - 1) |layer_idx_reverse| {
-            const layer_idx: usize = layers.len - (layer_idx_reverse + 1);
+        // TODO: Refactor this reverse stuff
+        var layer_idx_reverse: u32 = 0;
+        while (layer_idx_reverse < layers.len - 1) : (layer_idx_reverse += 1) {
+            const layer_idx: u32 = @as(u32, @truncate(layers.len)) - (layer_idx_reverse + 1);
 
             // TODO: capacityEnsure needs to happen here
 

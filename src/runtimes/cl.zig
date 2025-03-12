@@ -183,7 +183,7 @@ pub const ClKernel = struct {
 
 pub const ClMem = struct {
     memory: open_cl.cl_mem,
-    pub fn alloc(context: ClContext, a: usize, z: usize, y: usize, x: usize) !ClMem {
+    pub fn alloc(context: ClContext, a: u32, z: u32, y: u32, x: u32) !ClMem {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);

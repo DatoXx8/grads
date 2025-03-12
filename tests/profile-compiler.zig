@@ -152,8 +152,9 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
         }
     }
 
-    var op_idx_used: usize = 0;
-    for (0..op_num) |op_idx| {
+    var op_idx_used: u32 = 0;
+    var op_idx: u32 = 0;
+    while (op_idx < op_num) : (op_idx += 1) {
         if (op_idx < op_idx_used) {
             continue;
         }
@@ -176,11 +177,16 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
         const loop_len: u32 = pcg.random().uintLessThan(u32, @truncate(op_num - op_idx));
         op_idx_used = op_idx + loop_len;
 
-        for (0..a_loop) |a_idx| {
-            for (0..z_loop) |z_idx| {
-                for (0..y_loop) |y_idx| {
-                    for (0..x_loop) |x_idx| {
-                        for (0..loop_len) |loop_idx| {
+        var a_idx: u32 = 0;
+        while (a_idx < a_loop) : (a_idx += 1) {
+            var z_idx: u32 = 0;
+            while (z_idx < z_loop) : (z_idx += 1) {
+                var y_idx: u32 = 0;
+                while (y_idx < y_loop) : (y_idx += 1) {
+                    var x_idx: u32 = 0;
+                    while (x_idx < x_loop) : (x_idx += 1) {
+                        var loop_idx: u32 = 0;
+                        while (loop_idx < loop_len) : (loop_idx += 1) {
                             const tensor_out: u32 = op_out[op_idx + loop_idx];
                             const tensor_in: u32 = op_in[op_idx + loop_idx];
 
@@ -397,7 +403,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
         }
     }
 
-    const tensor_out: usize = op_out[op_num - 1];
+    const tensor_out: u32 = op_out[op_num - 1];
 
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {

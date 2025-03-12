@@ -55,8 +55,8 @@ comptime {
 
 fn simulateCompiler(
     allocator: Allocator,
-    op_off_low: usize,
-    op_off_top: usize,
+    op_off_low: u32,
+    op_off_top: u32,
     rng: u64,
     optimization: Optimization,
     device: ClDevice,
@@ -125,8 +125,9 @@ fn simulateCompiler(
         }
     }
 
-    var op_idx_used: usize = 0;
-    for (0..op_num) |op_idx| {
+    var op_idx_used: u32 = 0;
+    var op_idx: u32 = 0;
+    while (op_idx < op_num) : (op_idx += 1) {
         if (op_idx < op_idx_used) {
             continue;
         }
@@ -150,11 +151,16 @@ fn simulateCompiler(
         const loop_len: u32 = pcg.random().uintLessThan(u32, @truncate(op_num - op_idx));
         op_idx_used = op_idx + loop_len;
 
-        for (0..a_loop) |a_idx| {
-            for (0..z_loop) |z_idx| {
-                for (0..y_loop) |y_idx| {
-                    for (0..x_loop) |x_idx| {
-                        for (0..loop_len) |loop_idx| {
+        var a_idx: u32 = 0;
+        while (a_idx < a_loop) : (a_idx += 1) {
+            var z_idx: u32 = 0;
+            while (z_idx < z_loop) : (z_idx += 1) {
+                var y_idx: u32 = 0;
+                while (y_idx < y_loop) : (y_idx += 1) {
+                    var x_idx: u32 = 0;
+                    while (x_idx < x_loop) : (x_idx += 1) {
+                        var loop_idx: u32 = 0;
+                        while (loop_idx < loop_len) : (loop_idx += 1) {
                             // Putting this in here hurts performance slightly but
                             // it allows partial loops for nicer debugging
                             if (op_idx + loop_idx < op_off_low or op_idx + loop_idx >= op_num - op_off_top) {
@@ -377,7 +383,7 @@ fn simulateCompiler(
         }
     }
 
-    const tensor_out: usize = op_out[op_num - (op_off_top + 1)];
+    const tensor_out: u32 = op_out[op_num - (op_off_top + 1)];
     tensor2[tensor_out].realize();
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
@@ -414,8 +420,9 @@ fn minifyCompiler(
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: usize = 1;
-    for (1..op_num) |op_removed| {
+    var op_top: u32 = 1;
+    var op_removed: u32 = 1;
+    while (op_removed < op_num) : (op_removed += 1) {
         var failed: bool = false;
         simulateCompiler(allocator, 0, op_removed, rng, optimization, device, context, queue) catch {
             failed = true;
@@ -431,8 +438,9 @@ fn minifyCompiler(
     }
     // If it fails with no ops there's a serious issue
     assert(op_top > 0);
-    var op_low: usize = 0;
-    for (1..op_num - op_top) |op_removed| {
+    var op_low: u32 = 0;
+    op_removed = 1;
+    while (op_removed < op_num - op_top) : (op_removed += 1) {
         var failed: bool = false;
         simulateCompiler(allocator, op_removed, op_top, rng, optimization, device, context, queue) catch {
             failed = true;

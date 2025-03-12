@@ -23,52 +23,52 @@ const Optimization = @import("./optimize.zig").Optimization;
 //
 // Gets transformed into
 //
-// 0 => 0   0 0  0
-// 1 => 0   0 8  0
-// 2 => 120 0 16 0
-// 3 => 120 0 0  0
-// 4 => 240 0 8  0
-// 5 => 240 0 16 0
-// 6 => 360 0 0  0
-// 7 => 360 0 8  0
-// 8 => 480 0 16 0
+// 0 => 0 0 0 0
+// 1 => 0 0 1 0
+// 2 => 1 0 2 0
+// 3 => 1 0 0 0
+// 4 => 2 0 1 0
+// 5 => 2 0 2 0
+// 6 => 3 0 0 0
+// 7 => 3 0 1 0
+// 8 => 4 0 2 0
 //
 // Because the per dimension offsets aren't linear... This is a huge issue.
 pub const DimInfo = struct {
-    off_out: usize,
-    off_in: usize,
-    a_idx_out: usize,
-    z_idx_out: usize,
-    y_idx_out: usize,
-    x_idx_out: usize,
-    a_idx_in: usize,
-    z_idx_in: usize,
-    y_idx_in: usize,
-    x_idx_in: usize,
-    a_stride_out: usize,
-    z_stride_out: usize,
-    y_stride_out: usize,
-    x_stride_out: usize,
-    a_stride_in: usize,
-    z_stride_in: usize,
-    y_stride_in: usize,
-    x_stride_in: usize,
-    a_reset_out: usize,
-    z_reset_out: usize,
-    y_reset_out: usize,
-    x_reset_out: usize,
-    a_reset_in: usize,
-    z_reset_in: usize,
-    y_reset_in: usize,
-    x_reset_in: usize,
-    a_wait_out: usize,
-    z_wait_out: usize,
-    y_wait_out: usize,
-    x_wait_out: usize,
-    a_wait_in: usize,
-    z_wait_in: usize,
-    y_wait_in: usize,
-    x_wait_in: usize,
+    off_out: u32,
+    off_in: u32,
+    a_idx_out: u32,
+    z_idx_out: u32,
+    y_idx_out: u32,
+    x_idx_out: u32,
+    a_idx_in: u32,
+    z_idx_in: u32,
+    y_idx_in: u32,
+    x_idx_in: u32,
+    a_stride_out: u32,
+    z_stride_out: u32,
+    y_stride_out: u32,
+    x_stride_out: u32,
+    a_stride_in: u32,
+    z_stride_in: u32,
+    y_stride_in: u32,
+    x_stride_in: u32,
+    a_reset_out: u32,
+    z_reset_out: u32,
+    y_reset_out: u32,
+    x_reset_out: u32,
+    a_reset_in: u32,
+    z_reset_in: u32,
+    y_reset_in: u32,
+    x_reset_in: u32,
+    a_wait_out: u32,
+    z_wait_out: u32,
+    y_wait_out: u32,
+    x_wait_out: u32,
+    a_wait_in: u32,
+    z_wait_in: u32,
+    y_wait_in: u32,
+    x_wait_in: u32,
     pub fn init(base: []const Base) DimInfo {
         assert(base.len > 0);
 
@@ -91,14 +91,14 @@ pub const DimInfo = struct {
             .z_stride_in = 0,
             .y_stride_in = 0,
             .x_stride_in = 0,
-            .a_reset_out = base.len,
-            .z_reset_out = base.len,
-            .y_reset_out = base.len,
-            .x_reset_out = base.len,
-            .a_reset_in = base.len,
-            .z_reset_in = base.len,
-            .y_reset_in = base.len,
-            .x_reset_in = base.len,
+            .a_reset_out = @truncate(base.len),
+            .z_reset_out = @truncate(base.len),
+            .y_reset_out = @truncate(base.len),
+            .x_reset_out = @truncate(base.len),
+            .a_reset_in = @truncate(base.len),
+            .z_reset_in = @truncate(base.len),
+            .y_reset_in = @truncate(base.len),
+            .x_reset_in = @truncate(base.len),
             .a_wait_out = 1,
             .z_wait_out = 1,
             .y_wait_out = 1,
@@ -109,7 +109,8 @@ pub const DimInfo = struct {
             .x_wait_in = 1,
         };
 
-        for (1..base.len) |loop_idx| {
+        var loop_idx: u32 = 1;
+        while (loop_idx < base.len) : (loop_idx += 1) {
             if (base[dim_info.a_idx_out].out.aOffset() > base[loop_idx].out.aOffset()) {
                 dim_info.a_idx_out = loop_idx;
             }
@@ -141,7 +142,8 @@ pub const DimInfo = struct {
         var a_enter_out, var z_enter_out, var y_enter_out, var x_enter_out = .{ false, false, false, false };
         var a_enter_in, var z_enter_in, var y_enter_in, var x_enter_in = .{ false, false, false, false };
 
-        for (1..base.len) |loop_idx| {
+        loop_idx = 1;
+        while (loop_idx < base.len) : (loop_idx += 1) {
             if (!a_left_out and base[dim_info.a_idx_out].out.aOffset() !=
                 base[(loop_idx + dim_info.a_idx_out) % base.len].out.aOffset())
             {
@@ -443,11 +445,11 @@ pub const Base = struct {
 /// Tree representation of inlined ops
 pub const Inlined = struct {
     base: []Base,
-    out: []?usize,
-    in: []?usize,
-    out_root: ?usize,
-    in_root: ?usize,
-    inlined_num: usize,
+    out: []?u32,
+    in: []?u32,
+    out_root: ?u32,
+    in_root: ?u32,
+    inlined_num: u32,
 };
 
 /// Wether or not to split a single operation across kernels
@@ -500,7 +502,7 @@ pub const Assign = struct {
 
 pub const Ssa = struct {
     assign: []Assign,
-    assign_num: usize,
+    assign_num: u32,
     assign_loop_id: []u32,
     /// Indexed by the id from above
     assign_loop_num: []u32,
@@ -569,7 +571,7 @@ pub const Ssa = struct {
 
         return .{
             .assign = assign,
-            .assign_num = assign.len,
+            .assign_num = @truncate(assign.len),
             .assign_loop_id = assign_loop_id,
             .assign_loop_num = assign_loop_num,
         };

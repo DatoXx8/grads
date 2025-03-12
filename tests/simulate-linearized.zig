@@ -43,7 +43,7 @@ comptime {
     assert(op_num > 0);
 }
 
-fn simulateLinearized(allocator: Allocator, op_off_low: usize, op_off_top: usize, rng: u64) !void {
+fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     assert(op_num > op_off_low);
@@ -93,7 +93,7 @@ fn simulateLinearized(allocator: Allocator, op_off_low: usize, op_off_top: usize
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
-            const switch_likelyhood: usize = 10;
+            const switch_likelyhood: u32 = 10;
             if (pcg.random().uintLessThan(u32, switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
                 op_out[op_idx] = pcg.random().uintLessThan(u32, tensor_num - 1);
@@ -399,8 +399,9 @@ fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
     // TODO: Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: usize = 0;
-    for (1..op_num) |op_removed| {
+    var op_top: u32 = 0;
+    var op_removed: u32 = 1;
+    while (op_removed < op_num) : (op_removed += 1) {
         var failed: bool = false;
         simulateLinearized(allocator, 0, op_removed, rng) catch {
             failed = true;
@@ -411,8 +412,9 @@ fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
             break;
         }
     }
-    var op_low: usize = 0;
-    for (1..op_num - op_top) |op_removed| {
+    var op_low: u32 = 0;
+    op_removed = 1;
+    while (op_removed < op_num - op_top) : (op_removed += 1) {
         var failed: bool = false;
         simulateLinearized(allocator, op_removed, op_top, rng) catch {
             failed = true;

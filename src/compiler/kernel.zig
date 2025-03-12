@@ -2,7 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const buffer_name_size: usize = @import("../tensor.zig").buffer_name_size;
+const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 
 const Cl = @import("../runtimes/cl.zig");
 const ClMem = Cl.ClMem;
@@ -43,7 +43,7 @@ pub const Args = struct {
         }
 
         const arg_num: usize = arg_unique.count();
-        const arg_name: []usize = try allocator.alloc(usize, arg_num);
+        const arg_name: []u64 = try allocator.alloc(u64, arg_num);
         const arg_mem: []ClMem = try allocator.alloc(ClMem, arg_num);
 
         errdefer {

@@ -66,9 +66,9 @@ pub const Optimization = enum(u8) {
 
         // TODO: I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
         const temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
-        const temp_out: []?usize = try allocator.alloc(?usize, ssa.assign_num);
-        const temp_in: []?usize = try allocator.alloc(?usize, ssa.assign_num);
-        const temp_idx: []?usize = try allocator.alloc(?usize, ssa.assign_num);
+        const temp_out: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
+        const temp_in: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
+        const temp_idx: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
         const temp_already: []bool = try allocator.alloc(bool, ssa.assign_num);
         errdefer {
             allocator.free(temp_base);
@@ -86,8 +86,9 @@ pub const Optimization = enum(u8) {
         }
         @memset(temp_already, false);
 
-        var temp_num: usize = 0;
-        for (0..ssa.assign_num) |assign_idx| {
+        var temp_num: u32 = 0;
+        var assign_idx: u32 = 0;
+        while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
             if (!inlined_eligible[assign_idx] or temp_already[assign_idx]) {
                 continue;
             }
@@ -98,7 +99,8 @@ pub const Optimization = enum(u8) {
             temp_out[0] = null;
             temp_idx[0] = assign_idx;
 
-            for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
+            var assign_idx_search: u32 = assign_idx + 1;
+            while (assign_idx_search < ssa.assign_num) : (assign_idx_search += 1) {
                 if (temp_already[assign_idx_search]) {
                     continue;
                 }
@@ -144,8 +146,8 @@ pub const Optimization = enum(u8) {
                     } else {
                         ssa.assign[assign_idx_search].inlined = .{
                             .base = try allocator.alloc(Base, temp_num),
-                            .out = try allocator.alloc(?usize, temp_num),
-                            .in = try allocator.alloc(?usize, temp_num),
+                            .out = try allocator.alloc(?u32, temp_num),
+                            .in = try allocator.alloc(?u32, temp_num),
                             .out_root = null,
                             .in_root = temp_num - 1,
                             .inlined_num = 0,
@@ -153,7 +155,7 @@ pub const Optimization = enum(u8) {
                     }
 
                     for (0..temp_num) |inlined_idx| {
-                        const inlined_num: usize = ssa.assign[assign_idx_search].inlined.?.inlined_num;
+                        const inlined_num: u32 = ssa.assign[assign_idx_search].inlined.?.inlined_num;
                         if (temp_idx[inlined_idx]) |idx| {
                             temp_already[idx] = true;
                         }
@@ -172,7 +174,7 @@ pub const Optimization = enum(u8) {
                 // Do nothing I guess?
             } else {
                 // TODO: Come to think of it if this case is hit then I guess the ops are completely redundant and can be deleted
-                const target_idx: usize = temp_idx[temp_num - 1].?;
+                const target_idx: u32 = temp_idx[temp_num - 1].?;
 
                 temp_base[temp_num - 1] = undefined;
                 temp_out[temp_num - 1] = null;
@@ -191,15 +193,15 @@ pub const Optimization = enum(u8) {
                 } else {
                     ssa.assign[target_idx].inlined = .{
                         .base = try allocator.alloc(Base, temp_num),
-                        .out = try allocator.alloc(?usize, temp_num),
-                        .in = try allocator.alloc(?usize, temp_num),
+                        .out = try allocator.alloc(?u32, temp_num),
+                        .in = try allocator.alloc(?u32, temp_num),
                         .out_root = temp_num - 1,
                         .in_root = null,
                         .inlined_num = 0,
                     };
                 }
 
-                const target_num: usize = ssa.assign[target_idx].inlined.?.inlined_num;
+                const target_num: u32 = ssa.assign[target_idx].inlined.?.inlined_num;
                 for (0..temp_num) |inlined_idx| {
                     ssa.assign[target_idx].inlined.?.base[target_num + inlined_idx] = temp_base[inlined_idx];
                     ssa.assign[target_idx].inlined.?.out[target_num + inlined_idx] = temp_out[inlined_idx];
@@ -213,8 +215,9 @@ pub const Optimization = enum(u8) {
             }
         }
 
-        var assign_num_new: usize = 0;
-        for (0..ssa.assign_num) |assign_idx| {
+        assign_idx = 0;
+        var assign_num_new: u32 = 0;
+        while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
             if (temp_already[assign_idx]) {
                 if (ssa.assign[assign_idx].inlined) |*inlined| {
                     allocator.free(inlined.base);
@@ -283,7 +286,7 @@ pub const Optimization = enum(u8) {
                     var equal: bool = true;
                     // TODO: There just has to be a faster way of doing this
                     for (0..loop_num) |loop_idx_search| {
-                        var assign_off: usize = 0;
+                        var assign_off: u32 = 0;
                         while (assign_off < loop_len) : (assign_off += 1) {
                             if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals( //
                                 ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
@@ -331,7 +334,7 @@ pub const Optimization = enum(u8) {
                 assign_idx += (loop_len * loop_num) - 1;
             }
         }
-        var assign_num_new: usize = 0;
+        var assign_num_new: u32 = 0;
         assign_idx = 0;
         while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
             if (remove_temp[assign_idx]) {

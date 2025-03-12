@@ -31,21 +31,21 @@ pub const Buffer = struct {
     // NOTE: I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
     //  necessary and that is already saved in values.len
 
-    a_size: usize,
-    z_size: usize,
-    y_size: usize,
-    x_size: usize,
-    a_stride: usize,
-    z_stride: usize,
-    y_stride: usize,
-    x_stride: usize,
-    offset: usize,
+    a_size: u32,
+    z_size: u32,
+    y_size: u32,
+    x_size: u32,
+    a_stride: u32,
+    z_stride: u32,
+    y_stride: u32,
+    x_stride: u32,
+    offset: u32,
     values: []f32,
     values_cl: ?ClMem,
     sync: SyncStatus,
     name_offset: u64,
     intermediary: bool,
-    pub fn alloc(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -69,7 +69,7 @@ pub const Buffer = struct {
             .intermediary = false,
         };
     }
-    pub fn allocIntermediary(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Buffer {
+    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -121,20 +121,20 @@ pub const Buffer = struct {
 
         return name_result;
     }
-    pub inline fn aOffset(this: @This()) usize {
+    pub inline fn aOffset(this: @This()) u32 {
         return @divFloor(this.offset, this.a_stride);
     }
-    pub inline fn zOffset(this: @This()) usize {
+    pub inline fn zOffset(this: @This()) u32 {
         return @divFloor(this.offset % this.a_stride, this.z_stride);
     }
-    pub inline fn yOffset(this: @This()) usize {
+    pub inline fn yOffset(this: @This()) u32 {
         return @divFloor(this.offset % this.z_stride, this.y_stride);
     }
-    pub inline fn xOffset(this: @This()) usize {
+    pub inline fn xOffset(this: @This()) u32 {
         return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
     // TODO: Could also just return a single item pointer here. Not decided yet.
-    pub inline fn at(this: @This(), a: usize, z: usize, y: usize, x: usize) usize {
+    pub inline fn at(this: @This(), a: u32, z: u32, y: u32, x: u32) u32 {
         assert(a < this.a_size);
         assert(z < this.z_size);
         assert(y < this.y_size);
@@ -193,15 +193,15 @@ pub const Buffer = struct {
     }
     /// Return wether the two buffers overlap in any place
     pub inline fn overlaps(this: @This(), target: @This()) bool {
-        const a_1: usize = this.aOffset();
-        const z_1: usize = this.zOffset();
-        const y_1: usize = this.yOffset();
-        const x_1: usize = this.xOffset();
+        const a_1: u32 = this.aOffset();
+        const z_1: u32 = this.zOffset();
+        const y_1: u32 = this.yOffset();
+        const x_1: u32 = this.xOffset();
 
-        const a_2: usize = target.aOffset();
-        const z_2: usize = target.zOffset();
-        const y_2: usize = target.yOffset();
-        const x_2: usize = target.xOffset();
+        const a_2: u32 = target.aOffset();
+        const z_2: u32 = target.zOffset();
+        const y_2: u32 = target.yOffset();
+        const x_2: u32 = target.xOffset();
 
         return @max(a_1, a_2) < @min(a_1 + this.a_size, a_2 + target.a_size) and
             @max(z_1, z_2) < @min(z_1 + this.z_size, z_2 + target.z_size) and
@@ -221,15 +221,15 @@ pub const Buffer = struct {
     }
     /// Return wether the two buffers overlap in some, but not all places
     pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
-        const a_1: usize = target.aOffset();
-        const z_1: usize = target.zOffset();
-        const y_1: usize = target.yOffset();
-        const x_1: usize = target.xOffset();
+        const a_1: u32 = target.aOffset();
+        const z_1: u32 = target.zOffset();
+        const y_1: u32 = target.yOffset();
+        const x_1: u32 = target.xOffset();
 
-        const a_2: usize = target.aOffset();
-        const z_2: usize = target.zOffset();
-        const y_2: usize = target.yOffset();
-        const x_2: usize = target.xOffset();
+        const a_2: u32 = target.aOffset();
+        const z_2: u32 = target.zOffset();
+        const y_2: u32 = target.yOffset();
+        const x_2: u32 = target.xOffset();
 
         return @max(a_1, a_2) < @min(a_1 + this.a_size, a_2 + target.a_size) and a_1 != a_2 and
             @max(z_1, z_2) < @min(z_1 + this.z_size, z_2 + target.z_size) and z_1 != z_2 and
@@ -525,14 +525,18 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        const a_size: usize = if (this.isReduce()) this.in.a_size else this.out.a_size;
-        const z_size: usize = if (this.isReduce()) this.in.z_size else this.out.z_size;
-        const y_size: usize = if (this.isReduce()) this.in.y_size else this.out.y_size;
-        const x_size: usize = if (this.isReduce()) this.in.x_size else this.out.x_size;
-        for (0..a_size) |a| {
-            for (0..z_size) |z| {
-                for (0..y_size) |y| {
-                    for (0..x_size) |x| {
+        const a_size: u32 = if (this.isReduce()) this.in.a_size else this.out.a_size;
+        const z_size: u32 = if (this.isReduce()) this.in.z_size else this.out.z_size;
+        const y_size: u32 = if (this.isReduce()) this.in.y_size else this.out.y_size;
+        const x_size: u32 = if (this.isReduce()) this.in.x_size else this.out.x_size;
+        var a: u32 = 0;
+        while (a < a_size) : (a += 1) {
+            var z: u32 = 0;
+            while (z < z_size) : (z += 1) {
+                var y: u32 = 0;
+                while (y < y_size) : (y += 1) {
+                    var x: u32 = 0;
+                    while (x < x_size) : (x += 1) {
                         switch (this.type) {
                             .unary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.u_var;
@@ -755,17 +759,17 @@ pub const Op = struct {
     }
 };
 
-const op_cap_base: usize = 4;
+const op_cap_base = 4;
 pub const Linearized = struct {
     op: []Op,
-    op_num: usize,
+    op_num: u32,
     pub fn alloc(allocator: Allocator) !Linearized {
         return .{
             .op_num = 0,
             .op = try allocator.alloc(Op, op_cap_base),
         };
     }
-    pub fn capacityEnsure(this: *@This(), allocator: Allocator, capacity: usize) !void {
+    pub fn capacityEnsure(this: *@This(), allocator: Allocator, capacity: u32) !void {
         if (this.op.len - this.op_num < capacity) {
             this.op = try allocator.realloc(this.op, this.op_num + capacity);
         }
@@ -830,7 +834,7 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -841,7 +845,7 @@ pub const Tensor = struct {
             .linearized = try Linearized.alloc(allocator),
         };
     }
-    pub fn allocIntermediary(allocator: Allocator, a: usize, z: usize, y: usize, x: usize, context: ?ClContext) !Tensor {
+    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -870,11 +874,15 @@ pub const Tensor = struct {
         } else {
             std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
         }
-        for (0..this.buffer.a_size) |a| {
-            for (0..this.buffer.z_size) |z| {
-                for (0..this.buffer.y_size) |y| {
+        var a: u32 = 0;
+        while (a < this.buffer.a_size) : (a += 1) {
+            var z: u32 = 0;
+            while (z < this.buffer.z_size) : (z += 1) {
+                var y: u32 = 0;
+                while (y < this.buffer.y_size) : (y += 1) {
                     std.debug.print("{s}[", .{" " ** (offset + padding)});
-                    for (0..this.buffer.x_size) |x| {
+                    var x: u32 = 0;
+                    while (x < this.buffer.x_size) : (x += 1) {
                         std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
                     }
                     std.debug.print("]\n", .{});
@@ -891,11 +899,15 @@ pub const Tensor = struct {
             std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
         }
         this.linearized.debug(0, 0, null);
-        for (0..this.buffer.a_size) |a| {
-            for (0..this.buffer.z_size) |z| {
-                for (0..this.buffer.y_size) |y| {
+        var a: u32 = 0;
+        while (a < this.buffer.a_size) : (a += 1) {
+            var z: u32 = 0;
+            while (z < this.buffer.z_size) : (z += 1) {
+                var y: u32 = 0;
+                while (y < this.buffer.y_size) : (y += 1) {
                     std.debug.print("{s}[", .{" " ** (offset + padding)});
-                    for (0..this.buffer.x_size) |x| {
+                    var x: u32 = 0;
+                    while (x < this.buffer.x_size) : (x += 1) {
                         std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
                     }
                     std.debug.print("]\n", .{});
@@ -1284,7 +1296,7 @@ pub const Tensor = struct {
             .u_var = 0,
         });
     }
-    pub fn moveReshape(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
+    pub fn moveReshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -1304,7 +1316,7 @@ pub const Tensor = struct {
         this.buffer.y_stride = x;
         this.buffer.x_stride = 1;
     }
-    pub fn moveResize(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
+    pub fn moveResize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -1320,7 +1332,7 @@ pub const Tensor = struct {
         this.buffer.y_size = y;
         this.buffer.x_size = x;
     }
-    pub fn moveOffset(this: *@This(), a: usize, z: usize, y: usize, x: usize) void {
+    pub fn moveOffset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
         assert(a < this.buffer.values.len);
         assert(z < this.buffer.values.len);
         assert(y < this.buffer.values.len);

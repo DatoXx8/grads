@@ -81,8 +81,8 @@ pub const Program = struct {
             if (ssa.assign_num == 0) 0 else std.math.log10_int(ssa.assign_num) + 2);
         defer allocator.free(kernel_name);
 
-        var kernel_num: usize = 0;
-        var assign_idx: usize = 0;
+        var kernel_num: u32 = 0;
+        var assign_idx: u32 = 0;
 
         for (0..ssa.assign_num) |_| {
             if (assign_idx == ssa.assign_num) {
@@ -90,7 +90,7 @@ pub const Program = struct {
             }
             assert(assign_idx < ssa.assign_num);
 
-            var assign_idx_top: usize = assign_idx + 1;
+            var assign_idx_top: u32 = assign_idx + 1;
             for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
                 if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_idx_search].base.layer()) {
                     if (ssa.assign_loop_id[assign_idx] == ssa.assign_loop_id[assign_idx_search]) {
