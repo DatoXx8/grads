@@ -9,6 +9,31 @@ const Buffer = @import("../tensor.zig").Buffer;
 
 const Optimization = @import("./optimize.zig").Optimization;
 
+// FIXME:
+//
+// B set (1 6 2 4) [0, 0, 0, 0 = 0] false "khaaaaaa" (1 6 2 4) [0, 0, 0, 0 = 0] false "ygaaaaaa" 0
+// B set (1 6 2 4) [0, 0, 2, 0 = 8] false "khaaaaaa" (1 6 2 4) [0, 0, 2, 0 = 8] false "ygaaaaaa" 2
+// B set (1 6 2 4) [1, 0, 1, 0 = 124] false "khaaaaaa" (1 6 2 4) [1, 0, 1, 0 = 124] false "ygaaaaaa" 4
+// B set (1 6 2 4) [2, 0, 0, 0 = 240] false "khaaaaaa" (1 6 2 4) [2, 0, 0, 0 = 240] false "ygaaaaaa" 6
+// B set (1 6 2 4) [2, 0, 2, 0 = 248] false "khaaaaaa" (1 6 2 4) [2, 0, 2, 0 = 248] false "ygaaaaaa" 8
+// B set (1 6 2 4) [3, 0, 1, 0 = 364] false "khaaaaaa" (1 6 2 4) [3, 0, 1, 0 = 364] false "ygaaaaaa" 10
+// B set (1 6 2 4) [4, 0, 0, 0 = 480] false "khaaaaaa" (1 6 2 4) [4, 0, 0, 0 = 480] false "ygaaaaaa" 12
+// B set (1 6 2 4) [4, 0, 2, 0 = 488] false "khaaaaaa" (1 6 2 4) [4, 0, 2, 0 = 488] false "ygaaaaaa" 14
+// B set (1 6 2 4) [5, 0, 1, 0 = 604] false "khaaaaaa" (1 6 2 4) [5, 0, 1, 0 = 604] false "ygaaaaaa" 16
+//
+// Gets transformed into
+//
+// 0 => 0   0 0  0
+// 1 => 0   0 8  0
+// 2 => 120 0 16 0
+// 3 => 120 0 0  0
+// 4 => 240 0 8  0
+// 5 => 240 0 16 0
+// 6 => 360 0 0  0
+// 7 => 360 0 8  0
+// 8 => 480 0 16 0
+//
+// Because the per dimension offsets aren't linear... This is a huge issue.
 pub const DimInfo = struct {
     off_out: usize,
     off_in: usize,
@@ -324,7 +349,7 @@ pub const Base = struct {
             std.debug.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
         if (this.type.isUnary()) {
-            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" {d} {}\n", .{
+            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {d} {}\n", .{
                 " " ** (offset + padding),
                 switch (this.type) {
                     .unary_add => "add",
@@ -349,6 +374,10 @@ pub const Base = struct {
                 this.out.z_size,
                 this.out.y_size,
                 this.out.x_size,
+                this.out.aOffset(),
+                this.out.zOffset(),
+                this.out.yOffset(),
+                this.out.xOffset(),
                 this.out.offset,
                 this.out.intermediary,
                 this.out.name(),
@@ -357,7 +386,7 @@ pub const Base = struct {
             });
         } else {
             const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isLinary()) 'L' else (if (this.type.isReduce()) 'R' else unreachable));
-            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}] {} \"{s}\" {}\n", .{
+            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {}\n", .{
                 " " ** (offset + padding),
                 op_kind,
                 switch (this.type) {
@@ -385,6 +414,10 @@ pub const Base = struct {
                 this.out.z_size,
                 this.out.y_size,
                 this.out.x_size,
+                this.out.aOffset(),
+                this.out.zOffset(),
+                this.out.yOffset(),
+                this.out.xOffset(),
                 this.out.offset,
                 this.out.intermediary,
                 this.out.name(),
@@ -392,6 +425,10 @@ pub const Base = struct {
                 this.in.z_size,
                 this.in.y_size,
                 this.in.x_size,
+                this.in.aOffset(),
+                this.in.zOffset(),
+                this.in.yOffset(),
+                this.in.xOffset(),
                 this.in.offset,
                 this.in.intermediary,
                 this.in.name(),
