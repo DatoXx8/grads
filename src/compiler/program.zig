@@ -11,7 +11,7 @@ const ClContext = Cl.ClContext;
 const ClCommandQueue = Cl.ClCommandQueue;
 const ClError = Cl.ClError;
 const ClProgram = Cl.ClProgram;
-const open_cl = Cl.open_cl;
+const opencl = Cl.opencl;
 
 const Linearized = @import("../tensor.zig").Linearized;
 
@@ -149,13 +149,13 @@ pub const Program = struct {
     pub fn run(this: @This()) !void {
         for (this.kernel) |kernel| {
             // TODO: kernel.kernel.kernel is hilarious but should not be a thing
-            if (open_cl.clEnqueueNDRangeKernel(this.queue.queue, kernel.kernel.kernel, //
+            if (opencl.clEnqueueNDRangeKernel(this.queue.queue, kernel.kernel.kernel, //
                 1, null, &this.size_global, &this.size_local, 0, null, null) != 0)
             {
                 return ClError.ProgramNotRun;
             }
             // TODO: Only need to wait once?
-            if (open_cl.clFinish(this.queue.queue) != 0) {
+            if (opencl.clFinish(this.queue.queue) != 0) {
                 return ClError.QueueCouldNotWait;
             }
         }

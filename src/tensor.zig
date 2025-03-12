@@ -6,7 +6,7 @@ const Allocator = std.mem.Allocator;
 const ClMem = @import("./runtimes/cl.zig").ClMem;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const OpenCl = @import("./runtimes/cl.zig").open_cl;
+const opencl = @import("./runtimes/cl.zig").opencl;
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
@@ -144,8 +144,8 @@ pub const Buffer = struct {
     pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
             const size: usize = this.values.len * @sizeOf(f32);
-            if (OpenCl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
-                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
+            if (opencl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
+                opencl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
                 return SyncError.FailedToHost;
             }
@@ -155,8 +155,8 @@ pub const Buffer = struct {
     pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_device) {
             const size: usize = this.values.len * @sizeOf(f32);
-            if (OpenCl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
-                OpenCl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
+            if (opencl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
+                opencl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
             {
                 return SyncError.FailedToDevice;
             }
@@ -169,7 +169,7 @@ pub const Buffer = struct {
         this.sync = sync;
     }
     pub fn syncWait(_: *@This(), queue: ClCommandQueue) !void {
-        if (OpenCl.clFinish(queue.queue) == 0) {
+        if (opencl.clFinish(queue.queue) == 0) {
             return;
         } else {
             return SyncError.FailedWait;

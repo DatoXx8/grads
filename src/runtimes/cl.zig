@@ -8,14 +8,14 @@ const Allocator = std.mem.Allocator;
 // It is just this followed by the index of the kernel
 pub const kernel_name_base: []const u8 = &[_]u8{'k'};
 
-const OpenClHeader = switch (builtin.target.os.tag) {
+const opencl_header = switch (builtin.target.os.tag) {
     .macos => "OpenCL/cl.h",
     else => "CL/cl.h",
 };
 
-pub const open_cl = @cImport({
-    // @cDefine("CL_TARGET_OpenCl_VERSION", OpenCl_version);
-    @cInclude(OpenClHeader);
+pub const opencl = @cImport({
+    // @cDefine("CL_TARGET_OpenCl_VERSION", opencl_version);
+    @cInclude(opencl_header);
 });
 
 pub const ClError = error{
@@ -47,18 +47,18 @@ pub const ClDevice = struct {
         gpu,
     };
     type: ClDeviceType,
-    device: open_cl.cl_device_id,
+    device: opencl.cl_device_id,
     pub fn alloc(device_type: ClDevice.ClDeviceType) !ClDevice {
-        var platform: open_cl.cl_platform_id = null;
-        var device: open_cl.cl_device_id = null;
+        var platform: opencl.cl_platform_id = null;
+        var device: opencl.cl_device_id = null;
 
-        if (open_cl.clGetPlatformIDs(1, &platform, null) != 0) {
+        if (opencl.clGetPlatformIDs(1, &platform, null) != 0) {
             return ClError.PlatformNotFound;
         }
 
-        if (open_cl.clGetDeviceIDs(platform, switch (device_type) {
-            .gpu => open_cl.CL_DEVICE_TYPE_GPU,
-            .cpu => open_cl.CL_DEVICE_TYPE_CPU,
+        if (opencl.clGetDeviceIDs(platform, switch (device_type) {
+            .gpu => opencl.CL_DEVICE_TYPE_GPU,
+            .cpu => opencl.CL_DEVICE_TYPE_CPU,
         }, 1, &device, null) == 0) {
             return .{ .type = device_type, .device = device };
         } else {
@@ -66,7 +66,7 @@ pub const ClDevice = struct {
         }
     }
     pub fn free(this: *@This()) !void {
-        if (open_cl.clReleaseDevice(this.device) == 0) {
+        if (opencl.clReleaseDevice(this.device) == 0) {
             return;
         } else {
             return ClError.DeviceNotFreed;
@@ -74,7 +74,7 @@ pub const ClDevice = struct {
     }
     pub fn maxSizeLocal(this: @This()) !usize {
         var size_local: usize = 0;
-        if (open_cl.clGetDeviceInfo(this.device, open_cl.CL_DEVICE_MAX_WORK_GROUP_SIZE, @sizeOf(usize), &size_local, null) == 0) {
+        if (opencl.clGetDeviceInfo(this.device, opencl.CL_DEVICE_MAX_WORK_GROUP_SIZE, @sizeOf(usize), &size_local, null) == 0) {
             return size_local;
         } else {
             return ClError.DeviceInfoNotFound;
@@ -83,11 +83,11 @@ pub const ClDevice = struct {
 };
 
 pub const ClContext = struct {
-    context: open_cl.cl_context,
+    context: opencl.cl_context,
     pub fn alloc(device: ClDevice) !ClContext {
-        var context: open_cl.cl_context = null;
+        var context: opencl.cl_context = null;
         var err: i32 = 0;
-        context = open_cl.clCreateContext(null, 1, &device.device, null, null, &err);
+        context = opencl.clCreateContext(null, 1, &device.device, null, null, &err);
         if (err == 0) {
             return .{ .context = context };
         } else {
@@ -95,7 +95,7 @@ pub const ClContext = struct {
         }
     }
     pub fn free(context: ClContext) !void {
-        if (open_cl.clReleaseContext(context.context) == 0) {
+        if (opencl.clReleaseContext(context.context) == 0) {
             return;
         } else {
             return ClError.ContextNotFreed;
@@ -104,10 +104,10 @@ pub const ClContext = struct {
 };
 
 pub const ClCommandQueue = struct {
-    queue: open_cl.cl_command_queue,
+    queue: opencl.cl_command_queue,
     pub fn alloc(device: ClDevice, context: ClContext) !ClCommandQueue {
         var err: i32 = 0;
-        const queue: ClCommandQueue = .{ .queue = open_cl.clCreateCommandQueueWithProperties(context.context, device.device, null, &err) };
+        const queue: ClCommandQueue = .{ .queue = opencl.clCreateCommandQueueWithProperties(context.context, device.device, null, &err) };
         if (err == 0) {
             return queue;
         } else {
@@ -115,7 +115,7 @@ pub const ClCommandQueue = struct {
         }
     }
     pub fn free(queue: ClCommandQueue) !void {
-        if (open_cl.clReleaseCommandQueue(queue.queue) == 0) {
+        if (opencl.clReleaseCommandQueue(queue.queue) == 0) {
             return;
         } else {
             return ClError.QueueNotFreed;
@@ -124,7 +124,7 @@ pub const ClCommandQueue = struct {
 };
 
 pub const ClProgram = struct {
-    program: open_cl.cl_program,
+    program: opencl.cl_program,
     pub fn alloc(allocator: Allocator, context: ClContext, device: ClDevice, source: []const u8) !ClProgram {
         var log_size: usize = 0;
         var err: i32 = 0;
@@ -132,27 +132,27 @@ pub const ClProgram = struct {
         var log: ?[]u8 = null;
         var log_c: ?[*:0]u8 = null;
         var source_c: [*c]const u8 = source[0 .. source.len - 1 :0];
-        const program: open_cl.cl_program = open_cl.clCreateProgramWithSource(context.context, 1, &source_c, &source.len, &err);
+        const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source_c, &source.len, &err);
         if (err != 0) {
             return ClError.ProgramNotCreated;
         }
 
-        if (open_cl.clBuildProgram(program, 0, null, null, null, null) == 0) {
+        if (opencl.clBuildProgram(program, 0, null, null, null, null) == 0) {
             return .{ .program = program };
         } else {
             std.debug.print("{s}\n", .{source});
-            _ = open_cl.clGetProgramBuildInfo(program, device.device, open_cl.CL_PROGRAM_BUILD_LOG, 0, null, &log_size);
+            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, 0, null, &log_size);
             log = try allocator.alloc(u8, log_size);
             defer allocator.free(log.?);
             @memset(log.?[0..], 0);
             log_c = log.?[0 .. log.?.len - 1 :0];
-            _ = open_cl.clGetProgramBuildInfo(program, device.device, open_cl.CL_PROGRAM_BUILD_LOG, log_size + 1, log_c, null);
+            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, log_size + 1, log_c, null);
             std.debug.print("{s}\n", .{log.?});
             return ClError.ProgramNotBuilt;
         }
     }
     pub fn free(program: ClProgram) !void {
-        if (open_cl.clReleaseProgram(program.program) == 0) {
+        if (opencl.clReleaseProgram(program.program) == 0) {
             return;
         } else {
             return ClError.ProgramNotFreed;
@@ -161,10 +161,10 @@ pub const ClProgram = struct {
 };
 
 pub const ClKernel = struct {
-    kernel: open_cl.cl_kernel,
+    kernel: opencl.cl_kernel,
     pub fn alloc(program: ClProgram, name_c: [*:0]const u8) !ClKernel {
         var err: i32 = 0;
-        const kernel: open_cl.cl_kernel = open_cl.clCreateKernel(program.program, name_c, &err);
+        const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, name_c, &err);
         if (err == 0) {
             return .{ .kernel = kernel };
         } else {
@@ -173,7 +173,7 @@ pub const ClKernel = struct {
         }
     }
     pub fn free(kernel: ClKernel) !void {
-        if (open_cl.clReleaseKernel(kernel.kernel) == 0) {
+        if (opencl.clReleaseKernel(kernel.kernel) == 0) {
             return;
         } else {
             return ClError.KernelNotFreed;
@@ -182,7 +182,7 @@ pub const ClKernel = struct {
 };
 
 pub const ClMem = struct {
-    memory: open_cl.cl_mem,
+    memory: opencl.cl_mem,
     pub fn alloc(context: ClContext, a: u32, z: u32, y: u32, x: u32) !ClMem {
         assert(a > 0);
         assert(z > 0);
@@ -190,7 +190,7 @@ pub const ClMem = struct {
         assert(x > 0);
 
         var err: i32 = 0;
-        const memory: open_cl.cl_mem = open_cl.clCreateBuffer(context.context, open_cl.CL_MEM_READ_WRITE, a * z * y * x * @sizeOf(f32), null, &err);
+        const memory: opencl.cl_mem = opencl.clCreateBuffer(context.context, opencl.CL_MEM_READ_WRITE, a * z * y * x * @sizeOf(f32), null, &err);
         if (err == 0) {
             return .{ .memory = memory };
         } else {
@@ -198,7 +198,7 @@ pub const ClMem = struct {
         }
     }
     pub fn free(this: @This()) !void {
-        if (open_cl.clReleaseMemObject(this.memory) == 0) {
+        if (opencl.clReleaseMemObject(this.memory) == 0) {
             return;
         } else {
             return ClError.MemNotFreed;

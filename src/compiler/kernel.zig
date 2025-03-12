@@ -15,7 +15,7 @@ const ClError = Cl.ClError;
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
 
-const open_cl = @import("../runtimes/cl.zig").open_cl;
+const opencl = @import("../runtimes/cl.zig").opencl;
 
 pub const Args = struct {
     arg_name_offset: []u64,
@@ -84,8 +84,8 @@ pub const Kernel = struct {
         for (0..args.arg_mem.len) |arg_idx| {
             // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
             // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
-            if (open_cl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
-                @sizeOf(open_cl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
+            if (opencl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
+                @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
             {
                 return ClError.ArgNotSet;
             }
