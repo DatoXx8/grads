@@ -323,7 +323,7 @@ pub const Optimization = enum(u8) {
                             for (0..loop_num) |loop_idx| {
                                 base_temp[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].inlined.?.base[inlined_idx];
                             }
-                            inlined.base[inner_idx].dim_info = DimInfo.init(base_temp[0..loop_num]);
+                            inlined.base[inlined_idx].dim_info = DimInfo.init(base_temp[0..loop_num]);
                         }
                     }
 
