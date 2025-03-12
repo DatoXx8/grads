@@ -243,7 +243,7 @@ pub const Optimization = enum(u8) {
 
         var loop_id: u32 = 1;
 
-        // TODO: Check for equality of inlined trees
+        // FIX: Check for equality of inlined trees
         var assign_idx: u32 = 0;
         while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
             var loop_len: u32 = 0;
@@ -252,8 +252,7 @@ pub const Optimization = enum(u8) {
             var assign_idx_search: u32 = assign_idx + 1;
             while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
                 if (ssa.assign[assign_idx].base.equals(ssa.assign[assign_idx_search].base)) {
-                    if (ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.out)) {
-                        // TODO: There should be a way to still parallelize this.
+                    if (ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) {
                         break;
                     } else {
                         var equal: bool = true;
@@ -283,12 +282,17 @@ pub const Optimization = enum(u8) {
                 for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                     var equal: bool = true;
                     var assign_off: usize = 0;
-                    // FIX: Need to check for overlap between every single iterations... yikes...
-                    while (assign_off < loop_len) : (assign_off += 1) {
-                        if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
-                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
-                        {
-                            equal = false;
+                    // TODO: There just has to be a faster way of doing this
+                    for (0..loop_num) |loop_idx_search| {
+                        while (assign_off < loop_len) : (assign_off += 1) {
+                            if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
+                                ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                            {
+                                equal = false;
+                                break;
+                            }
+                        }
+                        if (!equal) {
                             break;
                         }
                     }
