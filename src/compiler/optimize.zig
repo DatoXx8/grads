@@ -285,8 +285,10 @@ pub const Optimization = enum(u8) {
                     for (0..loop_num) |loop_idx_search| {
                         var assign_off: usize = 0;
                         while (assign_off < loop_len) : (assign_off += 1) {
-                            if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
-                                ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps(ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                            if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals( //
+                                ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
+                                ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps( //
+                                ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                             {
                                 equal = false;
                                 break;

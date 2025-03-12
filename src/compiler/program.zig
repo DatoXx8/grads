@@ -154,6 +154,7 @@ pub const Program = struct {
             {
                 return ClError.ProgramNotRun;
             }
+            // TODO: Only need to wait once?
             if (open_cl.clFinish(this.queue.queue) != 0) {
                 return ClError.QueueCouldNotWait;
             }
