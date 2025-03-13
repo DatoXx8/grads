@@ -14,7 +14,7 @@ const opencl_header = switch (builtin.target.os.tag) {
 };
 
 pub const opencl = @cImport({
-    // $cDefine("CL_TARGET_OpenCl_VERSION", opencl_version);
+    // cDefine("CL_TARGET_OpenCl_VERSION", opencl_version);
     @cInclude(opencl_header);
 });
 

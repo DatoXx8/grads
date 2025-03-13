@@ -521,7 +521,7 @@ pub const Op = struct {
 
         // $TODO Add SIMD comptime width using @Vector
 
-        // $Just to be clear I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
+        // Just to be clear I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference

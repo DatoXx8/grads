@@ -1078,7 +1078,7 @@ pub const Neuralnet = struct {
                 kernel_size: u32,
                 kernel_stride: u32,
                 t: Reduce.Type,
-                // $activation Activation.Type,
+                // activation Activation.Type,
             },
             split: struct {
                 filters: u32,
@@ -1093,7 +1093,7 @@ pub const Neuralnet = struct {
                 kernel_size: u32,
                 size_out: u32,
                 reduce_t: Reduce.Type,
-                // $activation Activation.Type,
+                // activation Activation.Type,
             },
         };
         tag: union(Type) {
