@@ -14,7 +14,7 @@ const opencl_header = switch (builtin.target.os.tag) {
 };
 
 pub const opencl = @cImport({
-    // @cDefine("CL_TARGET_OpenCl_VERSION", opencl_version);
+    // $cDefine("CL_TARGET_OpenCl_VERSION", opencl_version);
     @cInclude(opencl_header);
 });
 
@@ -40,7 +40,7 @@ pub const ClError = error{
     ArgNotSet,
 };
 
-// TODO: Support multiple devices
+// $TODO Support multiple devices
 pub const ClDevice = struct {
     pub const ClDeviceType = enum(u8) {
         cpu,
@@ -128,7 +128,7 @@ pub const ClProgram = struct {
     pub fn alloc(allocator: Allocator, context: ClContext, device: ClDevice, source: []const u8) !ClProgram {
         var log_size: usize = 0;
         var err: i32 = 0;
-        // TODO: Get rid of this optional stuff
+        // $TODO Get rid of this optional stuff
         var log: ?[]u8 = null;
         var log_c: ?[*:0]u8 = null;
         var source_c: [*c]const u8 = source[0 .. source.len - 1 :0];

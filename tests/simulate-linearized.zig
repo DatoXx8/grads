@@ -256,7 +256,7 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
                 tensor2[tensor_out].realize();
             },
             .unary_random => {
-                // TODO: This
+                // $TODO This
                 tensor1[tensor_out].unarySet(u_var);
                 tensor2[tensor_out].unarySet(u_var);
                 tensor2[tensor_out].realize();
@@ -396,7 +396,7 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
 }
 
 fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
-    // TODO: Assert that the thing actually fails
+    // $TODO Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_top: u32 = 0;
@@ -466,7 +466,7 @@ pub fn main() !void {
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;
-        // TODO: Decide how to reseed the random number generator here...
+        // $TODO Decide how to reseed the random number generator here...
         // rng + loop_idx "wastes" the least seeds but it could cause issues
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {

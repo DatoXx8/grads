@@ -1,6 +1,6 @@
 const std = @import("std");
 
-// TODO: Support compiling to a static lib
+// $TODO Support compiling to a static lib
 
 fn addExe(
     b: *std.Build,

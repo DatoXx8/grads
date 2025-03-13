@@ -1,5 +1,5 @@
-// TODO: Maybe just do the parallelize one at O0 anyways, because it is utterly useless without it
-// TODO: These levels
+// $TODO Maybe just do the parallelize one at O0 anyways, because it is utterly useless without it
+// $TODO These levels
 // Optimization levels
 // O1 - parallelize, inline, split
 // O2 - SIMD
@@ -28,8 +28,8 @@ pub const Optimization = enum(u8) {
     O1,
     O2,
     O3,
-    // TODO: Either make the order irrelevant here or assert the right order
-    // TODO: This memory management is horrible. Refactor refactor refactor
+    // $TODO Either make the order irrelevant here or assert the right order
+    // $TODO This memory management is horrible. Refactor refactor refactor
     //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
     pub fn inlineOp(this: @This(), allocator: Allocator, ssa: *Ssa) !void {
         assert(this == .O1 or this == .O2 or this == .O3);
@@ -44,7 +44,7 @@ pub const Optimization = enum(u8) {
                 false
             else blk: {
                 for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
-                    // TODO: Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
+                    // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
                     if ((ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
                         ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) or
                         (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.in) and
@@ -64,7 +64,7 @@ pub const Optimization = enum(u8) {
             };
         }
 
-        // TODO: I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
+        // $TODO I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
         const temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
         const temp_out: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
         const temp_in: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
@@ -119,7 +119,7 @@ pub const Optimization = enum(u8) {
                             temp_in[temp_num + inlined_idx] = if (inlined.in[inlined_idx]) |in| in + temp_num else null;
                             temp_out[temp_num + inlined_idx] = if (inlined.out[inlined_idx]) |out| out + temp_num else null;
                             temp_base[temp_num + inlined_idx] = inlined.base[inlined_idx];
-                            // NOTE: It's fine that this information is lost because it's already marked for deletion anyways
+                            // $NOTE It's fine that this information is lost because it's already marked for deletion anyways
                             temp_idx[temp_num + inlined_idx] = null;
                         }
                         temp_num += inlined.inlined_num;
@@ -173,7 +173,7 @@ pub const Optimization = enum(u8) {
             if (temp_already[temp_idx[temp_num - 1].?]) {
                 // Do nothing I guess?
             } else {
-                // TODO: Come to think of it if this case is hit then I guess the ops are completely redundant and can be deleted
+                // $TODO Come to think of it if this case is hit then I guess the ops are completely redundant and can be deleted
                 const target_idx: u32 = temp_idx[temp_num - 1].?;
 
                 temp_base[temp_num - 1] = undefined;
@@ -231,7 +231,7 @@ pub const Optimization = enum(u8) {
         }
         ssa.assign_num = assign_num_new;
     }
-    // NOTE: I don't think there is way to make this faster than O(n^2) unless I make a max loop size
+    // $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size
     pub fn parallelize(this: @This(), allocator: Allocator, ssa: *Ssa) !void {
         assert(this == .O1 or this == .O2 or this == .O3);
 
@@ -246,7 +246,7 @@ pub const Optimization = enum(u8) {
 
         var loop_id: u32 = 1;
 
-        // FIX: Check for equality of inlined trees
+        // $FIX Check for equality of inlined trees
         var assign_idx: u32 = 0;
         while (assign_idx < ssa.assign_num) {
             var loop_len: u32 = 0;
@@ -284,10 +284,9 @@ pub const Optimization = enum(u8) {
                 loop_num = 1;
                 for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                     var equal: bool = true;
-                    // TODO: There just has to be a faster way of doing this
+                    // $TODO There just has to be a faster way of doing this
                     for (0..loop_num) |loop_idx_search| {
-                        var assign_off: u32 = 0;
-                        while (assign_off < loop_len) : (assign_off += 1) {
+                        for (0..loop_len) |assign_off| {
                             if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals( //
                                 ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
                                 ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps( //

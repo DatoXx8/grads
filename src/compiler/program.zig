@@ -31,7 +31,7 @@ pub const Program = struct {
     size_local: usize,
     kernel: []Kernel,
     program: ClProgram,
-    // Convert to [*:0]u8 with source[0.. :0]
+    // $Convert to [*:0]u8 with source[0.. 0]
     source: []const u8,
     queue: ClCommandQueue,
     pub fn alloc(
@@ -104,8 +104,8 @@ pub const Program = struct {
             }
             const layer: []Assign = ssa.assign[assign_idx..assign_idx_top];
 
-            // NOTE: This should be enough work to justify storing it in memory
-            // TODO: Rethink this when I refactor the args gathering
+            // $NOTE This should be enough work to justify storing it in memory
+            // $TODO Rethink this when I refactor the args gathering
             kernel_args[kernel_num] = try Args.alloc(allocator, layer);
 
             @memset(kernel_name, 0);
@@ -148,7 +148,7 @@ pub const Program = struct {
     }
     pub fn run(this: @This()) !void {
         for (this.kernel) |kernel| {
-            // TODO: kernel.kernel.kernel is hilarious but should not be a thing
+            // $TODO kernel.kernel.kernel is hilarious but should not be a thing
             if (opencl.clEnqueueNDRangeKernel(this.queue.queue, kernel.kernel.kernel, //
                 1, null, &this.size_global, &this.size_local, 0, null, null) != 0)
             {

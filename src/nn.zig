@@ -15,7 +15,9 @@ const Program = @import("./compiler/program.zig").Program;
 
 const Optimization = @import("./compiler/optimize.zig").Optimization;
 
-// TODO: Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
+// $TODO Make this file more compact
+
+// $TODO Make a leaky variant that is max(tanh(x),x). It has a very interesting shape
 /// Has to be `none` for reduce layers
 pub const Activation = struct {
     const leaky_factor: f32 = 0.1;
@@ -458,7 +460,7 @@ pub const Convolution = struct {
         const x_in_max: u32 = input.buffer.x_size + this.kernel_padding - 1;
         const y_in_max: u32 = input.buffer.y_size + this.kernel_padding - 1;
 
-        // TODO: Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
+        // $TODO Figure out a way to remove these padded temporary buffers. Could make the normal buffers padded and just downsize, but that makes things complicated.
 
         input.moveOffset(0, 0, 0, 0);
         this.biases.moveResize(1, 1, 1, 1);
@@ -691,7 +693,7 @@ pub const Reduce = struct {
         output.moveResize(1, z_out, y_out, x_out);
         output.moveOffset(0, 0, 0, 0);
     }
-    /// TODO: This is a mega hack that just is just a loose approximation of the real backprop
+    /// $TODO This is a mega hack that just is just a loose approximation of the real backprop
     pub fn backward(this: @This(), input_g: *Tensor, output_g: *Tensor) void {
         const z_in: u32 = input_g.buffer.z_size;
         const y_in: u32 = input_g.buffer.y_size;
@@ -1076,7 +1078,7 @@ pub const Neuralnet = struct {
                 kernel_size: u32,
                 kernel_stride: u32,
                 t: Reduce.Type,
-                // activation: Activation.Type,
+                // $activation Activation.Type,
             },
             split: struct {
                 filters: u32,
@@ -1091,7 +1093,7 @@ pub const Neuralnet = struct {
                 kernel_size: u32,
                 size_out: u32,
                 reduce_t: Reduce.Type,
-                // activation: Activation.Type,
+                // $activation Activation.Type,
             },
         };
         tag: union(Type) {
@@ -1233,8 +1235,8 @@ pub const Neuralnet = struct {
     forward_cl: Program,
     backward_cl: Program,
     learn_cl: Program,
-    // TODO: These suckers need to be refactored badly
-    // TODO: When allocating from here it should really always just use O3, or at least not allow O0 since that actually *so* slow
+    // $TODO These suckers need to be refactored badly
+    // $TODO When allocating from here it should really always just use O3, or at least not allow O0 since that actually *so* slow
     pub fn alloc(
         allocator: Allocator,
         input: Tensor,
@@ -1263,8 +1265,8 @@ pub const Neuralnet = struct {
         }
         var previous_values: Tensor = input;
         for (0..layers.len) |layer_idx| {
-            // TODO: Just in case I search for TODO more than FIXME!!!!! FIXME FIXME FIXME
-            // FIXME: Need to add the capacity for the activation function
+            // $TODO Just in case I search for TODO more than FIXME!!!!! FIXME FIXME FIXME
+            // $FIXME Need to add the capacity for the activation function
             try layers[layer_idx].values.linearized.capacityEnsure(
                 allocator,
                 previous_values.linearized.op_num + switch (layers[layer_idx].tag) {
@@ -1309,7 +1311,7 @@ pub const Neuralnet = struct {
             }
 
             layers[layer_idx].activation.forward(&layers[layer_idx].values);
-            // TODO: Norming
+            // $TODO Norming
 
             previous_values = layers[layer_idx].values;
         }
@@ -1318,18 +1320,18 @@ pub const Neuralnet = struct {
         try forward_cpu.capacityEnsure(allocator, layers[layers.len - 1].values.linearized.op_num);
         forward_cpu.concat(&layers[layers.len - 1].values.linearized);
 
-        // TODO: Is it needed to clear the gradients?
-        // TODO: Refactor this reverse stuff
+        // $TODO Is it needed to clear the gradients?
+        // $TODO Refactor this reverse stuff
         var layer_idx_reverse: u32 = 0;
         while (layer_idx_reverse < layers.len - 1) : (layer_idx_reverse += 1) {
             const layer_idx: u32 = @as(u32, @truncate(layers.len)) - (layer_idx_reverse + 1);
 
-            // TODO: capacityEnsure needs to happen here
+            // $TODO capacityEnsure needs to happen here
 
-            // NOTE: Just to force the correct order of operations
+            // $NOTE Just to force the correct order of operations
             layers[layer_idx - 1].values_g.dependOn(&layers[layer_idx].values_g);
 
-            // TODO: Norming
+            // $TODO Norming
             layers[layer_idx].activation.backward(&layers[layer_idx].values, &layers[layer_idx].values_g);
 
             switch (layers[layer_idx].tag) {
@@ -1620,7 +1622,7 @@ pub const Neuralnet = struct {
                 try this.input.buffer.syncWait(this.forward_cl.queue);
 
                 try this.learn_cl.run();
-                // TODO: Decide if and how to send the data back to the cpu
+                // $TODO Decide if and how to send the data back to the cpu
             },
         }
     }
@@ -1661,7 +1663,7 @@ pub const Neuralnet = struct {
         var save = true;
         if (file_arch_exists) {
             std.log.warn("Architecture file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
-            // TODO: In case user says no ask the user for file to write to
+            // $TODO In case user says no ask the user for file to write to
             save = try getUserIn(true);
         }
 
@@ -1718,7 +1720,7 @@ pub const Neuralnet = struct {
                         try file.writeAll(info_string);
                     },
                     .residual => {
-                        // TODO: When adding the more complex residual types update this
+                        // $TODO When adding the more complex residual types update this
                         assert(this.layers[layer_idx].tag.residual.t == .identity);
                         const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
                             this.layers[layer_idx].tag.residual.t,
@@ -1747,7 +1749,7 @@ pub const Neuralnet = struct {
         save = true;
         if (file_param_exists) {
             std.log.warn("Parameter file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
-            // TODO: In case user says no ask the user for file to write to
+            // $TODO In case user says no ask the user for file to write to
             save = try getUserIn(true);
         }
 
@@ -1838,7 +1840,7 @@ pub const Neuralnet = struct {
                     try file_arch.writeAll(info_string);
                 },
                 .residual => {
-                    // TODO: When adding the more complex residual types update this
+                    // $TODO When adding the more complex residual types update this
                     assert(this.layers[layer_idx].tag.residual.t == .identity);
                     const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
                         this.layers[layer_idx].tag.residual.t,
@@ -1965,8 +1967,8 @@ pub const Neuralnet = struct {
             }
         }
     }
-    // TODO: This one
-    // pub fn createFromFile( allocator: Allocator, filename: []const u8, context: ClContext) !Neuralnet {
+    // $TODO This one
+    // pub fn createFromFile( allocator: Allocator, filename: []const u8, context ClContext) !Neuralnet {
     //     _ = allocator;
     //     _ = filename;
     //     _ = context;

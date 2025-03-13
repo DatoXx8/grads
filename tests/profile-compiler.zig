@@ -85,10 +85,10 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
     std.debug.print(" {s}\n", .{name});
 }
 
-// TODO: Randomize intermediary buffers, but make sure the final out tensor is not intermediary
+// $TODO Randomize intermediary buffers, but make sure the final out tensor is not intermediary
 
-// WARN: This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
-// TODO: The above warning should not need to exist
+// $WARN This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
+// $TODO The above warning should not need to exist
 fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -292,7 +292,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
                                     tensor2[tensor_out].unarySet(u_var);
                                 },
                                 .unary_random => {
-                                    // TODO: This
+                                    // $TODO This
                                     tensor1[tensor_out].unarySet(u_var);
                                     tensor2[tensor_out].unarySet(u_var);
                                 },
@@ -307,7 +307,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
                                 .unary_sign => {
                                     tensor1[tensor_out].unaryAbsolute();
                                     tensor2[tensor_out].unaryAbsolute();
-                                    // TODO: Reenable this when it is implemented
+                                    // $TODO Reenable this when it is implemented
                                     // tensor1[tensor_out].unarySign();
                                     // tensor2[tensor_out].unarySign();
                                 },
@@ -407,7 +407,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
-        // NOTE: Not using realize here because that clears the linearized
+        // $NOTE Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
         tensor2[tensor_out].linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;

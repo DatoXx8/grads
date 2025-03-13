@@ -1,15 +1,15 @@
 const std = @import("std");
 
-// TODO: In the simulator and profiler for the compiler randomize if the tensors are intermediaries
-// TODO: Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread
-// TODO: Maybe give a list of tensor names to the compiler that do have to hold the right values
+// $TODO In the simulator and profiler for the compiler randomize if the tensors are intermediaries
+// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread
+// $TODO Maybe give a list of tensor names to the compiler that do have to hold the right values
 //  and should not be inlined away instead of the other way around.
 //  I like this solution a lot because it also makes the compiler simulator more interesting when randomizing the "relevant" tensors.
-// TODO: Implement weightgen and that arnold net thing where there are cubic functions as connections
-// TODO: Actual error handling where it is possible
-// TODO: Add autograd
-// TODO: Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
-// TODO: Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
+// $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
+// $TODO Actual error handling where it is possible
+// $TODO Add autograd
+// $TODO Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
+// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
 
 const assert = std.debug.assert;
 
@@ -28,7 +28,7 @@ pub fn main() !void {
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
 
-    // TODO: Should probably free these explicitly huh
+    // $TODO Should probably free these explicitly huh
     const device: ClDevice = try ClDevice.alloc(.gpu);
     const context: ClContext = try ClContext.alloc(device);
     const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);

@@ -22,7 +22,7 @@ const Args = @import("./kernel.zig").Args;
 pub const kernel_base_name = "kern{}";
 pub const source_padding = 4096;
 
-// TODO: Make my own format string implementation, can't really get faster trivially without changing behaviour, which I don't really mind
+// $TODO Make my own format string implementation, can't really get faster trivially without changing behaviour, which I don't really mind
 
 /// Expand buffer if necessary and set new bytes to 0
 fn capacityEnsure(allocator: Allocator, source: *[]u8, offset: usize) Allocator.Error!void {
@@ -36,7 +36,7 @@ fn capacityEnsure(allocator: Allocator, source: *[]u8, offset: usize) Allocator.
 const WriteSourceError = Allocator.Error || std.fmt.BufPrintError;
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeSource(allocator: Allocator, source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) WriteSourceError!void {
-    // TODO: Validate that there is enough space for this and expand if there isn't
+    // $TODO Validate that there is enough space for this and expand if there isn't
     const written = try bufPrint(source.*[offset.*..], fmt, args);
     offset.* += written.len;
     try capacityEnsure(allocator, source, offset.*);
@@ -389,7 +389,7 @@ fn writeAssignInBase(
     }
 }
 
-// NOTE: inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+// $NOTE inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignOut(
     allocator: Allocator,
     source: *[]u8,
@@ -428,7 +428,7 @@ fn writeAssignOut(
     try writeAssignPostfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 }
 
-// NOTE: inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+// $NOTE inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignIn(
     allocator: Allocator,
     source: *[]u8,

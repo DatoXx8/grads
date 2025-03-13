@@ -28,7 +28,7 @@ pub const Buffer = struct {
         FailedWait,
     };
 
-    // NOTE: I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
+    // $NOTE I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
     //  necessary and that is already saved in values.len
 
     a_size: u32,
@@ -96,13 +96,13 @@ pub const Buffer = struct {
     pub fn free(this: @This(), allocator: Allocator) void {
         allocator.free(this.values);
         if (this.values_cl) |values_cl| {
-            // NOTE: I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
+            // $NOTE I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
             values_cl.free() catch |err| {
                 std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.name_offset, err });
             };
         }
     }
-    // PERF: these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
+    // $PERF these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
     //  to reduce memory usage. Like the nameFromOffset function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
     //  which is ~5x faster than a read from main memory.
     pub inline fn name(this: @This()) [buffer_name_size]u8 {
@@ -116,7 +116,7 @@ pub const Buffer = struct {
             name_result[char_idx] += @truncate(left % divisor);
             left = left / divisor;
         }
-        // NOTE: Enforce that you don't generate new tensors beyond 'zzzz...zzz'
+        // $NOTE Enforce that you don't generate new tensors beyond 'zzzz...zzz'
         assert(left == 0);
 
         return name_result;
@@ -133,7 +133,7 @@ pub const Buffer = struct {
     pub inline fn xOffset(this: @This()) u32 {
         return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
-    // TODO: Could also just return a single item pointer here. Not decided yet.
+    // $TODO Could also just return a single item pointer here. Not decided yet.
     pub inline fn at(this: @This(), a: u32, z: u32, y: u32, x: u32) u32 {
         assert(a < this.a_size);
         assert(z < this.z_size);
@@ -238,7 +238,7 @@ pub const Buffer = struct {
     }
 };
 pub const Op = struct {
-    // TODO: Linary is a truly terrible name
+    // $TODO Linary is a truly terrible name
     /// Linary is like binary but the in buffer has size [1, 1, 1, 1]
     pub const Type = enum(u8) {
         unary_add,
@@ -276,7 +276,7 @@ pub const Op = struct {
         reduce_avg,
         reduce_min,
         pub inline fn isUnary(this: @This()) bool {
-            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => true,
                 .unary_subtract => true,
@@ -315,7 +315,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isBinary(this: @This()) bool {
-            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -354,7 +354,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isLinary(this: @This()) bool {
-            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -393,7 +393,7 @@ pub const Op = struct {
             };
         }
         pub inline fn isReduce(this: @This()) bool {
-            // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -433,7 +433,7 @@ pub const Op = struct {
         }
     };
     type: Type,
-    // NOTE: When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
+    // $NOTE When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
     //  here's hoping some NaN floating point magic doesn't ruin that
     u_var: f32,
     out: Buffer,
@@ -474,10 +474,10 @@ pub const Op = struct {
             this.out.y_offset == target.in.y_offset and
             this.out.x_offset == target.in.x_offset;
     }
-    // TODO: Make this sucker SIMD-able
+    // $TODO Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
         if (this.isUnary()) {
-            // NOTE: In buffer is just a copy of out buffer, basically just a sanity check.
+            // $NOTE In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
@@ -519,9 +519,9 @@ pub const Op = struct {
 
         var rng: ?std.Random.Pcg = if (this.type == .unary_random) std.Random.Pcg.init(@as(u32, @bitCast(this.u_var))) else null;
 
-        // TODO: Add SIMD comptime width using @Vector
+        // $TODO Add SIMD comptime width using @Vector
 
-        // Just to be clear: I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
+        // $Just to be clear I know that putting the loop outside might make it slower because you have to go through the switch statement every time, but
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
@@ -575,7 +575,7 @@ pub const Op = struct {
                                 this.out.values[this.out.at(a, z, y, x)] = this.u_var;
                             },
                             .unary_random => {
-                                // TODO: Make my own PCG implementation that can do SIMD
+                                // $TODO Make my own PCG implementation that can do SIMD
                                 this.out.values[this.out.at(a, z, y, x)] = rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
@@ -596,7 +596,7 @@ pub const Op = struct {
                                 } else {
                                     this.out.values[this.out.at(a, z, y, x)] = 0;
                                 }
-                                // fn signVector(comptime T: type, vector: @Vector(4, T)) @Vector(4, i32) {
+                                // $fn signVector(comptime T: type, vector @Vector(4, T)) @Vector(4, i32) {
                                 //     const zero = @splat(4, @as(T, 0));
                                 //     const one = @splat(4, @as(T, 1));
                                 //     const neg_one = @splat(4, @as(T, -1));
@@ -1027,7 +1027,7 @@ pub const Tensor = struct {
             .u_var = u_var,
         });
     }
-    // TODO: Decide if this explicit seed thing is actually any good at all.
+    // $TODO Decide if this explicit seed thing is actually any good at all.
     //  I don't really want to make the user think about it, but the explicit-nes is also nice
     /// Here u_var is the seed of the prng
     pub fn unaryRandom(this: *@This(), u_var: u32) void {
@@ -1301,7 +1301,7 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
         assert(a <= this.buffer.values.len);
         assert(z <= this.buffer.values.len);
         assert(y <= this.buffer.values.len);
@@ -1321,7 +1321,7 @@ pub const Tensor = struct {
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
         assert(a <= this.buffer.values.len);
         assert(z <= this.buffer.values.len);
         assert(y <= this.buffer.values.len);
@@ -1337,7 +1337,7 @@ pub const Tensor = struct {
         assert(z < this.buffer.values.len);
         assert(y < this.buffer.values.len);
         assert(x < this.buffer.values.len);
-        // NOTE: These are here so that it is easier to identify if there is a single run-away dimension
+        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
         assert(a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride +
             x * this.buffer.x_stride < this.buffer.values.len);
         this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
