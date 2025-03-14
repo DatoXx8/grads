@@ -55,7 +55,7 @@ pub const DimInfo = struct {
     y_off_in: []u32,
     x_off_in: []u32,
     off: []u32,
-    pub fn init(allocator: Allocator, base: []const Base) !DimInfo {
+    pub fn alloc(allocator: Allocator, base: []const Base) !DimInfo {
         assert(base.len > 0);
 
         var a_idx_out: u32 = 0;
