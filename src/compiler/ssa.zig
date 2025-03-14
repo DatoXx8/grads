@@ -9,7 +9,7 @@ const Buffer = @import("../tensor.zig").Buffer;
 
 const Optimization = @import("./optimize.zig").Optimization;
 
-// FIXME:
+// $FIXME
 //
 // B set (1 6 2 4) [0, 0, 0, 0 = 0] false "khaaaaaa" (1 6 2 4) [0, 0, 0, 0 = 0] false "ygaaaaaa" 0
 // B set (1 6 2 4) [0, 0, 2, 0 = 8] false "khaaaaaa" (1 6 2 4) [0, 0, 2, 0 = 8] false "ygaaaaaa" 2
@@ -35,32 +35,8 @@ const Optimization = @import("./optimize.zig").Optimization;
 //
 // Because the per dimension offsets aren't linear... This is a huge issue.
 pub const DimInfo = struct {
-    off_out: u32,
-    off_in: u32,
-    a_idx_out: u32,
-    z_idx_out: u32,
-    y_idx_out: u32,
-    x_idx_out: u32,
-    a_idx_in: u32,
-    z_idx_in: u32,
-    y_idx_in: u32,
-    x_idx_in: u32,
-    a_stride_out: u32,
-    z_stride_out: u32,
-    y_stride_out: u32,
-    x_stride_out: u32,
-    a_stride_in: u32,
-    z_stride_in: u32,
-    y_stride_in: u32,
-    x_stride_in: u32,
-    a_reset_out: u32,
-    z_reset_out: u32,
-    y_reset_out: u32,
-    x_reset_out: u32,
-    a_reset_in: u32,
-    z_reset_in: u32,
-    y_reset_in: u32,
-    x_reset_in: u32,
+    // $MAYBE Could make the index table smaller by having a reset variable again, but now finding resets is way harder because actual loop checks are necessary
+    // $NOTE These are essentialy the gcd of the different lengths between the offset changes
     a_wait_out: u32,
     z_wait_out: u32,
     y_wait_out: u32,
@@ -69,197 +45,89 @@ pub const DimInfo = struct {
     z_wait_in: u32,
     y_wait_in: u32,
     x_wait_in: u32,
-    pub fn init(base: []const Base) DimInfo {
+    // $TODO Is there a way to not make this a dynamic memory allocation?
+    a_off_out: []u32,
+    z_off_out: []u32,
+    y_off_out: []u32,
+    x_off_out: []u32,
+    a_off_in: []u32,
+    z_off_in: []u32,
+    y_off_in: []u32,
+    x_off_in: []u32,
+    off: []u32,
+    pub fn init(allocator: Allocator, base: []const Base) !DimInfo {
         assert(base.len > 0);
 
-        var dim_info: DimInfo = .{
-            .off_out = 0,
-            .off_in = 0,
-            .a_idx_out = 0,
-            .z_idx_out = 0,
-            .y_idx_out = 0,
-            .x_idx_out = 0,
-            .a_idx_in = 0,
-            .z_idx_in = 0,
-            .y_idx_in = 0,
-            .x_idx_in = 0,
-            .a_stride_out = 0,
-            .z_stride_out = 0,
-            .y_stride_out = 0,
-            .x_stride_out = 0,
-            .a_stride_in = 0,
-            .z_stride_in = 0,
-            .y_stride_in = 0,
-            .x_stride_in = 0,
-            .a_reset_out = @truncate(base.len),
-            .z_reset_out = @truncate(base.len),
-            .y_reset_out = @truncate(base.len),
-            .x_reset_out = @truncate(base.len),
-            .a_reset_in = @truncate(base.len),
-            .z_reset_in = @truncate(base.len),
-            .y_reset_in = @truncate(base.len),
-            .x_reset_in = @truncate(base.len),
-            .a_wait_out = 1,
-            .z_wait_out = 1,
-            .y_wait_out = 1,
-            .x_wait_out = 1,
-            .a_wait_in = 1,
-            .z_wait_in = 1,
-            .y_wait_in = 1,
-            .x_wait_in = 1,
-        };
+        var a_idx_out: u32 = 0;
+        var z_idx_out: u32 = 0;
+        var y_idx_out: u32 = 0;
+        var x_idx_out: u32 = 0;
+        var a_idx_in: u32 = 0;
+        var z_idx_in: u32 = 0;
+        var y_idx_in: u32 = 0;
+        var x_idx_in: u32 = 0;
 
-        var loop_idx: u32 = 1;
-        while (loop_idx < base.len) : (loop_idx += 1) {
-            if (base[dim_info.a_idx_out].out.aOffset() > base[loop_idx].out.aOffset()) {
-                dim_info.a_idx_out = loop_idx;
+        var a_wait_out: u32 = @truncate(base.len);
+        var z_wait_out: u32 = @truncate(base.len);
+        var y_wait_out: u32 = @truncate(base.len);
+        var x_wait_out: u32 = @truncate(base.len);
+        var a_wait_in: u32 = @truncate(base.len);
+        var z_wait_in: u32 = @truncate(base.len);
+        var y_wait_in: u32 = @truncate(base.len);
+        var x_wait_in: u32 = @truncate(base.len);
+
+        var base_idx: u32 = 0;
+        while (base_idx < base.len) : (base_idx += 1) {
+            if (base[a_idx_out].out.aOffset() != base[base_idx].out.aOffset()) {
+                a_wait_out = std.math.gcd(a_wait_out, base_idx - a_idx_out);
+                a_idx_out = base_idx;
             }
-            if (base[dim_info.z_idx_out].out.zOffset() > base[loop_idx].out.zOffset()) {
-                dim_info.z_idx_out = loop_idx;
+            if (base[z_idx_out].out.zOffset() != base[base_idx].out.zOffset()) {
+                z_wait_out = std.math.gcd(z_wait_out, base_idx - z_idx_out);
+                z_idx_out = base_idx;
             }
-            if (base[dim_info.y_idx_out].out.yOffset() > base[loop_idx].out.yOffset()) {
-                dim_info.y_idx_out = loop_idx;
+            if (base[y_idx_out].out.yOffset() != base[base_idx].out.yOffset()) {
+                y_wait_out = std.math.gcd(y_wait_out, base_idx - y_idx_out);
+                y_idx_out = base_idx;
             }
-            if (base[dim_info.x_idx_out].out.xOffset() > base[loop_idx].out.xOffset()) {
-                dim_info.x_idx_out = loop_idx;
+            if (base[x_idx_out].out.xOffset() != base[base_idx].out.xOffset()) {
+                x_wait_out = std.math.gcd(x_wait_out, base_idx - x_idx_out);
+                x_idx_out = base_idx;
             }
-            if (base[dim_info.a_idx_in].in.aOffset() > base[loop_idx].in.aOffset()) {
-                dim_info.a_idx_in = loop_idx;
-            }
-            if (base[dim_info.z_idx_in].in.zOffset() > base[loop_idx].in.zOffset()) {
-                dim_info.z_idx_in = loop_idx;
-            }
-            if (base[dim_info.y_idx_in].in.yOffset() > base[loop_idx].in.yOffset()) {
-                dim_info.y_idx_in = loop_idx;
-            }
-            if (base[dim_info.x_idx_in].in.xOffset() > base[loop_idx].in.xOffset()) {
-                dim_info.x_idx_in = loop_idx;
+            // $TODO Maybe I should assert that all these are of the same type and things like that
+            if (base[base_idx].type.isUnary()) {
+                if (base[a_idx_in].in.aOffset() != base[base_idx].in.aOffset()) {
+                    a_wait_in = std.math.gcd(a_wait_in, base_idx - a_idx_in);
+                    a_idx_in = base_idx;
+                }
+                if (base[z_idx_in].in.zOffset() != base[base_idx].in.zOffset()) {
+                    z_wait_in = std.math.gcd(z_wait_in, base_idx - z_idx_in);
+                    z_idx_in = base_idx;
+                }
+                if (base[y_idx_in].in.yOffset() != base[base_idx].in.yOffset()) {
+                    y_wait_in = std.math.gcd(y_wait_in, base_idx - y_idx_in);
+                    y_idx_in = base_idx;
+                }
+                if (base[x_idx_in].in.xOffset() != base[base_idx].in.xOffset()) {
+                    x_wait_in = std.math.gcd(x_wait_in, base_idx - x_idx_in);
+                    x_idx_in = base_idx;
+                }
             }
         }
 
-        var a_left_out, var z_left_out, var y_left_out, var x_left_out = .{ false, false, false, false };
-        var a_left_in, var z_left_in, var y_left_in, var x_left_in = .{ false, false, false, false };
-        var a_enter_out, var z_enter_out, var y_enter_out, var x_enter_out = .{ false, false, false, false };
-        var a_enter_in, var z_enter_in, var y_enter_in, var x_enter_in = .{ false, false, false, false };
+        const a_len_out = std.math.divCeil(u32, base.len, a_wait_out);
+        const z_len_out = std.math.divCeil(u32, base.len, z_wait_out);
+        const y_len_out = std.math.divCeil(u32, base.len, y_wait_out);
+        const x_len_out = std.math.divCeil(u32, base.len, x_wait_out);
+        const a_len_in = std.math.divCeil(u32, base.len, a_wait_in);
+        const z_len_in = std.math.divCeil(u32, base.len, z_wait_in);
+        const y_len_in = std.math.divCeil(u32, base.len, y_wait_in);
+        const x_len_in = std.math.divCeil(u32, base.len, x_wait_in);
 
-        loop_idx = 1;
-        while (loop_idx < base.len) : (loop_idx += 1) {
-            if (!a_left_out and base[dim_info.a_idx_out].out.aOffset() !=
-                base[(loop_idx + dim_info.a_idx_out) % base.len].out.aOffset())
-            {
-                a_left_out = true;
-                dim_info.a_wait_out = loop_idx;
-                dim_info.a_stride_out = base[(loop_idx + dim_info.a_idx_out) % base.len].out.aOffset() -
-                    base[dim_info.a_idx_out].out.aOffset();
-            } else if (a_left_out and !a_enter_out and base[dim_info.a_idx_out].out.aOffset() ==
-                base[(loop_idx + dim_info.a_idx_out) % base.len].out.aOffset())
-            {
-                a_enter_out = true;
-                dim_info.a_reset_out = loop_idx;
-            }
-            if (!z_left_out and base[dim_info.z_idx_out].out.zOffset() !=
-                base[(loop_idx + dim_info.z_idx_out) % base.len].out.zOffset())
-            {
-                z_left_out = true;
-                dim_info.z_wait_out = loop_idx;
-                dim_info.z_stride_out = base[(loop_idx + dim_info.z_idx_out) % base.len].out.zOffset() -
-                    base[dim_info.z_idx_out].out.zOffset();
-            } else if (z_left_out and !z_enter_out and base[dim_info.z_idx_out].out.zOffset() ==
-                base[(loop_idx + dim_info.z_idx_out) % base.len].out.zOffset())
-            {
-                z_enter_out = true;
-                dim_info.z_reset_out = loop_idx;
-            }
-            if (!y_left_out and base[dim_info.y_idx_out].out.yOffset() !=
-                base[(loop_idx + dim_info.y_idx_out) % base.len].out.yOffset())
-            {
-                y_left_out = true;
-                dim_info.y_wait_out = loop_idx;
-                dim_info.y_stride_out = base[(loop_idx + dim_info.y_idx_out) % base.len].out.yOffset() -
-                    base[dim_info.y_idx_out].out.yOffset();
-            } else if (y_left_out and !y_enter_out and base[dim_info.y_idx_out].out.yOffset() ==
-                base[(loop_idx + dim_info.y_idx_out) % base.len].out.yOffset())
-            {
-                y_enter_out = true;
-                dim_info.y_reset_out = loop_idx;
-            }
-            if (!x_left_out and base[dim_info.x_idx_out].out.xOffset() !=
-                base[(loop_idx + dim_info.x_idx_out) % base.len].out.xOffset())
-            {
-                x_left_out = true;
-                dim_info.x_wait_out = loop_idx;
-                dim_info.x_stride_out = base[(loop_idx + dim_info.x_idx_out) % base.len].out.xOffset() -
-                    base[dim_info.x_idx_out].out.xOffset();
-            } else if (x_left_out and !x_enter_out and base[dim_info.x_idx_out].out.xOffset() ==
-                base[(loop_idx + dim_info.x_idx_out) % base.len].out.xOffset())
-            {
-                x_enter_out = true;
-                dim_info.x_reset_out = loop_idx;
-            }
-            if (!a_left_in and base[dim_info.a_idx_in].in.aOffset() !=
-                base[(loop_idx + dim_info.a_idx_in) % base.len].in.aOffset())
-            {
-                a_left_in = true;
-                dim_info.a_wait_in = loop_idx;
-                dim_info.a_stride_in = base[(loop_idx + dim_info.a_idx_in) % base.len].in.aOffset() -
-                    base[dim_info.a_idx_in].in.aOffset();
-            } else if (a_left_in and !a_enter_in and base[dim_info.a_idx_in].in.aOffset() ==
-                base[(loop_idx + dim_info.a_idx_in) % base.len].in.aOffset())
-            {
-                a_enter_in = true;
-                dim_info.a_reset_in = loop_idx;
-            }
-            if (!z_left_in and base[dim_info.z_idx_in].in.zOffset() !=
-                base[(loop_idx + dim_info.z_idx_in) % base.len].in.zOffset())
-            {
-                z_left_in = true;
-                dim_info.z_wait_in = loop_idx;
-                dim_info.z_stride_in = base[(loop_idx + dim_info.z_idx_in) % base.len].in.zOffset() -
-                    base[dim_info.z_idx_in].in.zOffset();
-            } else if (z_left_in and !z_enter_in and base[dim_info.z_idx_in].in.zOffset() ==
-                base[(loop_idx + dim_info.z_idx_in) % base.len].in.zOffset())
-            {
-                z_enter_in = true;
-                dim_info.z_reset_in = loop_idx;
-            }
-            if (!y_left_in and base[dim_info.y_idx_in].in.yOffset() !=
-                base[(loop_idx + dim_info.y_idx_in) % base.len].in.yOffset())
-            {
-                y_left_in = true;
-                dim_info.y_wait_in = loop_idx;
-                dim_info.y_stride_in = base[(loop_idx + dim_info.y_idx_in) % base.len].in.yOffset() -
-                    base[dim_info.y_idx_in].in.yOffset();
-            } else if (y_left_in and !y_enter_in and base[dim_info.y_idx_in].in.yOffset() ==
-                base[(loop_idx + dim_info.y_idx_in) % base.len].in.yOffset())
-            {
-                y_enter_in = true;
-                dim_info.y_reset_in = loop_idx;
-            }
-            if (!x_left_in and base[dim_info.x_idx_in].in.xOffset() !=
-                base[(loop_idx + dim_info.x_idx_in) % base.len].in.xOffset())
-            {
-                x_left_in = true;
-                dim_info.x_wait_in = loop_idx;
-                dim_info.x_stride_in = base[(loop_idx + dim_info.x_idx_in) % base.len].in.xOffset() -
-                    base[dim_info.x_idx_in].in.xOffset();
-            } else if (x_left_in and !x_enter_in and base[dim_info.x_idx_in].in.xOffset() ==
-                base[(loop_idx + dim_info.x_idx_in) % base.len].in.xOffset())
-            {
-                x_enter_in = true;
-                dim_info.x_reset_in = loop_idx;
-            }
-        }
+        const off = try allocator.alloc(u32, a_len_out + z_len_out + y_len_out + x_len_out + a_len_in + z_len_in + y_len_in + x_len_in);
+        
 
-        dim_info.off_out = base[dim_info.a_idx_out].out.aOffset() * base[dim_info.a_idx_out].out.a_stride + //
-            base[dim_info.z_idx_out].out.zOffset() * base[dim_info.z_idx_out].out.z_stride + //
-            base[dim_info.y_idx_out].out.yOffset() * base[dim_info.y_idx_out].out.y_stride + //
-            base[dim_info.x_idx_out].out.xOffset() * base[dim_info.x_idx_out].out.x_stride;
-        dim_info.off_in = base[dim_info.a_idx_in].in.aOffset() * base[dim_info.a_idx_in].in.a_stride + //
-            base[dim_info.z_idx_in].in.zOffset() * base[dim_info.z_idx_in].in.z_stride + //
-            base[dim_info.y_idx_in].in.yOffset() * base[dim_info.y_idx_in].in.y_stride + //
-            base[dim_info.x_idx_in].in.xOffset() * base[dim_info.x_idx_in].in.x_stride;
 
-        return dim_info;
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
@@ -295,20 +163,20 @@ pub const Base = struct {
     type: Op.Type,
     u_var: f32,
     dim_info: DimInfo,
-    // NOTE: If you need more dependency layers than this there's some funky stuff going on
+    // $NOTE If you need more dependency layers than this there's some funky stuff going on
     layer_out: u32,
     layer_in: u32,
     pub inline fn layer(this: @This()) u32 {
         return @max(this.layer_out, this.layer_in);
     }
-    // TODO: Unsure how to check the layer things
+    // $TODO Unsure how to check the layer things
     pub inline fn equals(this: @This(), target: @This()) bool {
         return this.out.equalNoOffset(target.out) and this.in.equalNoOffset(target.in) and
             this.type == target.type and this.u_var == target.u_var;
     }
     /// Not a great name. Essentialy this returns wether the op has a different result depending on what was in the buffer before.
     pub inline fn overwrites(this: @This()) bool {
-        // NOTE: I did this with a switch statement so that you are forced to handle this in case you add a new op
+        // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
         return switch (this.type) {
             .unary_add => false,
             .unary_subtract => false,
@@ -441,7 +309,7 @@ pub const Base = struct {
     }
 };
 
-// TODO: Maybe make all these slices from a global / per ssa buffer
+// $TODO Maybe make all these slices from a global / per ssa buffer
 /// Tree representation of inlined ops
 pub const Inlined = struct {
     base: []Base,
@@ -506,7 +374,7 @@ pub const Ssa = struct {
     assign_loop_id: []u32,
     /// Indexed by the id from above
     assign_loop_num: []u32,
-    // fn layerLessThan(_: void, lhs: Assign, rhs: Assign) bool {
+    // fn layerLessThan(_: void, lhs: Assign, rhs Assign) bool {
     //     return lhs.base.layer() < rhs.base.layer();
     // }
     pub fn alloc(allocator: Allocator, linearized: Linearized) !Ssa {
@@ -532,7 +400,7 @@ pub const Ssa = struct {
             allocator.free(assign_loop_num);
         }
         @memset(assign_loop_id, 0);
-        // NOTE: I don't think the other values should be initialised to prevent strange reads
+        // $NOTE I don't think the other values should be initialised to prevent strange reads
         assign_loop_num[0] = 1;
 
         for (0..linearized.op_num) |op_idx| {
@@ -559,19 +427,19 @@ pub const Ssa = struct {
                 .block = null,
             };
 
-            assign[op_idx].base.dim_info = DimInfo.init(&[1]Base{assign[op_idx].base});
+            assign[op_idx].base.dim_info = DimInfo.init(allocator, &[1]Base{assign[op_idx].base});
 
-            // NOTE: This overwrites the data if it already existed
+            // $NOTE This overwrites the data if it already existed
             try layer_write.put(assign[op_idx].base.out.name_offset, layer_idx + 1);
             try layer_read.put(assign[op_idx].base.in.name_offset, layer_idx + 1);
         }
 
-        // NOTE: Why was this ever here? Just to group assignments that could be on the same layer?
+        // $NOTE Why was this ever here? Just to group assignments that could be on the same layer?
         // std.mem.sort(Assign, assign, {}, layerLessThan);
 
         return .{
             .assign = assign,
-            .assign_num = @truncate(assign.len),
+            .assign_num = linearized.op_num,
             .assign_loop_id = assign_loop_id,
             .assign_loop_num = assign_loop_num,
         };
