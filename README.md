@@ -59,10 +59,11 @@ In case a test fails, you can open an issue on the GitHub with the random seed a
 
 I will not work on these in optimal order, because this just a hobby project.
 
-| Step                      | Expected work | Expected gain                             |
-| ------------------------- | ------------- | ----------------------------------------- |
-| Compiler optimizations    | High          | Very high                                 |
-| Write OpenCl debug impl   | Very high     | High                                      |
-| Autograd                  | Moderate      | None (Performance), Moderate (Dev time)   |
-| Multi GPU                 | High (?)      | Very high                                 |
-| Completely custom OpenCL  | Extreme       | High to extreme (???)                     |
+| Step                         | Expected work | Expected gain                                  |
+| ---------------------------- | ------------- | ---------------------------------------------- |
+| Compiler optimizations       | High          | Very high                                      |
+| Write OpenCl debug impl      | Very high     | High                                           |
+| Autograd                     | Moderate      | None (Performance), Moderate (Dev time)        |
+| Multi GPU                    | High (?)      | Very high                                      |
+| Completely custom OpenCL     | Extreme       | High to extreme (???)                          |
+| Better offset handling       | Moderate (??) | None for normal kernels, high for strange ones |
