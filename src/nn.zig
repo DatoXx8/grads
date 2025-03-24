@@ -1626,178 +1626,20 @@ pub const Neuralnet = struct {
             },
         }
     }
-    fn getUserIn(first_try: bool) !bool {
-        var buf: [2]u8 = undefined;
-
-        if (first_try == false) {
-            std.log.warn("Invalid input. Either accept or decline with (y/n).\n", .{});
-        }
-
-        const stdin = std.io.getStdIn().reader();
-        if (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |user_input| {
-            return switch (user_input[0]) {
-                'y' => true,
-                'Y' => true,
-                'n' => false,
-                'N' => false,
-                else => getUserIn(false),
-            };
-        } else {
-            return error.CouldNotReadUserInput;
-        }
-    }
-    /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
-    /// Asks for user permission to overwrite the files if it already exists
-    pub fn saveToFile(this: @This(), allocator: Allocator, filename: []const u8) !void {
-        const file_arch_ext: []const u8 = ".arch";
-        const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
-        defer allocator.free(file_arch_name);
-        std.mem.copyForwards(u8, file_arch_name[0..], filename);
-        std.mem.copyForwards(u8, file_arch_name[filename.len..], file_arch_ext);
-
-        var file_arch_exists: bool = true;
-        std.fs.cwd().access(file_arch_name, .{}) catch |err| switch (err) {
-            error.FileNotFound => file_arch_exists = false,
-            else => return err,
-        };
-        var save = true;
-        if (file_arch_exists) {
-            std.log.warn("Architecture file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
-            // $TODO In case user says no ask the user for file to write to
-            save = try getUserIn(true);
-        }
-
-        const file_arch = if (save) try std.fs.cwd().createFile(file_arch_name, .{ .truncate = true }) else null;
-
-        if (file_arch) |file| {
-            defer file.close();
-
-            try file.seekTo(0);
-            const info_input = try std.fmt.allocPrint(allocator, "i {} {} {} {}\n", .{
-                this.input.buffer.a_inherent,
-                this.input.buffer.z_inherent,
-                this.input.buffer.y_inherent,
-                this.input.buffer.x_inherent,
-            });
-            defer allocator.free(info_input);
-            try file.writeAll(info_input);
-
-            for (0..this.layers.len) |layer_idx| {
-                switch (this.layers[layer_idx].tag) {
-                    .dense => {
-                        const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
-                            this.layers[layer_idx].tag.dense.size_output,
-                            this.layers[layer_idx].activation.t,
-                        });
-                        defer allocator.free(info_string);
-                        try file.writeAll(info_string);
-                    },
-                    .convolution => {
-                        const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
-                            this.layers[layer_idx].tag.convolution.filters,
-                            this.layers[layer_idx].tag.convolution.kernel_size,
-                            this.layers[layer_idx].tag.convolution.kernel_stride,
-                            this.layers[layer_idx].tag.convolution.kernel_padding,
-                            this.layers[layer_idx].activation.t,
-                        });
-                        defer allocator.free(info_string);
-                        try file.writeAll(info_string);
-                    },
-                    .reduce => {
-                        const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
-                            this.layers[layer_idx].tag.reduce.kernel_size,
-                            this.layers[layer_idx].tag.reduce.kernel_stride,
-                        });
-                        defer allocator.free(info_string);
-                        try file.writeAll(info_string);
-                    },
-                    .split => {
-                        const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
-                            this.layers[layer_idx].tag.split.filters,
-                            this.layers[layer_idx].activation.t,
-                        });
-                        defer allocator.free(info_string);
-                        try file.writeAll(info_string);
-                    },
-                    .residual => {
-                        // $TODO When adding the more complex residual types update this
-                        assert(this.layers[layer_idx].tag.residual.t == .identity);
-                        const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
-                            this.layers[layer_idx].tag.residual.t,
-                            this.layers[layer_idx].tag.residual.layer,
-                        });
-                        defer allocator.free(info_string);
-                        try file.writeAll(info_string);
-                    },
-                }
-            }
-        } else {
-            std.log.info("Did not save architecture file\n", .{});
-        }
-
-        const file_param_ext: []const u8 = ".bin";
-        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
-        defer allocator.free(file_param_name);
-        std.mem.copyForwards(u8, file_param_name[0..], filename);
-        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
-
-        var file_param_exists: bool = true;
-        std.fs.cwd().access(file_param_name, .{}) catch |err| switch (err) {
-            error.FileNotFound => file_param_exists = false,
-            else => return err,
-        };
-        save = true;
-        if (file_param_exists) {
-            std.log.warn("Parameter file already exists!\n Do you want to overwrite it (y/n)?\n", .{});
-            // $TODO In case user says no ask the user for file to write to
-            save = try getUserIn(true);
-        }
-
-        const file_param = if (save) try std.fs.cwd().createFile(file_param_name, .{ .truncate = true }) else null;
-
-        if (file_param) |file| {
-            defer file.close();
-            try file.seekTo(0);
-            for (0..this.layers.len) |layer_idx| {
-                switch (this.layers[layer_idx].tag) {
-                    .dense => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.dense.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.dense.weights.buffer.values));
-                    },
-                    .convolution => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.convolution.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.convolution.weights.buffer.values));
-                    },
-                    .reduce => {},
-                    .split => {
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.split.biases.buffer.values));
-                        try file.writeAll(@as([]u8, this.layers[layer_idx].tag.split.weights.buffer.values));
-                    },
-                    .residual => {},
-                }
-            }
-        } else {
-            std.log.info("Did not save parameter file\n", .{});
-        }
-    }
-    /// Write the architecture of the net to `filename ++ ".arch"` and the params to `filename ++ ".bin"`
-    /// Overwrite the files if they already exists without asking for permission
-    pub fn saveToFileOverwrite(this: @This(), allocator: Allocator, filename: []const u8) !void {
-        const file_arch_ext: []const u8 = ".arch";
-        const file_arch_name: []u8 = try allocator.alloc(u8, filename.len + file_arch_ext.len);
-        defer allocator.free(file_arch_name);
-        std.mem.copyForwards(u8, file_arch_name[0..], filename);
-        std.mem.copyForwards(u8, file_arch_name[filename.len..], file_arch_ext);
-
-        const file_arch = try std.fs.cwd().createFile(file_arch_name, .{ .truncate = true });
+    /// **__WARN__** Overwrite the files if they already exists without asking for permission
+    /// Write the architecture of the net to `filename ++ ".arch"`, the params to `filename ++ ".bin"` and a hash of the params in `filename ++ ".hash"`
+    pub fn saveToFiles(this: @This(), allocator: Allocator, filename_arch: []const u8, filename_bin: []const u8, filename_hash: []const u8) !void {
+        const file_arch = try std.fs.cwd().createFile(filename_arch, .{ .truncate = true });
         defer file_arch.close();
 
         try file_arch.seekTo(0);
+
+        // $TODO Get rid of these allocations and just have a big buffer
         const info_input = try std.fmt.allocPrint(allocator, "i {} {} {} {}\n", .{
-            this.input.buffer.a_inherent,
-            this.input.buffer.z_inherent,
-            this.input.buffer.y_inherent,
-            this.input.buffer.x_inherent,
+            this.input.buffer.a_size,
+            this.input.buffer.z_size,
+            this.input.buffer.y_size,
+            this.input.buffer.x_size,
         });
         defer allocator.free(info_input);
         try file_arch.writeAll(info_input);
@@ -1852,126 +1694,139 @@ pub const Neuralnet = struct {
             }
         }
 
-        const file_param_ext: []const u8 = ".bin";
-        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
-        defer allocator.free(file_param_name);
-        std.mem.copyForwards(u8, file_param_name[0..], filename);
-        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
+        const file_bin = try std.fs.cwd().createFile(filename_bin, .{ .truncate = true });
+        defer file_bin.close();
 
-        const file_param = try std.fs.cwd().createFile(file_param_name, .{ .truncate = true });
-        defer file_param.close();
-
-        try file_param.seekTo(0);
+        try file_bin.seekTo(0);
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].tag) {
-                .dense => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.weights.buffer.values[0])));
-                    defer allocator.free(biases);
-                    defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.weights.buffer.values.ptr)));
-                    try file_param.writeAll(biases);
-                    try file_param.writeAll(weights);
-                },
-                .convolution => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.weights.buffer.values[0])));
-                    defer allocator.free(biases);
-                    defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.weights.buffer.values.ptr)));
-                    try file_param.writeAll(biases);
-                    try file_param.writeAll(weights);
-                },
-                .reduce => {},
-                .split => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.weights.buffer.values[0])));
-                    defer allocator.free(biases);
-                    defer allocator.free(weights);
-                    @memcpy(biases, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.biases.buffer.values.ptr)));
-                    @memcpy(weights, @as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.weights.buffer.values.ptr)));
-                    try file_param.writeAll(biases);
-                    try file_param.writeAll(weights);
-                },
-                .residual => {},
-            }
+            if (this.layers[layer_idx].tag == .reduce or this.layers[layer_idx].tag == .residual) continue;
+            const weights: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.weights.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.weights.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.weights.buffer.values,
+                .residual => unreachable,
+            };
+            const biases: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.biases.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.biases.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.biases.buffer.values,
+                .residual => unreachable,
+            };
+
+            const weights_byte: []u8 = @as([*]u8, @ptrCast(weights.ptr))[0..(weights.len * @sizeOf(@TypeOf(weights[0])))];
+            const biases_byte: []u8 = @as([*]u8, @ptrCast(biases.ptr))[0..(biases.len * @sizeOf(@TypeOf(biases[0])))];
+            try file_bin.writeAll(weights_byte);
+            try file_bin.writeAll(biases_byte);
         }
+
+        const file_hash = try std.fs.cwd().createFile(filename_hash, .{ .truncate = true });
+        defer file_hash.close();
+
+        var hash = std.hash.Fnv1a_128.init();
+
+        try file_hash.seekTo(0);
+        for (0..this.layers.len) |layer_idx| {
+            if (this.layers[layer_idx].tag == .reduce or this.layers[layer_idx].tag == .residual) continue;
+            const weights: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.weights.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.weights.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.weights.buffer.values,
+                .residual => unreachable,
+            };
+            const biases: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.biases.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.biases.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.biases.buffer.values,
+                .residual => unreachable,
+            };
+
+            const weights_byte: []u8 = @as([*]u8, @ptrCast(weights.ptr))[0..(weights.len * @sizeOf(@TypeOf(weights[0])))];
+            const biases_byte: []u8 = @as([*]u8, @ptrCast(biases.ptr))[0..(biases.len * @sizeOf(@TypeOf(biases[0])))];
+            hash.update(weights_byte);
+            hash.update(biases_byte);
+        }
+        var bytes: [16]u8 = [1]u8{0} ** 16;
+        const bytes_ptr: *u128 = @alignCast(@ptrCast(&bytes));
+        bytes_ptr.* = hash.final();
+        std.debug.print("Wrote: {x:16}\n", .{hash.final()});
+        try file_hash.writeAll(&bytes);
     }
     /// Load weights and biases from file to already existing net.
     /// Does not check that the architecture of the values of the file and the provided net match.
-    pub fn readFromFile(this: @This(), allocator: Allocator, filename: []const u8) !void {
-        const file_param_ext: []const u8 = ".bin";
-        const file_param_name: []u8 = try allocator.alloc(u8, filename.len + file_param_ext.len);
-        defer allocator.free(file_param_name);
-        std.mem.copyForwards(u8, file_param_name[0..], filename);
-        std.mem.copyForwards(u8, file_param_name[filename.len..], file_param_ext);
+    pub fn readFromFile(this: @This(), filename_bin: []const u8, filename_hash: []const u8) !void {
+        const file_bin = try std.fs.cwd().openFile(filename_bin, .{});
+        defer file_bin.close();
 
-        const file_param = try std.fs.cwd().openFile(file_param_name, .{});
-        defer file_param.close();
+        const file_hash = try std.fs.cwd().openFile(filename_hash, .{});
+        defer file_hash.close();
 
-        try file_param.seekTo(0);
+        var hash = std.hash.Fnv1a_128.init();
+
+        try file_bin.seekTo(0);
         for (0..this.layers.len) |layer_idx| {
+            if (this.layers[layer_idx].tag == .reduce or this.layers[layer_idx].tag == .residual) continue;
+            const weights: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.weights.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.weights.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.weights.buffer.values,
+                .residual => unreachable,
+            };
+            const biases: []f32 = switch (this.layers[layer_idx].tag) {
+                .dense => this.layers[layer_idx].tag.dense.biases.buffer.values,
+                .convolution => this.layers[layer_idx].tag.convolution.biases.buffer.values,
+                .reduce => unreachable,
+                .split => this.layers[layer_idx].tag.split.biases.buffer.values,
+                .residual => unreachable,
+            };
+
+            const weights_byte: []u8 = @as([*]u8, @ptrCast(weights.ptr))[0..(weights.len * @sizeOf(@TypeOf(weights[0])))];
+            const biases_byte: []u8 = @as([*]u8, @ptrCast(biases.ptr))[0..(biases.len * @sizeOf(@TypeOf(biases[0])))];
+
+            const weights_read = try file_bin.readAll(weights_byte);
+            const biases_read = try file_bin.readAll(biases_byte);
+            assert(biases_read == biases_byte.len);
+            assert(weights_read == weights_byte.len);
+
+            hash.update(weights_byte);
+            hash.update(biases_byte);
+
             switch (this.layers[layer_idx].tag) {
                 .dense => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.dense.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.dense.weights.buffer.values[0])));
-                    const biases_read = try file_param.readAll(biases);
-                    const weights_read = try file_param.readAll(weights);
-                    assert(biases_read == biases.len);
-                    assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.dense.weights.buffer.values.ptr)), weights);
                     this.layers[layer_idx].tag.dense.biases.buffer.syncUpdate(.sync_to_device);
                     this.layers[layer_idx].tag.dense.weights.buffer.syncUpdate(.sync_to_device);
                 },
                 .convolution => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.convolution.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.convolution.weights.buffer.values[0])));
-                    const biases_read = try file_param.readAll(biases);
-                    const weights_read = try file_param.readAll(weights);
-                    assert(biases_read == biases.len);
-                    assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.convolution.weights.buffer.values.ptr)), weights);
                     this.layers[layer_idx].tag.convolution.biases.buffer.syncUpdate(.sync_to_device);
                     this.layers[layer_idx].tag.convolution.weights.buffer.syncUpdate(.sync_to_device);
                 },
-                .reduce => {},
+                .reduce => unreachable,
                 .split => {
-                    const biases: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.biases.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.biases.buffer.values[0])));
-                    const weights: []u8 = try allocator.alloc(u8, this.layers[layer_idx].tag.split.weights.buffer.values.len *
-                        @sizeOf(@TypeOf(this.layers[layer_idx].tag.split.weights.buffer.values[0])));
-                    const biases_read = try file_param.readAll(biases);
-                    const weights_read = try file_param.readAll(weights);
-                    assert(biases_read == biases.len);
-                    assert(weights_read == weights.len);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.biases.buffer.values.ptr)), biases);
-                    @memcpy(@as([*]u8, @ptrCast(this.layers[layer_idx].tag.split.weights.buffer.values.ptr)), weights);
                     this.layers[layer_idx].tag.split.biases.buffer.syncUpdate(.sync_to_device);
                     this.layers[layer_idx].tag.split.weights.buffer.syncUpdate(.sync_to_device);
                 },
-                .residual => {},
+                .residual => unreachable,
             }
+        }
+
+        var bytes: [16]u8 align(16) = [1]u8{0} ** 16;
+        try file_hash.seekTo(0);
+        const bytes_read = try file_hash.readAll(&bytes);
+        assert(bytes_read == 16);
+
+        const bytes_ptr: *u128 = @alignCast(@ptrCast(&bytes));
+        const hash_read: u128 = bytes_ptr.*;
+        const hash_final: u128 = hash.final();
+        if (hash_read != hash_final) {
+            std.log.warn("Mismatch between hash calculated from {s} = {x:16} and the one found in {s} = {x:16}\n", .{ filename_bin, hash_final, filename_hash, hash_read });
         }
     }
     // $TODO This one
-    // pub fn createFromFile( allocator: Allocator, filename: []const u8, context ClContext) !Neuralnet {
-    //     _ = allocator;
-    //     _ = filename;
-    //     _ = context;
+    // pub fn createFromFile(this: @This(), allocator: Allocator, filename_arch: []const u8, filename_bin: []const u8, filename_hash: []const u8) !void {
     // }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
