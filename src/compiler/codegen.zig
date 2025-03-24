@@ -52,7 +52,7 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
             allocator,
             source,
             offset,
-            "int {s}_{}_{}_{} = (id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+{};\n",
+            "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
             .{
                 base.out.name(), kernel_loop_idx, assign_idx, inlined_idx, //
                 dim_info.a_reset_out, dim_info.a_wait_out, dim_info.a_stride_out * base.out.a_stride, //
@@ -67,7 +67,7 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                 allocator,
                 source,
                 offset,
-                "int {s}_{}_{}_{} = (id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+{};\n",
+                "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, assign_idx, inlined_idx, //
                     dim_info.a_reset_in, dim_info.a_wait_in, dim_info.a_stride_in * base.in.a_stride, //
