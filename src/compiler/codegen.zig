@@ -52,17 +52,13 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
             allocator,
             source,
             offset,
-            "int {s}_{}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
+            "int {s}_{}_{}_{} = (id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+{};\n",
             .{
                 base.out.name(), kernel_loop_idx, assign_idx, inlined_idx, //
-                dim_info.a_idx_out,  dim_info.a_reset_out, //
-                dim_info.a_wait_out, dim_info.a_stride_out * base.out.a_stride,
-                dim_info.z_idx_out,  dim_info.z_reset_out,
-                dim_info.z_wait_out, dim_info.z_stride_out * base.out.z_stride,
-                dim_info.y_idx_out,  dim_info.y_reset_out,
-                dim_info.y_wait_out, dim_info.y_stride_out * base.out.y_stride,
-                dim_info.x_idx_out,  dim_info.x_reset_out,
-                dim_info.x_wait_out, dim_info.x_stride_out * base.out.x_stride,
+                dim_info.a_reset_out, dim_info.a_wait_out, dim_info.a_stride_out * base.out.a_stride, //
+                dim_info.z_reset_out, dim_info.z_wait_out, dim_info.z_stride_out * base.out.z_stride, //
+                dim_info.y_reset_out, dim_info.y_wait_out, dim_info.y_stride_out * base.out.y_stride, //
+                dim_info.x_reset_out, dim_info.x_wait_out, dim_info.x_stride_out * base.out.x_stride, //
                 dim_info.off_out,
             },
         );
@@ -71,17 +67,13 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                 allocator,
                 source,
                 offset,
-                "int {s}_{}_{}_{} = (id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+(id+{})%{}/{}*{}+{};\n",
+                "int {s}_{}_{}_{} = (id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+(id+{})/{}*{}+{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, assign_idx, inlined_idx, //
-                    dim_info.a_idx_in,  dim_info.a_reset_in, //
-                    dim_info.a_wait_in, dim_info.a_stride_in * base.in.a_stride,
-                    dim_info.z_idx_in,  dim_info.z_reset_in,
-                    dim_info.z_wait_in, dim_info.z_stride_in * base.in.z_stride,
-                    dim_info.y_idx_in,  dim_info.y_reset_in,
-                    dim_info.y_wait_in, dim_info.y_stride_in * base.in.y_stride,
-                    dim_info.x_idx_in,  dim_info.x_reset_in,
-                    dim_info.x_wait_in, dim_info.x_stride_in * base.in.x_stride,
+                    dim_info.a_reset_in, dim_info.a_wait_in, dim_info.a_stride_in * base.in.a_stride, //
+                    dim_info.z_reset_in, dim_info.z_wait_in, dim_info.z_stride_in * base.in.z_stride, //
+                    dim_info.y_reset_in, dim_info.y_wait_in, dim_info.y_stride_in * base.in.y_stride, //
+                    dim_info.x_reset_in, dim_info.x_wait_in, dim_info.x_stride_in * base.in.x_stride, //
                     dim_info.off_in,
                 },
             );
