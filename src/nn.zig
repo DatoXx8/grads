@@ -1627,71 +1627,57 @@ pub const Neuralnet = struct {
         }
     }
     /// **__WARN__** Overwrite the files if they already exists without asking for permission
-    /// Write the architecture of the net to `filename ++ ".arch"`, the params to `filename ++ ".bin"` and a hash of the params in `filename ++ ".hash"`
-    pub fn saveToFiles(this: @This(), allocator: Allocator, filename_arch: []const u8, filename_bin: []const u8, filename_hash: []const u8) !void {
+    /// Write the architecture of the net to `filename_arch`, the params to `filename_bin` and a hash of the params in `filename_hash`
+    pub fn saveToFiles(this: @This(), filename_arch: []const u8, filename_bin: []const u8, filename_hash: []const u8) !void {
         const file_arch = try std.fs.cwd().createFile(filename_arch, .{ .truncate = true });
         defer file_arch.close();
 
         try file_arch.seekTo(0);
 
+        const buffer: [4096]u8 = [1]u8{0} ** 4096;
+        var buffer_len: usize = 0;
+
         // $TODO Get rid of these allocations and just have a big buffer
-        const info_input = try std.fmt.allocPrint(allocator, "i {} {} {} {}\n", .{
+        buffer_len = try std.fmt.bufPrint(buffer[0..], "i {} {} {} {}\n", .{
             this.input.buffer.a_size,
             this.input.buffer.z_size,
             this.input.buffer.y_size,
             this.input.buffer.x_size,
         });
-        defer allocator.free(info_input);
-        try file_arch.writeAll(info_input);
+        try file_arch.writeAll(buffer[0..buffer_len]);
+        @memset(buffer[0..buffer_len], 0);
 
         for (0..this.layers.len) |layer_idx| {
-            switch (this.layers[layer_idx].tag) {
-                .dense => {
-                    const info_string = try std.fmt.allocPrint(allocator, "d {} {}\n", .{
-                        this.layers[layer_idx].tag.dense.size_output,
-                        this.layers[layer_idx].activation.t,
-                    });
-                    defer allocator.free(info_string);
-                    try file_arch.writeAll(info_string);
-                },
-                .convolution => {
-                    const info_string = try std.fmt.allocPrint(allocator, "c {} {} {} {} {}\n", .{
-                        this.layers[layer_idx].tag.convolution.filters,
-                        this.layers[layer_idx].tag.convolution.kernel_size,
-                        this.layers[layer_idx].tag.convolution.kernel_stride,
-                        this.layers[layer_idx].tag.convolution.kernel_padding,
-                        this.layers[layer_idx].activation.t,
-                    });
-                    defer allocator.free(info_string);
-                    try file_arch.writeAll(info_string);
-                },
-                .reduce => {
-                    const info_string = try std.fmt.allocPrint(allocator, "r {} {}\n", .{
-                        this.layers[layer_idx].tag.reduce.kernel_size,
-                        this.layers[layer_idx].tag.reduce.kernel_stride,
-                    });
-                    defer allocator.free(info_string);
-                    try file_arch.writeAll(info_string);
-                },
-                .split => {
-                    const info_string = try std.fmt.allocPrint(allocator, "s {} {}\n", .{
-                        this.layers[layer_idx].tag.split.filters,
-                        this.layers[layer_idx].activation.t,
-                    });
-                    defer allocator.free(info_string);
-                    try file_arch.writeAll(info_string);
-                },
-                .residual => {
-                    // $TODO When adding the more complex residual types update this
-                    assert(this.layers[layer_idx].tag.residual.t == .identity);
-                    const info_string = try std.fmt.allocPrint(allocator, "R {} {}\n", .{
-                        this.layers[layer_idx].tag.residual.t,
-                        this.layers[layer_idx].tag.residual.layer,
-                    });
-                    defer allocator.free(info_string);
-                    try file_arch.writeAll(info_string);
-                },
+            if (this.layers[layer_idx].tag == .residual) {
+                assert(this.layers[layer_idx].tag.residual.t == .identity);
             }
+            buffer_len = switch (this.layer[layer_idx].tag) {
+                .dense => try std.fmt.bufPrint("d {} {}\n", .{
+                    this.layers[layer_idx].tag.dense.size_output,
+                    this.layers[layer_idx].activation.t,
+                }),
+                .convolution => buffer_len = try std.fmt.bufPrint("c {} {} {} {} {}\n", .{
+                    this.layers[layer_idx].tag.convolution.filters,
+                    this.layers[layer_idx].tag.convolution.kernel_size,
+                    this.layers[layer_idx].tag.convolution.kernel_stride,
+                    this.layers[layer_idx].tag.convolution.kernel_padding,
+                    this.layers[layer_idx].activation.t,
+                }),
+                .reduce => buffer_len = try std.fmt.bufPrint("r {} {}\n", .{
+                    this.layers[layer_idx].tag.reduce.kernel_size,
+                    this.layers[layer_idx].tag.reduce.kernel_stride,
+                }),
+                .split => buffer_len = try std.fmt.bufPrint("s {} {}\n", .{
+                    this.layers[layer_idx].tag.split.filters,
+                    this.layers[layer_idx].activation.t,
+                }),
+                .residual => buffer_len = try std.fmt.bufPrint("R {} {}\n", .{
+                    this.layers[layer_idx].tag.residual.t,
+                    this.layers[layer_idx].tag.residual.layer,
+                }),
+            };
+            try file_arch.writeAll(buffer[0..buffer_len]);
+            @memset(buffer[0..buffer_len], 0);
         }
 
         const file_bin = try std.fs.cwd().createFile(filename_bin, .{ .truncate = true });
