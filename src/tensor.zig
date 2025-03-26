@@ -814,21 +814,6 @@ pub const Linearized = struct {
             }
         }
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        if (name) |text| {
-            std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
-        } else {
-            std.debug.print("{s}Linearized\n", .{" " ** offset});
-        }
-        if (this.op_num == 0) {
-            std.debug.print("{s}[] => empty\n", .{" " ** (offset + padding)});
-        } else {
-            for (0..this.op_num) |op_idx| {
-                std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
-                this.op[op_idx].debug(0, 0, null);
-            }
-        }
-    }
 };
 
 pub const Tensor = struct {
