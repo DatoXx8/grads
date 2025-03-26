@@ -404,7 +404,16 @@ fn simulateCompiler(
     try tensor1[tensor_out].buffer.syncToHost(queue);
 
     for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-        try assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]);
+        assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]) catch |err| {
+            std.log.err("Failed at index {} = [{}, {}, {}, {}]\n", .{
+                arg_idx,
+                arg_idx / (z_size_max * y_size_max * x_size_max),
+                arg_idx / (y_size_max * x_size_max) % z_size_max,
+                arg_idx / x_size_max % y_size_max,
+                arg_idx % x_size_max,
+            });
+            return err;
+        };
     }
 }
 
