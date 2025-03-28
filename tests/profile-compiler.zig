@@ -422,7 +422,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
         try tensor1[tensor_idx].buffer.syncToDevice(queue);
     }
 
-    inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+    inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
         const name: []const u8 = optimization.name;
         const value: Optimization = @enumFromInt(optimization.value);
 

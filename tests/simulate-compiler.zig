@@ -500,7 +500,7 @@ pub fn main() !void {
 
             if (opt_saved == null) {
                 std.debug.print("Found unrecognized optimization {s}, expected opt=[", .{parse});
-                inline for (@typeInfo(Optimization).Enum.fields, 0..) |optimization, optimization_idx| {
+                inline for (@typeInfo(Optimization).@"enum".fields, 0..) |optimization, optimization_idx| {
                     if (optimization_idx == 0) {
                         std.debug.print("{s} ", .{optimization.name});
                     } else {
@@ -512,7 +512,7 @@ pub fn main() !void {
             }
         } else {
             std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[", .{arg});
-            inline for (@typeInfo(Optimization).Enum.fields, 0..) |optimization, optimization_idx| {
+            inline for (@typeInfo(Optimization).@"enum".fields, 0..) |optimization, optimization_idx| {
                 if (optimization_idx == 0) {
                     std.debug.print("{s} ", .{optimization.name});
                 } else {
@@ -552,7 +552,7 @@ pub fn main() !void {
                     },
                 });
             } else {
-                inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+                inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
                     simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
@@ -580,7 +580,7 @@ pub fn main() !void {
                     },
                 });
             } else {
-                inline for (@typeInfo(Optimization).Enum.fields) |optimization| {
+                inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
                     simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
