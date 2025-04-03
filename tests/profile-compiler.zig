@@ -101,26 +101,9 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
     const y_size_max: u32 = 5;
     const x_size_max: u32 = 4;
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-        tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-    }
-    defer {
-        for (0..tensor_num) |tensor_idx| {
-            tensor1[tensor_idx].free(allocator);
-            tensor2[tensor_idx].free(allocator);
-        }
-    }
-
-    var pcg = Pcg.init(rng);
     std.debug.print("profile-compiler: rng={}...\n", .{rng});
 
-    for (0..tensor_num) |tensor_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
-            tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
-        }
-    }
+    var pcg = Pcg.init(rng);
 
     var op_type: [op_num]OpType = undefined;
     var op_out: [op_num]u32 = undefined;
@@ -149,6 +132,34 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
                 op_out[op_idx] = op_out[op_idx - 1];
                 op_in[op_idx] = op_in[op_idx - 1];
             }
+        }
+    }
+
+    for (0..tensor_num) |tensor_idx| {
+        if (tensor_idx == op_out[op_num - 1]) {
+            tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+        } else {
+            if (pcg.random().boolean()) {
+                tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            } else {
+                tensor1[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor2[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            }
+        }
+    }
+    defer {
+        for (0..tensor_num) |tensor_idx| {
+            tensor1[tensor_idx].free(allocator);
+            tensor2[tensor_idx].free(allocator);
+        }
+    }
+
+    for (0..tensor_num) |tensor_idx| {
+        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
+            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
+            tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
         }
     }
 
@@ -405,6 +416,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
     const tensor_out: u32 = op_out[op_num - 1];
 
+    tensor1[tensor_out].linearized.print(4, 0, null);
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
         // $NOTE Not using realize here because that clears the linearized

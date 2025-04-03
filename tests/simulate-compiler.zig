@@ -75,25 +75,7 @@ fn simulateCompiler(
     const y_size_max: u32 = 5;
     const x_size_max: u32 = 4;
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-        tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-    }
-    defer {
-        for (0..tensor_num) |tensor_idx| {
-            tensor1[tensor_idx].free(allocator);
-            tensor2[tensor_idx].free(allocator);
-        }
-    }
-
     var pcg = Pcg.init(rng);
-
-    for (0..tensor_num) |tensor_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
-            tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
-        }
-    }
 
     var op_type: [op_num]OpType = undefined;
     var op_out: [op_num]u32 = undefined;
@@ -122,6 +104,35 @@ fn simulateCompiler(
                 op_out[op_idx] = op_out[op_idx - 1];
                 op_in[op_idx] = op_in[op_idx - 1];
             }
+        }
+    }
+
+    // $TODO Also make it randomize the out buffer and if it is random then assert that no actual ops are computed
+    for (0..tensor_num) |tensor_idx| {
+        if (tensor_idx == op_out[op_num - 1]) {
+            tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+        } else {
+            if (pcg.random().boolean()) {
+                tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            } else {
+                tensor1[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor2[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            }
+        }
+    }
+    defer {
+        for (0..tensor_num) |tensor_idx| {
+            tensor1[tensor_idx].free(allocator);
+            tensor2[tensor_idx].free(allocator);
+        }
+    }
+
+    for (0..tensor_num) |tensor_idx| {
+        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
+            tensor1[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
+            tensor2[tensor_idx].buffer.values[arg_idx] = tensor1[tensor_idx].buffer.values[arg_idx];
         }
     }
 
@@ -385,6 +396,7 @@ fn simulateCompiler(
 
     const tensor_out: u32 = op_out[op_num - (op_off_top + 1)];
     tensor2[tensor_out].realize();
+    tensor1[tensor_out].linearized.print(4, 0, null);
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
