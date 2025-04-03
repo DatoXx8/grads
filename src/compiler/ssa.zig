@@ -205,11 +205,6 @@ pub const DimInfo = struct {
             this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out, //
             this.a_wait_in,  this.z_wait_in,  this.y_wait_in,  this.x_wait_in,
         });
-        std.debug.print("{s}idx => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
-            " " ** (offset + padding), //
-            this.a_idx_out, this.z_idx_out, this.y_idx_out, this.x_idx_out, //
-            this.a_idx_in,  this.z_idx_in,  this.y_idx_in,  this.x_idx_in,
-        });
     }
 };
 
@@ -407,6 +402,7 @@ pub const Assign = struct {
         if (this.inlined) |inlined| {
             std.debug.print("{s}Inlined out_base {?} in_base {?}\n", .{ " " ** (offset + padding), inlined.out_root, inlined.in_root });
             for (0..inlined.inlined_num) |inlined_idx| {
+                std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, inlined.out[inlined_idx], inlined.in[inlined_idx] });
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
