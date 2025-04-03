@@ -52,7 +52,6 @@ pub fn main() !void {
         },
         20,
         4,
-        .O1,
         context,
         device,
         queue,
