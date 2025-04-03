@@ -1,13 +1,13 @@
 // $TODO Maybe just do the parallelize one at O0 anyways, because it is utterly useless without it
 // $TODO These levels
 // Optimization levels
-// O1 - parallelize, inline, split
+// O1 - parallelize, inline, split, idempotent functions
 // O2 - SIMD
 // O3 - memory optimizer
 
 // Optimization levels
 // O0 - none
-// O1 - parallelize, inline, split
+// O1 - parallelize, inline, split, idempotent functions
 // O2 - SIMD
 // O3 - memory optimizer
 
@@ -131,9 +131,15 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
                 temp_out[temp_num] = if (temp_num == 0) null else temp_num - 1;
                 temp_idx[temp_num] = assign_idx_search;
                 temp_num += 1;
-            } else if (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.in) and
-                ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.in))
+            } else if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.in.name_offset and
+                (ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.in)))
             {
+                // $FIXME This will cause bugs if the inlined assignments are already written somewhere
+                if (!ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.in)) {
+                    temp_num = 1;
+                    break;
+                }
+
                 if (ssa.assign[assign_idx_search].inlined) |*inlined| {
                     assert(inlined.in_root == null);
                     assert(inlined.out_root == null or inlined.out_root != null); // Just to make it explicit what is expected here
@@ -610,6 +616,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
             for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                 var equal: bool = true;
                 // $TODO This is stupidly slow. There has to be a faster way to do this. This is so bad it might aswell be a FIXME
+                // $TODO Also some overlaps might be ok if the things are intermediaries
                 for (0..loop_len) |assign_off| blk: {
                     for (0..loop_num) |loop_idx_search| {
                         for (0..loop_len) |assign_off_search| {
