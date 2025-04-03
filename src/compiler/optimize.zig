@@ -47,7 +47,7 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
                 if ((ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
                     ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) or
                     (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.in) and
-                    ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.in)))
+                        ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.in)))
                 {
                     break :blk false;
                 }
@@ -609,20 +609,33 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
             loop_num = 1;
             for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
                 var equal: bool = true;
-                // $TODO There just has to be a faster way of doing this
-                for (0..loop_num) |loop_idx_search| {
-                    for (0..loop_len) |assign_off| {
-                        if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.equals( //
-                            ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
-                            ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off].base.out.overlaps( //
-                            ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
-                        {
-                            equal = false;
+                // $TODO This is stupidly slow. There has to be a faster way to do this. This is so bad it might aswell be a FIXME
+                for (0..loop_len) |assign_off| blk: {
+                    for (0..loop_num) |loop_idx_search| {
+                        for (0..loop_len) |assign_off_search| {
+                            if (assign_off == assign_off_search) {
+                                if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equals( //
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
+                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                {
+                                    equal = false;
+                                    break :blk;
+                                }
+                            } else {
+                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.name_offset ==
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.name_offset and
+                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                {
+                                    equal = false;
+                                    break :blk;
+                                }
+                            }
+                        }
+                        if (!equal) {
                             break;
                         }
-                    }
-                    if (!equal) {
-                        break;
                     }
                 }
                 if (equal) {
