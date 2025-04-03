@@ -1,12 +1,11 @@
 const std = @import("std");
-const grads = @import("grads");
-
-const Tensor = grads.Tensor;
-const OpType = grads.Op.Type;
-
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
 const Allocator = std.mem.Allocator;
+
+const grads = @import("grads");
+const Tensor = grads.Tensor;
+const OpType = grads.Op.Type;
 
 const AssertError = error{
     nan,

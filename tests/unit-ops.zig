@@ -1,10 +1,9 @@
 const std = @import("std");
-const grads = @import("grads");
-
-const Tensor = grads.Tensor;
-
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
+
+const grads = @import("grads");
+const Tensor = grads.Tensor;
 
 const AssertError = error{
     nan,

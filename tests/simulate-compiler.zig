@@ -1,19 +1,16 @@
 const std = @import("std");
-const grads = @import("grads");
+const Pcg = std.Random.Pcg;
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
 
+const grads = @import("grads");
 const Tensor = grads.Tensor;
 const OpType = grads.Op.Type;
 const Program = grads.Program;
 const ClContext = grads.ClContext;
 const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
-
-const Pcg = std.Random.Pcg;
-
 const Optimization = grads.Optimization;
-
-const assert = std.debug.assert;
-const Allocator = std.mem.Allocator;
 
 // $TODO Randomize intermediary buffers, but make sure the final out tensor is not intermediary
 

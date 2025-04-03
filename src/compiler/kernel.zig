@@ -2,8 +2,6 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const buffer_name_size = @import("../tensor.zig").buffer_name_size;
-
 const Cl = @import("../runtimes/cl.zig");
 const ClMem = Cl.ClMem;
 const ClKernel = Cl.ClKernel;
@@ -11,11 +9,10 @@ const ClProgram = Cl.ClProgram;
 const ClDevice = Cl.ClDevice;
 const ClContext = Cl.ClContext;
 const ClError = Cl.ClError;
-
+const opencl = @import("../runtimes/cl.zig").opencl;
+const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
-
-const opencl = @import("../runtimes/cl.zig").opencl;
 
 pub const Args = struct {
     arg_name_offset: []u64,

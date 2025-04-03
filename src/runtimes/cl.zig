@@ -1,8 +1,8 @@
-const builtin = @import("builtin");
 const std = @import("std");
-
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const builtin = @import("builtin");
+
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
 // It is just this followed by the index of the kernel

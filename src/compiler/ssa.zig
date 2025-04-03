@@ -1,42 +1,13 @@
 const std = @import("std");
-
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 const Op = @import("../tensor.zig").Op;
 const Linearized = @import("../tensor.zig").Linearized;
 const Buffer = @import("../tensor.zig").Buffer;
-
 const opt = @import("./optimize.zig");
 const Optimization = opt.Optimization;
 
-// $FIXME
-//
-// B set (1 6 2 4) [0, 0, 0, 0 = 0] false "khaaaaaa" (1 6 2 4) [0, 0, 0, 0 = 0] false "ygaaaaaa" 0
-// B set (1 6 2 4) [0, 0, 2, 0 = 8] false "khaaaaaa" (1 6 2 4) [0, 0, 2, 0 = 8] false "ygaaaaaa" 2
-// B set (1 6 2 4) [1, 0, 1, 0 = 124] false "khaaaaaa" (1 6 2 4) [1, 0, 1, 0 = 124] false "ygaaaaaa" 4
-// B set (1 6 2 4) [2, 0, 0, 0 = 240] false "khaaaaaa" (1 6 2 4) [2, 0, 0, 0 = 240] false "ygaaaaaa" 6
-// B set (1 6 2 4) [2, 0, 2, 0 = 248] false "khaaaaaa" (1 6 2 4) [2, 0, 2, 0 = 248] false "ygaaaaaa" 8
-// B set (1 6 2 4) [3, 0, 1, 0 = 364] false "khaaaaaa" (1 6 2 4) [3, 0, 1, 0 = 364] false "ygaaaaaa" 10
-// B set (1 6 2 4) [4, 0, 0, 0 = 480] false "khaaaaaa" (1 6 2 4) [4, 0, 0, 0 = 480] false "ygaaaaaa" 12
-// B set (1 6 2 4) [4, 0, 2, 0 = 488] false "khaaaaaa" (1 6 2 4) [4, 0, 2, 0 = 488] false "ygaaaaaa" 14
-// B set (1 6 2 4) [5, 0, 1, 0 = 604] false "khaaaaaa" (1 6 2 4) [5, 0, 1, 0 = 604] false "ygaaaaaa" 16
-//
-// Gets transformed into
-//
-// 0 => 0 0 0 0
-// 1 => 0 0 1 0
-// 2 => 1 0 2 0
-// 3 => 1 0 0 0
-// 4 => 2 0 1 0
-// 5 => 2 0 2 0
-// 6 => 3 0 0 0
-// 7 => 3 0 1 0
-// 8 => 4 0 2 0
-//
-// Because the per dimension offsets aren't linear... This is a huge issue.
-//
-// I guess just model an index into a table that holds the offset, in that case I don't need a stride (and ._idx?) anymore
 pub const DimInfo = struct {
     off_out: u32,
     off_in: u32,

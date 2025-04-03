@@ -3,21 +3,17 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
+const ClMem = @import("../runtimes/cl.zig").ClMem;
+const buffer_name_size = @import("../tensor.zig").buffer_name_size;
+const Op = @import("../tensor.zig").Op;
+const nameFromOffset = @import("../tensor.zig").Buffer.nameFromOffset;
 const todo = @import("../util.zig").todo;
-
+const Args = @import("./kernel.zig").Args;
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
 const Base = @import("./ssa.zig").Base;
 const DimInfo = @import("./ssa.zig").DimInfo;
 const Inlined = @import("./ssa.zig").Inlined;
-
-const buffer_name_size = @import("../tensor.zig").buffer_name_size;
-const Op = @import("../tensor.zig").Op;
-const nameFromOffset = @import("../tensor.zig").Buffer.nameFromOffset;
-
-const ClMem = @import("../runtimes/cl.zig").ClMem;
-
-const Args = @import("./kernel.zig").Args;
 
 pub const kernel_base_name = "kern{}";
 pub const source_padding = 4096;

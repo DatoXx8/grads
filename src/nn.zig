@@ -1,19 +1,15 @@
 const std = @import("std");
-
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Tensor = @import("./tensor.zig").Tensor;
-const Linearized = @import("./tensor.zig").Linearized;
-const Op = @import("./tensor.zig").Op;
-
+const Optimization = @import("./compiler/optimize.zig").Optimization;
+const Program = @import("./compiler/program.zig").Program;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClDevice = @import("./runtimes/cl.zig").ClDevice;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-
-const Program = @import("./compiler/program.zig").Program;
-
-const Optimization = @import("./compiler/optimize.zig").Optimization;
+const Tensor = @import("./tensor.zig").Tensor;
+const Linearized = @import("./tensor.zig").Linearized;
+const Op = @import("./tensor.zig").Op;
 
 // $TODO Make this file more compact
 

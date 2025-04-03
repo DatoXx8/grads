@@ -1,9 +1,6 @@
 const std = @import("std");
-
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
-
-const Kernel = @import("./kernel.zig").Kernel;
 
 const Cl = @import("../runtimes/cl.zig");
 const ClDevice = Cl.ClDevice;
@@ -12,19 +9,15 @@ const ClCommandQueue = Cl.ClCommandQueue;
 const ClError = Cl.ClError;
 const ClProgram = Cl.ClProgram;
 const opencl = Cl.opencl;
-
 const Linearized = @import("../tensor.zig").Linearized;
-
-const Ssa = @import("./ssa.zig").Ssa;
-const Assign = @import("./ssa.zig").Assign;
-
-const Optimization = @import("./optimize.zig").Optimization;
-
 const source_padding = @import("./codegen.zig").source_padding;
 const kernel_base_name = @import("./codegen.zig").kernel_base_name;
 const compileKernel = @import("./codegen.zig").compileKernel;
-
+const Kernel = @import("./kernel.zig").Kernel;
 const Args = @import("./kernel.zig").Args;
+const Optimization = @import("./optimize.zig").Optimization;
+const Ssa = @import("./ssa.zig").Ssa;
+const Assign = @import("./ssa.zig").Assign;
 
 pub const Program = struct {
     size_global: usize,

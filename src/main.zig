@@ -1,27 +1,22 @@
 const std = @import("std");
-
-// $TODO In the simulator and profiler for the compiler randomize if the tensors are intermediaries
-// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread, or make optimize.step()
-// $TODO Maybe give a list of tensor names to the compiler that do have to hold the right values
-//  and should not be inlined away instead of the other way around.
-//  I like this solution a lot because it also makes the compiler simulator more interesting when randomizing the "relevant" tensors.
-// $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
-// $TODO Actual error handling where it is possible
-// $TODO Add autograd
-// $TODO Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
-// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
-
 const assert = std.debug.assert;
 
-const Tensor = @import("./tensor.zig").Tensor;
-
 const Program = @import("./compiler/program.zig").Program;
-
+const Neuralnet = @import("./nn.zig").Neuralnet;
 const ClDevice = @import("./runtimes/cl.zig").ClDevice;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
+const Tensor = @import("./tensor.zig").Tensor;
 
-const Neuralnet = @import("./nn.zig").Neuralnet;
+// $FIXME Compiler simulator rng=1743713666904694 opt=O1
+// $TODO Make 64 bit version flag in the files from Neuralnet.saveToFile()
+// $TODO Make debug flag for compile step that adds debug printing if enabled
+// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread, or make optimize.step()
+// $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
+// $TODO Add autograd
+// $TODO Add automatic quantization
+// $TODO Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
+// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
