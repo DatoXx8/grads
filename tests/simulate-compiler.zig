@@ -396,7 +396,6 @@ fn simulateCompiler(
 
     const tensor_out: u32 = op_out[op_num - (op_off_top + 1)];
     tensor2[tensor_out].realize();
-    tensor1[tensor_out].linearized.print(4, 0, null);
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
