@@ -21,7 +21,7 @@ fn addExe(
     exe.addIncludePath(.{
         .cwd_relative = "/usr/include/",
     });
-    exe.linkSystemLibrary("c");
+    exe.linkLibC();
     exe.linkSystemLibrary("OpenCL");
     exe.root_module.addImport("grads", grads);
     b.installArtifact(exe);
