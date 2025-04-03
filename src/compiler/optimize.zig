@@ -16,7 +16,6 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
 const Op = @import("../tensor.zig").Op;
-
 const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
 const Base = @import("./ssa.zig").Base;
@@ -142,7 +141,6 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
 
                 if (ssa.assign[assign_idx_search].inlined) |*inlined| {
                     assert(inlined.in_root == null);
-                    assert(inlined.out_root == null or inlined.out_root != null); // Just to make it explicit what is expected here
 
                     inlined.out = try allocator.realloc(inlined.out, inlined.inlined_num + temp_num);
                     inlined.in = try allocator.realloc(inlined.in, inlined.inlined_num + temp_num);
@@ -314,9 +312,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
     while (loop_idx < max) : (loop_idx += 1) {
         if (a_left_out) {
             if (a_enter_out) {
-                if (base[loop_idx].out.aOffset() < a_off_out_root or
-                    base[loop_idx].out.aOffset() - a_off_out_root != (loop_idx % dim_info.a_reset_out) / dim_info.a_wait_out * dim_info.a_stride_out)
-                {
+                if (base[loop_idx].out.aOffset() != (loop_idx % dim_info.a_reset_out) / dim_info.a_wait_out * dim_info.a_stride_out + a_off_out_root) {
                     max = loop_idx;
                     break;
                 }
@@ -325,9 +321,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     a_enter_out = true;
                     dim_info.a_reset_out = loop_idx;
                 } else {
-                    if (base[loop_idx].out.aOffset() < a_off_out_root or
-                        base[loop_idx].out.aOffset() - a_off_out_root != (loop_idx / dim_info.a_wait_out) * dim_info.a_stride_out)
-                    {
+                    if (base[loop_idx].out.aOffset() != (loop_idx / dim_info.a_wait_out) * dim_info.a_stride_out + a_off_out_root) {
                         max = loop_idx;
                         break;
                     }
@@ -345,9 +339,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (z_left_out) {
             if (z_enter_out) {
-                if (base[loop_idx].out.zOffset() < z_off_out_root or
-                    base[loop_idx].out.zOffset() - z_off_out_root != (loop_idx % dim_info.z_reset_out) / dim_info.z_wait_out * dim_info.z_stride_out)
-                {
+                if (base[loop_idx].out.zOffset() != (loop_idx % dim_info.z_reset_out) / dim_info.z_wait_out * dim_info.z_stride_out + z_off_out_root) {
                     max = loop_idx;
                     break;
                 }
@@ -356,9 +348,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     z_enter_out = true;
                     dim_info.z_reset_out = loop_idx;
                 } else {
-                    if (base[loop_idx].out.zOffset() < z_off_out_root or
-                        base[loop_idx].out.zOffset() - z_off_out_root != (loop_idx / dim_info.z_wait_out) * dim_info.z_stride_out)
-                    {
+                    if (base[loop_idx].out.zOffset() != (loop_idx / dim_info.z_wait_out) * dim_info.z_stride_out + z_off_out_root) {
                         max = loop_idx;
                         break;
                     }
@@ -376,9 +366,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (y_left_out) {
             if (y_enter_out) {
-                if (base[loop_idx].out.yOffset() < y_off_out_root or
-                    base[loop_idx].out.yOffset() - y_off_out_root != (loop_idx % dim_info.y_reset_out) / dim_info.y_wait_out * dim_info.y_stride_out)
-                {
+                if (base[loop_idx].out.yOffset() != (loop_idx % dim_info.y_reset_out) / dim_info.y_wait_out * dim_info.y_stride_out + y_off_out_root) {
                     max = loop_idx;
                     break;
                 }
@@ -387,9 +375,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     y_enter_out = true;
                     dim_info.y_reset_out = loop_idx;
                 } else {
-                    if (base[loop_idx].out.yOffset() < y_off_out_root or
-                        base[loop_idx].out.yOffset() - y_off_out_root != (loop_idx / dim_info.y_wait_out) * dim_info.y_stride_out)
-                    {
+                    if (base[loop_idx].out.yOffset() != (loop_idx / dim_info.y_wait_out) * dim_info.y_stride_out + y_off_out_root) {
                         max = loop_idx;
                         break;
                     }
@@ -407,9 +393,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (x_left_out) {
             if (x_enter_out) {
-                if (base[loop_idx].out.xOffset() < x_off_out_root or
-                    base[loop_idx].out.xOffset() - x_off_out_root != (loop_idx % dim_info.x_reset_out) / dim_info.x_wait_out * dim_info.x_stride_out)
-                {
+                if (base[loop_idx].out.xOffset() != (loop_idx % dim_info.x_reset_out) / dim_info.x_wait_out * dim_info.x_stride_out + x_off_out_root) {
                     max = loop_idx;
                     break;
                 }
@@ -418,9 +402,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     x_enter_out = true;
                     dim_info.x_reset_out = loop_idx;
                 } else {
-                    if (base[loop_idx].out.xOffset() < x_off_out_root or
-                        base[loop_idx].out.xOffset() - x_off_out_root != (loop_idx / dim_info.x_wait_out) * dim_info.x_stride_out)
-                    {
+                    if (base[loop_idx].out.xOffset() != (loop_idx / dim_info.x_wait_out) * dim_info.x_stride_out + x_off_out_root) {
                         max = loop_idx;
                         break;
                     }
@@ -438,9 +420,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (a_left_in) {
             if (a_enter_in) {
-                if (base[loop_idx].in.aOffset() < a_off_in_root or
-                    base[loop_idx].in.aOffset() - a_off_in_root != (loop_idx % dim_info.a_reset_in) / dim_info.a_wait_in * dim_info.a_stride_in)
-                {
+                if (base[loop_idx].in.aOffset() != (loop_idx % dim_info.a_reset_in) / dim_info.a_wait_in * dim_info.a_stride_in + a_off_in_root) {
                     max = loop_idx;
                     break;
                 }
@@ -449,9 +429,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     a_enter_in = true;
                     dim_info.a_reset_in = loop_idx;
                 } else {
-                    if (base[loop_idx].in.aOffset() < a_off_in_root or
-                        base[loop_idx].in.aOffset() - a_off_in_root != (loop_idx / dim_info.a_wait_in) * dim_info.a_stride_in)
-                    {
+                    if (base[loop_idx].in.aOffset() != (loop_idx / dim_info.a_wait_in) * dim_info.a_stride_in + a_off_in_root) {
                         max = loop_idx;
                         break;
                     }
@@ -469,9 +447,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (z_left_in) {
             if (z_enter_in) {
-                if (base[loop_idx].in.zOffset() < z_off_in_root or
-                    base[loop_idx].in.zOffset() - z_off_in_root != (loop_idx % dim_info.z_reset_in) / dim_info.z_wait_in * dim_info.z_stride_in)
-                {
+                if (base[loop_idx].in.zOffset() != (loop_idx % dim_info.z_reset_in) / dim_info.z_wait_in * dim_info.z_stride_in + z_off_in_root) {
                     max = loop_idx;
                     break;
                 }
@@ -480,9 +456,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     z_enter_in = true;
                     dim_info.z_reset_in = loop_idx;
                 } else {
-                    if (base[loop_idx].in.zOffset() < z_off_in_root or
-                        base[loop_idx].in.zOffset() - z_off_in_root != (loop_idx / dim_info.z_wait_in) * dim_info.z_stride_in)
-                    {
+                    if (base[loop_idx].in.zOffset() != (loop_idx / dim_info.z_wait_in) * dim_info.z_stride_in + z_off_in_root) {
                         max = loop_idx;
                         break;
                     }
@@ -500,9 +474,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (y_left_in) {
             if (y_enter_in) {
-                if (base[loop_idx].in.yOffset() < y_off_in_root or
-                    base[loop_idx].in.yOffset() - y_off_in_root != (loop_idx % dim_info.y_reset_in) / dim_info.y_wait_in * dim_info.y_stride_in)
-                {
+                if (base[loop_idx].in.yOffset() != (loop_idx % dim_info.y_reset_in) / dim_info.y_wait_in * dim_info.y_stride_in + y_off_in_root) {
                     max = loop_idx;
                     break;
                 }
@@ -511,9 +483,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     y_enter_in = true;
                     dim_info.y_reset_in = loop_idx;
                 } else {
-                    if (base[loop_idx].in.yOffset() < y_off_in_root or
-                        base[loop_idx].in.yOffset() - y_off_in_root != (loop_idx / dim_info.y_wait_in) * dim_info.y_stride_in)
-                    {
+                    if (base[loop_idx].in.yOffset() != (loop_idx / dim_info.y_wait_in) * dim_info.y_stride_in + y_off_in_root) {
                         max = loop_idx;
                         break;
                     }
@@ -531,9 +501,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
         }
         if (x_left_in) {
             if (x_enter_in) {
-                if (base[loop_idx].in.xOffset() < x_off_in_root or
-                    base[loop_idx].in.xOffset() - x_off_in_root != (loop_idx % dim_info.x_reset_in) / dim_info.x_wait_in * dim_info.x_stride_in)
-                {
+                if (base[loop_idx].in.xOffset() != (loop_idx % dim_info.x_reset_in) / dim_info.x_wait_in * dim_info.x_stride_in + x_off_in_root) {
                     max = loop_idx;
                     break;
                 }
@@ -542,9 +510,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
                     x_enter_in = true;
                     dim_info.x_reset_in = loop_idx;
                 } else {
-                    if (base[loop_idx].in.xOffset() < x_off_in_root or
-                        base[loop_idx].in.xOffset() - x_off_in_root != (loop_idx / dim_info.x_wait_in) * dim_info.x_stride_in)
-                    {
+                    if (base[loop_idx].in.xOffset() != (loop_idx / dim_info.x_wait_in) * dim_info.x_stride_in + x_off_in_root) {
                         max = loop_idx;
                         break;
                     }
@@ -590,7 +556,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                     break;
                 } else {
                     var equal: bool = true;
-                    for (0..(assign_idx_search - assign_idx)) |assign_off| {
+                    for (0..assign_idx_search - assign_idx) |assign_off| {
                         if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx_search + assign_off].base) or
                             ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
                         {
