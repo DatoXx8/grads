@@ -56,12 +56,15 @@ pub const ClDevice = struct {
             return ClError.PlatformNotFound;
         }
 
-        if (opencl.clGetDeviceIDs(platform, switch (device_type) {
+        const err = opencl.clGetDeviceIDs(platform, switch (device_type) {
             .gpu => opencl.CL_DEVICE_TYPE_GPU,
             .cpu => opencl.CL_DEVICE_TYPE_CPU,
-        }, 1, &device, null) == 0) {
+        }, 1, &device, null);
+        if (err == 0) {
             return .{ .type = device_type, .device = device };
         } else {
+            std.log.err("Could not find device, because of error {}\n", .{err});
+            std.debug.print("Could not find device, because of error {}\n", .{err});
             return ClError.DeviceNotFound;
         }
     }
