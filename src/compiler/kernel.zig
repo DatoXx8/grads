@@ -35,7 +35,7 @@ pub const Args = struct {
                 // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
                 for (0..inlined.inlined_num) |inlined_idx| {
                     try arg_unique.put(inlined.base[inlined_idx].out.name_offset, inlined.base[inlined_idx].out.values_cl.?);
-                    if (!layer[assign_idx].base.type.isUnary()) {
+                    if (!inlined.base[inlined_idx].type.isUnary()) {
                         try arg_unique.put(inlined.base[inlined_idx].in.name_offset, inlined.base[inlined_idx].in.values_cl.?);
                     }
                 }
