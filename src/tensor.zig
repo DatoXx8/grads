@@ -132,13 +132,11 @@ pub const Buffer = struct {
     pub inline fn xOffset(this: @This()) u32 {
         return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
-    // $TODO Could also just return a single item pointer here. Not decided yet.
     pub inline fn at(this: @This(), a: u32, z: u32, y: u32, x: u32) u32 {
-        assert(a < this.a_size);
-        assert(z < this.z_size);
-        assert(y < this.y_size);
-        assert(x < this.x_size);
-        return this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
+        // $NOTE Could add the per dimension asserts back in
+        const offset: u32 = this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
+        assert(offset < this.values.len);
+        return offset;
     }
     pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
         if (this.sync == .sync_to_host) {
