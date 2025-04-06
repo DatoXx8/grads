@@ -272,49 +272,49 @@ pub fn main() !void {
 
     tensor2.moveResize(1, 1, 1, 1);
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linaryAdd(&tensor2);
+    tensor1.expandAdd(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] + val2[0]);
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linarySubtract(&tensor2);
+    tensor1.expandSubtract(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] - val2[0]);
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linaryMultiply(&tensor2);
+    tensor1.expandMultiply(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] * val2[0]);
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linaryDivide(&tensor2);
+    tensor1.expandDivide(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] / val2[0]);
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linaryMax(&tensor2);
+    tensor1.expandMax(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], @max(val1[arg_idx], val2[0]));
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linaryMin(&tensor2);
+    tensor1.expandMin(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], @min(val1[arg_idx], val2[0]));
     }
 
     std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.linarySet(&tensor2);
+    tensor1.expandSet(&tensor2);
     tensor1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         try assertEq(tensor1.buffer.values[arg_idx], val2[0]);

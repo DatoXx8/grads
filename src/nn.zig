@@ -197,12 +197,12 @@ pub const Norm = struct {
             },
             .simple => {
                 this.max.?.reduceMax(allocator, input);
-                input.linaryDivide(allocator, this.max.?);
+                input.expandDivide(allocator, this.max.?);
             },
             .softmax => {
                 input.unaryExp(allocator);
                 this.max.?.reduceSum(allocator, input);
-                input.linaryDivide(allocator, this.max.?);
+                input.expandDivide(allocator, this.max.?);
             },
         }
     }
@@ -540,7 +540,7 @@ pub const Convolution = struct {
                     output_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
                     this.temp_input_padded.moveOffset(0, 0, y_in_idx, x_in_idx);
                     this.temp_kernel.binarySet(&this.temp_input_padded);
-                    this.temp_kernel.linaryMultiply(output_g);
+                    this.temp_kernel.expandMultiply(output_g);
                     this.weights_g.binaryAdd(&this.temp_kernel);
 
                     x_in_idx += this.kernel_stride;
@@ -710,7 +710,7 @@ pub const Reduce = struct {
                 while (x_out_idx < this.x) : (x_out_idx += 1) {
                     input_g.moveOffset(0, channel_idx, y_in_idx, x_in_idx);
                     output_g.moveOffset(0, channel_idx, y_out_idx, x_out_idx);
-                    input_g.linaryAdd(output_g);
+                    input_g.expandAdd(output_g);
                     x_in_idx += this.kernel_stride;
                 }
                 y_in_idx += this.kernel_stride;

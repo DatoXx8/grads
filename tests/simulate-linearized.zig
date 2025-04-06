@@ -143,7 +143,7 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
             tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
             tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
         }
-        if (op_type[op_idx].isLinary()) {
+        if (op_type[op_idx].isExpand()) {
             tensor1[tensor_in].moveResize(1, 1, 1, 1);
             tensor2[tensor_in].moveResize(1, 1, 1, 1);
         } else {
@@ -318,22 +318,22 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
                 tensor2[tensor_out].binarySet(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_add => {
-                tensor1[tensor_out].linaryAdd(&tensor1[tensor_in]);
-                tensor2[tensor_out].linaryAdd(&tensor2[tensor_in]);
+            .expand_add => {
+                tensor1[tensor_out].expandAdd(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandAdd(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_subtract => {
-                tensor1[tensor_out].linarySubtract(&tensor1[tensor_in]);
-                tensor2[tensor_out].linarySubtract(&tensor2[tensor_in]);
+            .expand_subtract => {
+                tensor1[tensor_out].expandSubtract(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandSubtract(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_multiply => {
-                tensor1[tensor_out].linaryMultiply(&tensor1[tensor_in]);
-                tensor2[tensor_out].linaryMultiply(&tensor2[tensor_in]);
+            .expand_multiply => {
+                tensor1[tensor_out].expandMultiply(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandMultiply(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_divide => {
+            .expand_divide => {
                 // NaN prevention
                 tensor1[tensor_in].unaryAbsolute();
                 tensor2[tensor_in].unaryAbsolute();
@@ -342,23 +342,23 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
                 tensor2[tensor_in].unaryAdd(1);
                 tensor2[tensor_out].realize();
 
-                tensor1[tensor_out].linaryDivide(&tensor1[tensor_in]);
-                tensor2[tensor_out].linaryDivide(&tensor2[tensor_in]);
+                tensor1[tensor_out].expandDivide(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandDivide(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_max => {
-                tensor1[tensor_out].linaryMax(&tensor1[tensor_in]);
-                tensor2[tensor_out].linaryMax(&tensor2[tensor_in]);
+            .expand_max => {
+                tensor1[tensor_out].expandMax(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandMax(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_min => {
-                tensor1[tensor_out].linaryMin(&tensor1[tensor_in]);
-                tensor2[tensor_out].linaryMin(&tensor2[tensor_in]);
+            .expand_min => {
+                tensor1[tensor_out].expandMin(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandMin(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
-            .linary_set => {
-                tensor1[tensor_out].linarySet(&tensor1[tensor_in]);
-                tensor2[tensor_out].linarySet(&tensor2[tensor_in]);
+            .expand_set => {
+                tensor1[tensor_out].expandSet(&tensor1[tensor_in]);
+                tensor2[tensor_out].expandSet(&tensor2[tensor_in]);
                 tensor2[tensor_out].realize();
             },
             .reduce_sum => {

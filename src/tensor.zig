@@ -235,8 +235,6 @@ pub const Buffer = struct {
     }
 };
 pub const Op = struct {
-    // $TODO Linary is a truly terrible name
-    /// Linary is like binary but the in buffer has size [1, 1, 1, 1]
     pub const Type = enum(u8) {
         unary_add,
         unary_subtract,
@@ -261,13 +259,13 @@ pub const Op = struct {
         binary_max,
         binary_min,
         binary_set,
-        linary_add,
-        linary_subtract,
-        linary_multiply,
-        linary_divide,
-        linary_max,
-        linary_min,
-        linary_set,
+        expand_add,
+        expand_subtract,
+        expand_multiply,
+        expand_divide,
+        expand_max,
+        expand_min,
+        expand_set,
         reduce_sum,
         reduce_max,
         reduce_avg,
@@ -298,13 +296,13 @@ pub const Op = struct {
                 .binary_max => false,
                 .binary_min => false,
                 .binary_set => false,
-                .linary_add => false,
-                .linary_subtract => false,
-                .linary_multiply => false,
-                .linary_divide => false,
-                .linary_max => false,
-                .linary_min => false,
-                .linary_set => false,
+                .expand_add => false,
+                .expand_subtract => false,
+                .expand_multiply => false,
+                .expand_divide => false,
+                .expand_max => false,
+                .expand_min => false,
+                .expand_set => false,
                 .reduce_sum => false,
                 .reduce_max => false,
                 .reduce_avg => false,
@@ -337,20 +335,20 @@ pub const Op = struct {
                 .binary_max => true,
                 .binary_min => true,
                 .binary_set => true,
-                .linary_add => false,
-                .linary_subtract => false,
-                .linary_multiply => false,
-                .linary_divide => false,
-                .linary_max => false,
-                .linary_min => false,
-                .linary_set => false,
+                .expand_add => false,
+                .expand_subtract => false,
+                .expand_multiply => false,
+                .expand_divide => false,
+                .expand_max => false,
+                .expand_min => false,
+                .expand_set => false,
                 .reduce_sum => false,
                 .reduce_max => false,
                 .reduce_avg => false,
                 .reduce_min => false,
             };
         }
-        pub inline fn isLinary(this: @This()) bool {
+        pub inline fn isExpand(this: @This()) bool {
             // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
@@ -376,13 +374,13 @@ pub const Op = struct {
                 .binary_max => false,
                 .binary_min => false,
                 .binary_set => false,
-                .linary_add => true,
-                .linary_subtract => true,
-                .linary_multiply => true,
-                .linary_divide => true,
-                .linary_max => true,
-                .linary_min => true,
-                .linary_set => true,
+                .expand_add => true,
+                .expand_subtract => true,
+                .expand_multiply => true,
+                .expand_divide => true,
+                .expand_max => true,
+                .expand_min => true,
+                .expand_set => true,
                 .reduce_sum => false,
                 .reduce_max => false,
                 .reduce_avg => false,
@@ -415,13 +413,13 @@ pub const Op = struct {
                 .binary_max => false,
                 .binary_min => false,
                 .binary_set => false,
-                .linary_add => false,
-                .linary_subtract => false,
-                .linary_multiply => false,
-                .linary_divide => false,
-                .linary_max => false,
-                .linary_min => false,
-                .linary_set => false,
+                .expand_add => false,
+                .expand_subtract => false,
+                .expand_multiply => false,
+                .expand_divide => false,
+                .expand_max => false,
+                .expand_min => false,
+                .expand_set => false,
                 .reduce_sum => true,
                 .reduce_max => true,
                 .reduce_avg => true,
@@ -435,20 +433,8 @@ pub const Op = struct {
     u_var: f32,
     out: Buffer,
     in: Buffer,
-    pub inline fn isUnary(this: @This()) bool {
-        return this.type.isUnary();
-    }
-    pub inline fn isBinary(this: @This()) bool {
-        return this.type.isBinary();
-    }
-    pub inline fn isLinary(this: @This()) bool {
-        return this.type.isLinary();
-    }
-    pub inline fn isReduce(this: @This()) bool {
-        return this.type.isReduce();
-    }
     pub inline fn isOutInlinable(this: @This(), target: @This()) bool {
-        return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
+        return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.out.name_offset and
             this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and
@@ -460,7 +446,7 @@ pub const Op = struct {
             this.out.x_offset == target.out.x_offset;
     }
     pub inline fn isInInlinable(this: @This(), target: @This()) bool {
-        return (!target.type.isReduce() and target.type != .linary_set and target.type != .binary_set and target.type != .unary_set) and
+        return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
             this.out.name_offset == target.in.name_offset and
             this.out.a_size == target.in.a_size and
             this.out.z_size == target.in.z_size and
@@ -484,7 +470,7 @@ pub const Op = struct {
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (this.isLinary()) {
+        } else if (this.isExpand()) {
             assert(this.in.a_size == 1);
             assert(this.in.z_size == 1);
             assert(this.in.y_size == 1);
@@ -625,25 +611,25 @@ pub const Op = struct {
                             .binary_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(a, z, y, x)];
                             },
-                            .linary_add => {
+                            .expand_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(0, 0, 0, 0)];
                             },
-                            .linary_subtract => {
+                            .expand_subtract => {
                                 this.out.values[this.out.at(a, z, y, x)] -= this.in.values[this.in.at(0, 0, 0, 0)];
                             },
-                            .linary_multiply => {
+                            .expand_multiply => {
                                 this.out.values[this.out.at(a, z, y, x)] *= this.in.values[this.in.at(0, 0, 0, 0)];
                             },
-                            .linary_divide => {
+                            .expand_divide => {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.in.values[this.in.at(0, 0, 0, 0)];
                             },
-                            .linary_max => {
+                            .expand_max => {
                                 this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
                             },
-                            .linary_min => {
+                            .expand_min => {
                                 this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
                             },
-                            .linary_set => {
+                            .expand_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .reduce_sum => {
@@ -707,7 +693,7 @@ pub const Op = struct {
                 this.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isLinary()) 'L' else 'R');
+            const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isExpand()) 'E' else 'R');
             std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
                 switch (this.type) {
@@ -718,13 +704,13 @@ pub const Op = struct {
                     .binary_max => "max",
                     .binary_min => "min",
                     .binary_set => "set",
-                    .linary_add => "add",
-                    .linary_subtract => "sub",
-                    .linary_multiply => "mul",
-                    .linary_divide => "div",
-                    .linary_max => "max",
-                    .linary_min => "min",
-                    .linary_set => "set",
+                    .expand_add => "add",
+                    .expand_subtract => "sub",
+                    .expand_multiply => "mul",
+                    .expand_divide => "div",
+                    .expand_max => "max",
+                    .expand_min => "min",
+                    .expand_set => "set",
                     .reduce_sum => "sum",
                     .reduce_max => "max",
                     .reduce_min => "min",
@@ -1135,7 +1121,7 @@ pub const Tensor = struct {
             .u_var = 0,
         });
     }
-    pub fn linaryAdd(this: *@This(), source: *@This()) void {
+    pub fn expandAdd(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1144,11 +1130,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_add,
+            .type = .expand_add,
             .u_var = 0,
         });
     }
-    pub fn linarySubtract(this: *@This(), source: *@This()) void {
+    pub fn expandSubtract(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1157,11 +1143,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_subtract,
+            .type = .expand_subtract,
             .u_var = 0,
         });
     }
-    pub fn linaryMultiply(this: *@This(), source: *@This()) void {
+    pub fn expandMultiply(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1170,11 +1156,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_multiply,
+            .type = .expand_multiply,
             .u_var = 0,
         });
     }
-    pub fn linaryDivide(this: *@This(), source: *@This()) void {
+    pub fn expandDivide(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1183,11 +1169,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_divide,
+            .type = .expand_divide,
             .u_var = 0,
         });
     }
-    pub fn linaryMax(this: *@This(), source: *@This()) void {
+    pub fn expandMax(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1196,11 +1182,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_max,
+            .type = .expand_max,
             .u_var = 0,
         });
     }
-    pub fn linaryMin(this: *@This(), source: *@This()) void {
+    pub fn expandMin(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1209,11 +1195,11 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_min,
+            .type = .expand_min,
             .u_var = 0,
         });
     }
-    pub fn linarySet(this: *@This(), source: *@This()) void {
+    pub fn expandSet(this: *@This(), source: *@This()) void {
         assert(source.buffer.a_size == 1);
         assert(source.buffer.z_size == 1);
         assert(source.buffer.y_size == 1);
@@ -1222,7 +1208,7 @@ pub const Tensor = struct {
         this.linearized.append(.{
             .out = this.buffer,
             .in = source.buffer,
-            .type = .linary_set,
+            .type = .expand_set,
             .u_var = 0,
         });
     }

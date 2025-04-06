@@ -8,10 +8,9 @@ const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const Tensor = @import("./tensor.zig").Tensor;
 
-// $FIXME Compiler simulator rng=1743713666904694 opt=O1
 // $TODO Make 64 bit version flag in the files from Neuralnet.saveToFile()
 // $TODO Make debug flag for compile step that adds debug printing if enabled
-// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread, or make optimize.step()
+// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread and make optimizer.step()
 // $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
 // $TODO Add autograd
 // $TODO Add automatic quantization
