@@ -459,23 +459,23 @@ pub const Op = struct {
     }
     // $TODO Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
-        if (this.isUnary()) {
+        if (this.type.isUnary()) {
             // $NOTE In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (this.isBinary()) {
+        } else if (this.type.isBinary()) {
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (this.isExpand()) {
+        } else if (this.type.isExpand()) {
             assert(this.in.a_size == 1);
             assert(this.in.z_size == 1);
             assert(this.in.y_size == 1);
             assert(this.in.x_size == 1);
-        } else if (this.isReduce()) {
+        } else if (this.type.isReduce()) {
             assert(this.out.a_size == 1);
             assert(this.out.z_size == 1);
             assert(this.out.y_size == 1);
@@ -508,10 +508,10 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        const a_size: u32 = if (this.isReduce()) this.in.a_size else this.out.a_size;
-        const z_size: u32 = if (this.isReduce()) this.in.z_size else this.out.z_size;
-        const y_size: u32 = if (this.isReduce()) this.in.y_size else this.out.y_size;
-        const x_size: u32 = if (this.isReduce()) this.in.x_size else this.out.x_size;
+        const a_size: u32 = if (this.type.isReduce()) this.in.a_size else this.out.a_size;
+        const z_size: u32 = if (this.type.isReduce()) this.in.z_size else this.out.z_size;
+        const y_size: u32 = if (this.type.isReduce()) this.in.y_size else this.out.y_size;
+        const x_size: u32 = if (this.type.isReduce()) this.in.x_size else this.out.x_size;
         var a: u32 = 0;
         while (a < a_size) : (a += 1) {
             var z: u32 = 0;
@@ -659,7 +659,7 @@ pub const Op = struct {
         } else {
             std.debug.print("{s}", .{" " ** (padding + offset)});
         }
-        if (this.isUnary()) {
+        if (this.type.isUnary()) {
             std.debug.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
                 switch (this.type) {
                     .unary_add => "add",
@@ -693,7 +693,7 @@ pub const Op = struct {
                 this.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.isBinary()) 'B' else (if (this.isExpand()) 'E' else 'R');
+            const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isExpand()) 'E' else 'R');
             std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
                 switch (this.type) {
