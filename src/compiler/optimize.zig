@@ -1,5 +1,6 @@
 // $TODO Maybe just do the parallelize one at O0 anyways, because it is utterly useless without it
 // $TODO These levels
+// $TODO Expressive numerical representation of an optimization such that a casey type optimizer is possible
 // Optimization levels
 // O1 - parallelize, inline, split, idempotent functions
 // O2 - SIMD
@@ -28,200 +29,66 @@ pub const Optimization = enum(u8) {
     O2,
     O3,
 };
+
+fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
+    assert(start_idx + 1 < assign.len);
+
+    if (assign[start_idx].base.type.isReduce()) return false;
+
+    for (start_idx + 1..assign.len) |assign_idx| {
+        // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
+        if ((assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
+            assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
+            (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
+                assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)))
+        {
+            return false;
+        }
+
+        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
+            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
+        {
+            break;
+        }
+    }
+
+    var written: bool = false;
+    for (start_idx + 1..assign.len) |assign_idx| {
+        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
+            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
+        {
+            written = true;
+            break;
+        }
+        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
+            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.in) and
+            assign[start_idx].base.out.intermediary)
+        {
+            written = true;
+        }
+    }
+
+    return written;
+}
+
 // $TODO Either make the order irrelevant here or assert the right order
 // $TODO This memory management is horrible. Refactor refactor refactor
 //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
 pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
-    var inlined_eligible: []bool = try allocator.alloc(bool, ssa.assign_num);
-    errdefer allocator.free(inlined_eligible);
-    defer allocator.free(inlined_eligible);
+    const temp_written: []bool = try allocator.alloc(bool, ssa.assign_num);
+    errdefer allocator.free(temp_written);
+    defer allocator.free(temp_written);
+    @memset(temp_written, false);
 
-    for (0..ssa.assign_num) |assign_idx| {
-        inlined_eligible[assign_idx] = if (ssa.assign[assign_idx].base.type.isReduce() or
-            !ssa.assign[assign_idx].base.out.intermediary)
-            false
-        else blk: {
-            for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
-                // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
-                if ((ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
-                    ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) or
-                    (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.in) and
-                        ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.in)))
-                {
-                    break :blk false;
-                }
-
-                if (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
-                    ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out) and
-                    ssa.assign[assign_idx_search].base.overwrites())
-                {
-                    break :blk true;
-                }
-            }
-            break :blk true;
-        };
+    var start_idx: u32 = 0;
+    while (start_idx < ssa.assign_num - 1) : (start_idx += 1) {
+        temp_written[start_idx] = try inlineOpStep(allocator, ssa.assign, start_idx);
     }
 
-    // $TODO I should only really save the indices but because I store them in a non global array that information gets lost when saving in Inlined struct
-    const temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
-    const temp_out: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
-    const temp_in: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
-    const temp_idx: []?u32 = try allocator.alloc(?u32, ssa.assign_num);
-    const temp_already: []bool = try allocator.alloc(bool, ssa.assign_num);
-    errdefer {
-        allocator.free(temp_base);
-        allocator.free(temp_out);
-        allocator.free(temp_in);
-        allocator.free(temp_idx);
-        allocator.free(temp_already);
-    }
-    defer {
-        allocator.free(temp_base);
-        allocator.free(temp_out);
-        allocator.free(temp_in);
-        allocator.free(temp_idx);
-        allocator.free(temp_already);
-    }
-    @memset(temp_already, false);
-
-    var temp_num: u32 = 0;
     var assign_idx: u32 = 0;
-    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
-        if (!inlined_eligible[assign_idx] or temp_already[assign_idx]) {
-            continue;
-        }
-
-        temp_base[0] = ssa.assign[assign_idx].base;
-        temp_num = 1;
-        temp_in[0] = null;
-        temp_out[0] = null;
-        temp_idx[0] = assign_idx;
-
-        var assign_idx_search: u32 = assign_idx + 1;
-        while (assign_idx_search < ssa.assign_num) : (assign_idx_search += 1) {
-            if (temp_already[assign_idx_search]) {
-                continue;
-            }
-
-            if (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
-                ssa.assign[assign_idx_search].base.overwrites()) break;
-
-            if (ssa.assign[assign_idx].base.out.equal(ssa.assign[assign_idx_search].base.out) and
-                ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.out))
-            {
-                if (ssa.assign[assign_idx_search].inlined) |*inlined| {
-                    assert(inlined.out_root == null);
-                    assert(inlined.in_root != null);
-
-                    for (0..inlined.inlined_num) |inlined_idx| {
-                        temp_in[temp_num + inlined_idx] = if (inlined.in[inlined_idx]) |in| in + temp_num else null;
-                        temp_out[temp_num + inlined_idx] = if (inlined.out[inlined_idx]) |out| out + temp_num else null;
-                        temp_base[temp_num + inlined_idx] = inlined.base[inlined_idx];
-                        // $NOTE It's fine that this information is lost because it's already marked for deletion anyways
-                        temp_idx[temp_num + inlined_idx] = null;
-                    }
-                    temp_num += inlined.inlined_num;
-                    temp_in[temp_num] = inlined.in_root.? + temp_num;
-                } else {
-                    temp_in[temp_num] = null;
-                }
-
-                temp_base[temp_num] = ssa.assign[assign_idx_search].base;
-                temp_out[temp_num] = if (temp_num == 0) null else temp_num - 1;
-                temp_idx[temp_num] = assign_idx_search;
-                temp_num += 1;
-            } else if (ssa.assign[assign_idx].base.out.name_offset == ssa.assign[assign_idx_search].base.in.name_offset and
-                (ssa.assign[assign_idx].base.out.overlaps(ssa.assign[assign_idx_search].base.in)))
-            {
-                // $FIXME This will cause bugs if the inlined assignments are already written somewhere
-                if (!ssa.assign[assign_idx].base.out.overlapsAll(ssa.assign[assign_idx_search].base.in)) {
-                    temp_num = 1;
-                    break;
-                }
-
-                if (ssa.assign[assign_idx_search].inlined) |*inlined| {
-                    assert(inlined.in_root == null);
-
-                    inlined.out = try allocator.realloc(inlined.out, inlined.inlined_num + temp_num);
-                    inlined.in = try allocator.realloc(inlined.in, inlined.inlined_num + temp_num);
-                    inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + temp_num);
-                    inlined.in_root = inlined.inlined_num + (temp_num - 1);
-                } else {
-                    ssa.assign[assign_idx_search].inlined = .{
-                        .base = try allocator.alloc(Base, temp_num),
-                        .out = try allocator.alloc(?u32, temp_num),
-                        .in = try allocator.alloc(?u32, temp_num),
-                        .out_root = null,
-                        .in_root = temp_num - 1,
-                        .inlined_num = 0,
-                    };
-                }
-
-                for (0..temp_num) |inlined_idx| {
-                    const inlined_num: u32 = ssa.assign[assign_idx_search].inlined.?.inlined_num;
-                    if (temp_idx[inlined_idx]) |idx| {
-                        temp_already[idx] = true;
-                    }
-
-                    ssa.assign[assign_idx_search].inlined.?.base[inlined_num + inlined_idx] = temp_base[inlined_idx];
-                    ssa.assign[assign_idx_search].inlined.?.in[inlined_num + inlined_idx] = temp_in[inlined_idx];
-                    ssa.assign[assign_idx_search].inlined.?.out[inlined_num + inlined_idx] = temp_out[inlined_idx];
-                }
-                ssa.assign[assign_idx_search].inlined.?.inlined_num += temp_num;
-            }
-        }
-
-        if (temp_num == 1) continue;
-
-        if (temp_already[temp_idx[temp_num - 1].?]) {
-            // Do nothing I guess?
-        } else {
-            // $TODO Come to think of it if this case is hit then I guess the ops are completely redundant and can be deleted
-            const target_idx: u32 = temp_idx[temp_num - 1].?;
-
-            temp_base[temp_num - 1] = undefined;
-            temp_out[temp_num - 1] = null;
-            temp_in[temp_num - 1] = null;
-            temp_idx[temp_num - 1] = null;
-            temp_num -= 1;
-
-            if (ssa.assign[target_idx].inlined) |*inlined| {
-                assert(inlined.out_root == null);
-                assert(inlined.in_root == null or inlined.in_root != null); // Just to make it explicit what is expected here
-
-                inlined.base = try allocator.realloc(inlined.base, inlined.inlined_num + temp_num);
-                inlined.out = try allocator.realloc(inlined.out, inlined.inlined_num + temp_num);
-                inlined.in = try allocator.realloc(inlined.in, inlined.inlined_num + temp_num);
-                inlined.out_root = inlined.inlined_num + (temp_num - 1);
-            } else {
-                ssa.assign[target_idx].inlined = .{
-                    .base = try allocator.alloc(Base, temp_num),
-                    .out = try allocator.alloc(?u32, temp_num),
-                    .in = try allocator.alloc(?u32, temp_num),
-                    .out_root = temp_num - 1,
-                    .in_root = null,
-                    .inlined_num = 0,
-                };
-            }
-
-            const target_num: u32 = ssa.assign[target_idx].inlined.?.inlined_num;
-            for (0..temp_num) |inlined_idx| {
-                ssa.assign[target_idx].inlined.?.base[target_num + inlined_idx] = temp_base[inlined_idx];
-                ssa.assign[target_idx].inlined.?.out[target_num + inlined_idx] = temp_out[inlined_idx];
-                ssa.assign[target_idx].inlined.?.in[target_num + inlined_idx] = temp_in[inlined_idx];
-                if (temp_idx[inlined_idx]) |idx| {
-                    temp_already[idx] = true;
-                }
-            }
-
-            ssa.assign[target_idx].inlined.?.inlined_num += temp_num;
-        }
-    }
-
-    assign_idx = 0;
     var assign_num_new: u32 = 0;
     while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
-        if (temp_already[assign_idx]) {
+        if (temp_written[assign_idx]) {
             if (ssa.assign[assign_idx].inlined) |*inlined| {
                 allocator.free(inlined.base);
                 allocator.free(inlined.out);

@@ -68,6 +68,7 @@ pub const Buffer = struct {
             .intermediary = false,
         };
     }
+    /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
     pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
         assert(a > 0);
         assert(z > 0);
@@ -173,7 +174,6 @@ pub const Buffer = struct {
         }
     }
     /// Checks for equal size, offset and name.
-    /// Does *not* check for inherent buffer size.
     pub inline fn equal(this: @This(), target: @This()) bool {
         return this.name_offset == target.name_offset and
             this.a_size == target.a_size and this.z_size == target.z_size and
@@ -813,6 +813,7 @@ pub const Tensor = struct {
             .linearized = try Linearized.alloc(allocator),
         };
     }
+    /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
     pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
         assert(a > 0);
         assert(z > 0);
