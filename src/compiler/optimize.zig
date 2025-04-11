@@ -37,9 +37,9 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
     for (start_idx + 1..assign.len) |assign_idx| {
         // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
-        if ((assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
+        if ((assign[start_idx].base.out.name_offset == assign[assign_idx].base.out.name_offset and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
-            (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
+            (assign[start_idx].base.out.name_offset == assign[assign_idx].base.in.name_offset and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)))
         {
             return false;
