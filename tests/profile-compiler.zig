@@ -415,7 +415,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
     const tensor_out: u32 = op_out[op_num - 1];
 
-    tensor1[tensor_out].linearized.print(4, 0, null);
+    // tensor1[tensor_out].linearized.print(4, 0, null);
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
         // $NOTE Not using realize here because that clears the linearized
