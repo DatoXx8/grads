@@ -86,11 +86,12 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
                 };
             }
 
+            assert(assign[assign_idx].inlined != null);
+
             assign[assign_idx].inlined.?.in[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.in_root) |in| in + inlined_num_old else null) else null;
             assign[assign_idx].inlined.?.out[inlined_num_new - 1] = null;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
-            assert(assign[assign_idx].inlined != null);
             if (assign[start_idx].inlined) |j| {
                 assert(j.inlined_num > 0);
                 for (0..j.inlined_num) |inlined_idx| {
@@ -132,11 +133,12 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
                 };
             }
 
+            assert(assign[assign_idx].inlined != null);
+
             assign[assign_idx].inlined.?.in[inlined_num_new - 1] = null;
             assign[assign_idx].inlined.?.out[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.out_root) |out| out + inlined_num_old else null) else null;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
-            assert(assign[assign_idx].inlined != null);
             if (assign[start_idx].inlined) |j| {
                 assert(j.inlined_num > 0);
                 for (0..j.inlined_num) |inlined_idx| {
