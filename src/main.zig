@@ -23,9 +23,14 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // $TODO Should probably free these explicitly huh
-    const device: ClDevice = try ClDevice.alloc(.gpu);
-    const context: ClContext = try ClContext.alloc(device);
-    const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
+    var device: ClDevice = try ClDevice.alloc(.gpu);
+    var context: ClContext = try ClContext.alloc(device);
+    var queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
+    defer {
+        device.free() catch {};
+        context.free() catch {};
+        queue.free() catch {};
+    }
 
     var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context);
     defer tensor.free(allocator);
