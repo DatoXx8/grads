@@ -40,7 +40,9 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         if ((assign[start_idx].base.out.name_offset == assign[assign_idx].base.out.name_offset and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
             (assign[start_idx].base.out.name_offset == assign[assign_idx].base.in.name_offset and
-            assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)))
+            assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
+            (assign[start_idx].base.in.name_offset == assign[assign_idx].base.out.name_offset and
+            assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
         {
             return false;
         }
