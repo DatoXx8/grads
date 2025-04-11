@@ -60,6 +60,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
                 return written;
             }
 
+            const out_root_old: ?u32 = if (assign[start_idx].inlined) |i| i.out_root else null;
             const inlined_num_start: u32 = if (assign[start_idx].inlined) |i| i.inlined_num else 0;
             const inlined_num_old: u32 = if (assign[assign_idx].inlined) |j| j.inlined_num else 0;
 
@@ -89,7 +90,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
             assert(assign[assign_idx].inlined != null);
 
             assign[assign_idx].inlined.?.in[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.in_root) |in| in + inlined_num_old else null) else null;
-            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = null;
+            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = out_root_old;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
             if (assign[start_idx].inlined) |j| {
@@ -107,6 +108,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
             assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.in) and
             assign[start_idx].base.out.intermediary)
         {
+            const in_root_old: ?u32 = if (assign[start_idx].inlined) |i| i.in_root else null;
             const inlined_num_start: u32 = if (assign[start_idx].inlined) |i| i.inlined_num else 0;
             const inlined_num_old: u32 = if (assign[assign_idx].inlined) |j| j.inlined_num else 0;
 
@@ -135,7 +137,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
             assert(assign[assign_idx].inlined != null);
 
-            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = null;
+            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = in_root_old;
             assign[assign_idx].inlined.?.out[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.out_root) |out| out + inlined_num_old else null) else null;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
