@@ -40,11 +40,10 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         if ((assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
             (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
-                assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)))
+            assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)))
         {
             return false;
         }
-
         if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
             assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
         {
@@ -57,13 +56,96 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
             assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
         {
-            written = true;
-            break;
+            if (assign[assign_idx].base.overwrites()) {
+                return written;
+            }
+
+            const inlined_num_start: u32 = if (assign[start_idx].inlined) |i| i.inlined_num else 0;
+            const inlined_num_old: u32 = if (assign[assign_idx].inlined) |j| j.inlined_num else 0;
+
+            const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
+            if (assign[assign_idx].inlined) |*i| {
+                assert(i.out_root == null);
+                i.* = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.realloc(i.base, inlined_num_new),
+                    .out = try allocator.realloc(i.out, inlined_num_new),
+                    .in = try allocator.realloc(i.in, inlined_num_new),
+                    .in_root = i.in_root,
+                    .out_root = inlined_num_new - 1,
+                };
+            } else {
+                assert(inlined_num_old == 0);
+                assign[assign_idx].inlined = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.alloc(Base, inlined_num_new),
+                    .out = try allocator.alloc(?u32, inlined_num_new),
+                    .in = try allocator.alloc(?u32, inlined_num_new),
+                    .in_root = null,
+                    .out_root = inlined_num_new - 1,
+                };
+            }
+
+            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.in_root) |in| in + inlined_num_old else null) else null;
+            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = null;
+            assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
+
+            assert(assign[assign_idx].inlined != null);
+            if (assign[start_idx].inlined) |j| {
+                assert(j.inlined_num > 0);
+                for (0..j.inlined_num) |inlined_idx| {
+                    assign[assign_idx].inlined.?.in[inlined_num_old + inlined_idx] = if (j.in[inlined_idx]) |in| in + inlined_num_old else null;
+                    assign[assign_idx].inlined.?.out[inlined_num_old + inlined_idx] = if (j.out[inlined_idx]) |out| out + inlined_num_old else null;
+                    assign[assign_idx].inlined.?.base[inlined_num_old + inlined_idx] = j.base[inlined_idx];
+                }
+            }
+
+            return true;
         }
         if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
             assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.in) and
             assign[start_idx].base.out.intermediary)
         {
+            const inlined_num_start: u32 = if (assign[start_idx].inlined) |i| i.inlined_num else 0;
+            const inlined_num_old: u32 = if (assign[assign_idx].inlined) |j| j.inlined_num else 0;
+
+            const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
+            if (assign[assign_idx].inlined) |*i| {
+                assert(i.in_root == null);
+                i.* = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.realloc(i.base, inlined_num_new),
+                    .out = try allocator.realloc(i.out, inlined_num_new),
+                    .in = try allocator.realloc(i.in, inlined_num_new),
+                    .in_root = inlined_num_new - 1,
+                    .out_root = i.out_root,
+                };
+            } else {
+                assert(inlined_num_old == 0);
+                assign[assign_idx].inlined = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.alloc(Base, inlined_num_new),
+                    .out = try allocator.alloc(?u32, inlined_num_new),
+                    .in = try allocator.alloc(?u32, inlined_num_new),
+                    .in_root = inlined_num_new - 1,
+                    .out_root = null,
+                };
+            }
+
+            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = null;
+            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.out_root) |out| out + inlined_num_old else null) else null;
+            assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
+
+            assert(assign[assign_idx].inlined != null);
+            if (assign[start_idx].inlined) |j| {
+                assert(j.inlined_num > 0);
+                for (0..j.inlined_num) |inlined_idx| {
+                    assign[assign_idx].inlined.?.in[inlined_num_old + inlined_idx] = if (j.in[inlined_idx]) |in| in + inlined_num_old else null;
+                    assign[assign_idx].inlined.?.out[inlined_num_old + inlined_idx] = if (j.out[inlined_idx]) |out| out + inlined_num_old else null;
+                    assign[assign_idx].inlined.?.base[inlined_num_old + inlined_idx] = j.base[inlined_idx];
+                }
+            }
+
             written = true;
         }
     }
@@ -457,7 +539,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                 if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equals( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {
                                     equal = false;
                                     break :blk;
@@ -466,7 +548,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.name_offset ==
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.name_offset and
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {
                                     equal = false;
                                     break :blk;
