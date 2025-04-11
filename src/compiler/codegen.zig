@@ -307,7 +307,7 @@ fn writeAssignOutBase(
             });
         },
         .unary_set => {
-            try writeSource(allocator, source, offset, "({d})", .{base.u_var});
+            try writeSource(allocator, source, offset, "((float){d})", .{base.u_var});
         },
         .binary_set,
         .expand_set,
@@ -410,7 +410,7 @@ fn writeAssignOut(
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
         if (!base_relevant.type.isUnary()) {
-            const offset_in: u32 = if (base_relevant.type.isReduce()) 0 else base_relevant.in.at(a, z, y, x) - base_relevant.in.offset;
+            const offset_in: u32 = if (base_relevant.type.isExpand()) 0 else base_relevant.in.at(a, z, y, x) - base_relevant.in.offset;
             try writeAssignInBase(allocator, source, offset, base_relevant, kernel_loop_idx, assign_idx, inlined_idx_curr, offset_in);
         }
     }
@@ -451,7 +451,7 @@ fn writeAssignIn(
     } else {
         const base_relevant: Base = inlined.base[inlined_idx_actual];
         if (!base_relevant.type.isUnary()) {
-            const offset_in: u32 = if (base_relevant.type.isReduce()) 0 else base_relevant.in.at(a, z, y, x) - base_relevant.in.offset;
+            const offset_in: u32 = if (base_relevant.type.isExpand()) 0 else base_relevant.in.at(a, z, y, x) - base_relevant.in.offset;
             try writeAssignInBase(allocator, source, offset, base_relevant, kernel_loop_idx, assign_idx, inlined_idx_curr, offset_in);
         }
     }
