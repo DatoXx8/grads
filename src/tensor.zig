@@ -178,8 +178,9 @@ pub const Buffer = struct {
         return this.name_offset == target.name_offset and
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size and
-            this.aOffset() == target.aOffset() and this.zOffset() == target.zOffset() and
-            this.yOffset() == target.yOffset() and this.xOffset() == target.xOffset();
+            this.offset == target.offset;
+        // this.aOffset() == target.aOffset() and this.zOffset() == target.zOffset() and
+        // this.yOffset() == target.yOffset() and this.xOffset() == target.xOffset();
     }
     /// Checks for equal size and name.
     /// Does *not* check for inherent buffer size or offsets.
