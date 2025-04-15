@@ -52,18 +52,13 @@ comptime {
 
 fn simulateCompiler(
     allocator: Allocator,
-    op_off_low: u32,
-    op_off_top: u32,
+    op_included: [op_num]bool,
     rng: u64,
     optimization: Optimization,
     device: ClDevice,
     context: ClContext,
     queue: ClCommandQueue,
 ) !void {
-    assert(op_num > op_off_low);
-    assert(op_num > op_off_top);
-    assert(op_num > op_off_top + op_off_low);
-
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
 
@@ -169,16 +164,13 @@ fn simulateCompiler(
                     while (x_idx < x_loop) : (x_idx += 1) {
                         var loop_idx: u32 = 0;
                         while (loop_idx < loop_len) : (loop_idx += 1) {
-                            // Putting this in here hurts performance slightly but
-                            // it allows partial loops for nicer debugging
-                            if (op_idx + loop_idx < op_off_low or op_idx + loop_idx >= op_num - op_off_top) {
+                            if (!op_included[op_idx + loop_idx]) {
                                 continue;
                             }
 
                             const tensor_out: u32 = op_out[op_idx + loop_idx];
                             const tensor_in: u32 = op_in[op_idx + loop_idx];
 
-                            // Essentially free in case no alocattions are necessary
                             try tensor1[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor1[tensor_in].linearized.op_num) * loop_len);
                             try tensor2[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor2[tensor_in].linearized.op_num) * loop_len);
 
@@ -391,7 +383,7 @@ fn simulateCompiler(
         }
     }
 
-    const tensor_out: u32 = op_out[op_num - (op_off_top + 1)];
+    const tensor_out: u32 = op_out[op_idx_used];
     tensor2[tensor_out].realize();
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
@@ -413,18 +405,20 @@ fn simulateCompiler(
 
     for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
         assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]) catch |err| {
-            std.log.err("Failed at index {} = [{}, {}, {}, {}]\n", .{
+            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any}\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
                 arg_idx / (y_size_max * x_size_max) % z_size_max,
                 arg_idx / x_size_max % y_size_max,
                 arg_idx % x_size_max,
+                op_included,
             });
             return err;
         };
     }
 }
 
+// $TODO Make different style minifier (array of bools for en/disable)
 fn minifyCompiler(
     allocator: Allocator,
     rng: u64,
@@ -437,41 +431,17 @@ fn minifyCompiler(
     // $TODO Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: u32 = 1;
-    var op_removed: u32 = 1;
-    while (op_removed < op_num) : (op_removed += 1) {
+    var op_included: [op_num]bool = @splat(true);
+    for (0..op_num) |op_idx| {
         var failed: bool = false;
-        simulateCompiler(allocator, 0, op_removed, rng, optimization, device, context, queue) catch {
+        op_included[op_idx] = false;
+        simulateCompiler(allocator, op_included, rng, optimization, device, context, queue) catch {
             failed = true;
         };
-        if (failed) {
-            op_top = op_removed;
-            std.debug.print("failed!\n", .{});
-            continue;
-        } else {
-            std.debug.print("passed!\n", .{});
-            break;
+        if (!failed) {
+            op_included[op_idx] = true;
         }
     }
-    // If it fails with no ops there's a serious issue
-    assert(op_top > 0);
-    var op_low: u32 = 0;
-    op_removed = 1;
-    while (op_removed < op_num - op_top) : (op_removed += 1) {
-        var failed: bool = false;
-        simulateCompiler(allocator, op_removed, op_top, rng, optimization, device, context, queue) catch {
-            failed = true;
-        };
-        if (failed) {
-            op_low = op_removed;
-            std.debug.print("failed!\n", .{});
-            continue;
-        } else {
-            std.debug.print("passed!\n", .{});
-            break;
-        }
-    }
-    std.debug.print("Passes below {} and not after {}\n", .{ op_low, op_num - op_top });
     return err;
 }
 
@@ -548,7 +518,7 @@ pub fn main() !void {
         while (true) {
             std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, 0, 0, rng + loop_idx, opt, device, context, queue) catch |err| {
+                simulateCompiler(allocator, @splat(true), rng + loop_idx, opt, device, context, queue) catch |err| {
                     try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
                 };
                 std.debug.print("{s} ", .{
@@ -563,7 +533,7 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
+                    simulateCompiler(allocator, @splat(true), rng + loop_idx, value, device, context, queue) catch |err| {
                         try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
                     };
                     std.debug.print("{s} ", .{name});
@@ -576,7 +546,7 @@ pub fn main() !void {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, 0, 0, rng + loop_idx, opt, device, context, queue) catch |err| {
+                simulateCompiler(allocator, @splat(true), rng + loop_idx, opt, device, context, queue) catch |err| {
                     try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
                 };
                 std.debug.print("{s} ", .{
@@ -591,7 +561,7 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, 0, 0, rng + loop_idx, value, device, context, queue) catch |err| {
+                    simulateCompiler(allocator, @splat(true), rng + loop_idx, value, device, context, queue) catch |err| {
                         try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
                     };
                     std.debug.print("{s} ", .{name});

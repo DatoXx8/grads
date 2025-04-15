@@ -42,12 +42,9 @@ comptime {
     assert(op_num > 0);
 }
 
-fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rng: u64) !void {
+fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
-    assert(op_num > op_off_low);
-    assert(op_num > op_off_top);
-    assert(op_num > op_off_top + op_off_low);
 
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
@@ -132,7 +129,7 @@ fn simulateLinearized(allocator: Allocator, op_off_low: u32, op_off_top: u32, rn
             tensor1[tensor_out].linearized.concat(&tensor1[tensor_in].linearized);
         }
 
-        if (op_idx < op_off_low or op_idx >= op_num - op_off_top) {
+        if (!op_included[op_idx]) {
             continue;
         }
 
@@ -398,33 +395,17 @@ fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
     // $TODO Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
-    var op_top: u32 = 0;
-    var op_removed: u32 = 1;
-    while (op_removed < op_num) : (op_removed += 1) {
+    var op_included: [op_num]bool = @splat(true);
+    for (0..op_num) |op_idx| {
         var failed: bool = false;
-        simulateLinearized(allocator, 0, op_removed, rng) catch {
+        op_included[op_idx] = false;
+        simulateLinearized(allocator, op_included, rng) catch {
             failed = true;
         };
         if (failed) {
-            op_top = op_removed;
-        } else {
-            break;
+            op_included[op_idx] = true;
         }
     }
-    var op_low: u32 = 0;
-    op_removed = 1;
-    while (op_removed < op_num - op_top) : (op_removed += 1) {
-        var failed: bool = false;
-        simulateLinearized(allocator, op_removed, op_top, rng) catch {
-            failed = true;
-        };
-        if (failed) {
-            op_low = op_removed;
-        } else {
-            break;
-        }
-    }
-    std.debug.print("Passes below {} and not after {}\n", .{ op_low, op_num - op_top });
     return err;
 }
 
@@ -470,7 +451,7 @@ pub fn main() !void {
         // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
             std.debug.print("{} => ", .{loop_idx});
-            simulateLinearized(allocator, 0, 0, rng + loop_idx) catch |err| {
+            simulateLinearized(allocator, @splat(true), rng + loop_idx) catch |err| {
                 try minifyLinearized(allocator, rng + loop_idx, err);
             };
             loop_idx += 1;
@@ -478,7 +459,7 @@ pub fn main() !void {
     } else {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => ", .{loop_idx});
-            simulateLinearized(allocator, 0, 0, rng + loop_idx) catch |err| {
+            simulateLinearized(allocator, @splat(true), rng + loop_idx) catch |err| {
                 try minifyLinearized(allocator, rng + loop_idx, err);
             };
         }
