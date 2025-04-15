@@ -46,18 +46,14 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         {
             return false;
         }
-        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
-            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
-        {
+        if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
             break;
         }
     }
 
     var written: bool = false;
     for (start_idx + 1..assign.len) |assign_idx| {
-        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.out) and
-            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.out))
-        {
+        if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
             if (assign[assign_idx].base.overwrites()) {
                 return written;
             }
@@ -106,8 +102,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
             return true;
         }
-        if (assign[start_idx].base.out.equalNoOffset(assign[assign_idx].base.in) and
-            assign[start_idx].base.out.overlapsAll(assign[assign_idx].base.in) and
+        if (assign[start_idx].base.out.equal(assign[assign_idx].base.in) and
             assign[start_idx].base.out.intermediary)
         {
             const in_root_old: ?u32 = if (assign[start_idx].inlined) |i| i.in_root else null;
