@@ -12,7 +12,7 @@ const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
 const Optimization = grads.Optimization;
 
-// $TODO Randomize intermediary buffers, but make sure the final out tensor is not intermediary
+// $TODO Have chances of changing offsets, sizes, u_var and everything else
 
 const AssertError = error{
     nan,
@@ -171,8 +171,10 @@ fn simulateCompiler(
                             const tensor_out: u32 = op_out[op_idx + loop_idx];
                             const tensor_in: u32 = op_in[op_idx + loop_idx];
 
-                            try tensor1[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor1[tensor_in].linearized.op_num) * loop_len);
-                            try tensor2[tensor_out].linearized.capacityEnsure(allocator, (4 + tensor2[tensor_in].linearized.op_num) * loop_len);
+                            try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 * (a_loop * z_loop * y_loop * x_loop) +
+                                tensor1[tensor_in].linearized.op_num);
+                            try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 * (a_loop * z_loop * y_loop * x_loop) +
+                                tensor2[tensor_in].linearized.op_num);
 
                             if (op_type[op_idx + loop_idx].isReduce()) {
                                 tensor1[tensor_out].moveResize(1, 1, 1, 1);
@@ -418,7 +420,6 @@ fn simulateCompiler(
     }
 }
 
-// $TODO Make different style minifier (array of bools for en/disable)
 fn minifyCompiler(
     allocator: Allocator,
     rng: u64,
@@ -428,7 +429,6 @@ fn minifyCompiler(
     context: ClContext,
     queue: ClCommandQueue,
 ) !void {
-    // $TODO Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);
