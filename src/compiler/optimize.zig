@@ -102,9 +102,10 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
             return true;
         }
-        if (assign[start_idx].base.out.equal(assign[assign_idx].base.in) and
-            assign[start_idx].base.out.intermediary)
-        {
+        if (assign[start_idx].base.out.equal(assign[assign_idx].base.in)) {
+            if (!assign[start_idx].base.out.intermediary) {
+                return written;
+            }
             const in_root_old: ?u32 = if (assign[start_idx].inlined) |i| i.in_root else null;
             const inlined_num_start: u32 = if (assign[start_idx].inlined) |i| i.inlined_num else 0;
             const inlined_num_old: u32 = if (assign[assign_idx].inlined) |j| j.inlined_num else 0;
@@ -501,13 +502,13 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
 
         var assign_idx_search: u32 = assign_idx + 1;
         while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
-            if (ssa.assign[assign_idx].base.equals(ssa.assign[assign_idx_search].base)) {
+            if (ssa.assign[assign_idx].base.equalNoOffset(ssa.assign[assign_idx_search].base)) {
                 if (ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) {
                     break;
                 } else {
                     var equal: bool = true;
                     for (0..assign_idx_search - assign_idx) |assign_off| {
-                        if (!ssa.assign[assign_idx + assign_off].base.equals(ssa.assign[assign_idx_search + assign_off].base) or
+                        if (!ssa.assign[assign_idx + assign_off].base.equalNoOffset(ssa.assign[assign_idx_search + assign_off].base) or
                             ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
                         {
                             equal = false;
@@ -537,7 +538,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                     for (0..loop_num) |loop_idx_search| {
                         for (0..loop_len) |assign_off_search| {
                             if (assign_off == assign_off_search) {
-                                if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equals( //
+                                if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))

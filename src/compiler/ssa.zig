@@ -193,7 +193,11 @@ pub const Base = struct {
         return @max(this.layer_out, this.layer_in);
     }
     // $TODO Unsure how to check the layer things
-    pub inline fn equals(this: @This(), target: @This()) bool {
+    pub inline fn equal(this: @This(), target: @This()) bool {
+        return this.out.equal(target.out) and this.in.equal(target.in) and
+            this.type == target.type and this.u_var == target.u_var;
+    }
+    pub inline fn equalNoOffset(this: @This(), target: @This()) bool {
         return this.out.equalNoOffset(target.out) and this.in.equalNoOffset(target.in) and
             this.type == target.type and this.u_var == target.u_var;
     }
