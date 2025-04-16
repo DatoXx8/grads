@@ -198,9 +198,9 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
                             const tensor_out: u32 = op_out[op_idx + loop_idx];
                             const tensor_in: u32 = op_in[op_idx + loop_idx];
 
-                            try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 * (a_loop * z_loop * y_loop * x_loop) +
+                            try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 * (loop_len * a_loop * z_loop * y_loop * x_loop) +
                                 tensor1[tensor_in].linearized.op_num);
-                            try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 * (a_loop * z_loop * y_loop * x_loop) +
+                            try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 * (loop_len * a_loop * z_loop * y_loop * x_loop) +
                                 tensor2[tensor_in].linearized.op_num);
 
                             if (op_type[op_idx + loop_idx].isReduce()) {
