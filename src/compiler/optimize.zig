@@ -88,7 +88,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
             assert(assign[assign_idx].inlined != null);
 
             assign[assign_idx].inlined.?.in[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.in_root) |in| in + inlined_num_old else null) else null;
-            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = out_root_old;
+            assign[assign_idx].inlined.?.out[inlined_num_new - 1] = if (out_root_old) |out| out + inlined_num_old else null;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
             if (assign[start_idx].inlined) |j| {
@@ -135,7 +135,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
             assert(assign[assign_idx].inlined != null);
 
-            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = in_root_old;
+            assign[assign_idx].inlined.?.in[inlined_num_new - 1] = if (in_root_old) |in| in + inlined_num_old else null;
             assign[assign_idx].inlined.?.out[inlined_num_new - 1] = if (assign[start_idx].inlined) |j| (if (j.out_root) |out| out + inlined_num_old else null) else null;
             assign[assign_idx].inlined.?.base[inlined_num_new - 1] = assign[start_idx].base;
 
