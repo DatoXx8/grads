@@ -508,7 +508,15 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                 } else {
                     var equal: bool = true;
                     for (0..assign_idx_search - assign_idx) |assign_off| {
-                        if (!ssa.assign[assign_idx + assign_off].base.equalNoOffset(ssa.assign[assign_idx_search + assign_off].base) or
+                        const inlined_equal: bool = blk: {
+                            if ((ssa.assign[assign_idx + assign_off].inlined == null) !=
+                                (ssa.assign[assign_idx_search + assign_off].inlined == null)) break :blk false;
+                            if (ssa.assign[assign_idx + assign_off].inlined == null) break :blk true;
+                            break :blk ssa.assign[assign_idx + assign_off].inlined.?.inlinedEqualNoOffset( //
+                                ssa.assign[assign_idx_search + assign_off].inlined.?);
+                        };
+                        if (!(ssa.assign[assign_idx + assign_off].base.equalNoOffset(ssa.assign[assign_idx_search + assign_off].base) and
+                            inlined_equal) or
                             ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
                         {
                             equal = false;
@@ -538,8 +546,15 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                     for (0..loop_num) |loop_idx_search| {
                         for (0..loop_len) |assign_off_search| {
                             if (assign_off == assign_off_search) {
-                                if (!ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) or
+                                const inlined_equal: bool = block: {
+                                    if ((ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) !=
+                                        (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined == null)) break :block false;
+                                    if (ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) break :block true;
+                                    break :block ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined.?.inlinedEqualNoOffset( //
+                                        ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined.?);
+                                };
+                                if (!(ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) and inlined_equal) or
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {

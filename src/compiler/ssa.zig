@@ -345,6 +345,44 @@ pub const Inlined = struct {
     out_root: ?u32,
     in_root: ?u32,
     inlined_num: u32,
+    pub inline fn inlinedEqual(this: @This(), target: Inlined) bool {
+        assert(this.base.len == this.out.len);
+        assert(this.base.len == this.in.len);
+        assert(target.base.len == target.out.len);
+        assert(target.base.len == target.in.len);
+        if (this.base.len != target.base.len) {
+            return false;
+        }
+        for (0..this.base.len) |inlined_idx| {
+            if (!this.base[inlined_idx].out.equal(target.base[inlined_idx].out) or
+                !this.base[inlined_idx].in.equal(target.base[inlined_idx].in) or
+                this.out[inlined_idx] != target.out[inlined_idx] or
+                this.in[inlined_idx] != target.in[inlined_idx])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    pub inline fn inlinedEqualNoOffset(this: @This(), target: Inlined) bool {
+        assert(this.base.len == this.out.len);
+        assert(this.base.len == this.in.len);
+        assert(target.base.len == target.out.len);
+        assert(target.base.len == target.in.len);
+        if (this.base.len != target.base.len) {
+            return false;
+        }
+        for (0..this.base.len) |inlined_idx| {
+            if (!this.base[inlined_idx].out.equalNoOffset(target.base[inlined_idx].out) or
+                !this.base[inlined_idx].in.equalNoOffset(target.base[inlined_idx].in) or
+                this.out[inlined_idx] != target.out[inlined_idx] or
+                this.in[inlined_idx] != target.in[inlined_idx])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 /// Wether or not to split a single operation across kernels
