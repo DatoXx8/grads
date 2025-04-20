@@ -407,13 +407,17 @@ fn simulateCompiler(
 
     for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
         assertEq(tensor1[tensor_out].buffer.values[arg_idx], tensor2[tensor_out].buffer.values[arg_idx]) catch |err| {
-            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any}\n", .{
+            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\"\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
                 arg_idx / (y_size_max * x_size_max) % z_size_max,
                 arg_idx / x_size_max % y_size_max,
                 arg_idx % x_size_max,
                 op_included,
+                tensor1[tensor_out].buffer.values[arg_idx],
+                tensor1[tensor_out].buffer.name(),
+                tensor2[tensor_out].buffer.values[arg_idx],
+                tensor2[tensor_out].buffer.name(),
             });
             return err;
         };
