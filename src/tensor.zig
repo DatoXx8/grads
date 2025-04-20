@@ -313,7 +313,6 @@ pub const Op = struct {
             };
         }
         pub inline fn isBinary(this: @This()) bool {
-            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -352,7 +351,6 @@ pub const Op = struct {
             };
         }
         pub inline fn isExpand(this: @This()) bool {
-            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,
@@ -391,7 +389,6 @@ pub const Op = struct {
             };
         }
         pub inline fn isReduce(this: @This()) bool {
-            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => false,
                 .unary_subtract => false,

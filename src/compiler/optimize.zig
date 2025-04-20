@@ -570,6 +570,16 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                     equal = false;
                                     break :blk;
                                 }
+                                // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
+                                // Maybe there is a less restrictive condition
+                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.name_offset ==
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.name_offset and
+                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.overlaps( //
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                {
+                                    equal = false;
+                                    break :blk;
+                                }
                             }
                         }
                         if (!equal) {
