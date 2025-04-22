@@ -201,7 +201,7 @@ pub const Base = struct {
         return this.out.equalNoOffset(target.out) and this.in.equalNoOffset(target.in) and
             this.type == target.type and this.u_var == target.u_var;
     }
-    /// Not a great name. Essentialy this returns wether the op has a different result depending on what was in the buffer before.
+    /// Not a great name. Essentially this returns wether the result is independant of what was in `this.out` before
     pub inline fn overwrites(this: @This()) bool {
         // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
         return switch (this.type) {

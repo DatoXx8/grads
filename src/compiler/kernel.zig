@@ -40,23 +40,23 @@ pub const Args = struct {
         }
 
         const arg_num: usize = arg_unique.count();
-        const arg_name: []u64 = try allocator.alloc(u64, arg_num);
+        const arg_id: []u64 = try allocator.alloc(u64, arg_num);
         const arg_mem: []ClMem = try allocator.alloc(ClMem, arg_num);
 
         errdefer {
-            allocator.free(arg_name);
+            allocator.free(arg_id);
             allocator.free(arg_mem);
         }
 
-        var arg_name_iterator = arg_unique.keyIterator();
+        var arg_id_iterator = arg_unique.keyIterator();
         for (0..arg_num) |arg_idx| {
-            const key: u64 = arg_name_iterator.next().?.*;
-            arg_name[arg_idx] = key;
+            const key: u64 = arg_id_iterator.next().?.*;
+            arg_id[arg_idx] = key;
             arg_mem[arg_idx] = arg_unique.get(key).?;
         }
 
         return .{
-            .arg_id = arg_name,
+            .arg_id = arg_id,
             .arg_mem = arg_mem,
         };
     }
