@@ -468,10 +468,10 @@ pub const Ssa = struct {
 
         for (0..linearized.op_num) |op_idx| {
             const layer_out: u32 = @max(
-                layer_write.get(linearized.op[op_idx].out.name_offset) orelse 0,
-                layer_read.get(linearized.op[op_idx].out.name_offset) orelse 0,
+                layer_write.get(linearized.op[op_idx].out.id) orelse 0,
+                layer_read.get(linearized.op[op_idx].out.id) orelse 0,
             );
-            const layer_in: u32 = layer_write.get(linearized.op[op_idx].in.name_offset) orelse 0;
+            const layer_in: u32 = layer_write.get(linearized.op[op_idx].in.id) orelse 0;
             const layer_idx: u32 = @max(layer_out, layer_in);
 
             assign[op_idx] = .{
@@ -493,8 +493,8 @@ pub const Ssa = struct {
             assign[op_idx].base.dim_info = DimInfo.init(&[1]Base{assign[op_idx].base});
 
             // $NOTE This overwrites the data if it already existed
-            try layer_write.put(assign[op_idx].base.out.name_offset, layer_idx + 1);
-            try layer_read.put(assign[op_idx].base.in.name_offset, layer_idx + 1);
+            try layer_write.put(assign[op_idx].base.out.id, layer_idx + 1);
+            try layer_read.put(assign[op_idx].base.in.id, layer_idx + 1);
         }
 
         // $NOTE Why was this ever here? Just to group assignments that could be on the same layer?

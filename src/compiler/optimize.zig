@@ -37,11 +37,11 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
     for (start_idx + 1..assign.len) |assign_idx| {
         // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
-        if ((assign[start_idx].base.out.name_offset == assign[assign_idx].base.out.name_offset and
+        if ((assign[start_idx].base.out.id == assign[assign_idx].base.out.id and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
-            (assign[start_idx].base.out.name_offset == assign[assign_idx].base.in.name_offset and
+            (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
-            (assign[start_idx].base.in.name_offset == assign[assign_idx].base.out.name_offset and
+            (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
             assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
         {
             return false;
@@ -562,8 +562,8 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                     break :blk;
                                 }
                             } else {
-                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.name_offset ==
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.name_offset and
+                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {
@@ -572,8 +572,8 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                 }
                                 // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
                                 // Maybe there is a less restrictive condition
-                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.name_offset ==
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.name_offset and
+                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.id ==
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.overlaps( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {

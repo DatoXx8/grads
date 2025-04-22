@@ -13,7 +13,7 @@ pub const buffer_name_size: u64 = 8;
 /// Valid increment of the char values in the buffer name
 pub const buffer_name_char_options: u64 = 'z' - 'a' + 1;
 /// For keeping track of the current number of buffers allocated
-var buffer_name_offset: u64 = 0;
+var buffer_id: u64 = 0;
 
 pub const Buffer = struct {
     pub const SyncStatus = enum(u8) {
@@ -42,7 +42,7 @@ pub const Buffer = struct {
     values: []f32,
     values_cl: ?ClMem,
     sync: SyncStatus,
-    name_offset: u64,
+    id: u64,
     intermediary: bool,
     pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
         assert(a > 0);
@@ -50,9 +50,9 @@ pub const Buffer = struct {
         assert(y > 0);
         assert(x > 0);
 
-        defer buffer_name_offset += 1;
+        defer buffer_id += 1;
         return .{
-            .name_offset = buffer_name_offset,
+            .id = buffer_id,
             .sync = SyncStatus.sync_to_none,
             .a_size = a,
             .z_size = z,
@@ -75,9 +75,9 @@ pub const Buffer = struct {
         assert(y > 0);
         assert(x > 0);
 
-        defer buffer_name_offset += 1;
+        defer buffer_id += 1;
         return .{
-            .name_offset = buffer_name_offset,
+            .id = buffer_id,
             .sync = SyncStatus.sync_to_none,
             .a_size = a,
             .z_size = z,
@@ -98,20 +98,20 @@ pub const Buffer = struct {
         if (this.values_cl) |values_cl| {
             // $NOTE I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
             values_cl.free() catch |err| {
-                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.name_offset, err });
+                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.id, err });
             };
         }
     }
     // $PERF these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
-    //  to reduce memory usage. Like the nameFromOffset function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
+    //  to reduce memory usage. Like the nameFromId function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
     //  which is ~5x faster than a read from main memory.
     pub inline fn name(this: @This()) [buffer_name_size]u8 {
-        return nameFromOffset(this.name_offset);
+        return nameFromId(this.id);
     }
-    pub inline fn nameFromOffset(name_offset: u64) [buffer_name_size]u8 {
+    pub inline fn nameFromId(id: u64) [buffer_name_size]u8 {
         var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
         const divisor: u64 = buffer_name_char_options;
-        var left: u64 = name_offset;
+        var left: u64 = id;
         for (0..buffer_name_size) |char_idx| {
             name_result[char_idx] += @truncate(left % divisor);
             left = left / divisor;
@@ -175,7 +175,7 @@ pub const Buffer = struct {
     }
     /// Checks for equal size, offset and name.
     pub inline fn equal(this: @This(), target: @This()) bool {
-        return this.name_offset == target.name_offset and
+        return this.id == target.id and
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size and
             this.offset == target.offset;
@@ -185,7 +185,7 @@ pub const Buffer = struct {
     /// Checks for equal size and name.
     /// Does *not* check for inherent buffer size or offsets.
     pub inline fn equalNoOffset(this: @This(), target: @This()) bool {
-        return this.name_offset == target.name_offset and
+        return this.id == target.id and
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size;
     }
@@ -435,7 +435,7 @@ pub const Op = struct {
     in: Buffer,
     pub inline fn isOutInlinable(this: @This(), target: @This()) bool {
         return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
-            this.out.name_offset == target.out.name_offset and
+            this.out.id == target.out.id and
             this.out.a_size == target.out.a_size and
             this.out.z_size == target.out.z_size and
             this.out.y_size == target.out.y_size and
@@ -447,7 +447,7 @@ pub const Op = struct {
     }
     pub inline fn isInInlinable(this: @This(), target: @This()) bool {
         return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
-            this.out.name_offset == target.in.name_offset and
+            this.out.id == target.in.id and
             this.out.a_size == target.in.a_size and
             this.out.z_size == target.in.z_size and
             this.out.y_size == target.in.y_size and

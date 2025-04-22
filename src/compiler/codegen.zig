@@ -6,7 +6,7 @@ const bufPrint = std.fmt.bufPrint;
 const ClMem = @import("../runtimes/cl.zig").ClMem;
 const buffer_name_size = @import("../tensor.zig").buffer_name_size;
 const Op = @import("../tensor.zig").Op;
-const nameFromOffset = @import("../tensor.zig").Buffer.nameFromOffset;
+const nameFromId = @import("../tensor.zig").Buffer.nameFromId;
 const todo = @import("../util.zig").todo;
 const Args = @import("./kernel.zig").Args;
 const Ssa = @import("./ssa.zig").Ssa;
@@ -594,12 +594,12 @@ pub fn compileKernel(
     assert(size_global % size_local == 0);
 
     try writeSource(allocator, source, offset, "__kernel void {s}(", .{kernel_name});
-    assert(kernel_args.arg_mem.len == kernel_args.arg_name_offset.len);
-    for (0..kernel_args.arg_name_offset.len) |arg_idx| {
+    assert(kernel_args.arg_mem.len == kernel_args.arg_id.len);
+    for (0..kernel_args.arg_id.len) |arg_idx| {
         if (arg_idx == 0) {
-            try writeSource(allocator, source, offset, "__global float *{s}", .{nameFromOffset(kernel_args.arg_name_offset[arg_idx])});
+            try writeSource(allocator, source, offset, "__global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])});
         } else {
-            try writeSource(allocator, source, offset, ", __global float *{s}", .{nameFromOffset(kernel_args.arg_name_offset[arg_idx])});
+            try writeSource(allocator, source, offset, ", __global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])});
         }
     }
 

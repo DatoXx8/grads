@@ -15,7 +15,7 @@ const Ssa = @import("./ssa.zig").Ssa;
 const Assign = @import("./ssa.zig").Assign;
 
 pub const Args = struct {
-    arg_name_offset: []u64,
+    arg_id: []u64,
     arg_mem: []ClMem,
     pub fn alloc(allocator: Allocator, layer: []Assign) !Args {
         var arg_unique = std.AutoHashMap(u64, ClMem).init(allocator);
@@ -23,17 +23,17 @@ pub const Args = struct {
         defer arg_unique.deinit();
 
         for (0..layer.len) |assign_idx| {
-            try arg_unique.put(layer[assign_idx].base.out.name_offset, layer[assign_idx].base.out.values_cl.?);
+            try arg_unique.put(layer[assign_idx].base.out.id, layer[assign_idx].base.out.values_cl.?);
             if (!layer[assign_idx].base.type.isUnary()) {
-                try arg_unique.put(layer[assign_idx].base.in.name_offset, layer[assign_idx].base.in.values_cl.?);
+                try arg_unique.put(layer[assign_idx].base.in.id, layer[assign_idx].base.in.values_cl.?);
             }
 
             if (layer[assign_idx].inlined) |inlined| {
                 // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
                 for (0..inlined.inlined_num) |inlined_idx| {
-                    try arg_unique.put(inlined.base[inlined_idx].out.name_offset, inlined.base[inlined_idx].out.values_cl.?);
+                    try arg_unique.put(inlined.base[inlined_idx].out.id, inlined.base[inlined_idx].out.values_cl.?);
                     if (!inlined.base[inlined_idx].type.isUnary()) {
-                        try arg_unique.put(inlined.base[inlined_idx].in.name_offset, inlined.base[inlined_idx].in.values_cl.?);
+                        try arg_unique.put(inlined.base[inlined_idx].in.id, inlined.base[inlined_idx].in.values_cl.?);
                     }
                 }
             }
@@ -56,13 +56,13 @@ pub const Args = struct {
         }
 
         return .{
-            .arg_name_offset = arg_name,
+            .arg_id = arg_name,
             .arg_mem = arg_mem,
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
         // The arg_mem get's freed with the tensors
-        allocator.free(this.arg_name_offset);
+        allocator.free(this.arg_id);
         allocator.free(this.arg_mem);
     }
 };

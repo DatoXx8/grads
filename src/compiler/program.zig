@@ -45,7 +45,7 @@ pub const Program = struct {
             const source: []const u8 = try allocator.dupe(u8, "__kernel void unused() {}\n\x00");
             const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
             var kernel: []Kernel = try allocator.alloc(Kernel, 1);
-            kernel[0] = try Kernel.alloc(program, "unused\x00", .{ .arg_mem = &.{}, .arg_name_offset = &.{} });
+            kernel[0] = try Kernel.alloc(program, "unused\x00", .{ .arg_mem = &.{}, .arg_id = &.{} });
 
             return .{
                 .size_global = size_global,
