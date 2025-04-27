@@ -8,6 +8,7 @@ const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const Tensor = @import("./tensor.zig").Tensor;
 
+// $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Factor out all the places in which we create random linearized ops. This also makes it easier to keep consistent prng states across the simulator and profiler
 // $TODO Make 64 bit version flag in the files from Neuralnet.saveToFile()
 // $TODO Make debug flag for compile step that adds debug printing if enabled
@@ -33,7 +34,13 @@ pub fn main() !void {
         queue.free() catch {};
     }
 
-    var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context);
+    var target: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context, 1);
+    defer target.free(allocator);
+    try target.linearized.capacityEnsure(allocator, 1);
+    target.unaryRandom(3874982374);
+    target.realize();
+
+    var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context, 1);
     defer tensor.free(allocator);
     try tensor.linearized.capacityEnsure(allocator, 1);
     tensor.unaryRandom(0);
@@ -43,7 +50,7 @@ pub fn main() !void {
 
     var nn: Neuralnet = try Neuralnet.alloc(
         allocator,
-        tensor,
+        &tensor,
         &[_]Neuralnet.Layer.Config{
             .{ .dense = .{ .size_out = 4, .activation = .none } },
             // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation = .none } },
@@ -61,4 +68,7 @@ pub fn main() !void {
     nn.init(0);
     try nn.forward(.gpu);
     nn.layers[nn.layers.len - 1].values.print(4, 0, null);
+    nn.forward_cpu.print(4, 0, "forward");
+    nn.backward_cpu.print(4, 0, "backward");
+    nn.learn_cpu.print(4, 0, "learn");
 }

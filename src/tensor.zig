@@ -742,18 +742,17 @@ pub const Op = struct {
     }
 };
 
-const op_cap_base = 4;
 pub const Linearized = struct {
     op: []Op,
     op_num: u32,
-    pub fn alloc(allocator: Allocator) !Linearized {
+    pub fn alloc(allocator: Allocator, capacity: u32) !Linearized {
         return .{
             .op_num = 0,
-            .op = try allocator.alloc(Op, op_cap_base),
+            .op = try allocator.alloc(Op, capacity),
         };
     }
     pub fn capacityEnsure(this: *@This(), allocator: Allocator, capacity: u32) !void {
-        if (this.op.len - this.op_num < capacity) {
+        if (this.op.len < this.op_num + capacity) {
             this.op = try allocator.realloc(this.op, this.op_num + capacity);
         }
     }
@@ -802,7 +801,7 @@ pub const Linearized = struct {
 pub const Tensor = struct {
     buffer: Buffer,
     linearized: Linearized,
-    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
+    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -810,11 +809,11 @@ pub const Tensor = struct {
 
         return .{
             .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
-            .linearized = try Linearized.alloc(allocator),
+            .linearized = try Linearized.alloc(allocator, capacity),
         };
     }
     /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
-    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Tensor {
+    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -822,7 +821,7 @@ pub const Tensor = struct {
 
         return .{
             .buffer = try Buffer.allocIntermediary(allocator, a, z, y, x, context),
-            .linearized = try Linearized.alloc(allocator),
+            .linearized = try Linearized.alloc(allocator, capacity),
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {

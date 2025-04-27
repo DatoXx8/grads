@@ -132,17 +132,18 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
         }
     }
 
+    // $TODO I should just precompute the op amounts so there are way less allocations
     for (0..tensor_num) |tensor_idx| {
         if (tensor_idx == op_out[op_num - 1]) {
-            tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-            tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+            tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+            tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
         } else {
             if (pcg.random().boolean()) {
-                tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-                tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+                tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
             } else {
-                tensor1[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
-                tensor2[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context);
+                tensor1[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+                tensor2[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
             }
         }
     }

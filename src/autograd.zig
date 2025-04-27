@@ -23,6 +23,10 @@ const Tensor = @import("./tensor.zig").Tensor;
 // g(x) = h(f(x)) assume h injective
 // f(x) = h^{-1}(g(x))
 // f'(x) = (h^{-1})'(g(x)) * g'(x)
+//
+// g(x) = h(f(x))
+// g'(x) = h'(f(x)) * f'(x)
+// f'(x) = g'(x) / h'(f(x))
 
 // $TODO Maybe don't pass in an allocator and just assert there is enough space
 /// Append op(s) to `target` that computes the derivative of `op` into `d_out`, with respect to `d_in`.
@@ -61,15 +65,39 @@ pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, ou
         unreachable;
     }
 
+    // f'(x) = g'(x) / h'(f(x));
     switch (op_type) {
         .unary_add, .unary_subtract => {},
         .unary_multiply => d_out.unaryDivide(op_u_var),
         .unary_divide => d_out.unaryMultiply(op_u_var),
-        .unary_exp => todo(@src()),
-        .unary_log => todo(@src()),
-        .unary_square => todo(@src()),
-        .unary_sqrt => todo(@src()),
-        .unary_reciprocal => todo(@src()),
+        .unary_exp => {
+            d_out.binarySet(out);
+            d_out.unaryExp();
+            d_out.unaryReciprocal();
+            d_out.binaryMultiply(d_in);
+        },
+        .unary_log => {
+            d_out.binarySet(out);
+            d_out.binaryMultiply(d_in);
+        },
+        .unary_square => {
+            d_out.binarySet(out);
+            d_out.unaryMultiply(2);
+            d_out.unaryReciprocal();
+            d_out.binaryMultiply(d_in);
+        },
+        .unary_sqrt => {
+            d_out.binarySet(out);
+            d_out.unarySqrt();
+            d_out.unaryMultiply(2);
+            d_out.binaryMultiply(d_in);
+        },
+        .unary_reciprocal => {
+            d_out.binarySet(out);
+            d_out.unarySquare();
+            d_out.unaryMultiply(-1);
+            d_out.binaryMultiply(d_in);
+        },
         .unary_max => todo(@src()),
         .unary_min => todo(@src()),
         .unary_set => todo(@src()),

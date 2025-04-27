@@ -54,9 +54,10 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
     const y_size_max: u32 = 5;
     const x_size_max: u32 = 4;
 
+    // $TODO I should just precompute the op amounts so there are way less allocations
     for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null);
-        tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null);
+        tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null, 1);
+        tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null, 1);
     }
     defer {
         for (0..tensor_num) |tensor_idx| {
