@@ -65,5 +65,4 @@ pub fn main() !void {
     try nn.forward(.gpu);
     try nn.sync(true, true, true, true, true, .sync_to_host);
     nn.layer[nn.layer.len - 1].values.print(4, 0, null);
-    try nn.save("net.bin", "net.arch", true);
 }

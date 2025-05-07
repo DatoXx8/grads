@@ -592,10 +592,7 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
         hash.update(std.mem.sliceAsBytes(weights.buffer.values));
         hash.update(std.mem.sliceAsBytes(biases.buffer.values));
     }
-    if (file_param_bytes.len != idx + 8) {
-        std.debug.print("{} - {}\n", .{ file_param_bytes.len, idx + 8 });
-        return error.ParamFileWrongSize;
-    }
+    if (file_param_bytes.len != idx + 8) return error.ParamFileWrongSize;
     if (hash.final() != std.mem.bytesToValue(u64, file_param_bytes[idx..])) return error.ParamHashMismatch;
 }
 pub fn create(
