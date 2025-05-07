@@ -42,13 +42,13 @@ pub const ClError = error{
 
 // $TODO Support multiple devices
 pub const ClDevice = struct {
-    pub const ClDeviceType = enum(u8) {
+    pub const Type = enum(u8) {
         cpu,
         gpu,
     };
-    type: ClDeviceType,
+    t: Type,
     device: opencl.cl_device_id,
-    pub fn alloc(device_type: ClDevice.ClDeviceType) !ClDevice {
+    pub fn alloc(t: ClDevice.Type) !ClDevice {
         var platform: opencl.cl_platform_id = null;
         var device: opencl.cl_device_id = null;
 
@@ -56,12 +56,12 @@ pub const ClDevice = struct {
             return ClError.PlatformNotFound;
         }
 
-        const err = opencl.clGetDeviceIDs(platform, switch (device_type) {
+        const err = opencl.clGetDeviceIDs(platform, switch (t) {
             .gpu => opencl.CL_DEVICE_TYPE_GPU,
             .cpu => opencl.CL_DEVICE_TYPE_CPU,
         }, 1, &device, null);
         if (err == 0) {
-            return .{ .type = device_type, .device = device };
+            return .{ .t = t, .device = device };
         } else {
             std.log.err("Could not find device, because of error {}\n", .{err});
             std.debug.print("Could not find device, because of error {}\n", .{err});
