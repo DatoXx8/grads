@@ -798,519 +798,526 @@ pub const Linearized = struct {
     }
 };
 
-pub const Tensor = struct {
-    buffer: Buffer,
-    linearized: Linearized,
-    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
-        assert(a > 0);
-        assert(z > 0);
-        assert(y > 0);
-        assert(x > 0);
+pub const Tensor = @This();
+buffer: Buffer,
+linearized: Linearized,
+pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
 
-        return .{
-            .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
-            .linearized = try Linearized.alloc(allocator, capacity),
-        };
-    }
-    /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
-    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
-        assert(a > 0);
-        assert(z > 0);
-        assert(y > 0);
-        assert(x > 0);
+    return .{
+        .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
+        .linearized = try Linearized.alloc(allocator, capacity),
+    };
+}
+/// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
+pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
 
-        return .{
-            .buffer = try Buffer.allocIntermediary(allocator, a, z, y, x, context),
-            .linearized = try Linearized.alloc(allocator, capacity),
-        };
+    return .{
+        .buffer = try Buffer.allocIntermediary(allocator, a, z, y, x, context),
+        .linearized = try Linearized.alloc(allocator, capacity),
+    };
+}
+pub fn free(this: *@This(), allocator: Allocator) void {
+    this.buffer.free(allocator);
+    this.linearized.free(allocator);
+}
+/// Clears the linearized ops in the tensor, meaning that if you want to run it a few times then use tensor.linearized.run() or compile it to a program if you run it often.
+pub fn realize(this: *@This()) void {
+    if (this.linearized.op_num != 0) {
+        this.linearized.run();
+        this.linearized.clear();
+        this.buffer.syncUpdate(.sync_to_device);
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.buffer.free(allocator);
-        this.linearized.free(allocator);
+}
+pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    if (name) |text| {
+        std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
+    } else {
+        std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
     }
-    /// Clears the linearized ops in the tensor, meaning that if you want to run it a few times then use tensor.linearized.run() or compile it to a program if you run it often.
-    pub fn realize(this: *@This()) void {
-        if (this.linearized.op_num != 0) {
-            this.linearized.run();
-            this.linearized.clear();
-            this.buffer.syncUpdate(.sync_to_device);
-        }
-    }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        if (name) |text| {
-            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
-        } else {
-            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
-        }
-        var a: u32 = 0;
-        while (a < this.buffer.a_size) : (a += 1) {
-            var z: u32 = 0;
-            while (z < this.buffer.z_size) : (z += 1) {
-                var y: u32 = 0;
-                while (y < this.buffer.y_size) : (y += 1) {
-                    std.debug.print("{s}[", .{" " ** (offset + padding)});
-                    var x: u32 = 0;
-                    while (x < this.buffer.x_size) : (x += 1) {
-                        std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
-                    }
-                    std.debug.print("]\n", .{});
+    var a: u32 = 0;
+    while (a < this.buffer.a_size) : (a += 1) {
+        var z: u32 = 0;
+        while (z < this.buffer.z_size) : (z += 1) {
+            var y: u32 = 0;
+            while (y < this.buffer.y_size) : (y += 1) {
+                std.debug.print("{s}[", .{" " ** (offset + padding)});
+                var x: u32 = 0;
+                while (x < this.buffer.x_size) : (x += 1) {
+                    std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
                 }
+                std.debug.print("]\n", .{});
+            }
+            if (z != this.buffer.z_size - 1) {
                 std.debug.print("\n", .{});
             }
+        }
+        if (a != this.buffer.a_size - 1) {
             std.debug.print("\n", .{});
         }
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        if (name) |text| {
-            std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
-        } else {
-            std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
-        }
-        this.linearized.debug(0, 0, null);
-        var a: u32 = 0;
-        while (a < this.buffer.a_size) : (a += 1) {
-            var z: u32 = 0;
-            while (z < this.buffer.z_size) : (z += 1) {
-                var y: u32 = 0;
-                while (y < this.buffer.y_size) : (y += 1) {
-                    std.debug.print("{s}[", .{" " ** (offset + padding)});
-                    var x: u32 = 0;
-                    while (x < this.buffer.x_size) : (x += 1) {
-                        std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
-                    }
-                    std.debug.print("]\n", .{});
+}
+pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    if (name) |text| {
+        std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, this.buffer.name(), text });
+    } else {
+        std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, this.buffer.name() });
+    }
+    this.linearized.debug(0, 0, null);
+    var a: u32 = 0;
+    while (a < this.buffer.a_size) : (a += 1) {
+        var z: u32 = 0;
+        while (z < this.buffer.z_size) : (z += 1) {
+            var y: u32 = 0;
+            while (y < this.buffer.y_size) : (y += 1) {
+                std.debug.print("{s}[", .{" " ** (offset + padding)});
+                var x: u32 = 0;
+                while (x < this.buffer.x_size) : (x += 1) {
+                    std.debug.print(" {d:8.4}", .{this.buffer.values[this.buffer.at(a, z, y, x)]});
                 }
+                std.debug.print("]\n", .{});
+            }
+            if (z != this.buffer.z_size - 1) {
                 std.debug.print("\n", .{});
             }
+        }
+        if (a != this.buffer.a_size - 1) {
             std.debug.print("\n", .{});
         }
     }
-    pub fn unaryAdd(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_add,
-            .u_var = u_var,
-        });
-    }
-    pub fn unarySubtract(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_subtract,
-            .u_var = u_var,
-        });
-    }
-    pub fn unaryMultiply(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_multiply,
-            .u_var = u_var,
-        });
-    }
-    pub fn unaryDivide(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_divide,
-            .u_var = u_var,
-        });
-    }
-    pub fn unaryExp(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_exp,
-            .u_var = 0,
-        });
-    }
-    pub fn unaryLog(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_log,
-            .u_var = 0,
-        });
-    }
-    pub fn unarySquare(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_square,
-            .u_var = 0,
-        });
-    }
-    pub fn unarySqrt(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_sqrt,
-            .u_var = 0,
-        });
-    }
-    pub fn unaryReciprocal(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_reciprocal,
-            .u_var = 0,
-        });
-    }
-    pub fn unaryMax(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_max,
-            .u_var = u_var,
-        });
-    }
-    pub fn unaryMin(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_min,
-            .u_var = u_var,
-        });
-    }
-    pub fn unarySet(this: *@This(), u_var: f32) void {
-        assert(!std.math.isNan(u_var));
-        assert(!std.math.isInf(u_var));
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_set,
-            .u_var = u_var,
-        });
-    }
-    // $TODO Decide if this explicit seed thing is actually any good at all.
-    //  I don't really want to make the user think about it, but the explicit-nes is also nice
-    /// Here u_var is the seed of the prng
-    pub fn unaryRandom(this: *@This(), u_var: u32) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_random,
-            .u_var = @bitCast(u_var),
-        });
-    }
-    pub fn unaryTanh(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_tanh,
-            .u_var = 0,
-        });
-    }
-    pub fn unaryAbsolute(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_absolute,
-            .u_var = 0,
-        });
-    }
-    pub fn unarySign(this: *@This()) void {
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = this.buffer,
-            .type = .unary_sign,
-            .u_var = 0,
-        });
-    }
-    pub fn binaryAdd(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_add,
-            .u_var = 0,
-        });
-    }
-    pub fn binarySubtract(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_subtract,
-            .u_var = 0,
-        });
-    }
-    pub fn binaryMultiply(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_multiply,
-            .u_var = 0,
-        });
-    }
-    pub fn binaryDivide(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_divide,
-            .u_var = 0,
-        });
-    }
-    pub fn binaryMax(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_max,
-            .u_var = 0,
-        });
-    }
-    pub fn binaryMin(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_min,
-            .u_var = 0,
-        });
-    }
-    pub fn binarySet(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == source.buffer.a_size);
-        assert(this.buffer.z_size == source.buffer.z_size);
-        assert(this.buffer.y_size == source.buffer.y_size);
-        assert(this.buffer.x_size == source.buffer.x_size);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .binary_set,
-            .u_var = 0,
-        });
-    }
-    pub fn expandAdd(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_add,
-            .u_var = 0,
-        });
-    }
-    pub fn expandSubtract(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_subtract,
-            .u_var = 0,
-        });
-    }
-    pub fn expandMultiply(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_multiply,
-            .u_var = 0,
-        });
-    }
-    pub fn expandDivide(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_divide,
-            .u_var = 0,
-        });
-    }
-    pub fn expandMax(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_max,
-            .u_var = 0,
-        });
-    }
-    pub fn expandMin(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_min,
-            .u_var = 0,
-        });
-    }
-    pub fn expandSet(this: *@This(), source: *@This()) void {
-        assert(source.buffer.a_size == 1);
-        assert(source.buffer.z_size == 1);
-        assert(source.buffer.y_size == 1);
-        assert(source.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .expand_set,
-            .u_var = 0,
-        });
-    }
-    pub fn reduceSum(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == 1);
-        assert(this.buffer.z_size == 1);
-        assert(this.buffer.y_size == 1);
-        assert(this.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .reduce_sum,
-            .u_var = 0,
-        });
-    }
-    pub fn reduceMax(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == 1);
-        assert(this.buffer.z_size == 1);
-        assert(this.buffer.y_size == 1);
-        assert(this.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .reduce_max,
-            .u_var = 0,
-        });
-    }
-    pub fn reduceMin(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == 1);
-        assert(this.buffer.z_size == 1);
-        assert(this.buffer.y_size == 1);
-        assert(this.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .reduce_min,
-            .u_var = 0,
-        });
-    }
-    pub fn reduceAvg(this: *@This(), source: *@This()) void {
-        assert(this.buffer.a_size == 1);
-        assert(this.buffer.z_size == 1);
-        assert(this.buffer.y_size == 1);
-        assert(this.buffer.x_size == 1);
-        this.linearized.concat(&source.linearized);
-        this.linearized.append(.{
-            .out = this.buffer,
-            .in = source.buffer,
-            .type = .reduce_avg,
-            .u_var = 0,
-        });
-    }
-    pub fn moveReshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
-        assert(a > 0);
-        assert(z > 0);
-        assert(y > 0);
-        assert(x > 0);
-        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
-        assert(a <= this.buffer.values.len);
-        assert(z <= this.buffer.values.len);
-        assert(y <= this.buffer.values.len);
-        assert(x <= this.buffer.values.len);
-        assert(a * z * y * x <= this.buffer.values.len);
-        this.buffer.a_size = a;
-        this.buffer.z_size = z;
-        this.buffer.y_size = y;
-        this.buffer.x_size = x;
-        this.buffer.a_stride = z * y * x;
-        this.buffer.z_stride = y * x;
-        this.buffer.y_stride = x;
-        this.buffer.x_stride = 1;
-    }
-    pub fn moveResize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
-        assert(a > 0);
-        assert(z > 0);
-        assert(y > 0);
-        assert(x > 0);
-        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
-        assert(a <= this.buffer.values.len);
-        assert(z <= this.buffer.values.len);
-        assert(y <= this.buffer.values.len);
-        assert(x <= this.buffer.values.len);
-        assert(a * z * y * x <= this.buffer.values.len);
-        this.buffer.a_size = a;
-        this.buffer.z_size = z;
-        this.buffer.y_size = y;
-        this.buffer.x_size = x;
-    }
-    pub fn moveOffset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
-        assert(a < this.buffer.values.len);
-        assert(z < this.buffer.values.len);
-        assert(y < this.buffer.values.len);
-        assert(x < this.buffer.values.len);
-        // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
-        assert(a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride +
-            x * this.buffer.x_stride < this.buffer.values.len);
-        this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
-    }
-    pub fn dependOn(this: *@This(), prerequisite: *@This()) void {
-        this.linearized.concat(&prerequisite.linearized);
-    }
-};
+}
+pub fn unaryAdd(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_add,
+        .u_var = u_var,
+    });
+}
+pub fn unarySubtract(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_subtract,
+        .u_var = u_var,
+    });
+}
+pub fn unaryMultiply(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_multiply,
+        .u_var = u_var,
+    });
+}
+pub fn unaryDivide(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_divide,
+        .u_var = u_var,
+    });
+}
+pub fn unaryExp(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_exp,
+        .u_var = 0,
+    });
+}
+pub fn unaryLog(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_log,
+        .u_var = 0,
+    });
+}
+pub fn unarySquare(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_square,
+        .u_var = 0,
+    });
+}
+pub fn unarySqrt(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_sqrt,
+        .u_var = 0,
+    });
+}
+pub fn unaryReciprocal(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_reciprocal,
+        .u_var = 0,
+    });
+}
+pub fn unaryMax(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_max,
+        .u_var = u_var,
+    });
+}
+pub fn unaryMin(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_min,
+        .u_var = u_var,
+    });
+}
+pub fn unarySet(this: *@This(), u_var: f32) void {
+    assert(!std.math.isNan(u_var));
+    assert(!std.math.isInf(u_var));
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_set,
+        .u_var = u_var,
+    });
+}
+// $TODO Decide if this explicit seed thing is actually any good at all.
+//  I don't really want to make the user think about it, but the explicit-nes is also nice
+/// Here u_var is the seed of the prng
+pub fn unaryRandom(this: *@This(), u_var: u32) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_random,
+        .u_var = @bitCast(u_var),
+    });
+}
+pub fn unaryTanh(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_tanh,
+        .u_var = 0,
+    });
+}
+pub fn unaryAbsolute(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_absolute,
+        .u_var = 0,
+    });
+}
+pub fn unarySign(this: *@This()) void {
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = this.buffer,
+        .type = .unary_sign,
+        .u_var = 0,
+    });
+}
+pub fn binaryAdd(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_add,
+        .u_var = 0,
+    });
+}
+pub fn binarySubtract(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_subtract,
+        .u_var = 0,
+    });
+}
+pub fn binaryMultiply(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_multiply,
+        .u_var = 0,
+    });
+}
+pub fn binaryDivide(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_divide,
+        .u_var = 0,
+    });
+}
+pub fn binaryMax(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_max,
+        .u_var = 0,
+    });
+}
+pub fn binaryMin(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_min,
+        .u_var = 0,
+    });
+}
+pub fn binarySet(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == source.buffer.a_size);
+    assert(this.buffer.z_size == source.buffer.z_size);
+    assert(this.buffer.y_size == source.buffer.y_size);
+    assert(this.buffer.x_size == source.buffer.x_size);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .binary_set,
+        .u_var = 0,
+    });
+}
+pub fn expandAdd(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_add,
+        .u_var = 0,
+    });
+}
+pub fn expandSubtract(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_subtract,
+        .u_var = 0,
+    });
+}
+pub fn expandMultiply(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_multiply,
+        .u_var = 0,
+    });
+}
+pub fn expandDivide(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_divide,
+        .u_var = 0,
+    });
+}
+pub fn expandMax(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_max,
+        .u_var = 0,
+    });
+}
+pub fn expandMin(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_min,
+        .u_var = 0,
+    });
+}
+pub fn expandSet(this: *@This(), source: *@This()) void {
+    assert(source.buffer.a_size == 1);
+    assert(source.buffer.z_size == 1);
+    assert(source.buffer.y_size == 1);
+    assert(source.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .expand_set,
+        .u_var = 0,
+    });
+}
+pub fn reduceSum(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == 1);
+    assert(this.buffer.z_size == 1);
+    assert(this.buffer.y_size == 1);
+    assert(this.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .reduce_sum,
+        .u_var = 0,
+    });
+}
+pub fn reduceMax(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == 1);
+    assert(this.buffer.z_size == 1);
+    assert(this.buffer.y_size == 1);
+    assert(this.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .reduce_max,
+        .u_var = 0,
+    });
+}
+pub fn reduceMin(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == 1);
+    assert(this.buffer.z_size == 1);
+    assert(this.buffer.y_size == 1);
+    assert(this.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .reduce_min,
+        .u_var = 0,
+    });
+}
+pub fn reduceAvg(this: *@This(), source: *@This()) void {
+    assert(this.buffer.a_size == 1);
+    assert(this.buffer.z_size == 1);
+    assert(this.buffer.y_size == 1);
+    assert(this.buffer.x_size == 1);
+    this.linearized.concat(&source.linearized);
+    this.linearized.append(.{
+        .out = this.buffer,
+        .in = source.buffer,
+        .type = .reduce_avg,
+        .u_var = 0,
+    });
+}
+pub fn moveReshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
+    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    assert(a <= this.buffer.values.len);
+    assert(z <= this.buffer.values.len);
+    assert(y <= this.buffer.values.len);
+    assert(x <= this.buffer.values.len);
+    assert(a * z * y * x <= this.buffer.values.len);
+    this.buffer.a_size = a;
+    this.buffer.z_size = z;
+    this.buffer.y_size = y;
+    this.buffer.x_size = x;
+    this.buffer.a_stride = z * y * x;
+    this.buffer.z_stride = y * x;
+    this.buffer.y_stride = x;
+    this.buffer.x_stride = 1;
+}
+pub fn moveResize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
+    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    assert(a <= this.buffer.values.len);
+    assert(z <= this.buffer.values.len);
+    assert(y <= this.buffer.values.len);
+    assert(x <= this.buffer.values.len);
+    assert(a * z * y * x <= this.buffer.values.len);
+    this.buffer.a_size = a;
+    this.buffer.z_size = z;
+    this.buffer.y_size = y;
+    this.buffer.x_size = x;
+}
+pub fn moveOffset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
+    assert(a < this.buffer.values.len);
+    assert(z < this.buffer.values.len);
+    assert(y < this.buffer.values.len);
+    assert(x < this.buffer.values.len);
+    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    assert(a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride +
+        x * this.buffer.x_stride < this.buffer.values.len);
+    this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;
+}
+pub fn dependOn(this: *@This(), prerequisite: *@This()) void {
+    this.linearized.concat(&prerequisite.linearized);
+}
