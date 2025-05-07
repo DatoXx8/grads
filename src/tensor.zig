@@ -220,20 +220,6 @@ pub const Buffer = struct {
     /// Return wether the two buffers overlap in some, but not all places
     pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
         // $TODO Fix this version that should be slightly faster
-        // const a_1: u32 = this.aOffset();
-        // const z_1: u32 = this.zOffset();
-        // const y_1: u32 = this.yOffset();
-        // const x_1: u32 = this.xOffset();
-        //
-        // const a_2: u32 = target.aOffset();
-        // const z_2: u32 = target.zOffset();
-        // const y_2: u32 = target.yOffset();
-        // const x_2: u32 = target.xOffset();
-        //
-        // return @max(a_1, a_2) < @min(a_1 + this.a_size, a_2 + target.a_size) and a_1 != a_2 and
-        //     @max(z_1, z_2) < @min(z_1 + this.z_size, z_2 + target.z_size) and z_1 != z_2 and
-        //     @max(y_1, y_2) < @min(y_1 + this.y_size, y_2 + target.y_size) and y_1 != y_2 and
-        //     @max(x_1, x_2) < @min(x_1 + this.x_size, x_2 + target.x_size) and x_1 != x_2;
         return this.overlaps(target) and !this.overlapsAll(target);
     }
 };

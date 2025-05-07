@@ -3,6 +3,7 @@ const assert = std.debug.assert;
 
 const Program = @import("./compiler/program.zig").Program;
 const Neuralnet = @import("./nn.zig").Neuralnet;
+const Layer = @import("./layer.zig").Layer;
 const ClDevice = @import("./runtimes/cl.zig").ClDevice;
 const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
@@ -34,41 +35,35 @@ pub fn main() !void {
         queue.free() catch {};
     }
 
-    var target: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context, 1);
-    defer target.free(allocator);
-    try target.linearized.capacityEnsure(allocator, 1);
-    target.unaryRandom(3874982374);
-    target.realize();
-
     var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context, 1);
     defer tensor.free(allocator);
     try tensor.linearized.capacityEnsure(allocator, 1);
-    tensor.unaryRandom(0);
+    tensor.unaryRandom(2);
     tensor.realize();
     try tensor.buffer.syncToDevice(queue);
     try tensor.buffer.syncWait(queue);
+    tensor.print(4, 0, null);
 
     var nn: Neuralnet = try Neuralnet.alloc(
         allocator,
-        &tensor,
-        &[_]Neuralnet.Layer.Config{
-            .{ .dense = .{ .size_out = 4, .activation = .none } },
-            // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation = .none } },
-            // .{ .filter = .{ .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation = .none } },
-            // .{ .split = .{ .filters = 2, .activation = .none } },
+        tensor,
+        &[_]Layer.Config{
+            .{ .dense = .{ .size_out = 4, .activation_type = .none } },
+            // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation_type = .none } },
+            // .{ .split = .{ .filters = 2, .activation_type = .none } },
         },
         20,
         4,
-        context,
         device,
+        context,
         queue,
     );
     errdefer nn.free(allocator);
     defer nn.free(allocator);
-    nn.init(0);
+    try nn.init(0);
+    try nn.sync(true, true, true, true, true, .sync_to_device);
     try nn.forward(.gpu);
-    nn.layers[nn.layers.len - 1].values.print(4, 0, null);
-    nn.forward_cpu.print(4, 0, "forward");
-    nn.backward_cpu.print(4, 0, "backward");
-    nn.learn_cpu.print(4, 0, "learn");
+    try nn.sync(true, true, true, true, true, .sync_to_host);
+    nn.layer[nn.layer.len - 1].values.print(4, 0, null);
+    try nn.save("net.bin", "net.arch", true);
 }

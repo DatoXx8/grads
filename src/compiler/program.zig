@@ -139,6 +139,7 @@ pub const Program = struct {
             std.log.err("Could not free program because of error {!}\n", .{err});
         };
     }
+    // $TODO Maybe the queue should be an argument here so that it doesn't waste additional memory for multiple Programs
     pub fn run(this: @This()) !void {
         for (this.kernel) |kernel| {
             // $TODO kernel.kernel.kernel is hilarious but should not be a thing
