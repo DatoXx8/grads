@@ -14,7 +14,7 @@ There are only 3 dependencies:
 
 I am not happy with the NVIDIA OpenCL implementation, but reimplementing that myself will be a huge amount of work, so don't count on that happening any time soon.
 
-I am not sure if I want to get rid of the Zig standard library, but if I notice performance increases from reimplementing things, then I will do that.
+I see no point in removing the entire Zig stdlib, but if I notice that some performance could be gained by rewriting portions of it, then I will do so.
 
 ## Installation
 
@@ -62,8 +62,8 @@ I will not work on these in optimal order, because this just a hobby project.
 | Step                         | Expected work | Expected gain                                  |
 | ---------------------------- | ------------- | ---------------------------------------------- |
 | Compiler optimizations       | High          | Very high                                      |
-| Write OpenCl debug impl      | Very high     | High                                           |
+| Write OpenCl debug impl      | Very high     | High (Debug time), None (Performance)          |
 | Autograd                     | Moderate      | None (Performance), Moderate (Dev time)        |
 | Multi GPU                    | High (?)      | Very high                                      |
-| Completely custom OpenCL     | Extreme       | High to extreme (???)                          |
+| Completely custom OpenCL     | Extreme       | High (No clue)                                 |
 | Better offset handling       | Moderate (??) | None for normal kernels, high for strange ones |
