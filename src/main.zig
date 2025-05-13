@@ -25,7 +25,6 @@ pub fn main() !void {
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
 
-    // $TODO Should probably free these explicitly huh
     var device: ClDevice = try ClDevice.alloc(.gpu);
     var context: ClContext = try ClContext.alloc(device);
     var queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
@@ -54,6 +53,8 @@ pub fn main() !void {
     errdefer nn.free(allocator);
     defer nn.free(allocator);
     try nn.init(0);
-    try nn.save("net.bin", "net.arch", true);
-    nn.layer[nn.layer.len - 1].tag.dense.weights.print(4, 0, "weights");
+    try nn.sync(true, true, true, true, true, .sync_to_device);
+    try nn.forward(.gpu);
+    try nn.sync(true, true, true, true, true, .sync_to_host);
+    nn.layer[nn.layer.len - 1].values.print(4, 0, null);
 }
