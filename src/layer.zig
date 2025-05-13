@@ -15,7 +15,7 @@ const Op = @import("./tensor.zig").Op;
 const Buffer = @import("./tensor.zig").Buffer;
 
 pub const Activation = struct {
-    pub const Type = enum {
+    pub const Type = enum(u32) {
         none,
         relu,
         sigmoid,
@@ -476,7 +476,7 @@ pub const Convolution = struct {
     }
 };
 pub const Reduce = struct {
-    pub const Type = enum { sum, avg, max, min };
+    pub const Type = enum(u32) { sum, avg, max, min };
     z_in: u32,
     y_in: u32,
     x_in: u32,
@@ -706,7 +706,7 @@ pub const Split = struct {
     }
 };
 pub const Residual = struct {
-    pub const Type = enum {
+    pub const Type = enum(u32) {
         identity,
     };
     t: Residual.Type,

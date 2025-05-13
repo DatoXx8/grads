@@ -36,7 +36,9 @@ backward_cpu: Linearized,
 learn_cpu: Linearized,
 pub fn alloc(
     allocator: Allocator,
-    in: Tensor,
+    z_size: u32,
+    y_size: u32,
+    x_size: u32,
     config: []const Layer.Config,
     size_global: u32,
     size_local: u32,
@@ -47,10 +49,9 @@ pub fn alloc(
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
-    assert(in.buffer.a_size == 1);
-    assert(in.buffer.z_size > 0);
-    assert(in.buffer.y_size > 0);
-    assert(in.buffer.x_size > 0);
+    assert(z_size > 0);
+    assert(y_size > 0);
+    assert(x_size > 0);
 
     var layer: []Layer = try allocator.alloc(Layer, config.len);
     errdefer allocator.free(layer);
@@ -58,9 +59,10 @@ pub fn alloc(
     var capacity_forward: u32 = 0;
     var capacity_backward: u32 = 0;
     var capacity_learn: u32 = 0;
-    var z_in: u32 = in.buffer.z_size;
-    var y_in: u32 = in.buffer.y_size;
-    var x_in: u32 = in.buffer.x_size;
+    var z_in: u32 = z_size;
+    var y_in: u32 = y_size;
+    var x_in: u32 = x_size;
+    const in: Tensor = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, 1);
     var in_g: Tensor = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, 1);
     var layer_idx: u32 = 0;
     while (layer_idx < config.len) : (layer_idx += 1) {
@@ -266,6 +268,7 @@ pub fn alloc(
     };
 }
 pub fn free(this: *@This(), allocator: Allocator) void {
+    this.in.free(allocator);
     this.in_g.free(allocator);
     this.forward_cpu.free(allocator);
     this.backward_cpu.free(allocator);
@@ -471,41 +474,85 @@ pub fn sync(this: *@This(), comptime force: bool, comptime in: bool, comptime ou
     try this.in.buffer.syncWait(this.queue);
 }
 /// File format v0:
+/// Every field is u32
+/// Activation in order: none, relu, sigmoid, relu_clipped, relu_leaky, silu, gelu, tanh
 /// Arch:
-/// dense       -> "d out={} act={}\n"
-/// convolution -> "c sze={} str={} pdd={} flt={} act={}\n"
-/// reduce      -> "r sze={} str={} typ={}\n"
-/// split       -> "s flt={} act={}\n"
-/// residual    -> "R frm={} typ={}\n"
+/// 8 version bytes ++
+/// dense       -> "d++out++act\n"
+/// convolution -> "c++sze++str++pdd++flt++act\n"
+/// reduce      -> "r++sze++str++typ\n"
+/// split       -> "s++flt++act\n"
+/// residual    -> "R++frm++typ\n"
+/// ++ 8 bytes XxHash init with version number
 /// Param:
 /// 8 version bytes ++ layer 0 [weights][biases] ... ++ layer n [weights][biases] ++ 8 bytes XxHash64 hash init with version number
 const format_version: u64 = 0;
 pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const u8, force: bool) !void {
-    const file_param = std.fs.cwd().createFile(file_param_name, .{ .exclusive = !force, .truncate = true }) catch |err| switch (err) {
-        error.PathAlreadyExists => return err,
-        else => return err,
-    };
-    const file_arch = std.fs.cwd().createFile(file_arch_name, .{ .exclusive = !force, .truncate = true }) catch |err| switch (err) {
-        error.PathAlreadyExists => return err,
-        else => return err,
-    };
+    const file_param = try std.fs.cwd().createFile(file_param_name, .{ .exclusive = !force, .truncate = true });
+    errdefer file_param.close();
+    defer file_param.close();
+    const file_arch = try std.fs.cwd().createFile(file_arch_name, .{ .exclusive = !force, .truncate = true });
+    errdefer file_arch.close();
+    defer file_arch.close();
     var buffer: [4096]u8 = @splat(0);
-    const in: []const u8 = try std.fmt.bufPrint(&buffer, "i zsz={} ysz={} xsz={}\n", .{ //
-        this.in.buffer.z_size, this.in.buffer.y_size, this.in.buffer.x_size,
-    });
-    try file_arch.writeAll(in);
+    try file_arch.writeAll(&std.mem.toBytes(format_version));
     try file_param.writeAll(&std.mem.toBytes(format_version));
-    var hash = std.hash.XxHash64.init(format_version);
+    var hash_arch = std.hash.XxHash64.init(format_version);
+    buffer[0] = 'i';
+    @memcpy(buffer[1..5], &std.mem.toBytes(this.in.buffer.z_size));
+    @memcpy(buffer[5..9], &std.mem.toBytes(this.in.buffer.y_size));
+    @memcpy(buffer[9..13], &std.mem.toBytes(this.in.buffer.x_size));
+    buffer[13] = '\n';
+    try file_arch.writeAll(buffer[0..14]);
+    hash_arch.update(buffer[0..14]);
+    var hash_param = std.hash.XxHash64.init(format_version);
     for (this.layer) |*layer| {
-        const arch = switch (layer.tag) {
-            .dense => |d| try std.fmt.bufPrint(&buffer, "d out={} act={}\n", .{ d.size_out, layer.activation.t }),
-            .convolution => |c| try std.fmt.bufPrint(&buffer, "c sze={} str={} pdd={} flt={} act={}\n", //
-                .{ c.kernel_size, c.kernel_stride, c.kernel_padding, c.filters, layer.activation.t }),
-            .reduce => |r| try std.fmt.bufPrint(&buffer, "r sze={} str={} typ={}\n", .{ r.kernel_size, r.kernel_stride, r.t }),
-            .split => |s| try std.fmt.bufPrint(&buffer, "s flt={} act={}\n", .{ s.filters, layer.activation.t }),
-            .residual => |r| try std.fmt.bufPrint(&buffer, "R frm={} typ={}\n", .{ r.in_layer, r.t }),
-        };
-        try file_arch.writeAll(arch);
+        switch (layer.tag) {
+            .dense => |d| {
+                buffer[0] = 'd';
+                @memcpy(buffer[1..5], &std.mem.toBytes(d.size_out));
+                @memcpy(buffer[5..9], &std.mem.toBytes(layer.activation.t));
+                buffer[9] = '\n';
+                try file_arch.writeAll(buffer[0..10]);
+                hash_arch.update(buffer[0..10]);
+            },
+            .convolution => |c| {
+                buffer[0] = 'c';
+                @memcpy(buffer[1..5], &std.mem.toBytes(c.kernel_size));
+                @memcpy(buffer[5..9], &std.mem.toBytes(c.kernel_stride));
+                @memcpy(buffer[9..13], &std.mem.toBytes(c.kernel_padding));
+                @memcpy(buffer[13..17], &std.mem.toBytes(c.filters));
+                @memcpy(buffer[17..21], &std.mem.toBytes(layer.activation.t));
+                buffer[21] = '\n';
+                try file_arch.writeAll(buffer[0..22]);
+                hash_arch.update(buffer[0..22]);
+            },
+            .reduce => |r| {
+                buffer[0] = 'r';
+                @memcpy(buffer[1..5], &std.mem.toBytes(r.kernel_size));
+                @memcpy(buffer[5..9], &std.mem.toBytes(r.kernel_stride));
+                @memcpy(buffer[9..13], &std.mem.toBytes(r.t));
+                buffer[13] = '\n';
+                try file_arch.writeAll(buffer[0..14]);
+                hash_arch.update(buffer[0..14]);
+            },
+            .split => |s| {
+                buffer[0] = 's';
+                @memcpy(buffer[1..5], &std.mem.toBytes(s.filters));
+                @memcpy(buffer[5..9], &std.mem.toBytes(layer.activation.t));
+                buffer[9] = '\n';
+                try file_arch.writeAll(buffer[0..10]);
+                hash_arch.update(buffer[0..10]);
+            },
+            .residual => |r| {
+                buffer[0] = 'R';
+                @memcpy(buffer[1..5], &std.mem.toBytes(r.in_layer));
+                @memcpy(buffer[5..9], &std.mem.toBytes(r.t));
+                buffer[9] = '\n';
+                try file_arch.writeAll(buffer[0..10]);
+                hash_arch.update(buffer[0..10]);
+            },
+        }
         switch (layer.tag) {
             .dense, .convolution, .split => {},
             .reduce, .residual => continue,
@@ -528,13 +575,16 @@ pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const
         const biases_bytes: []const u8 = std.mem.sliceAsBytes(biases.buffer.values);
         try file_param.writeAll(weights_bytes);
         try file_param.writeAll(biases_bytes);
-        hash.update(weights_bytes);
-        hash.update(biases_bytes);
+        hash_param.update(weights_bytes);
+        hash_param.update(biases_bytes);
     }
-    try file_param.writeAll(&std.mem.toBytes(hash.final()));
+    try file_arch.writeAll(&std.mem.toBytes(hash_arch.final()));
+    try file_param.writeAll(&std.mem.toBytes(hash_param.final()));
 }
 /// Arbitrary value. Increase if not sufficient.
 const file_param_size_max: usize = 4 * 1000 * 1000 * 1000;
+/// Arbitrary value. Increase if not sufficient.
+const file_arch_size_max: usize = 4 * 1000 * 1000;
 /// Returns the number of bytes read
 fn readParamsV0(weights: *Tensor, biases: *Tensor, bytes: []const u8) u64 {
     const weights_size: u64 = weights.buffer.values.len * @sizeOf(@TypeOf(weights.buffer.values[0]));
@@ -547,7 +597,7 @@ fn readParamsV0(weights: *Tensor, biases: *Tensor, bytes: []const u8) u64 {
     std.mem.copyBackwards(f32, biases.buffer.values, biases_slice);
     return weights_size + biases_size;
 }
-/// $NOTE Allocator is used to issue only a single read syscall
+// $NOTE Allocator is used to issue only a single read syscall
 pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const u8) !void {
     const file_param = try std.fs.cwd().openFile(file_param_name, .{ .mode = .read_only });
     var idx: u64 = 8;
@@ -595,28 +645,100 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
     if (file_param_bytes.len != idx + 8) return error.ParamFileWrongSize;
     if (hash.final() != std.mem.bytesToValue(u64, file_param_bytes[idx..])) return error.ParamHashMismatch;
 }
-pub fn create(
+fn readInputV0(bytes: []const u8) struct { z: u32, y: u32, x: u32 } {
+    assert(bytes[0] == 'i');
+    return .{
+        .z = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+        .y = std.mem.bytesAsValue(u32, bytes[5..9]).*,
+        .x = std.mem.bytesAsValue(u32, bytes[9..13]).*,
+    };
+}
+fn readArchV0(bytes: []const u8) Layer.Config {
+    assert(bytes[0] == 'd' or bytes[0] == 'c' or bytes[0] == 'r' or bytes[0] == 's' or bytes[0] == 'R');
+    return switch (bytes[0]) {
+        'd' => .{ .dense = .{
+            .size_out = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[5..9]).*,
+        } },
+        'c' => .{ .convolution = .{
+            .kernel_size = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+            .kernel_stride = std.mem.bytesAsValue(u32, bytes[5..9]).*,
+            .kernel_padding = std.mem.bytesAsValue(u32, bytes[9..13]).*,
+            .filters = std.mem.bytesAsValue(u32, bytes[13..17]).*,
+            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[17..21]).*,
+        } },
+        'r' => .{ .reduce = .{
+            .kernel_size = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+            .kernel_stride = std.mem.bytesAsValue(u32, bytes[5..9]).*,
+            .t = std.mem.bytesAsValue(Reduce.Type, bytes[9..13]).*,
+        } },
+        's' => .{ .split = .{
+            .filters = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[5..9]).*,
+        } },
+        'R' => .{ .residual = .{
+            .in_layer = std.mem.bytesAsValue(u32, bytes[1..5]).*,
+            .t = std.mem.bytesAsValue(Residual.Type, bytes[5..9]).*,
+        } },
+        else => unreachable,
+    };
+}
+pub fn readArch(
     allocator: Allocator,
-    in: Tensor,
-    file_weights_name: []const u8,
     file_arch_name: []const u8,
-    file_hash_name: []const u8,
-    size_global: u32,
-    size_local: u32,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
-) !Neuralnet {
-    _ = allocator;
-    _ = in;
-    _ = file_weights_name;
-    _ = file_arch_name;
-    _ = file_hash_name;
-    _ = size_global;
-    _ = size_local;
-    _ = device;
-    _ = context;
-    _ = queue;
+) !struct { config: []const Layer.Config, z_in: u32, y_in: u32, x_in: u32 } {
+    const file_arch = std.fs.cwd().openFile(file_arch_name, .{ .mode = .read_only }) catch |err| switch (err) {
+        error.FileTooBig => {
+            std.log.err("File {s} exceeds max size of {} bytes. Increase `file_arch_size_max` if this is intentional.\n", //
+                .{ file_arch_name, file_arch_size_max });
+            return err;
+        },
+        else => return err,
+    };
+    errdefer file_arch.close();
+    defer file_arch.close();
+    var idx: u64 = 0;
+    const file_arch_bytes: []const u8 = try file_arch.readToEndAlloc(allocator, file_arch_size_max);
+    errdefer allocator.free(file_arch_bytes);
+    defer allocator.free(file_arch_bytes);
+    assert(file_arch_bytes.len > 16); // The version and hash already take up 16 bytes and there has to be other info on top of that
+    const newlines: u64 = std.mem.count(u8, file_arch_bytes, "\n");
+    assert(newlines >= 2);
+    const layers: u64 = newlines - 1; // Take of the newline for the input descriptor
+    const format_version_read: u64 = std.mem.bytesToValue(u64, file_arch_bytes[0..8]);
+    idx += 8;
+    var hash_arch = std.hash.XxHash64.init(format_version_read);
+    const arch_input_end: u64 = std.mem.indexOfScalar(u8, file_arch_bytes[idx..], '\n') orelse unreachable;
+    const arch_input: []const u8 = file_arch_bytes[idx .. idx + arch_input_end + 1];
+    hash_arch.update(arch_input);
+    const size_in = switch (format_version_read) {
+        0 => readInputV0(arch_input),
+        else => unreachable,
+    };
+    idx += 14;
+    const config: []Layer.Config = try allocator.alloc(Layer.Config, layers);
+    var layer_idx: u64 = 0;
+    while (layer_idx < layers) : (layer_idx += 1) {
+        const idx_newline: u64 = std.mem.indexOfScalar(u8, file_arch_bytes[idx..], '\n') orelse unreachable;
+        config[layer_idx] = switch (format_version_read) {
+            0 => readArchV0(file_arch_bytes[idx .. idx + idx_newline + 1]),
+            else => unreachable,
+        };
+        hash_arch.update(file_arch_bytes[idx .. idx + idx_newline + 1]);
+        idx += idx_newline + 1;
+    }
+    assert(idx + 8 == file_arch_bytes.len);
+    const hash: u64 = hash_arch.final();
+    const hash_read: u64 = std.mem.bytesAsValue(u64, file_arch_bytes[idx .. idx + 8]).*;
+    if (hash != hash_read) {
+        return error.ArchHashMismatch;
+    }
+    return .{
+        .config = config,
+        .z_in = size_in.z,
+        .y_in = size_in.y,
+        .x_in = size_in.x,
+    };
 }
 pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {

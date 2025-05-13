@@ -35,18 +35,11 @@ pub fn main() !void {
         queue.free() catch {};
     }
 
-    var tensor: Tensor = try Tensor.alloc(allocator, 1, 2, 2, 2, context, 1);
-    defer tensor.free(allocator);
-    try tensor.linearized.capacityEnsure(allocator, 1);
-    tensor.unaryRandom(2);
-    tensor.realize();
-    try tensor.buffer.syncToDevice(queue);
-    try tensor.buffer.syncWait(queue);
-    tensor.print(4, 0, null);
-
     var nn: Neuralnet = try Neuralnet.alloc(
         allocator,
-        tensor,
+        2,
+        2,
+        2,
         &[_]Layer.Config{
             .{ .dense = .{ .size_out = 4, .activation_type = .none } },
             // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation_type = .none } },
@@ -61,8 +54,6 @@ pub fn main() !void {
     errdefer nn.free(allocator);
     defer nn.free(allocator);
     try nn.init(0);
-    try nn.sync(true, true, true, true, true, .sync_to_device);
-    try nn.forward(.gpu);
-    try nn.sync(true, true, true, true, true, .sync_to_host);
-    nn.layer[nn.layer.len - 1].values.print(4, 0, null);
+    try nn.save("net.bin", "net.arch", true);
+    nn.layer[nn.layer.len - 1].tag.dense.weights.print(4, 0, "weights");
 }
