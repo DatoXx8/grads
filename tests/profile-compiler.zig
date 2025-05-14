@@ -203,6 +203,8 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
                                 tensor1[tensor_in].linearized.op_num);
                             try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 * (loop_len * a_loop * z_loop * y_loop * x_loop) +
                                 tensor2[tensor_in].linearized.op_num);
+                            try tensor1[tensor_in].linearized.capacityEnsure(allocator, 2);
+                            try tensor2[tensor_in].linearized.capacityEnsure(allocator, 2);
 
                             if (op_type[op_idx + loop_idx].isReduce()) {
                                 tensor1[tensor_out].moveResize(1, 1, 1, 1);

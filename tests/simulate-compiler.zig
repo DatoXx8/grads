@@ -144,6 +144,7 @@ fn simulateCompiler(
         const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
         const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
         const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
+        // $FIXME Should this be "... 1 else ..."?
         const a_loop: u32 = (if (a_size + a_off == a_size_max) 0 else pcg.random().uintLessThan(u32, a_size_max - (a_size + a_off))) + 1;
         const z_loop: u32 = (if (z_size + z_off == z_size_max) 0 else pcg.random().uintLessThan(u32, z_size_max - (z_size + z_off))) + 1;
         const y_loop: u32 = (if (y_size + y_off == y_size_max) 0 else pcg.random().uintLessThan(u32, y_size_max - (y_size + y_off))) + 1;
@@ -176,6 +177,8 @@ fn simulateCompiler(
                                 tensor1[tensor_in].linearized.op_num);
                             try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 * (loop_len * a_loop * z_loop * y_loop * x_loop) +
                                 tensor2[tensor_in].linearized.op_num);
+                            try tensor1[tensor_in].linearized.capacityEnsure(allocator, 2);
+                            try tensor2[tensor_in].linearized.capacityEnsure(allocator, 2);
 
                             if (op_type[op_idx + loop_idx].isReduce()) {
                                 tensor1[tensor_out].moveResize(1, 1, 1, 1);

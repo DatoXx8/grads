@@ -125,6 +125,8 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
         // Essentially free in case no alocattions are necessary
         try tensor1[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor1[tensor_in].linearized.op_num);
         try tensor2[tensor_out].linearized.capacityEnsure(allocator, 4 + tensor2[tensor_in].linearized.op_num);
+        try tensor1[tensor_in].linearized.capacityEnsure(allocator, 2);
+        try tensor2[tensor_in].linearized.capacityEnsure(allocator, 2);
 
         if (tensor1[tensor_in].linearized.op_num != 0) {
             tensor1[tensor_out].linearized.concat(&tensor1[tensor_in].linearized);
