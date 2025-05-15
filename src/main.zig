@@ -10,6 +10,7 @@ const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const Tensor = @import("./tensor.zig").Tensor;
 
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
+// $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)
 // $TODO Factor out all the places in which we create random linearized ops. This also makes it easier to keep consistent prng states across the simulator and profiler
 // $TODO Make debug flag for compile step that adds debug printing if enabled
 // $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread and make optimizer.step()
@@ -17,7 +18,7 @@ const Tensor = @import("./tensor.zig").Tensor;
 // $TODO Add autograd
 // $TODO Add automatic quantization
 // $TODO Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
-// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so
+// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so (/opt/cuda/targets/x86_64-linux/include/cuda.h for PTX)
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
