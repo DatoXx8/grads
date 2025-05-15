@@ -748,7 +748,7 @@ pub const Residual = struct {
 };
 
 pub const Layer = @This();
-// $ TODO Maybe just add values, values_g, activation and norming to the sub-structs so that Layer itself can be the union
+// $TODO Maybe just add values, values_g, activation and norming to the sub-structs so that Layer itself can be the union
 pub const Type = enum { dense, convolution, reduce, split, residual };
 tag: union(Type) {
     dense: Dense,

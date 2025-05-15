@@ -11,7 +11,6 @@ const Tensor = @import("./tensor.zig").Tensor;
 
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Factor out all the places in which we create random linearized ops. This also makes it easier to keep consistent prng states across the simulator and profiler
-// $TODO Make 64 bit version flag in the files from Neuralnet.saveToFile()
 // $TODO Make debug flag for compile step that adds debug printing if enabled
 // $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread and make optimizer.step()
 // $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
