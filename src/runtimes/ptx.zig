@@ -5,15 +5,16 @@ const builtin = @import("builtin");
 
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
-// It is just this followed by the index of the kernel
-pub const kernel_name_base: []const u8 = &[_]u8{'k'};
+// It is just this followed by the index of the function
+pub const function_name_base: []const u8 = &[_]u8{'k'};
 
+// $NOTE PTX is only accessible through the CUDA API from what I've seen
 const cuda_header = "cuda.h";
-pub const opencl = @cImport({
+pub const cuda = @cImport({
     @cInclude(cuda_header);
 });
 
-pub const ClError = error{
+pub const CuError = error{
     PlatformNotFound,
     PlatformNotFreed,
     DeviceNotFound,
@@ -30,176 +31,97 @@ pub const ClError = error{
     ProgramNotBuilt,
     ProgramNotFreed,
     ProgramNotRun,
-    KernelNotBuilt,
-    KernelNotFreed,
+    FunctionNotBuilt,
+    FunctionNotFreed,
     ArgNotSet,
 };
-
 // $TODO Support multiple devices
-pub const ClDevice = struct {
-    pub const Type = enum(u8) {
-        cpu,
-        gpu,
-    };
-    t: Type,
-    device: opencl.cl_device_id,
-    pub fn alloc(t: ClDevice.Type) !ClDevice {
-        var platform: opencl.cl_platform_id = null;
-        var device: opencl.cl_device_id = null;
-
-        if (opencl.clGetPlatformIDs(1, &platform, null) != 0) {
-            return ClError.PlatformNotFound;
-        }
-
-        const err = opencl.clGetDeviceIDs(platform, switch (t) {
-            .gpu => opencl.CL_DEVICE_TYPE_GPU,
-            .cpu => opencl.CL_DEVICE_TYPE_CPU,
-        }, 1, &device, null);
-        if (err == 0) {
-            return .{ .t = t, .device = device };
+pub const CuDevice = struct {
+    device: cuda.CUdevice,
+    pub fn alloc() !CuDevice {
+        var device: cuda.CUdevice = null;
+        if (cuda.cuDeviceGet(&device, 0) == cuda.CUDA_SUCCESS) {
+            @branchHint(.likely);
+            return .{ .device = device };
         } else {
-            std.log.err("Could not find device, because of error {}\n", .{err});
-            std.debug.print("Could not find device, because of error {}\n", .{err});
-            return ClError.DeviceNotFound;
+            @branchHint(.cold);
+            return CuError.DeviceNotFound;
         }
     }
-    pub fn free(this: *@This()) !void {
-        if (opencl.clReleaseDevice(this.device) == 0) {
-            return;
-        } else {
-            return ClError.DeviceNotFreed;
-        }
-    }
-    pub fn maxSizeLocal(this: @This()) !usize {
-        var size_local: usize = 0;
-        if (opencl.clGetDeviceInfo(this.device, opencl.CL_DEVICE_MAX_WORK_GROUP_SIZE, @sizeOf(usize), &size_local, null) == 0) {
-            return size_local;
-        } else {
-            return ClError.DeviceInfoNotFound;
+    pub fn free(this: @This()) !void {
+        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.DeviceNotFreed;
         }
     }
 };
-
-pub const ClContext = struct {
-    context: opencl.cl_context,
-    pub fn alloc(device: ClDevice) !ClContext {
-        var context: opencl.cl_context = null;
-        var err: i32 = 0;
-        context = opencl.clCreateContext(null, 1, &device.device, null, null, &err);
-        if (err == 0) {
+pub const CuContext = struct {
+    context: cuda.CUcontext,
+    pub fn alloc(device: CuDevice) !CuContext {
+        var context: cuda.CUcontext = null;
+        if (cuda.cuCtxCreate(&context, 0, device.device) == cuda.CUDA_SUCCESS) {
+            @branchHint(.likely);
             return .{ .context = context };
         } else {
-            return ClError.ContextNotFound;
+            @branchHint(.cold);
+            return CuError.ContextNotFound;
         }
     }
-    pub fn free(context: ClContext) !void {
-        if (opencl.clReleaseContext(context.context) == 0) {
-            return;
-        } else {
-            return ClError.ContextNotFreed;
-        }
-    }
-};
-
-pub const ClCommandQueue = struct {
-    queue: opencl.cl_command_queue,
-    pub fn alloc(device: ClDevice, context: ClContext) !ClCommandQueue {
-        var err: i32 = 0;
-        const queue: ClCommandQueue = .{ .queue = opencl.clCreateCommandQueueWithProperties(context.context, device.device, null, &err) };
-        if (err == 0) {
-            return queue;
-        } else {
-            return ClError.QueueNotAlloc;
-        }
-    }
-    pub fn free(queue: ClCommandQueue) !void {
-        if (opencl.clReleaseCommandQueue(queue.queue) == 0) {
-            return;
-        } else {
-            return ClError.QueueNotFreed;
+    pub fn free(this: @This()) !void {
+        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.ContextNotFreed;
         }
     }
 };
-
-pub const ClProgram = struct {
-    program: opencl.cl_program,
-    pub fn alloc(allocator: Allocator, context: ClContext, device: ClDevice, source: []const u8) !ClProgram {
-        var log_size: usize = 0;
-        var err: i32 = 0;
-        // $TODO Get rid of this optional stuff
-        var log: ?[]u8 = null;
-        var log_c: ?[*:0]u8 = null;
-        var source_c: [*c]const u8 = source[0 .. source.len - 1 :0];
-        const program: opencl.cl_program = opencl.clCreateProgramWithSource(context.context, 1, &source_c, &source.len, &err);
-        if (err != 0) {
-            return ClError.ProgramNotCreated;
-        }
-
-        if (opencl.clBuildProgram(program, 0, null, null, null, null) == 0) {
-            return .{ .program = program };
-        } else {
-            std.debug.print("{s}\n", .{source});
-            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, 0, null, &log_size);
-            log = try allocator.alloc(u8, log_size);
-            defer allocator.free(log.?);
-            @memset(log.?[0..], 0);
-            log_c = log.?[0 .. log.?.len - 1 :0];
-            _ = opencl.clGetProgramBuildInfo(program, device.device, opencl.CL_PROGRAM_BUILD_LOG, log_size + 1, log_c, null);
-            std.debug.print("{s}\n", .{log.?});
-            return ClError.ProgramNotBuilt;
-        }
+pub const CuModule = struct {
+    program: cuda.CUmodule,
+    pub fn alloc(allocator: Allocator, context: CuContext, device: CuDevice, source: []const u8) !CuModule {
+        _ = allocator;
+        _ = context;
+        _ = device;
+        _ = source;
     }
-    pub fn free(program: ClProgram) !void {
-        if (opencl.clReleaseProgram(program.program) == 0) {
-            return;
-        } else {
-            return ClError.ProgramNotFreed;
+    pub fn free(this: @This()) !void {
+        if (cuda.cuModuleUnload(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.ProgramNotFreed;
         }
     }
 };
-
-pub const ClKernel = struct {
-    kernel: opencl.cl_kernel,
-    pub fn alloc(program: ClProgram, name_c: [*:0]const u8) !ClKernel {
-        var err: i32 = 0;
-        const kernel: opencl.cl_kernel = opencl.clCreateKernel(program.program, name_c, &err);
-        if (err == 0) {
-            return .{ .kernel = kernel };
-        } else {
-            std.log.err("Could not build kernel with name {s} because of error {}\n", .{ name_c, err });
-            return ClError.KernelNotBuilt;
-        }
+pub const CuFunction = struct {
+    function: cuda.CUfunction,
+    pub fn alloc(program: CuModule, name_c: [*:0]const u8) !CuFunction {
+        _ = program;
+        _ = name_c;
     }
-    pub fn free(kernel: ClKernel) !void {
-        if (opencl.clReleaseKernel(kernel.kernel) == 0) {
-            return;
-        } else {
-            return ClError.KernelNotFreed;
+    pub fn free(this: @This()) !void {
+        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.FunctionNotFreed;
         }
     }
 };
-
-pub const ClMem = struct {
-    memory: opencl.cl_mem,
-    pub fn alloc(context: ClContext, a: u32, z: u32, y: u32, x: u32) !ClMem {
+pub const CuMem = struct {
+    memory: cuda.CUdeviceptr,
+    pub fn alloc(a: u32, z: u32, y: u32, x: u32) !CuMem {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
         assert(x > 0);
-
-        var err: i32 = 0;
-        const memory: opencl.cl_mem = opencl.clCreateBuffer(context.context, opencl.CL_MEM_READ_WRITE, a * z * y * x * @sizeOf(f32), null, &err);
-        if (err == 0) {
+        var memory: cuda.CUdeviceptr = null;
+        if (cuda.cuMemAlloc(&memory, a * z * y * x) == cuda.CUDA_SUCCESS) {
+            @branchHint(.likely);
             return .{ .memory = memory };
         } else {
-            return ClError.MemNotAlloc;
+            @branchHint(.cold);
+            return CuError.MemNotAlloc;
         }
     }
     pub fn free(this: @This()) !void {
-        if (opencl.clReleaseMemObject(this.memory) == 0) {
-            return;
-        } else {
-            return ClError.MemNotFreed;
+        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.MemNotFreed;
         }
     }
 };

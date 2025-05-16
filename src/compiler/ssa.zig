@@ -444,24 +444,18 @@ pub const Ssa = struct {
         assert(linearized.op_num > 0);
 
         var layer_read = std.AutoArrayHashMap(u64, u32).init(allocator);
+        errdefer layer_read.deinit();
+        defer layer_read.deinit();
         var layer_write = std.AutoArrayHashMap(u64, u32).init(allocator);
-        errdefer {
-            layer_read.deinit();
-            layer_write.deinit();
-        }
-        defer {
-            layer_read.deinit();
-            layer_write.deinit();
-        }
+        errdefer layer_write.deinit();
+        defer layer_write.deinit();
 
         const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
+        errdefer allocator.free(assign);
         const assign_loop_id: []u32 = try allocator.alloc(u32, linearized.op_num);
+        errdefer allocator.free(assign_loop_id);
         const assign_loop_num: []u32 = try allocator.alloc(u32, linearized.op_num);
-        errdefer {
-            allocator.free(assign);
-            allocator.free(assign_loop_id);
-            allocator.free(assign_loop_num);
-        }
+        errdefer allocator.free(assign_loop_num);
         @memset(assign_loop_id, 0);
         // $NOTE I don't think the other values should be initialised to prevent strange reads
         assign_loop_num[0] = 1;
