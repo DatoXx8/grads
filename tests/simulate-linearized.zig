@@ -442,28 +442,26 @@ pub fn main() !void {
             unreachable;
         }
     }
+
     const rng: u64 = switch (rng_saved == null) {
-        true => @bitCast(std.time.microTimestamp()),
+        true => std.crypto.random.int(u64),
         false => rng_saved.?,
     };
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;
-        // $TODO Decide how to reseed the random number generator here...
-        // rng + loop_idx "wastes" the least seeds but it could cause issues
-        // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
             std.debug.print("{} => ", .{loop_idx});
-            simulateLinearized(allocator, @splat(true), rng + loop_idx) catch |err| {
-                try minifyLinearized(allocator, rng + loop_idx, err);
+            simulateLinearized(allocator, @splat(true), rng +% loop_idx) catch |err| {
+                try minifyLinearized(allocator, rng +% loop_idx, err);
             };
             loop_idx += 1;
         }
     } else {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => ", .{loop_idx});
-            simulateLinearized(allocator, @splat(true), rng + loop_idx) catch |err| {
-                try minifyLinearized(allocator, rng + loop_idx, err);
+            simulateLinearized(allocator, @splat(true), rng +% loop_idx) catch |err| {
+                try minifyLinearized(allocator, rng +% loop_idx, err);
             };
         }
     }

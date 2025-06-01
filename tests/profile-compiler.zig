@@ -474,7 +474,7 @@ pub fn main() !void {
         }
     }
     const rng: u64 = switch (rng_saved == null) {
-        true => @bitCast(std.time.microTimestamp()),
+        true => std.crypto.random.int(u64),
         false => rng_saved.?,
     };
 

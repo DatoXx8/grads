@@ -509,8 +509,9 @@ pub fn main() !void {
             unreachable;
         }
     }
+
     const rng: u64 = switch (rng_saved == null) {
-        true => @bitCast(std.time.microTimestamp()),
+        true => std.crypto.random.int(u64),
         false => rng_saved.?,
     };
 
@@ -520,14 +521,11 @@ pub fn main() !void {
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;
-        // $TODO Decide how to reseed the random number generator here...
-        // rng + loop_idx "wastes" the least seeds but it could cause issues
-        // when running multiple threads with this because you then run the same tests over and over again
         while (true) {
-            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
+            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, @splat(true), rng + loop_idx, opt, device, context, queue) catch |err| {
-                    try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
+                simulateCompiler(allocator, @splat(true), rng +% loop_idx, opt, device, context, queue) catch |err| {
+                    try minifyCompiler(allocator, rng +% loop_idx, opt, err, device, context, queue);
                 };
                 std.debug.print("{s} ", .{
                     switch (opt) {
@@ -541,8 +539,8 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, @splat(true), rng + loop_idx, value, device, context, queue) catch |err| {
-                        try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
+                    simulateCompiler(allocator, @splat(true), rng +% loop_idx, value, device, context, queue) catch |err| {
+                        try minifyCompiler(allocator, rng +% loop_idx, value, err, device, context, queue);
                     };
                     std.debug.print("{s} ", .{name});
                 }
@@ -552,10 +550,10 @@ pub fn main() !void {
         }
     } else {
         for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng + loop_idx });
+            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, @splat(true), rng + loop_idx, opt, device, context, queue) catch |err| {
-                    try minifyCompiler(allocator, rng + loop_idx, opt, err, device, context, queue);
+                simulateCompiler(allocator, @splat(true), rng +% loop_idx, opt, device, context, queue) catch |err| {
+                    try minifyCompiler(allocator, rng +% loop_idx, opt, err, device, context, queue);
                 };
                 std.debug.print("{s} ", .{
                     switch (opt) {
@@ -569,8 +567,8 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, @splat(true), rng + loop_idx, value, device, context, queue) catch |err| {
-                        try minifyCompiler(allocator, rng + loop_idx, value, err, device, context, queue);
+                    simulateCompiler(allocator, @splat(true), rng +% loop_idx, value, device, context, queue) catch |err| {
+                        try minifyCompiler(allocator, rng +% loop_idx, value, err, device, context, queue);
                     };
                     std.debug.print("{s} ", .{name});
                 }
