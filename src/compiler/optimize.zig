@@ -40,9 +40,9 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         if ((assign[start_idx].base.out.id == assign[assign_idx].base.out.id and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
             (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
-            assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
+                assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
             (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
-            assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
+                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
         {
             return false;
         }
@@ -482,7 +482,7 @@ fn dimInfoMaxLegal(base: []const Base) u32 {
     return max;
 }
 
-// $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size
+// $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large nets
 pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
     var temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
     errdefer allocator.free(temp_base);
@@ -494,7 +494,6 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
     @memset(temp_remove, false);
 
     var loop_id: u32 = 1;
-    // $FIX Check for equality of inlined trees
     var assign_idx: u32 = 0;
     while (assign_idx < ssa.assign_num) {
         var loop_len: u32 = 0;
@@ -556,7 +555,7 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                 if (!(ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) and inlined_equal) or
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {
                                     equal = false;
                                     break :blk;
@@ -565,17 +564,30 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
                                 {
                                     equal = false;
                                     break :blk;
                                 }
+                                ssa.assign[assign_idx + loop_idx * loop_len + assign_off].print(4, 0, "1");
+                                ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].print(4, 0, "2");
                                 // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
                                 // Maybe there is a less restrictive condition
                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.id ==
                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.overlaps( //
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+                                {
+                                    equal = false;
+                                    break :blk;
+                                }
+                                // $NOTE / $FIXME I doubly hate this condition, but it fixes rng=1748555540748849 opt=O1.
+                                // Maybe there is a less restrictive condition x2. This one happens because not every combination is tested symmetrically, which sucks
+                                //  but isn't trivially fixed
+                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
+                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in.id and
+                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in))
                                 {
                                     equal = false;
                                     break :blk;
