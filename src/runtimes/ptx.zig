@@ -9,31 +9,23 @@ const builtin = @import("builtin");
 pub const function_name_base: []const u8 = &[_]u8{'k'};
 
 // $NOTE PTX is only accessible through the CUDA API from what I've seen
+// Man I really want to replace the entire NVidia stack or at least every compiler in it. Compiling OpenCL is unbearably slow, don't know about PTX yet.
 const cuda_header = "cuda.h";
 pub const cuda = @cImport({
     @cInclude(cuda_header);
 });
 
 pub const CuError = error{
-    PlatformNotFound,
-    PlatformNotFreed,
     DeviceNotFound,
     DeviceNotFreed,
-    DeviceInfoNotFound,
     ContextNotFound,
     ContextNotFreed,
-    QueueNotAlloc,
-    QueueNotFreed,
-    QueueCouldNotWait,
     MemNotAlloc,
     MemNotFreed,
-    ProgramNotCreated,
-    ProgramNotBuilt,
-    ProgramNotFreed,
-    ProgramNotRun,
+    ModuleNotFreed,
+    ModulePtxNotAdded,
     FunctionNotBuilt,
     FunctionNotFreed,
-    ArgNotSet,
 };
 // $TODO Support multiple devices
 pub const CuDevice = struct {
@@ -75,25 +67,29 @@ pub const CuContext = struct {
     }
 };
 pub const CuModule = struct {
-    program: cuda.CUmodule,
-    pub fn alloc(allocator: Allocator, context: CuContext, device: CuDevice, source: []const u8) !CuModule {
-        _ = allocator;
-        _ = context;
-        _ = device;
-        _ = source;
-    }
-    pub fn free(this: @This()) !void {
-        if (cuda.cuModuleUnload(this) != cuda.CUDA_SUCCESS) {
+    module: cuda.CUmodule,
+    pub fn addPtx(this: *@This(), source_c: [*:0]const u8) !void {
+        if (cuda.cuModuleLoadData(this, @ptrCast(source_c)) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.ProgramNotFreed;
+            return CuError.ModulePtxNotAdded;
+        }
+    }
+    pub fn free(this: *@This()) !void {
+        if (cuda.moduleUnload(this) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.ModuleNotFreed;
         }
     }
 };
 pub const CuFunction = struct {
     function: cuda.CUfunction,
-    pub fn alloc(program: CuModule, name_c: [*:0]const u8) !CuFunction {
-        _ = program;
-        _ = name_c;
+    pub fn alloc(module: CuModule, source_c: [*:0]const u8, name_c: [*:0]const u8) !CuFunction {
+        const function: CuFunction = undefined;
+        try module.addPtx(source_c);
+        if (cuda.cuModuleGetFunction(&function.function, module, @ptrCast(name_c)) != cuda.CUDA_SUCCESS) {
+            @branchHint(.cold);
+            return CuError.FunctionNotBuilt;
+        }
     }
     pub fn free(this: @This()) !void {
         if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
