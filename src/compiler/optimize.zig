@@ -569,8 +569,6 @@ pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
                                     equal = false;
                                     break :blk;
                                 }
-                                ssa.assign[assign_idx + loop_idx * loop_len + assign_off].print(4, 0, "1");
-                                ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].print(4, 0, "2");
                                 // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
                                 // Maybe there is a less restrictive condition
                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.id ==
