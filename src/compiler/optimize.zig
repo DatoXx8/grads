@@ -2,7 +2,7 @@
 // $TODO These levels
 // $TODO Expressive numerical representation of an optimization such that a casey type optimizer is possible
 // Optimization levels
-// O1 - parallelize, inline, split, idempotent functions
+// O1 - parallelize, split, idempotent functions
 // O2 - SIMD
 // O3 - memory optimizer
 
@@ -193,462 +193,136 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
 // As a hacky fix we just split the loop up if there is something that can't be modeled linearly. This sucks bad. I hate that I have to do this.
 // I am sorry for this terrible shittines, I just can't think of a better solution right now
 
-fn dimInfoMaxLegal(base: []const Base) u32 {
-    assert(base.len > 0);
+// $TODO Support reordering
+fn dimInfoMergePossible(base: Base, merge: Base) bool {
+    assert(base.out.id == merge.out.id);
+    assert(base.in.id == merge.in.id);
 
-    var max: u32 = @intCast(base.len);
+    // $NOTE Can't just check the total offset because base=[0,1,0,0] and merge=[1,0,0,0] would be allowed then
+    const out_offset_invalid: bool = base.out.aOffset() < base.out.aOffset() or base.out.zOffset() < base.out.zOffset() or
+        base.out.yOffset() < base.out.yOffset() or base.out.xOffset() < base.out.xOffset();
+    const in_offset_invalid: bool = base.in.aOffset() < base.in.aOffset() or base.in.zOffset() < base.in.zOffset() or
+        base.in.yOffset() < base.in.yOffset() or base.in.xOffset() < base.in.xOffset();
+    if (out_offset_invalid or in_offset_invalid) return false;
 
-    var dim_info: DimInfo = .{
-        .off_out = 0,
-        .off_in = 0,
-        .a_stride_out = 0,
-        .z_stride_out = 0,
-        .y_stride_out = 0,
-        .x_stride_out = 0,
-        .a_stride_in = 0,
-        .z_stride_in = 0,
-        .y_stride_in = 0,
-        .x_stride_in = 0,
-        .a_reset_out = @intCast(base.len),
-        .z_reset_out = @intCast(base.len),
-        .y_reset_out = @intCast(base.len),
-        .x_reset_out = @intCast(base.len),
-        .a_reset_in = @intCast(base.len),
-        .z_reset_in = @intCast(base.len),
-        .y_reset_in = @intCast(base.len),
-        .x_reset_in = @intCast(base.len),
-        .a_wait_out = 1,
-        .z_wait_out = 1,
-        .y_wait_out = 1,
-        .x_wait_out = 1,
-        .a_wait_in = 1,
-        .z_wait_in = 1,
-        .y_wait_in = 1,
-        .x_wait_in = 1,
-    };
-
-    var loop_idx: u32 = 1;
-    while (loop_idx < base.len) : (loop_idx += 1) {
-        if (base[loop_idx].out.aOffset() >= base[loop_idx - 1].out.aOffset() or base[loop_idx].out.aOffset() == base[0].out.aOffset() or
-            base[loop_idx].out.zOffset() >= base[loop_idx - 1].out.zOffset() or base[loop_idx].out.zOffset() == base[0].out.zOffset() or
-            base[loop_idx].out.yOffset() >= base[loop_idx - 1].out.yOffset() or base[loop_idx].out.yOffset() == base[0].out.yOffset() or
-            base[loop_idx].out.xOffset() >= base[loop_idx - 1].out.xOffset() or base[loop_idx].out.xOffset() == base[0].out.xOffset() or
-            base[loop_idx].in.aOffset() >= base[loop_idx - 1].in.aOffset() or base[loop_idx].in.aOffset() == base[0].in.aOffset() or
-            base[loop_idx].in.zOffset() >= base[loop_idx - 1].in.zOffset() or base[loop_idx].in.zOffset() == base[0].in.zOffset() or
-            base[loop_idx].in.yOffset() >= base[loop_idx - 1].in.yOffset() or base[loop_idx].in.yOffset() == base[0].in.yOffset() or
-            base[loop_idx].in.xOffset() >= base[loop_idx - 1].in.xOffset() or base[loop_idx].in.xOffset() == base[0].in.xOffset())
-        {
-            continue;
+    inline for (0..8) |dim_idx| {
+        const wait: u32 = switch (dim_idx) {
+            0 => base.dim_info.a_wait_out,
+            1 => base.dim_info.z_wait_out,
+            2 => base.dim_info.y_wait_out,
+            3 => base.dim_info.x_wait_out,
+            4 => base.dim_info.a_wait_in,
+            5 => base.dim_info.z_wait_in,
+            6 => base.dim_info.y_wait_in,
+            7 => base.dim_info.x_wait_in,
+        };
+        const stride: u32 = switch (dim_idx) {
+            0 => base.dim_info.a_stride_out,
+            1 => base.dim_info.z_stride_out,
+            2 => base.dim_info.y_stride_out,
+            3 => base.dim_info.x_stride_out,
+            4 => base.dim_info.a_stride_in,
+            5 => base.dim_info.z_stride_in,
+            6 => base.dim_info.y_stride_in,
+            7 => base.dim_info.x_stride_in,
+        };
+        const reset: u32 = switch (dim_idx) {
+            0 => base.dim_info.a_reset_out,
+            1 => base.dim_info.z_reset_out,
+            2 => base.dim_info.y_reset_out,
+            3 => base.dim_info.x_reset_out,
+            4 => base.dim_info.a_reset_in,
+            5 => base.dim_info.z_reset_in,
+            6 => base.dim_info.y_reset_in,
+            7 => base.dim_info.x_reset_in,
+        };
+        const off_base: u32 = switch (dim_idx) {
+            0 => base.dim_info.off_out,
+            1 => base.dim_info.off_out,
+            2 => base.dim_info.off_out,
+            3 => base.dim_info.off_out,
+            4 => base.dim_info.off_in,
+            5 => base.dim_info.off_in,
+            6 => base.dim_info.off_in,
+            7 => base.dim_info.off_in,
+        };
+        const off_merge: u32 = switch (dim_idx) {
+            0 => merge.dim_info.off_out,
+            1 => merge.dim_info.off_out,
+            2 => merge.dim_info.off_out,
+            3 => merge.dim_info.off_out,
+            4 => merge.dim_info.off_in,
+            5 => merge.dim_info.off_in,
+            6 => merge.dim_info.off_in,
+            7 => merge.dim_info.off_in,
+        };
+        if (wait == DimInfo.value_none) {
+            assert(stride == DimInfo.value_none);
         } else {
-            max = loop_idx;
-            break;
-        }
-    }
-
-    var a_left_out, var z_left_out, var y_left_out, var x_left_out = .{ false, false, false, false };
-    var a_left_in, var z_left_in, var y_left_in, var x_left_in = .{ false, false, false, false };
-    var a_enter_out, var z_enter_out, var y_enter_out, var x_enter_out = .{ false, false, false, false };
-    var a_enter_in, var z_enter_in, var y_enter_in, var x_enter_in = .{ false, false, false, false };
-
-    const a_off_out_root: u32 = base[0].out.aOffset();
-    const z_off_out_root: u32 = base[0].out.zOffset();
-    const y_off_out_root: u32 = base[0].out.yOffset();
-    const x_off_out_root: u32 = base[0].out.xOffset();
-    const a_off_in_root: u32 = base[0].in.aOffset();
-    const z_off_in_root: u32 = base[0].in.zOffset();
-    const y_off_in_root: u32 = base[0].in.yOffset();
-    const x_off_in_root: u32 = base[0].in.xOffset();
-
-    loop_idx = 1;
-    while (loop_idx < max) : (loop_idx += 1) {
-        if (a_left_out) {
-            if (a_enter_out) {
-                if (base[loop_idx].out.aOffset() != (loop_idx % dim_info.a_reset_out) / dim_info.a_wait_out * dim_info.a_stride_out + a_off_out_root) {
-                    max = loop_idx;
-                    break;
+            assert(stride != DimInfo.value_none);
+            if (reset == DimInfo.value_none) {
+                if (@divFloor(base.dim_info.repeats + 1, wait) * stride != off_merge and off_base != off_merge) {
+                    return false;
                 }
             } else {
-                if (base[loop_idx].out.aOffset() == a_off_out_root) {
-                    a_enter_out = true;
-                    dim_info.a_reset_out = loop_idx;
-                } else {
-                    if (base[loop_idx].out.aOffset() != (loop_idx / dim_info.a_wait_out) * dim_info.a_stride_out + a_off_out_root) {
-                        max = loop_idx;
-                        break;
-                    }
+                if (@divFloor((base.dim_info.repeats + 1) % reset, wait) * stride != off_merge) {
+                    return false;
                 }
-            }
-        } else {
-            if (base[loop_idx].out.aOffset() < a_off_out_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].out.aOffset() > a_off_out_root) {
-                a_left_out = true;
-                dim_info.a_wait_out = loop_idx;
-                dim_info.a_stride_out = base[loop_idx].out.aOffset() - a_off_out_root;
-            }
-        }
-        if (z_left_out) {
-            if (z_enter_out) {
-                if (base[loop_idx].out.zOffset() != (loop_idx % dim_info.z_reset_out) / dim_info.z_wait_out * dim_info.z_stride_out + z_off_out_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].out.zOffset() == z_off_out_root) {
-                    z_enter_out = true;
-                    dim_info.z_reset_out = loop_idx;
-                } else {
-                    if (base[loop_idx].out.zOffset() != (loop_idx / dim_info.z_wait_out) * dim_info.z_stride_out + z_off_out_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].out.zOffset() < z_off_out_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].out.zOffset() > z_off_out_root) {
-                z_left_out = true;
-                dim_info.z_wait_out = loop_idx;
-                dim_info.z_stride_out = base[loop_idx].out.zOffset() - z_off_out_root;
-            }
-        }
-        if (y_left_out) {
-            if (y_enter_out) {
-                if (base[loop_idx].out.yOffset() != (loop_idx % dim_info.y_reset_out) / dim_info.y_wait_out * dim_info.y_stride_out + y_off_out_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].out.yOffset() == y_off_out_root) {
-                    y_enter_out = true;
-                    dim_info.y_reset_out = loop_idx;
-                } else {
-                    if (base[loop_idx].out.yOffset() != (loop_idx / dim_info.y_wait_out) * dim_info.y_stride_out + y_off_out_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].out.yOffset() < y_off_out_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].out.yOffset() > y_off_out_root) {
-                y_left_out = true;
-                dim_info.y_wait_out = loop_idx;
-                dim_info.y_stride_out = base[loop_idx].out.yOffset() - y_off_out_root;
-            }
-        }
-        if (x_left_out) {
-            if (x_enter_out) {
-                if (base[loop_idx].out.xOffset() != (loop_idx % dim_info.x_reset_out) / dim_info.x_wait_out * dim_info.x_stride_out + x_off_out_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].out.xOffset() == x_off_out_root) {
-                    x_enter_out = true;
-                    dim_info.x_reset_out = loop_idx;
-                } else {
-                    if (base[loop_idx].out.xOffset() != (loop_idx / dim_info.x_wait_out) * dim_info.x_stride_out + x_off_out_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].out.xOffset() < x_off_out_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].out.xOffset() > x_off_out_root) {
-                x_left_out = true;
-                dim_info.x_wait_out = loop_idx;
-                dim_info.x_stride_out = base[loop_idx].out.xOffset() - x_off_out_root;
-            }
-        }
-        if (a_left_in) {
-            if (a_enter_in) {
-                if (base[loop_idx].in.aOffset() != (loop_idx % dim_info.a_reset_in) / dim_info.a_wait_in * dim_info.a_stride_in + a_off_in_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].in.aOffset() == a_off_in_root) {
-                    a_enter_in = true;
-                    dim_info.a_reset_in = loop_idx;
-                } else {
-                    if (base[loop_idx].in.aOffset() != (loop_idx / dim_info.a_wait_in) * dim_info.a_stride_in + a_off_in_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].in.aOffset() < a_off_in_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].in.aOffset() > a_off_in_root) {
-                a_left_in = true;
-                dim_info.a_wait_in = loop_idx;
-                dim_info.a_stride_in = base[loop_idx].in.aOffset() - a_off_in_root;
-            }
-        }
-        if (z_left_in) {
-            if (z_enter_in) {
-                if (base[loop_idx].in.zOffset() != (loop_idx % dim_info.z_reset_in) / dim_info.z_wait_in * dim_info.z_stride_in + z_off_in_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].in.zOffset() == z_off_in_root) {
-                    z_enter_in = true;
-                    dim_info.z_reset_in = loop_idx;
-                } else {
-                    if (base[loop_idx].in.zOffset() != (loop_idx / dim_info.z_wait_in) * dim_info.z_stride_in + z_off_in_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].in.zOffset() < z_off_in_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].in.zOffset() > z_off_in_root) {
-                z_left_in = true;
-                dim_info.z_wait_in = loop_idx;
-                dim_info.z_stride_in = base[loop_idx].in.zOffset() - z_off_in_root;
-            }
-        }
-        if (y_left_in) {
-            if (y_enter_in) {
-                if (base[loop_idx].in.yOffset() != (loop_idx % dim_info.y_reset_in) / dim_info.y_wait_in * dim_info.y_stride_in + y_off_in_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].in.yOffset() == y_off_in_root) {
-                    y_enter_in = true;
-                    dim_info.y_reset_in = loop_idx;
-                } else {
-                    if (base[loop_idx].in.yOffset() != (loop_idx / dim_info.y_wait_in) * dim_info.y_stride_in + y_off_in_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].in.yOffset() < y_off_in_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].in.yOffset() > y_off_in_root) {
-                y_left_in = true;
-                dim_info.y_wait_in = loop_idx;
-                dim_info.y_stride_in = base[loop_idx].in.yOffset() - y_off_in_root;
-            }
-        }
-        if (x_left_in) {
-            if (x_enter_in) {
-                if (base[loop_idx].in.xOffset() != (loop_idx % dim_info.x_reset_in) / dim_info.x_wait_in * dim_info.x_stride_in + x_off_in_root) {
-                    max = loop_idx;
-                    break;
-                }
-            } else {
-                if (base[loop_idx].in.xOffset() == x_off_in_root) {
-                    x_enter_in = true;
-                    dim_info.x_reset_in = loop_idx;
-                } else {
-                    if (base[loop_idx].in.xOffset() != (loop_idx / dim_info.x_wait_in) * dim_info.x_stride_in + x_off_in_root) {
-                        max = loop_idx;
-                        break;
-                    }
-                }
-            }
-        } else {
-            if (base[loop_idx].in.xOffset() < x_off_in_root) {
-                max = loop_idx;
-                break;
-            } else if (base[loop_idx].in.xOffset() > x_off_in_root) {
-                x_left_in = true;
-                dim_info.x_wait_in = loop_idx;
-                dim_info.x_stride_in = base[loop_idx].in.xOffset() - x_off_in_root;
             }
         }
     }
 
-    return max;
+    return true;
+}
+fn dimInfoMerge(base: DimInfo, merge: Base) DimInfo {
+    _ = base;
+    _ = merge;
+    return undefined;
 }
 
-// $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large nets
-pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
-    var temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
-    errdefer allocator.free(temp_base);
-    defer allocator.free(temp_base);
+/// Returns 0 in case nothing was parallelized, assign_loop_id in case an assign got added to the an existant loop and assign_loop_id + 1 in case a new one had to be created
+fn parallelizeStep(ssa: *Ssa, start_idx: u32, assign_loop_id: u32) u32 {
+    var assign_idx: u32 = start_idx;
+    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+        if (ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
+            ssa.assign[start_idx].base.out.overlaps(ssa.assign[assign_idx].base.out)) break;
+        if (ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.in.id and
+            ssa.assign[start_idx].base.out.overlaps(ssa.assign[assign_idx].base.in)) break;
 
+        if (ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
+            ssa.assign[start_idx].base.in.id == ssa.assign[assign_idx].base.in.id and
+            dimInfoMergePossible(ssa.assign[start_idx].base, ssa.assign[assign_idx].base))
+        {
+            ssa.assign[assign_idx].base.dim_info = dimInfoMerge(ssa.assign[start_idx].base.dim_info, ssa.assign[assign_idx]);
+            if (ssa.assign_loop_id[start_idx] == 0) {
+                ssa.assign_loop_id[assign_idx] = assign_loop_id;
+                return assign_loop_id + 1;
+            } else {
+                ssa.assign_loop_id[assign_idx] = ssa.assign_loop_id[start_idx];
+                return assign_loop_id;
+            }
+        }
+    }
+    return 0;
+}
+// $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large SSAs
+pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
     var temp_remove: []bool = try allocator.alloc(bool, ssa.assign_num);
     errdefer allocator.free(temp_remove);
     defer allocator.free(temp_remove);
-    @memset(temp_remove, false);
 
-    var loop_id: u32 = 1;
     var assign_idx: u32 = 0;
-    while (assign_idx < ssa.assign_num) {
-        var loop_len: u32 = 0;
-        var loop_num: u32 = 0;
-
-        var assign_idx_search: u32 = assign_idx + 1;
-        while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
-            if (ssa.assign[assign_idx].base.equalNoOffset(ssa.assign[assign_idx_search].base)) {
-                if (ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) {
-                    break;
-                } else {
-                    var equal: bool = true;
-                    for (0..assign_idx_search - assign_idx) |assign_off| {
-                        const inlined_equal: bool = blk: {
-                            if ((ssa.assign[assign_idx + assign_off].inlined == null) !=
-                                (ssa.assign[assign_idx_search + assign_off].inlined == null)) break :blk false;
-                            if (ssa.assign[assign_idx + assign_off].inlined == null) break :blk true;
-                            break :blk ssa.assign[assign_idx + assign_off].inlined.?.inlinedEqualNoOffset( //
-                                ssa.assign[assign_idx_search + assign_off].inlined.?);
-                        };
-                        if (!(ssa.assign[assign_idx + assign_off].base.equalNoOffset(ssa.assign[assign_idx_search + assign_off].base) and
-                            inlined_equal) or
-                            ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
-                        {
-                            equal = false;
-                            break;
-                        }
-                    }
-                    if (equal) {
-                        loop_len = assign_idx_search - assign_idx;
-                        break;
-                    } else {
-                        continue;
-                    }
-                }
-            }
-        }
-
-        if (loop_len == 0) {
-            loop_len = 1;
-            loop_num = 1;
+    var assign_loop_id: u32 = 1;
+    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+        const assign_loop_id_writen: u32 = parallelizeStep(ssa, assign_idx, assign_loop_id);
+        if (assign_loop_id_writen != 0) {
+            assign_loop_id = assign_loop_id_writen;
+            temp_remove[assign_idx] = true;
         } else {
-            loop_num = 1;
-            for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
-                var equal: bool = true;
-                // $TODO This is stupidly slow. There has to be a faster way to do this. This is so bad it might aswell be a FIXME
-                // $TODO Also some overlaps might be ok if the things are intermediaries
-                for (0..loop_len) |assign_off| blk: {
-                    for (0..loop_num) |loop_idx_search| {
-                        for (0..loop_len) |assign_off_search| {
-                            if (assign_off == assign_off_search) {
-                                const inlined_equal: bool = block: {
-                                    if ((ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) !=
-                                        (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined == null)) break :block false;
-                                    if (ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) break :block true;
-                                    break :block ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined.?.inlinedEqualNoOffset( //
-                                        ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined.?);
-                                };
-                                if (!(ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) and inlined_equal) or
-                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
-                                {
-                                    equal = false;
-                                    break :blk;
-                                }
-                            } else {
-                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
-                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
-                                {
-                                    equal = false;
-                                    break :blk;
-                                }
-                                // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
-                                // Maybe there is a less restrictive condition
-                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.id ==
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
-                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
-                                {
-                                    equal = false;
-                                    break :blk;
-                                }
-                                // $NOTE / $FIXME I doubly hate this condition, but it fixes rng=1748555540748849 opt=O1.
-                                // Maybe there is a less restrictive condition x2. This one happens because not every combination is tested symmetrically, which sucks
-                                //  but isn't trivially fixed
-                                if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
-                                    ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in.id and
-                                    ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
-                                        ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in))
-                                {
-                                    equal = false;
-                                    break :blk;
-                                }
-                            }
-                        }
-                        if (!equal) {
-                            break;
-                        }
-                    }
-                }
-                if (equal) {
-                    loop_num += 1;
-                } else {
-                    break;
-                }
-            }
-
-            for (0..loop_len) |inner_idx| {
-                for (0..loop_num) |loop_idx| {
-                    temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].base;
-                }
-                loop_num = @min(loop_num, dimInfoMaxLegal(temp_base[0..loop_num]));
-
-                if (ssa.assign[assign_idx + inner_idx].inlined) |*inlined| {
-                    for (0..inlined.inlined_num) |inlined_idx| {
-                        for (0..loop_num) |loop_idx| {
-                            temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].inlined.?.base[inlined_idx];
-                        }
-                        loop_num = @min(loop_num, dimInfoMaxLegal(temp_base[0..loop_num]));
-                    }
-                }
-            }
-
-            for (0..loop_len) |inner_idx| {
-                for (0..loop_num) |loop_idx| {
-                    temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].base;
-                    if (loop_idx != 0) {
-                        temp_remove[assign_idx + inner_idx + loop_idx * loop_len] = true;
-                    }
-                }
-                ssa.assign[assign_idx + inner_idx].base.dim_info = DimInfo.init(temp_base[0..loop_num]);
-                ssa.assign_loop_id[assign_idx + inner_idx] = loop_id;
-
-                if (ssa.assign[assign_idx + inner_idx].inlined) |*inlined| {
-                    for (0..inlined.inlined_num) |inlined_idx| {
-                        for (0..loop_num) |loop_idx| {
-                            temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].inlined.?.base[inlined_idx];
-                        }
-                        inlined.base[inlined_idx].dim_info = DimInfo.init(temp_base[0..loop_num]);
-                    }
-                }
-
-                ssa.assign_loop_num[loop_id] = loop_num;
-            }
-
-            loop_id += 1;
+            temp_remove[assign_idx] = false;
         }
-
-        assert(loop_len >= 1);
-        assert(loop_num >= 1);
-        assign_idx += loop_len * loop_num;
     }
+
     var assign_num_new: u32 = 0;
     assign_idx = 0;
     while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
@@ -678,3 +352,186 @@ pub fn memoryLayout(allocator: Allocator, ssa: *Ssa) !void {
     _ = allocator;
     _ = ssa;
 }
+// pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
+//     var temp_base: []Base = try allocator.alloc(Base, ssa.assign_num);
+//     errdefer allocator.free(temp_base);
+//     defer allocator.free(temp_base);
+//
+//     var temp_remove: []bool = try allocator.alloc(bool, ssa.assign_num);
+//     errdefer allocator.free(temp_remove);
+//     defer allocator.free(temp_remove);
+//     @memset(temp_remove, false);
+//
+//     var loop_id: u32 = 1;
+//     var assign_idx: u32 = 0;
+//     while (assign_idx < ssa.assign_num) {
+//         var loop_len: u32 = 0;
+//         var loop_num: u32 = 0;
+//
+//         var assign_idx_search: u32 = assign_idx + 1;
+//         while (2 * assign_idx_search - assign_idx < ssa.assign_num) : (assign_idx_search += 1) {
+//             if (ssa.assign[assign_idx].base.equalNoOffset(ssa.assign[assign_idx_search].base)) {
+//                 if (ssa.assign[assign_idx].base.out.overlapsPartial(ssa.assign[assign_idx_search].base.out)) {
+//                     break;
+//                 } else {
+//                     var equal: bool = true;
+//                     for (0..assign_idx_search - assign_idx) |assign_off| {
+//                         const inlined_equal: bool = blk: {
+//                             if ((ssa.assign[assign_idx + assign_off].inlined == null) !=
+//                                 (ssa.assign[assign_idx_search + assign_off].inlined == null)) break :blk false;
+//                             if (ssa.assign[assign_idx + assign_off].inlined == null) break :blk true;
+//                             break :blk ssa.assign[assign_idx + assign_off].inlined.?.inlinedEqualNoOffset( //
+//                                 ssa.assign[assign_idx_search + assign_off].inlined.?);
+//                         };
+//                         if (!(ssa.assign[assign_idx + assign_off].base.equalNoOffset(ssa.assign[assign_idx_search + assign_off].base) and
+//                             inlined_equal) or
+//                             ssa.assign[assign_idx + assign_off].base.out.overlaps(ssa.assign[assign_idx_search + assign_off].base.out))
+//                         {
+//                             equal = false;
+//                             break;
+//                         }
+//                     }
+//                     if (equal) {
+//                         loop_len = assign_idx_search - assign_idx;
+//                         break;
+//                     } else {
+//                         continue;
+//                     }
+//                 }
+//             }
+//         }
+//
+//         if (loop_len == 0) {
+//             loop_len = 1;
+//             loop_num = 1;
+//         } else {
+//             loop_num = 1;
+//             for (1..@divFloor(ssa.assign_num - assign_idx, loop_len)) |loop_idx| {
+//                 var equal: bool = true;
+//                 // $TODO This is stupidly slow. There has to be a faster way to do this. This is so bad it might aswell be a FIXME
+//                 // $TODO Also some overlaps might be ok if the things are intermediaries
+//                 for (0..loop_len) |assign_off| blk: {
+//                     for (0..loop_num) |loop_idx_search| {
+//                         for (0..loop_len) |assign_off_search| {
+//                             if (assign_off == assign_off_search) {
+//                                 const inlined_equal: bool = block: {
+//                                     if ((ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) !=
+//                                         (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined == null)) break :block false;
+//                                     if (ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined == null) break :block true;
+//                                     break :block ssa.assign[assign_idx + loop_idx * loop_len + assign_off].inlined.?.inlinedEqualNoOffset( //
+//                                         ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].inlined.?);
+//                                 };
+//                                 if (!(ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.equalNoOffset( //
+//                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base) and inlined_equal) or
+//                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+//                                         ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+//                                 {
+//                                     equal = false;
+//                                     break :blk;
+//                                 }
+//                             } else {
+//                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
+//                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
+//                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+//                                         ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+//                                 {
+//                                     equal = false;
+//                                     break :blk;
+//                                 }
+//                                 // $NOTE / $FIXME I hate this condition, but it fixes rng=1745145740864090 opt=O1.
+//                                 // Maybe there is a less restrictive condition
+//                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.id ==
+//                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out.id and
+//                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.in.overlaps( //
+//                                         ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.out))
+//                                 {
+//                                     equal = false;
+//                                     break :blk;
+//                                 }
+//                                 // $NOTE / $FIXME I doubly hate this condition, but it fixes rng=1748555540748849 opt=O1.
+//                                 // Maybe there is a less restrictive condition x2. This one happens because not every combination is tested symmetrically, which sucks
+//                                 //  but isn't trivially fixed
+//                                 if (ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.id ==
+//                                     ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in.id and
+//                                     ssa.assign[assign_idx + loop_idx_search * loop_len + assign_off_search].base.out.overlaps( //
+//                                         ssa.assign[assign_idx + loop_idx * loop_len + assign_off].base.in))
+//                                 {
+//                                     equal = false;
+//                                     break :blk;
+//                                 }
+//                             }
+//                         }
+//                         if (!equal) {
+//                             break;
+//                         }
+//                     }
+//                 }
+//                 if (equal) {
+//                     loop_num += 1;
+//                 } else {
+//                     break;
+//                 }
+//             }
+//
+//             for (0..loop_len) |inner_idx| {
+//                 for (0..loop_num) |loop_idx| {
+//                     temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].base;
+//                 }
+//                 loop_num = @min(loop_num, dimInfoMaxLegal(temp_base[0..loop_num]));
+//
+//                 if (ssa.assign[assign_idx + inner_idx].inlined) |*inlined| {
+//                     for (0..inlined.inlined_num) |inlined_idx| {
+//                         for (0..loop_num) |loop_idx| {
+//                             temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].inlined.?.base[inlined_idx];
+//                         }
+//                         loop_num = @min(loop_num, dimInfoMaxLegal(temp_base[0..loop_num]));
+//                     }
+//                 }
+//             }
+//
+//             for (0..loop_len) |inner_idx| {
+//                 for (0..loop_num) |loop_idx| {
+//                     temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].base;
+//                     if (loop_idx != 0) {
+//                         temp_remove[assign_idx + inner_idx + loop_idx * loop_len] = true;
+//                     }
+//                 }
+//                 ssa.assign[assign_idx + inner_idx].base.dim_info = DimInfo.init(temp_base[0..loop_num]);
+//                 ssa.assign_loop_id[assign_idx + inner_idx] = loop_id;
+//
+//                 if (ssa.assign[assign_idx + inner_idx].inlined) |*inlined| {
+//                     for (0..inlined.inlined_num) |inlined_idx| {
+//                         for (0..loop_num) |loop_idx| {
+//                             temp_base[loop_idx] = ssa.assign[assign_idx + inner_idx + loop_idx * loop_len].inlined.?.base[inlined_idx];
+//                         }
+//                         inlined.base[inlined_idx].dim_info = DimInfo.init(temp_base[0..loop_num]);
+//                     }
+//                 }
+//
+//                 ssa.assign_loop_num[loop_id] = loop_num;
+//             }
+//
+//             loop_id += 1;
+//         }
+//
+//         assert(loop_len >= 1);
+//         assert(loop_num >= 1);
+//         assign_idx += loop_len * loop_num;
+//     }
+//     var assign_num_new: u32 = 0;
+//     assign_idx = 0;
+//     while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+//         if (temp_remove[assign_idx]) {
+//             if (ssa.assign[assign_idx].inlined) |*inlined| {
+//                 allocator.free(inlined.base);
+//                 allocator.free(inlined.out);
+//                 allocator.free(inlined.in);
+//             }
+//         } else {
+//             ssa.assign[assign_num_new] = ssa.assign[assign_idx];
+//             ssa.assign_loop_id[assign_num_new] = ssa.assign_loop_id[assign_idx];
+//             assign_num_new += 1;
+//         }
+//     }
+//     ssa.assign_num = assign_num_new;
+// }
