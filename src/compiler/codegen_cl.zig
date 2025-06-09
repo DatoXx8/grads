@@ -581,14 +581,13 @@ pub fn compileKernel(
     allocator: Allocator,
     source: *[]u8,
     offset: *usize,
-    assign: []const Assign,
-    assign_loop_num: u32,
+    assign: Assign,
     kernel_name: []const u8,
     kernel_args: Args,
     size_global: u32,
     size_local: u32,
 ) WriteSourceError!void {
-    assert(assign_loop_num > 0);
+    assert(assign.base.dim_info.repeats > 0);
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
@@ -607,8 +606,8 @@ pub fn compileKernel(
     try writeSource(allocator, source, offset, "const int gid = get_global_id(0);\n", .{});
     try writeSource(allocator, source, offset, "int id;\n", .{});
 
-    const kernel_loop_leftover: bool = (assign_loop_num % size_global) != 0;
-    const kernel_loop_num: u32 = @divFloor(assign_loop_num, size_global) + @intFromBool(kernel_loop_leftover);
+    const kernel_loop_leftover: bool = (assign.base.dim_info.repeats % size_global) != 0;
+    const kernel_loop_num: u32 = @divFloor(assign.base.dim_info.repeats, size_global) + @intFromBool(kernel_loop_leftover);
 
     var kernel_loop_idx: u32 = 0;
     while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
@@ -619,14 +618,11 @@ pub fn compileKernel(
         }
 
         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            try writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign_loop_num % size_global});
+            try writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign.base.dim_info.repeats % size_global});
         }
 
-        var assign_idx: u32 = 0;
-        while (assign_idx < assign.len) : (assign_idx += 1) {
-            try writeIndices(allocator, source, offset, assign[assign_idx], kernel_loop_idx, assign_idx);
-            try writeAssign(allocator, source, offset, assign[assign_idx], kernel_loop_idx, assign_idx);
-        }
+        try writeIndices(allocator, source, offset, assign, kernel_loop_idx, 0);
+        try writeAssign(allocator, source, offset, assign, kernel_loop_idx, 0);
 
         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
             try writeSource(allocator, source, offset, "}}\n", .{});

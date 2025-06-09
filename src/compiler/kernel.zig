@@ -17,24 +17,22 @@ const Assign = @import("./ssa.zig").Assign;
 pub const Args = struct {
     arg_id: []u64,
     arg_mem: []ClMem,
-    pub fn alloc(allocator: Allocator, layer: []Assign) !Args {
+    pub fn alloc(allocator: Allocator, assign: Assign) !Args {
         var arg_unique = std.AutoHashMap(u64, ClMem).init(allocator);
         errdefer arg_unique.deinit();
         defer arg_unique.deinit();
 
-        for (0..layer.len) |assign_idx| {
-            try arg_unique.put(layer[assign_idx].base.out.id, layer[assign_idx].base.out.values_cl.?);
-            if (!layer[assign_idx].base.type.isUnary()) {
-                try arg_unique.put(layer[assign_idx].base.in.id, layer[assign_idx].base.in.values_cl.?);
-            }
+        try arg_unique.put(assign.base.out.id, assign.base.out.values_cl.?);
+        if (!assign.base.type.isUnary()) {
+            try arg_unique.put(assign.base.in.id, assign.base.in.values_cl.?);
+        }
 
-            if (layer[assign_idx].inlined) |inlined| {
-                // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
-                for (0..inlined.inlined_num) |inlined_idx| {
-                    try arg_unique.put(inlined.base[inlined_idx].out.id, inlined.base[inlined_idx].out.values_cl.?);
-                    if (!inlined.base[inlined_idx].type.isUnary()) {
-                        try arg_unique.put(inlined.base[inlined_idx].in.id, inlined.base[inlined_idx].in.values_cl.?);
-                    }
+        if (assign.inlined) |inlined| {
+            // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
+            for (0..inlined.inlined_num) |inlined_idx| {
+                try arg_unique.put(inlined.base[inlined_idx].out.id, inlined.base[inlined_idx].out.values_cl.?);
+                if (!inlined.base[inlined_idx].type.isUnary()) {
+                    try arg_unique.put(inlined.base[inlined_idx].in.id, inlined.base[inlined_idx].in.values_cl.?);
                 }
             }
         }

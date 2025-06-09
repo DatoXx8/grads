@@ -12,7 +12,7 @@ pub const DimInfo = struct {
     pub const value_none: u32 = std.math.maxInt(u32);
     pub const wait_default: u32 = 1;
     pub const stride_default: u32 = 0;
-    pub const reset_default: u32 = value_none & (value_none >> 1); // Just the highest bit
+    pub const reset_default: u32 = ~(value_none >> 1); // Just the highest bit
     repeats: u32,
     off_out: u32,
     off_in: u32,
@@ -42,7 +42,7 @@ pub const DimInfo = struct {
     x_wait_in: u32,
     pub fn init(base: Base) DimInfo {
         return .{
-            .num = 1,
+            .repeats = 1,
             .off_out = base.out.offset,
             .off_in = base.in.offset,
             .a_stride_out = value_none,
@@ -90,6 +90,7 @@ pub const DimInfo = struct {
             this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out, //
             this.a_wait_in,  this.z_wait_in,  this.y_wait_in,  this.x_wait_in,
         });
+        std.debug.print("{s}rep => {d:4}\n", .{ " " ** (offset + padding), this.repeats });
     }
 };
 
@@ -388,7 +389,7 @@ pub const Ssa = struct {
                 .block = null,
             };
 
-            assign[op_idx].base.dim_info = DimInfo.init(&[1]Base{assign[op_idx].base});
+            assign[op_idx].base.dim_info = DimInfo.init(assign[op_idx].base);
 
             // $NOTE This overwrites the data if it already existed
             try layer_write.put(assign[op_idx].base.out.id, layer_idx + 1);
@@ -424,8 +425,68 @@ pub const Ssa = struct {
             }
         }
         allocator.free(this.assign);
-        allocator.free(this.assign_loop_id);
-        allocator.free(this.assign_loop_num);
+    }
+    pub fn removeDefault(this: *@This()) void {
+        for (0..this.assign_num) |assign_idx| {
+            const dim_info: *DimInfo = &this.assign[assign_idx].base.dim_info;
+            if (dim_info.a_wait_out == DimInfo.value_none) dim_info.a_wait_out = DimInfo.wait_default;
+            if (dim_info.z_wait_out == DimInfo.value_none) dim_info.z_wait_out = DimInfo.wait_default;
+            if (dim_info.y_wait_out == DimInfo.value_none) dim_info.y_wait_out = DimInfo.wait_default;
+            if (dim_info.x_wait_out == DimInfo.value_none) dim_info.x_wait_out = DimInfo.wait_default;
+            if (dim_info.a_wait_in == DimInfo.value_none) dim_info.a_wait_in = DimInfo.wait_default;
+            if (dim_info.z_wait_in == DimInfo.value_none) dim_info.z_wait_in = DimInfo.wait_default;
+            if (dim_info.y_wait_in == DimInfo.value_none) dim_info.y_wait_in = DimInfo.wait_default;
+            if (dim_info.x_wait_in == DimInfo.value_none) dim_info.x_wait_in = DimInfo.wait_default;
+
+            if (dim_info.a_stride_out == DimInfo.value_none) dim_info.a_stride_out = DimInfo.stride_default;
+            if (dim_info.z_stride_out == DimInfo.value_none) dim_info.z_stride_out = DimInfo.stride_default;
+            if (dim_info.y_stride_out == DimInfo.value_none) dim_info.y_stride_out = DimInfo.stride_default;
+            if (dim_info.x_stride_out == DimInfo.value_none) dim_info.x_stride_out = DimInfo.stride_default;
+            if (dim_info.a_stride_in == DimInfo.value_none) dim_info.a_stride_in = DimInfo.stride_default;
+            if (dim_info.z_stride_in == DimInfo.value_none) dim_info.z_stride_in = DimInfo.stride_default;
+            if (dim_info.y_stride_in == DimInfo.value_none) dim_info.y_stride_in = DimInfo.stride_default;
+            if (dim_info.x_stride_in == DimInfo.value_none) dim_info.x_stride_in = DimInfo.stride_default;
+
+            if (dim_info.a_reset_out == DimInfo.value_none) dim_info.a_reset_out = DimInfo.reset_default;
+            if (dim_info.z_reset_out == DimInfo.value_none) dim_info.z_reset_out = DimInfo.reset_default;
+            if (dim_info.y_reset_out == DimInfo.value_none) dim_info.y_reset_out = DimInfo.reset_default;
+            if (dim_info.x_reset_out == DimInfo.value_none) dim_info.x_reset_out = DimInfo.reset_default;
+            if (dim_info.a_reset_in == DimInfo.value_none) dim_info.a_reset_in = DimInfo.reset_default;
+            if (dim_info.z_reset_in == DimInfo.value_none) dim_info.z_reset_in = DimInfo.reset_default;
+            if (dim_info.y_reset_in == DimInfo.value_none) dim_info.y_reset_in = DimInfo.reset_default;
+            if (dim_info.x_reset_in == DimInfo.value_none) dim_info.x_reset_in = DimInfo.reset_default;
+            if (this.assign[assign_idx].inlined) |inlined| {
+                for (0..inlined.inlined_num) |inlined_idx| {
+                    const inlined_info: *DimInfo = &inlined.base[inlined_idx].dim_info;
+                    if (inlined_info.a_wait_out == DimInfo.value_none) inlined_info.a_wait_out = DimInfo.wait_default;
+                    if (inlined_info.z_wait_out == DimInfo.value_none) inlined_info.z_wait_out = DimInfo.wait_default;
+                    if (inlined_info.y_wait_out == DimInfo.value_none) inlined_info.y_wait_out = DimInfo.wait_default;
+                    if (inlined_info.x_wait_out == DimInfo.value_none) inlined_info.x_wait_out = DimInfo.wait_default;
+                    if (inlined_info.a_wait_in == DimInfo.value_none) inlined_info.a_wait_in = DimInfo.wait_default;
+                    if (inlined_info.z_wait_in == DimInfo.value_none) inlined_info.z_wait_in = DimInfo.wait_default;
+                    if (inlined_info.y_wait_in == DimInfo.value_none) inlined_info.y_wait_in = DimInfo.wait_default;
+                    if (inlined_info.x_wait_in == DimInfo.value_none) inlined_info.x_wait_in = DimInfo.wait_default;
+
+                    if (inlined_info.a_stride_out == DimInfo.value_none) inlined_info.a_stride_out = DimInfo.stride_default;
+                    if (inlined_info.z_stride_out == DimInfo.value_none) inlined_info.z_stride_out = DimInfo.stride_default;
+                    if (inlined_info.y_stride_out == DimInfo.value_none) inlined_info.y_stride_out = DimInfo.stride_default;
+                    if (inlined_info.x_stride_out == DimInfo.value_none) inlined_info.x_stride_out = DimInfo.stride_default;
+                    if (inlined_info.a_stride_in == DimInfo.value_none) inlined_info.a_stride_in = DimInfo.stride_default;
+                    if (inlined_info.z_stride_in == DimInfo.value_none) inlined_info.z_stride_in = DimInfo.stride_default;
+                    if (inlined_info.y_stride_in == DimInfo.value_none) inlined_info.y_stride_in = DimInfo.stride_default;
+                    if (inlined_info.x_stride_in == DimInfo.value_none) inlined_info.x_stride_in = DimInfo.stride_default;
+
+                    if (inlined_info.a_reset_out == DimInfo.value_none) inlined_info.a_reset_out = DimInfo.reset_default;
+                    if (inlined_info.z_reset_out == DimInfo.value_none) inlined_info.z_reset_out = DimInfo.reset_default;
+                    if (inlined_info.y_reset_out == DimInfo.value_none) inlined_info.y_reset_out = DimInfo.reset_default;
+                    if (inlined_info.x_reset_out == DimInfo.value_none) inlined_info.x_reset_out = DimInfo.reset_default;
+                    if (inlined_info.a_reset_in == DimInfo.value_none) inlined_info.a_reset_in = DimInfo.reset_default;
+                    if (inlined_info.z_reset_in == DimInfo.value_none) inlined_info.z_reset_in = DimInfo.reset_default;
+                    if (inlined_info.y_reset_in == DimInfo.value_none) inlined_info.y_reset_in = DimInfo.reset_default;
+                    if (inlined_info.x_reset_in == DimInfo.value_none) inlined_info.x_reset_in = DimInfo.reset_default;
+                }
+            }
+        }
     }
     pub fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !void {
         if (optimization == .O0) {
@@ -433,7 +494,7 @@ pub const Ssa = struct {
         }
 
         try opt.inlineOp(allocator, this);
-        // try opt.parallelize(allocator, this);
+        try opt.parallelize(allocator, this);
         try opt.splitKernel(allocator, this);
 
         if (optimization == .O1) {
@@ -455,8 +516,7 @@ pub const Ssa = struct {
             std.debug.print("{s}SSA\n", .{" " ** offset});
         }
         for (0..this.assign_num) |assign_idx| {
-            const id: u32 = this.assign_loop_id[assign_idx];
-            std.debug.print("{s}[{}] => Loop id {} num {}\n", .{ " " ** offset, assign_idx, id, this.assign_loop_num[id] });
+            std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
             this.assign[assign_idx].print(padding, offset + padding, null);
         }
     }

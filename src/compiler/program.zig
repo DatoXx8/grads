@@ -59,8 +59,8 @@ pub const Program = struct {
 
         var ssa: Ssa = try Ssa.alloc(allocator, linearized);
         defer ssa.free(allocator);
-
         try ssa.optimize(allocator, optimization);
+        ssa.removeDefault();
 
         var source: []u8 = try allocator.alloc(u8, source_padding);
         errdefer allocator.free(source);
@@ -74,47 +74,25 @@ pub const Program = struct {
             if (ssa.assign_num == 0) 0 else std.math.log10_int(ssa.assign_num) + 2);
         defer allocator.free(kernel_name);
 
-        var kernel_num: u32 = 0;
         var assign_idx: u32 = 0;
 
-        for (0..ssa.assign_num) |_| {
-            if (assign_idx == ssa.assign_num) {
-                break;
-            }
-            assert(assign_idx < ssa.assign_num);
-
-            var assign_idx_top: u32 = assign_idx + 1;
-            for (assign_idx + 1..ssa.assign_num) |assign_idx_search| {
-                if (ssa.assign[assign_idx].base.layer() == ssa.assign[assign_idx_search].base.layer()) {
-                    if (ssa.assign_loop_id[assign_idx] == ssa.assign_loop_id[assign_idx_search]) {
-                        assign_idx_top += 1;
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-            const layer: []Assign = ssa.assign[assign_idx..assign_idx_top];
+        while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
 
             // $NOTE This should be enough work to justify storing it in memory
             // $TODO Rethink this when I refactor the args gathering
-            kernel_args[kernel_num] = try Args.alloc(allocator, layer);
+            kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
 
             @memset(kernel_name, 0);
-            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{kernel_num})).len;
+            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{assign_idx})).len;
 
-            try compileKernel(allocator, &source, &source_len, layer, ssa.assign_loop_num[ssa.assign_loop_id[assign_idx]], //
-                kernel_name[0..kernel_name_len], kernel_args[kernel_num], size_global, size_local);
-
-            kernel_num += 1;
-            assign_idx = assign_idx_top;
+            try compileKernel(allocator, &source, &source_len, ssa.assign[assign_idx], //
+                kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
         }
 
         const program: ClProgram = try ClProgram.alloc(allocator, context, device, source);
-        var kernel: []Kernel = try allocator.alloc(Kernel, kernel_num);
+        var kernel: []Kernel = try allocator.alloc(Kernel, ssa.assign_num);
 
-        for (0..kernel_num) |kernel_idx| {
+        for (0..ssa.assign_num) |kernel_idx| {
             @memset(kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name ++ "\x00", .{kernel_idx})).len;
             kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
