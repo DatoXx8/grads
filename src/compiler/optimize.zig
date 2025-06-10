@@ -195,15 +195,19 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
 
 // $TODO Support reordering
 fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
-    if ((base.inlined == null) != (merge.inlined == null)) return false;
+    if ((base.inlined == null) != (merge.inlined == null)) {
+        return false;
+    }
 
     assert((if (base.inlined) |i| i.inlined_num else 0) == (if (merge.inlined) |i| i.inlined_num else 0));
     const base_num: u32 = 1 + if (base.inlined) |i| i.inlined_num else 0;
 
     for (0..base_num) |base_idx| {
         const pre: Base = if (base_idx == 0) base.base else base.inlined.?.base[base_idx - 1];
-        const post: Base = if (base_idx == 0) base.base else base.inlined.?.base[base_idx - 1];
-        if (!pre.out.equalNoOffset(post.out) or !pre.in.equalNoOffset(post.in)) return false;
+        const post: Base = if (base_idx == 0) merge.base else merge.inlined.?.base[base_idx - 1];
+        if (!pre.equalNoOffset(post)) {
+            return false;
+        }
 
         inline for (0..8) |dim_idx| {
             const wait: u32 = switch (dim_idx) {
@@ -240,25 +244,25 @@ fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
                 else => unreachable,
             };
             const off_pre: u32 = switch (dim_idx) {
-                0 => pre.dim_info.off_out,
-                1 => pre.dim_info.off_out,
-                2 => pre.dim_info.off_out,
-                3 => pre.dim_info.off_out,
-                4 => pre.dim_info.off_in,
-                5 => pre.dim_info.off_in,
-                6 => pre.dim_info.off_in,
-                7 => pre.dim_info.off_in,
+                0 => pre.out.aOffset(),
+                1 => pre.out.zOffset(),
+                2 => pre.out.yOffset(),
+                3 => pre.out.xOffset(),
+                4 => pre.in.aOffset(),
+                5 => pre.in.zOffset(),
+                6 => pre.in.yOffset(),
+                7 => pre.in.xOffset(),
                 else => unreachable,
             };
             const off_merge: u32 = switch (dim_idx) {
-                0 => post.dim_info.off_out,
-                1 => post.dim_info.off_out,
-                2 => post.dim_info.off_out,
-                3 => post.dim_info.off_out,
-                4 => post.dim_info.off_in,
-                5 => post.dim_info.off_in,
-                6 => post.dim_info.off_in,
-                7 => post.dim_info.off_in,
+                0 => post.out.aOffset(),
+                1 => post.out.zOffset(),
+                2 => post.out.yOffset(),
+                3 => post.out.xOffset(),
+                4 => post.in.aOffset(),
+                5 => post.in.zOffset(),
+                6 => post.in.yOffset(),
+                7 => post.in.xOffset(),
                 else => unreachable,
             };
             if (wait == DimInfo.value_none) {
@@ -266,11 +270,11 @@ fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
             } else {
                 assert(stride != DimInfo.value_none);
                 if (reset == DimInfo.value_none) {
-                    if (@divFloor(pre.dim_info.repeats + 1, wait) * stride != off_merge and off_pre != off_merge) {
+                    if (off_pre != off_merge and @divFloor(pre.dim_info.repeats, wait) * stride != (off_merge - off_pre)) {
                         return false;
                     }
                 } else {
-                    if (@divFloor((pre.dim_info.repeats + 1) % reset, wait) * stride != off_merge) {
+                    if (@divFloor((pre.dim_info.repeats) % reset, wait) * stride != (off_merge - off_pre)) {
                         return false;
                     }
                 }
@@ -280,93 +284,96 @@ fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
 
     return true;
 }
-fn dimInfoMerge(base: *Assign, merge: Assign) void {
+fn dimInfoMerge(base: Assign, merge: *Assign) void {
     assert((base.inlined == null) == (merge.inlined == null));
     assert((if (base.inlined) |i| i.inlined_num else 0) == (if (merge.inlined) |i| i.inlined_num else 0));
-    assert(dimInfoMergePossible(base.*, merge)); // Might be a bit slow to check every time
+    assert(dimInfoMergePossible(base, merge.*)); // Might be a bit slow to check every time
 
     const base_num: u32 = 1 + if (base.inlined) |i| i.inlined_num else 0;
 
     for (0..base_num) |base_idx| {
-        const pre: *Base = if (base_idx == 0) &base.base else &base.inlined.?.base[base_idx - 1];
-        const post: *Base = if (base_idx == 0) &base.base else &base.inlined.?.base[base_idx - 1];
+        const pre: *const Base = if (base_idx == 0) &base.base else &base.inlined.?.base[base_idx - 1];
+        const post: *Base = if (base_idx == 0) &merge.base else &merge.inlined.?.base[base_idx - 1];
+
         var modified: DimInfo = pre.dim_info;
 
         inline for (0..8) |dim_idx| {
             const wait: *u32 = switch (dim_idx) {
-                0 => &pre.dim_info.a_wait_out,
-                1 => &pre.dim_info.z_wait_out,
-                2 => &pre.dim_info.y_wait_out,
-                3 => &pre.dim_info.x_wait_out,
-                4 => &pre.dim_info.a_wait_in,
-                5 => &pre.dim_info.z_wait_in,
-                6 => &pre.dim_info.y_wait_in,
-                7 => &pre.dim_info.x_wait_in,
+                0 => &modified.a_wait_out,
+                1 => &modified.z_wait_out,
+                2 => &modified.y_wait_out,
+                3 => &modified.x_wait_out,
+                4 => &modified.a_wait_in,
+                5 => &modified.z_wait_in,
+                6 => &modified.y_wait_in,
+                7 => &modified.x_wait_in,
                 else => unreachable,
             };
             const stride: *u32 = switch (dim_idx) {
-                0 => &pre.dim_info.a_stride_out,
-                1 => &pre.dim_info.z_stride_out,
-                2 => &pre.dim_info.y_stride_out,
-                3 => &pre.dim_info.x_stride_out,
-                4 => &pre.dim_info.a_stride_in,
-                5 => &pre.dim_info.z_stride_in,
-                6 => &pre.dim_info.y_stride_in,
-                7 => &pre.dim_info.x_stride_in,
+                0 => &modified.a_stride_out,
+                1 => &modified.z_stride_out,
+                2 => &modified.y_stride_out,
+                3 => &modified.x_stride_out,
+                4 => &modified.a_stride_in,
+                5 => &modified.z_stride_in,
+                6 => &modified.y_stride_in,
+                7 => &modified.x_stride_in,
                 else => unreachable,
             };
             const reset: *u32 = switch (dim_idx) {
-                0 => &pre.dim_info.a_reset_out,
-                1 => &pre.dim_info.z_reset_out,
-                2 => &pre.dim_info.y_reset_out,
-                3 => &pre.dim_info.x_reset_out,
-                4 => &pre.dim_info.a_reset_in,
-                5 => &pre.dim_info.z_reset_in,
-                6 => &pre.dim_info.y_reset_in,
-                7 => &pre.dim_info.x_reset_in,
+                0 => &modified.a_reset_out,
+                1 => &modified.z_reset_out,
+                2 => &modified.y_reset_out,
+                3 => &modified.x_reset_out,
+                4 => &modified.a_reset_in,
+                5 => &modified.z_reset_in,
+                6 => &modified.y_reset_in,
+                7 => &modified.x_reset_in,
                 else => unreachable,
             };
-            const off_pre: *u32 = switch (dim_idx) {
-                0 => &pre.dim_info.off_out,
-                1 => &pre.dim_info.off_out,
-                2 => &pre.dim_info.off_out,
-                3 => &pre.dim_info.off_out,
-                4 => &pre.dim_info.off_in,
-                5 => &pre.dim_info.off_in,
-                6 => &pre.dim_info.off_in,
-                7 => &pre.dim_info.off_in,
+            const off_pre: u32 = switch (dim_idx) {
+                0 => pre.out.aOffset(),
+                1 => pre.out.zOffset(),
+                2 => pre.out.yOffset(),
+                3 => pre.out.xOffset(),
+                4 => pre.in.aOffset(),
+                5 => pre.in.zOffset(),
+                6 => pre.in.yOffset(),
+                7 => pre.in.xOffset(),
                 else => unreachable,
             };
-            const off_post: *const u32 = switch (dim_idx) {
-                0 => &post.dim_info.off_out,
-                1 => &post.dim_info.off_out,
-                2 => &post.dim_info.off_out,
-                3 => &post.dim_info.off_out,
-                4 => &post.dim_info.off_in,
-                5 => &post.dim_info.off_in,
-                6 => &post.dim_info.off_in,
-                7 => &post.dim_info.off_in,
+            const off_post: u32 = switch (dim_idx) {
+                0 => post.out.aOffset(),
+                1 => post.out.zOffset(),
+                2 => post.out.yOffset(),
+                3 => post.out.xOffset(),
+                4 => post.in.aOffset(),
+                5 => post.in.zOffset(),
+                6 => post.in.yOffset(),
+                7 => post.in.xOffset(),
                 else => unreachable,
             };
             if (wait.* == DimInfo.value_none) {
                 assert(stride.* == DimInfo.value_none);
-                if (off_pre.* != off_post.*) {
-                    assert(off_pre.* < off_post.*);
+                if (off_pre != off_post) {
+                    assert(off_pre < off_post);
                     wait.* = pre.dim_info.repeats;
-                    stride.* = off_post.* - off_pre.*;
+                    stride.* = off_post - off_pre;
                 }
             } else {
                 assert(stride.* != DimInfo.value_none);
                 if (reset.* == DimInfo.value_none) {
-                    if (off_pre.* == off_post.*) {
-                        reset.* = pre.dim_info.repeats;
+                    if (off_pre == off_post) {
+                        reset.* = pre.dim_info.repeats; // $FIXME This might need to be repeats + 1
                     }
                 }
             }
         }
         modified.repeats += 1;
 
-        pre.dim_info = modified;
+        post.dim_info = modified;
+        post.out = pre.out;
+        post.in = pre.in;
     }
 }
 
@@ -381,8 +388,7 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
             ssa.assign[start_idx].base.out.overlaps(ssa.assign[assign_idx].base.in)) break;
 
         if (dimInfoMergePossible(ssa.assign[start_idx], ssa.assign[assign_idx])) {
-            dimInfoMerge(&ssa.assign[start_idx], ssa.assign[assign_idx]);
-            std.mem.swap(Assign, &ssa.assign[start_idx], &ssa.assign[assign_idx]);
+            dimInfoMerge(ssa.assign[start_idx], &ssa.assign[assign_idx]);
             return true;
         }
     }
