@@ -265,6 +265,11 @@ fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
                 7 => post.in.xOffset(),
                 else => unreachable,
             };
+
+            if (off_merge < off_pre) {
+                return false;
+            }
+
             if (wait == DimInfo.value_none) {
                 assert(stride == DimInfo.value_none);
             } else {
