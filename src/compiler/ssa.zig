@@ -47,20 +47,22 @@ pub const DimInfo = struct {
         if (name) |text| {
             std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
         }
-        std.debug.print("{s}str => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             this.a_stride, this.z_stride, this.y_stride, this.x_stride, //
         });
-        std.debug.print("{s}res => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}res => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             this.a_reset, this.z_reset, this.y_reset, this.x_reset, //
         });
-        std.debug.print("{s}wai => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}wai => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             this.a_wait, this.z_wait, this.y_wait, this.x_wait, //
         });
     }
 };
+
+// $NOTE I removed the dependency layers for now, because they just weren't used anywhere. Add those back if necessary.
 
 /// The basic thing the Assignment does without any funny business
 pub const Base = struct {
@@ -72,12 +74,6 @@ pub const Base = struct {
     repeats: u32,
     out_dim: DimInfo,
     in_dim: DimInfo,
-    // $NOTE If you need more dependency layers than this there's some funky stuff going on
-    layer_out: u32,
-    layer_in: u32,
-    pub inline fn layer(this: @This()) u32 {
-        return @max(this.layer_out, this.layer_in);
-    }
     // $TODO Unsure how to check the layer things
     pub inline fn equal(this: @This(), target: @This()) bool {
         return this.out.equal(target.out) and this.in.equal(target.in) and
@@ -132,7 +128,7 @@ pub const Base = struct {
             std.debug.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
         if (this.type.isUnary()) {
-            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {d} {}\n", .{
+            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {d}\n", .{
                 " " ** (offset + padding),
                 switch (this.type) {
                     .unary_add => "add",
@@ -165,11 +161,10 @@ pub const Base = struct {
                 this.out.intermediary,
                 this.out.name(),
                 this.u_var,
-                this.layer(),
             });
         } else {
             const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isExpand()) 'E' else (if (this.type.isReduce()) 'R' else unreachable));
-            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {}\n", .{
+            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\"\n", .{
                 " " ** (offset + padding),
                 op_kind,
                 switch (this.type) {
@@ -215,7 +210,6 @@ pub const Base = struct {
                 this.in.offset,
                 this.in.intermediary,
                 this.in.name(),
-                this.layer(),
             });
         }
         std.debug.print("{s}Repeats {}\n", .{ " " ** (offset + padding), this.repeats });
@@ -328,32 +322,16 @@ pub const Ssa = struct {
     pub fn alloc(allocator: Allocator, linearized: Linearized) !Ssa {
         assert(linearized.op_num > 0);
 
-        var layer_read = std.AutoArrayHashMap(u64, u32).init(allocator);
-        errdefer layer_read.deinit();
-        defer layer_read.deinit();
-        var layer_write = std.AutoArrayHashMap(u64, u32).init(allocator);
-        errdefer layer_write.deinit();
-        defer layer_write.deinit();
-
         const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
         errdefer allocator.free(assign);
 
         for (0..linearized.op_num) |op_idx| {
-            const layer_out: u32 = @max(
-                layer_write.get(linearized.op[op_idx].out.id) orelse 0,
-                layer_read.get(linearized.op[op_idx].out.id) orelse 0,
-            );
-            const layer_in: u32 = layer_write.get(linearized.op[op_idx].in.id) orelse 0;
-            const layer_idx: u32 = @max(layer_out, layer_in);
-
             assign[op_idx] = .{
                 .base = .{
                     .type = linearized.op[op_idx].type,
                     .u_var = linearized.op[op_idx].u_var,
                     .out = linearized.op[op_idx].out,
                     .in = linearized.op[op_idx].in,
-                    .layer_out = layer_out,
-                    .layer_in = layer_in,
                     .out_dim = DimInfo.init(assign[op_idx].base.out.offset),
                     .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
                     .repeats = 1,
@@ -363,10 +341,6 @@ pub const Ssa = struct {
                 .simd = null,
                 .block = null,
             };
-
-            // $NOTE This overwrites the data if it already existed
-            try layer_write.put(assign[op_idx].base.out.id, layer_idx + 1);
-            try layer_read.put(assign[op_idx].base.in.id, layer_idx + 1);
         }
 
         // $NOTE Why was this ever here? Just to group assignments that could be on the same layer?
