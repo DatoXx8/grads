@@ -191,11 +191,10 @@ pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
 
 // $TODO Support reordering
 fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
-    if ((base.inlined == null) != (merge.inlined == null)) {
+    if ((if (base.inlined) |i| i.inlined_num else 0) != (if (merge.inlined) |i| i.inlined_num else 0)) {
         return false;
     }
 
-    assert((if (base.inlined) |i| i.inlined_num else 0) == (if (merge.inlined) |i| i.inlined_num else 0));
     const base_num: u32 = 1 + if (base.inlined) |i| i.inlined_num else 0;
 
     for (0..base_num) |base_idx| {
@@ -424,14 +423,18 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
     var assign_idx: u32 = start_idx + 1;
 
     while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
-        // $FIXME Need to check between overlap including the dim_info offsets
-        const overlap_out: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
+        // $NOTE I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
+        // At the very least it is not obvious to me how to loosen them.
+        const overlap_out_out: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
             dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
                 ssa.assign[assign_idx].base.out, ssa.assign[assign_idx].base.out_dim, ssa.assign[assign_idx].base.repeats);
-        const overlap_in: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.in.id and
+        const overlap_out_in: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.in.id and
             dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
                 ssa.assign[assign_idx].base.in, ssa.assign[assign_idx].base.in_dim, ssa.assign[assign_idx].base.repeats);
-        if (overlap_out or overlap_in) {
+        const overlap_in_out: bool = ssa.assign[start_idx].base.in.id == ssa.assign[assign_idx].base.out.id and
+            dimInfoOverlap(ssa.assign[start_idx].base.in, ssa.assign[start_idx].base.in_dim, ssa.assign[start_idx].base.repeats, //
+                ssa.assign[assign_idx].base.out, ssa.assign[assign_idx].base.out_dim, ssa.assign[assign_idx].base.repeats);
+        if (overlap_out_out or overlap_out_in or overlap_in_out) {
             break;
         }
 
