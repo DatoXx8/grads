@@ -13,84 +13,52 @@ pub const DimInfo = struct {
     pub const wait_default: u32 = 1;
     pub const stride_default: u32 = 0;
     pub const reset_default: u32 = ~(value_none >> 1); // Just the highest bit
-    repeats: u32,
-    off_out: u32,
-    off_in: u32,
-    a_stride_out: u32,
-    z_stride_out: u32,
-    y_stride_out: u32,
-    x_stride_out: u32,
-    a_stride_in: u32,
-    z_stride_in: u32,
-    y_stride_in: u32,
-    x_stride_in: u32,
-    a_reset_out: u32,
-    z_reset_out: u32,
-    y_reset_out: u32,
-    x_reset_out: u32,
-    a_reset_in: u32,
-    z_reset_in: u32,
-    y_reset_in: u32,
-    x_reset_in: u32,
-    a_wait_out: u32,
-    z_wait_out: u32,
-    y_wait_out: u32,
-    x_wait_out: u32,
-    a_wait_in: u32,
-    z_wait_in: u32,
-    y_wait_in: u32,
-    x_wait_in: u32,
-    pub fn init(base: Base) DimInfo {
+    off: u32,
+    a_stride: u32,
+    z_stride: u32,
+    y_stride: u32,
+    x_stride: u32,
+    a_reset: u32,
+    z_reset: u32,
+    y_reset: u32,
+    x_reset: u32,
+    a_wait: u32,
+    z_wait: u32,
+    y_wait: u32,
+    x_wait: u32,
+    pub fn init(offset: u32) DimInfo {
         return .{
-            .repeats = 1,
-            .off_out = base.out.offset,
-            .off_in = base.in.offset,
-            .a_stride_out = value_none,
-            .z_stride_out = value_none,
-            .y_stride_out = value_none,
-            .x_stride_out = value_none,
-            .a_stride_in = value_none,
-            .z_stride_in = value_none,
-            .y_stride_in = value_none,
-            .x_stride_in = value_none,
-            .a_reset_out = value_none,
-            .z_reset_out = value_none,
-            .y_reset_out = value_none,
-            .x_reset_out = value_none,
-            .a_reset_in = value_none,
-            .z_reset_in = value_none,
-            .y_reset_in = value_none,
-            .x_reset_in = value_none,
-            .a_wait_out = value_none,
-            .z_wait_out = value_none,
-            .y_wait_out = value_none,
-            .x_wait_out = value_none,
-            .a_wait_in = value_none,
-            .z_wait_in = value_none,
-            .y_wait_in = value_none,
-            .x_wait_in = value_none,
+            .off = offset,
+            .a_stride = value_none,
+            .z_stride = value_none,
+            .y_stride = value_none,
+            .x_stride = value_none,
+            .a_reset = value_none,
+            .z_reset = value_none,
+            .y_reset = value_none,
+            .x_reset = value_none,
+            .a_wait = value_none,
+            .z_wait = value_none,
+            .y_wait = value_none,
+            .x_wait = value_none,
         };
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
         }
-        std.debug.print("{s}str => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}str => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
-            this.a_stride_out, this.z_stride_out, this.y_stride_out, this.x_stride_out, //
-            this.a_stride_in,  this.z_stride_in,  this.y_stride_in,  this.x_stride_in,
+            this.a_stride, this.z_stride, this.y_stride, this.x_stride, //
         });
-        std.debug.print("{s}res => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}res => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
-            this.a_reset_out, this.z_reset_out, this.y_reset_out, this.x_reset_out, //
-            this.a_reset_in,  this.z_reset_in,  this.y_reset_in,  this.x_reset_in,
+            this.a_reset, this.z_reset, this.y_reset, this.x_reset, //
         });
-        std.debug.print("{s}wai => out({d:4}, {d:4}, {d:4}, {d:4}) in({d:4}, {d:4}, {d:4}, {d:4})\n", .{
+        std.debug.print("{s}wai => ({d:4}, {d:4}, {d:4}, {d:4})\n", .{
             " " ** (offset + padding), //
-            this.a_wait_out, this.z_wait_out, this.y_wait_out, this.x_wait_out, //
-            this.a_wait_in,  this.z_wait_in,  this.y_wait_in,  this.x_wait_in,
+            this.a_wait, this.z_wait, this.y_wait, this.x_wait, //
         });
-        std.debug.print("{s}rep => {d:4}\n", .{ " " ** (offset + padding), this.repeats });
     }
 };
 
@@ -100,7 +68,10 @@ pub const Base = struct {
     in: Buffer,
     type: Op.Type,
     u_var: f32,
-    dim_info: DimInfo,
+    // $FIXME kind of unhappy this is separate but having it in dim_info would store it twice for no reason
+    repeats: u32,
+    out_dim: DimInfo,
+    in_dim: DimInfo,
     // $NOTE If you need more dependency layers than this there's some funky stuff going on
     layer_out: u32,
     layer_in: u32,
@@ -247,7 +218,9 @@ pub const Base = struct {
                 this.layer(),
             });
         }
-        this.dim_info.print(padding, padding + offset, null);
+        std.debug.print("{s}Repeats {}\n", .{ " " ** (offset + padding), this.repeats });
+        this.out_dim.print(padding, padding + offset, "out_dim");
+        this.in_dim.print(padding, padding + offset, "in_dim");
     }
 };
 
@@ -381,15 +354,15 @@ pub const Ssa = struct {
                     .in = linearized.op[op_idx].in,
                     .layer_out = layer_out,
                     .layer_in = layer_in,
-                    .dim_info = undefined,
+                    .out_dim = DimInfo.init(assign[op_idx].base.out.offset),
+                    .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
+                    .repeats = 1,
                 },
                 .inlined = null,
                 .split = null,
                 .simd = null,
                 .block = null,
             };
-
-            assign[op_idx].base.dim_info = DimInfo.init(assign[op_idx].base);
 
             // $NOTE This overwrites the data if it already existed
             try layer_write.put(assign[op_idx].base.out.id, layer_idx + 1);
@@ -428,62 +401,46 @@ pub const Ssa = struct {
     }
     pub fn removeDefault(this: *@This()) void {
         for (0..this.assign_num) |assign_idx| {
-            const dim_info: *DimInfo = &this.assign[assign_idx].base.dim_info;
-            if (dim_info.a_wait_out == DimInfo.value_none) dim_info.a_wait_out = DimInfo.wait_default;
-            if (dim_info.z_wait_out == DimInfo.value_none) dim_info.z_wait_out = DimInfo.wait_default;
-            if (dim_info.y_wait_out == DimInfo.value_none) dim_info.y_wait_out = DimInfo.wait_default;
-            if (dim_info.x_wait_out == DimInfo.value_none) dim_info.x_wait_out = DimInfo.wait_default;
-            if (dim_info.a_wait_in == DimInfo.value_none) dim_info.a_wait_in = DimInfo.wait_default;
-            if (dim_info.z_wait_in == DimInfo.value_none) dim_info.z_wait_in = DimInfo.wait_default;
-            if (dim_info.y_wait_in == DimInfo.value_none) dim_info.y_wait_in = DimInfo.wait_default;
-            if (dim_info.x_wait_in == DimInfo.value_none) dim_info.x_wait_in = DimInfo.wait_default;
+            inline for (0..2) |dim_idx| {
+                const dim_info: *DimInfo = if (dim_idx == 0)
+                    &this.assign[assign_idx].base.out_dim
+                else
+                    &this.assign[assign_idx].base.in_dim;
+                if (dim_info.a_wait == DimInfo.value_none) dim_info.a_wait = DimInfo.wait_default;
+                if (dim_info.z_wait == DimInfo.value_none) dim_info.z_wait = DimInfo.wait_default;
+                if (dim_info.y_wait == DimInfo.value_none) dim_info.y_wait = DimInfo.wait_default;
+                if (dim_info.x_wait == DimInfo.value_none) dim_info.x_wait = DimInfo.wait_default;
 
-            if (dim_info.a_stride_out == DimInfo.value_none) dim_info.a_stride_out = DimInfo.stride_default;
-            if (dim_info.z_stride_out == DimInfo.value_none) dim_info.z_stride_out = DimInfo.stride_default;
-            if (dim_info.y_stride_out == DimInfo.value_none) dim_info.y_stride_out = DimInfo.stride_default;
-            if (dim_info.x_stride_out == DimInfo.value_none) dim_info.x_stride_out = DimInfo.stride_default;
-            if (dim_info.a_stride_in == DimInfo.value_none) dim_info.a_stride_in = DimInfo.stride_default;
-            if (dim_info.z_stride_in == DimInfo.value_none) dim_info.z_stride_in = DimInfo.stride_default;
-            if (dim_info.y_stride_in == DimInfo.value_none) dim_info.y_stride_in = DimInfo.stride_default;
-            if (dim_info.x_stride_in == DimInfo.value_none) dim_info.x_stride_in = DimInfo.stride_default;
+                if (dim_info.a_stride == DimInfo.value_none) dim_info.a_stride = DimInfo.stride_default;
+                if (dim_info.z_stride == DimInfo.value_none) dim_info.z_stride = DimInfo.stride_default;
+                if (dim_info.y_stride == DimInfo.value_none) dim_info.y_stride = DimInfo.stride_default;
+                if (dim_info.x_stride == DimInfo.value_none) dim_info.x_stride = DimInfo.stride_default;
 
-            if (dim_info.a_reset_out == DimInfo.value_none) dim_info.a_reset_out = DimInfo.reset_default;
-            if (dim_info.z_reset_out == DimInfo.value_none) dim_info.z_reset_out = DimInfo.reset_default;
-            if (dim_info.y_reset_out == DimInfo.value_none) dim_info.y_reset_out = DimInfo.reset_default;
-            if (dim_info.x_reset_out == DimInfo.value_none) dim_info.x_reset_out = DimInfo.reset_default;
-            if (dim_info.a_reset_in == DimInfo.value_none) dim_info.a_reset_in = DimInfo.reset_default;
-            if (dim_info.z_reset_in == DimInfo.value_none) dim_info.z_reset_in = DimInfo.reset_default;
-            if (dim_info.y_reset_in == DimInfo.value_none) dim_info.y_reset_in = DimInfo.reset_default;
-            if (dim_info.x_reset_in == DimInfo.value_none) dim_info.x_reset_in = DimInfo.reset_default;
-            if (this.assign[assign_idx].inlined) |inlined| {
-                for (0..inlined.inlined_num) |inlined_idx| {
-                    const inlined_info: *DimInfo = &inlined.base[inlined_idx].dim_info;
-                    if (inlined_info.a_wait_out == DimInfo.value_none) inlined_info.a_wait_out = DimInfo.wait_default;
-                    if (inlined_info.z_wait_out == DimInfo.value_none) inlined_info.z_wait_out = DimInfo.wait_default;
-                    if (inlined_info.y_wait_out == DimInfo.value_none) inlined_info.y_wait_out = DimInfo.wait_default;
-                    if (inlined_info.x_wait_out == DimInfo.value_none) inlined_info.x_wait_out = DimInfo.wait_default;
-                    if (inlined_info.a_wait_in == DimInfo.value_none) inlined_info.a_wait_in = DimInfo.wait_default;
-                    if (inlined_info.z_wait_in == DimInfo.value_none) inlined_info.z_wait_in = DimInfo.wait_default;
-                    if (inlined_info.y_wait_in == DimInfo.value_none) inlined_info.y_wait_in = DimInfo.wait_default;
-                    if (inlined_info.x_wait_in == DimInfo.value_none) inlined_info.x_wait_in = DimInfo.wait_default;
+                if (dim_info.a_reset == DimInfo.value_none) dim_info.a_reset = DimInfo.reset_default;
+                if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
+                if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
+                if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
+                if (this.assign[assign_idx].inlined) |inlined| {
+                    for (0..inlined.inlined_num) |inlined_idx| {
+                        const inlined_info: *DimInfo = if (dim_idx == 0)
+                            &inlined.base[inlined_idx].out_dim
+                        else
+                            &inlined.base[inlined_idx].in_dim;
+                        if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
+                        if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
+                        if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
+                        if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
 
-                    if (inlined_info.a_stride_out == DimInfo.value_none) inlined_info.a_stride_out = DimInfo.stride_default;
-                    if (inlined_info.z_stride_out == DimInfo.value_none) inlined_info.z_stride_out = DimInfo.stride_default;
-                    if (inlined_info.y_stride_out == DimInfo.value_none) inlined_info.y_stride_out = DimInfo.stride_default;
-                    if (inlined_info.x_stride_out == DimInfo.value_none) inlined_info.x_stride_out = DimInfo.stride_default;
-                    if (inlined_info.a_stride_in == DimInfo.value_none) inlined_info.a_stride_in = DimInfo.stride_default;
-                    if (inlined_info.z_stride_in == DimInfo.value_none) inlined_info.z_stride_in = DimInfo.stride_default;
-                    if (inlined_info.y_stride_in == DimInfo.value_none) inlined_info.y_stride_in = DimInfo.stride_default;
-                    if (inlined_info.x_stride_in == DimInfo.value_none) inlined_info.x_stride_in = DimInfo.stride_default;
+                        if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
+                        if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
+                        if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
+                        if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
 
-                    if (inlined_info.a_reset_out == DimInfo.value_none) inlined_info.a_reset_out = DimInfo.reset_default;
-                    if (inlined_info.z_reset_out == DimInfo.value_none) inlined_info.z_reset_out = DimInfo.reset_default;
-                    if (inlined_info.y_reset_out == DimInfo.value_none) inlined_info.y_reset_out = DimInfo.reset_default;
-                    if (inlined_info.x_reset_out == DimInfo.value_none) inlined_info.x_reset_out = DimInfo.reset_default;
-                    if (inlined_info.a_reset_in == DimInfo.value_none) inlined_info.a_reset_in = DimInfo.reset_default;
-                    if (inlined_info.z_reset_in == DimInfo.value_none) inlined_info.z_reset_in = DimInfo.reset_default;
-                    if (inlined_info.y_reset_in == DimInfo.value_none) inlined_info.y_reset_in = DimInfo.reset_default;
-                    if (inlined_info.x_reset_in == DimInfo.value_none) inlined_info.x_reset_in = DimInfo.reset_default;
+                        if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
+                        if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
+                        if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
+                        if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
+                    }
                 }
             }
         }

@@ -9,6 +9,7 @@ const ClContext = @import("./runtimes/cl.zig").ClContext;
 const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
 const Tensor = @import("./tensor.zig").Tensor;
 
+// $TODO Log failing simulator seeds to some test database file
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)
 // $TODO Factor out all the places in which we create random linearized ops. This also makes it easier to keep consistent prng states across the simulator and profiler

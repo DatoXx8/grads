@@ -43,7 +43,8 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.?.base[inlined_idx - 1];
-        const dim_info: DimInfo = base.dim_info;
+        const out_dim: DimInfo = base.out_dim;
+        const in_dim: DimInfo = base.in_dim;
         try writeSource(
             allocator,
             source,
@@ -51,11 +52,11 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
             "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
             .{
                 base.out.name(), kernel_loop_idx, assign_idx, inlined_idx, //
-                dim_info.a_reset_out, dim_info.a_wait_out, dim_info.a_stride_out * base.out.a_stride, //
-                dim_info.z_reset_out, dim_info.z_wait_out, dim_info.z_stride_out * base.out.z_stride, //
-                dim_info.y_reset_out, dim_info.y_wait_out, dim_info.y_stride_out * base.out.y_stride, //
-                dim_info.x_reset_out, dim_info.x_wait_out, dim_info.x_stride_out * base.out.x_stride, //
-                dim_info.off_out,
+                out_dim.a_reset, out_dim.a_wait, out_dim.a_stride * base.out.a_stride, //
+                out_dim.z_reset, out_dim.z_wait, out_dim.z_stride * base.out.z_stride, //
+                out_dim.y_reset, out_dim.y_wait, out_dim.y_stride * base.out.y_stride, //
+                out_dim.x_reset, out_dim.x_wait, out_dim.x_stride * base.out.x_stride, //
+                out_dim.off,
             },
         );
         if (!base.type.isUnary()) {
@@ -66,11 +67,11 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                 "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, assign_idx, inlined_idx, //
-                    dim_info.a_reset_in, dim_info.a_wait_in, dim_info.a_stride_in * base.in.a_stride, //
-                    dim_info.z_reset_in, dim_info.z_wait_in, dim_info.z_stride_in * base.in.z_stride, //
-                    dim_info.y_reset_in, dim_info.y_wait_in, dim_info.y_stride_in * base.in.y_stride, //
-                    dim_info.x_reset_in, dim_info.x_wait_in, dim_info.x_stride_in * base.in.x_stride, //
-                    dim_info.off_in,
+                    in_dim.a_reset, in_dim.a_wait, in_dim.a_stride * base.in.a_stride, //
+                    in_dim.z_reset, in_dim.z_wait, in_dim.z_stride * base.in.z_stride, //
+                    in_dim.y_reset, in_dim.y_wait, in_dim.y_stride * base.in.y_stride, //
+                    in_dim.x_reset, in_dim.x_wait, in_dim.x_stride * base.in.x_stride, //
+                    in_dim.off,
                 },
             );
         }
@@ -587,7 +588,7 @@ pub fn compileKernel(
     size_global: u32,
     size_local: u32,
 ) WriteSourceError!void {
-    assert(assign.base.dim_info.repeats > 0);
+    assert(assign.base.repeats > 0);
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
@@ -606,8 +607,8 @@ pub fn compileKernel(
     try writeSource(allocator, source, offset, "const int gid = get_global_id(0);\n", .{});
     try writeSource(allocator, source, offset, "int id;\n", .{});
 
-    const kernel_loop_leftover: bool = (assign.base.dim_info.repeats % size_global) != 0;
-    const kernel_loop_num: u32 = @divFloor(assign.base.dim_info.repeats, size_global) + @intFromBool(kernel_loop_leftover);
+    const kernel_loop_leftover: bool = (assign.base.repeats % size_global) != 0;
+    const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover);
 
     var kernel_loop_idx: u32 = 0;
     while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
@@ -618,7 +619,7 @@ pub fn compileKernel(
         }
 
         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            try writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign.base.dim_info.repeats % size_global});
+            try writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign.base.repeats % size_global});
         }
 
         try writeIndices(allocator, source, offset, assign, kernel_loop_idx, 0);
