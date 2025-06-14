@@ -31,14 +31,15 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
     if (assign[start_idx].base.type.isReduce()) return false;
 
-    for (start_idx + 1..assign.len) |assign_idx| {
-        // $TODO Currently there is no way to handle partial overlaps. I think you just need to burn the whole thing down if you find one.
+    var assign_idx: u32 = start_idx + 1;
+    while (assign_idx < assign.len) : (assign_idx += 1) {
+        // $NOTE I don't think there is no way to handle partial overlaps. AFAICT you just need to burn the whole thing down if you find that case
         if ((assign[start_idx].base.out.id == assign[assign_idx].base.out.id and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
             (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
                 assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
             (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
-                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
+                assign[start_idx].base.in.overlapsPartial(assign[assign_idx].base.out)))
         {
             return false;
         }
@@ -48,7 +49,8 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
     }
 
     var written: bool = false;
-    for (start_idx + 1..assign.len) |assign_idx| {
+    assign_idx = start_idx + 1;
+    while (assign_idx < assign.len) : (assign_idx += 1) {
         if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
             if (assign[assign_idx].base.overwrites()) {
                 return written;
