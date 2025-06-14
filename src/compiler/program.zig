@@ -70,10 +70,9 @@ pub const Program = struct {
         var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
         defer allocator.free(kernel_args);
 
-        const kernel_name: []u8 = try allocator.alloc(u8, (kernel_base_name.len - "{}"[0..].len) +
-            if (ssa.assign_num == 0) 0 else std.math.log10_int(ssa.assign_num) + 2);
-        defer allocator.free(kernel_name);
-
+        const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
+            comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(ssa.assign_num))));
+        var kernel_name: [kernel_name_len_max]u8 = @splat(0);
         var assign_idx: u32 = 0;
 
         while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
@@ -82,8 +81,8 @@ pub const Program = struct {
             // $TODO Rethink this when I refactor the args gathering
             kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
 
-            @memset(kernel_name, 0);
-            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name, .{assign_idx})).len;
+            @memset(&kernel_name, 0);
+            const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, kernel_base_name, .{assign_idx})).len;
 
             try compileKernel(allocator, &source, &source_len, ssa.assign[assign_idx], //
                 kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
@@ -93,8 +92,8 @@ pub const Program = struct {
         var kernel: []Kernel = try allocator.alloc(Kernel, ssa.assign_num);
 
         for (0..ssa.assign_num) |kernel_idx| {
-            @memset(kernel_name, 0);
-            const kernel_name_len: usize = (try std.fmt.bufPrint(kernel_name, kernel_base_name ++ "\x00", .{kernel_idx})).len;
+            @memset(&kernel_name, 0);
+            const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, kernel_base_name ++ "\x00", .{kernel_idx})).len;
             kernel[kernel_idx] = try Kernel.alloc(program, kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
         }
 
