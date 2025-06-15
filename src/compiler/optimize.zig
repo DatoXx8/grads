@@ -25,7 +25,6 @@ const DimInfo = @import("./ssa.zig").DimInfo;
 
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
 
-// $FIXME U abs then U add with the same out somehow doesn't inline
 fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
     assert(start_idx + 1 < assign.len);
 
@@ -39,7 +38,8 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
             (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
                 assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
             (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
-                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)))
+                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)) and
+                !assign[start_idx].base.type.isUnary() and !assign[start_idx].base.type.isUnary())
         {
             return false;
         }
