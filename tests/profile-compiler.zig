@@ -169,7 +169,7 @@ pub fn main() !void {
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
         } else {
             std.log.err("Found unrecognised option `{s}`, expected `rng=<number>`.\n", .{arg});
-            unreachable;
+            @panic("See above error message");
         }
     }
     const rng: u64 = switch (rng_saved == null) {

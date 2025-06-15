@@ -179,7 +179,7 @@ pub fn main() !void {
                     }
                 }
                 std.debug.print("]\n", .{});
-                unreachable;
+                @panic("See above error message");
             }
         } else {
             std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[", .{arg});
@@ -191,7 +191,7 @@ pub fn main() !void {
                 }
             }
             std.log.err("]\n", .{});
-            unreachable;
+            @panic("See above error message");
         }
     }
 
