@@ -61,13 +61,13 @@ fn simulateCompiler(
 ) !void {
     var pcg = Pcg.init(rng);
 
-    var tensor1 = try randomLinearized(allocator, @splat(true), rng, context);
+    var tensor1 = try randomLinearized(allocator, op_included, rng, context);
     defer {
         for (&tensor1.tensor) |*tensor| {
             tensor.free(allocator);
         }
     }
-    var tensor2 = try randomLinearized(allocator, @splat(true), rng, context);
+    var tensor2 = try randomLinearized(allocator, op_included, rng, context);
     defer {
         for (&tensor2.tensor) |*tensor| {
             tensor.free(allocator);
