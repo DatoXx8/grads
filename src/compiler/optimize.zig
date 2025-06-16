@@ -38,8 +38,12 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
             (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
                 assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
             (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
-                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out)) and
-                !assign[start_idx].base.type.isUnary() and !assign[start_idx].base.type.isUnary())
+                assign[start_idx].base.in.overlaps(assign[assign_idx].base.out) and
+                // $NOTE I really need to guru meditate on this condition.
+                // I think the start_idx condition needs to be there because otherwise a unary op can never start an inline
+                // And I think the assign_idx needs to be there because otherwise normally valid overlaps could be forbidden
+                // This is not just an issue of weak optimization, because improper inlining causes issues in the parallelization step
+                !(assign[start_idx].base.type.isUnary() and assign[assign_idx].base.type.isUnary())))
         {
             return false;
         }
