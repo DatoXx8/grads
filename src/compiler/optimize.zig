@@ -23,6 +23,7 @@ const Assign = @import("./ssa.zig").Assign;
 const Base = @import("./ssa.zig").Base;
 const DimInfo = @import("./ssa.zig").DimInfo;
 
+// $NOTE O0 is **really** slow
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
 
 fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
@@ -30,6 +31,8 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 
     if (assign[start_idx].base.type.isReduce()) return false;
 
+    var out_found: bool = false;
+    var in_found: bool = false;
     var assign_idx: u32 = start_idx + 1;
     while (assign_idx < assign.len) : (assign_idx += 1) {
         // $NOTE I don't think there is no way to handle partial overlaps. AFAICT you just need to burn the whole thing down if you find that case
@@ -39,15 +42,18 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
                 assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.in)) or
             (assign[start_idx].base.in.id == assign[assign_idx].base.out.id and
                 assign[start_idx].base.in.overlaps(assign[assign_idx].base.out) and
-                // $NOTE I really need to guru meditate on this condition.
-                // I think the start_idx condition needs to be there because otherwise a unary op can never start an inline
-                // And I think the assign_idx needs to be there because otherwise normally valid overlaps could be forbidden
-                // This is not just an issue of weak optimization, because improper inlining causes issues in the parallelization step
-                !(assign[start_idx].base.type.isUnary() and assign[assign_idx].base.type.isUnary())))
+                !assign[start_idx].base.type.isUnary()))
         {
             return false;
         }
+        // $NOTE If I didn't do it like this I would have to check every single already inlined op for overlaps, which I think is more expensive than testing these conditions here.
         if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
+            out_found = true;
+        }
+        if (assign[start_idx].base.in.equal(assign[assign_idx].base.out) and !assign[start_idx].base.type.isUnary()) {
+            in_found = true;
+        }
+        if (out_found and in_found) {
             break;
         }
     }
