@@ -446,7 +446,20 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
         const overlap_in_out: bool = ssa.assign[start_idx].base.in.id == ssa.assign[assign_idx].base.out.id and
             dimInfoOverlap(ssa.assign[start_idx].base.in, ssa.assign[start_idx].base.in_dim, ssa.assign[start_idx].base.repeats, //
                 ssa.assign[assign_idx].base.out, ssa.assign[assign_idx].base.out_dim, ssa.assign[assign_idx].base.repeats);
-        if (overlap_out_out or overlap_out_in or overlap_in_out) {
+        const overlap_inline: bool = blk: {
+            if (ssa.assign[assign_idx].inlined) |inlined| {
+                for (0..inlined.inlined_num) |inlined_idx| {
+                    if (ssa.assign[start_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null and
+                        dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
+                            inlined.base[inlined_idx].in, inlined.base[inlined_idx].in_dim, inlined.base[inlined_idx].repeats))
+                    {
+                        break :blk true;
+                    }
+                }
+            }
+            break :blk false;
+        };
+        if (overlap_out_out or overlap_out_in or overlap_in_out or overlap_inline) {
             break;
         }
 
