@@ -77,7 +77,7 @@ pub const Program = struct {
 
         while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
 
-            // $NOTE This should be enough work to justify storing it in memory
+            // This should be enough work to justify storing it in memory
             // $TODO Rethink this when I refactor the args gathering
             kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
 

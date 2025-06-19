@@ -378,7 +378,7 @@ fn writeAssignInBase(
     }
 }
 
-// $NOTE inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+// inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignOut(
     allocator: Allocator,
     source: *[]u8,
@@ -426,7 +426,7 @@ fn writeAssignOut(
     try writeAssignPostfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 }
 
-// $NOTE inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+// inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignIn(
     allocator: Allocator,
     source: *[]u8,

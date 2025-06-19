@@ -27,7 +27,7 @@ pub const Buffer = struct {
         FailedWait,
     };
 
-    // $NOTE I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
+    // I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
     //  necessary and that is already saved in values.len
 
     a_size: u32,
@@ -96,7 +96,7 @@ pub const Buffer = struct {
     pub fn free(this: @This(), allocator: Allocator) void {
         allocator.free(this.values);
         if (this.values_cl) |values_cl| {
-            // $NOTE I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
+            // I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
             values_cl.free() catch |err| {
                 std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.id, err });
             };
@@ -116,8 +116,7 @@ pub const Buffer = struct {
             name_result[char_idx] += @truncate(left % divisor);
             left = left / divisor;
         }
-        // $NOTE Enforce that you don't generate new tensors beyond 'zzzz...zzz'
-        assert(left == 0);
+        assert(left == 0); // Enforce that you don't generate new tensors beyond 'zzzz...zzz'
 
         return name_result;
     }
@@ -134,7 +133,7 @@ pub const Buffer = struct {
         return @divFloor(this.offset % this.y_stride, this.x_stride);
     }
     pub inline fn at(this: @This(), a: u32, z: u32, y: u32, x: u32) u32 {
-        // $NOTE Could add the per dimension asserts back in
+        // Could add the per dimension asserts back in
         const offset: u32 = this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
         assert(offset < this.values.len);
         return offset;
@@ -260,7 +259,7 @@ pub const Op = struct {
         reduce_avg,
         reduce_min,
         pub inline fn isUnary(this: @This()) bool {
-            // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
+            // I did this with a switch statement so that you are forced to handle this in case you add a new op
             return switch (this) {
                 .unary_add => true,
                 .unary_subtract => true,
@@ -414,7 +413,7 @@ pub const Op = struct {
         }
     };
     type: Type,
-    // $NOTE When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
+    // When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
     //  here's hoping some NaN floating point magic doesn't ruin that
     u_var: f32,
     out: Buffer,
@@ -446,7 +445,7 @@ pub const Op = struct {
     // $TODO Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
         if (this.type.isUnary()) {
-            // $NOTE In buffer is just a copy of out buffer, basically just a sanity check.
+            // In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
@@ -1016,6 +1015,7 @@ pub fn unaryAbsolute(this: *@This()) void {
         .u_var = 0,
     });
 }
+// This could be changed to (sign_bit * 2) - 1, which gives a different result for 0, but who cares
 pub fn unarySign(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
@@ -1263,7 +1263,7 @@ pub fn moveReshape(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
-    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    // These are here so that it is easier to identify if there is a single run-away dimension
     assert(a <= this.buffer.values.len);
     assert(z <= this.buffer.values.len);
     assert(y <= this.buffer.values.len);
@@ -1283,7 +1283,7 @@ pub fn moveResize(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
-    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    // These are here so that it is easier to identify if there is a single run-away dimension
     assert(a <= this.buffer.values.len);
     assert(z <= this.buffer.values.len);
     assert(y <= this.buffer.values.len);
@@ -1299,7 +1299,7 @@ pub fn moveOffset(this: *@This(), a: u32, z: u32, y: u32, x: u32) void {
     assert(z < this.buffer.values.len);
     assert(y < this.buffer.values.len);
     assert(x < this.buffer.values.len);
-    // $NOTE These are here so that it is easier to identify if there is a single run-away dimension
+    // These are here so that it is easier to identify if there is a single run-away dimension
     assert(a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride +
         x * this.buffer.x_stride < this.buffer.values.len);
     this.buffer.offset = a * this.buffer.a_stride + z * this.buffer.z_stride + y * this.buffer.y_stride + x * this.buffer.x_stride;

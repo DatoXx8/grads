@@ -62,8 +62,7 @@ pub const DimInfo = struct {
     }
 };
 
-// $NOTE I removed the dependency layers for now, because they just weren't used anywhere. Add those back if necessary.
-
+// I removed the dependency layers for now, because they just weren't used anywhere. Add those back if necessary.
 /// The basic thing the Assignment does without any funny business
 pub const Base = struct {
     out: Buffer,
@@ -85,7 +84,7 @@ pub const Base = struct {
     }
     /// Not a great name. Essentially this returns wether the result is independant of what was in `this.out` before
     pub inline fn overwrites(this: @This()) bool {
-        // $NOTE I did this with a switch statement so that you are forced to handle this in case you add a new op
+        // I did this with a switch statement so that you are forced to handle this in case you add a new op
         return switch (this.type) {
             .unary_add => false,
             .unary_subtract => false,
@@ -343,7 +342,7 @@ pub const Ssa = struct {
             };
         }
 
-        // $NOTE Why was this ever here? Just to group assignments that could be on the same layer?
+        // Why was this ever here? Just to group assignments that could be on the same layer?
         // std.mem.sort(Assign, assign, {}, layerLessThan);
 
         return .{

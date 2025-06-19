@@ -23,7 +23,7 @@ const Assign = @import("./ssa.zig").Assign;
 const Base = @import("./ssa.zig").Base;
 const DimInfo = @import("./ssa.zig").DimInfo;
 
-// $NOTE O0 is **really** slow
+/// $WARN O0 is **really** slow
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
 
 fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
@@ -35,7 +35,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
     var in_found: bool = false;
     var assign_idx: u32 = start_idx + 1;
     while (assign_idx < assign.len) : (assign_idx += 1) {
-        // $NOTE I don't think there is no way to handle partial overlaps. AFAICT you just need to burn the whole thing down if you find that case
+        // I don't think there is no way to handle partial overlaps. AFAICT you just need to burn the whole thing down if you find that case
         if ((assign[start_idx].base.out.id == assign[assign_idx].base.out.id and
             assign[start_idx].base.out.overlapsPartial(assign[assign_idx].base.out)) or
             (assign[start_idx].base.out.id == assign[assign_idx].base.in.id and
@@ -46,7 +46,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
         {
             return false;
         }
-        // $NOTE If I didn't do it like this I would have to check every single already inlined op for overlaps, which I think is more expensive than testing these conditions here.
+        // If I didn't do it like this I would have to check every single already inlined op for overlaps, which I think is more expensive than testing these conditions here.
         if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
             out_found = true;
         }
@@ -435,7 +435,7 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
     var assign_idx: u32 = start_idx + 1;
 
     while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
-        // $NOTE I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
+        // I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
         // At the very least it is not obvious to me how to loosen them.
         const overlap_out_out: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
             dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
@@ -470,7 +470,7 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
     }
     return false;
 }
-// $NOTE I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large SSAs
+// I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large SSAs
 pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
     var temp_remove: []bool = try allocator.alloc(bool, ssa.assign_num);
     errdefer allocator.free(temp_remove);

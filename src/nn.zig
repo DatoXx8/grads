@@ -347,8 +347,8 @@ pub fn learn(this: *@This(), t: ClDevice.Type) !void {
     }
 }
 pub fn init(this: *@This(), rng: u64) !void {
-    // $NOTE normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
-    // I don't think that would be the end of the world but it just
+    // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
+    // I don't think that would be the end of the world but it just kinda ugly
     var default_prng = DefaultPrng.init(rng);
     var prng: std.Random = default_prng.random();
     for (this.layer) |*layer| {
@@ -597,7 +597,7 @@ fn readParamsV0(weights: *Tensor, biases: *Tensor, bytes: []const u8) u64 {
     std.mem.copyBackwards(f32, biases.buffer.values, biases_slice);
     return weights_size + biases_size;
 }
-// $NOTE Allocator is used to issue only a single read syscall
+// Allocator is used to read the entire file at once
 pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const u8) !void {
     const file_param = try std.fs.cwd().openFile(file_param_name, .{ .mode = .read_only });
     var idx: u64 = 8;

@@ -22,7 +22,7 @@ pub const Activation = struct {
         relu_clipped,
         relu_leaky,
         silu,
-        gelu, //
+        gelu,
         tanh, // 1 - tanh^2
     };
     pub const relu_leaky_factor: f32 = 0.1;
@@ -526,7 +526,7 @@ pub const Reduce = struct {
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     in.moveOffset(0, z_idx, y_out_idx * this.kernel_stride, x_out_idx * this.kernel_stride);
                     out.moveOffset(0, z_idx, y_out_idx, x_out_idx);
-                    switch (this.t) { // $NOTE The branch predictor should do this ezpz
+                    switch (this.t) { // The branch predictor should do this ezpz
                         .sum => out.reduceSum(in),
                         .avg => out.reduceAvg(in),
                         .max => out.reduceMax(in),

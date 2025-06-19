@@ -119,7 +119,7 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
     // tensor1[tensor_out].linearized.print(4, 0, null);
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
-        // $NOTE Not using realize here because that clears the linearized
+        // Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
         tensor2.tensor[tensor2.out_idx].linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
