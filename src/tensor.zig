@@ -113,8 +113,8 @@ pub const Buffer = struct {
         const divisor: u64 = buffer_name_char_options;
         var left: u64 = id;
         for (0..buffer_name_size) |char_idx| {
-            name_result[char_idx] += @truncate(left % divisor);
-            left = left / divisor;
+            name_result[char_idx] += @intCast(left % divisor);
+            left /= divisor;
         }
         assert(left == 0); // Enforce that you don't generate new tensors beyond 'zzzz...zzz'
 
@@ -178,8 +178,6 @@ pub const Buffer = struct {
             this.a_size == target.a_size and this.z_size == target.z_size and
             this.y_size == target.y_size and this.x_size == target.x_size and
             this.offset == target.offset;
-        // this.aOffset() == target.aOffset() and this.zOffset() == target.zOffset() and
-        // this.yOffset() == target.yOffset() and this.xOffset() == target.xOffset();
     }
     /// Checks for equal size and name.
     /// Does *not* check for inherent buffer size or offsets.
@@ -418,30 +416,6 @@ pub const Op = struct {
     u_var: f32,
     out: Buffer,
     in: Buffer,
-    pub inline fn isOutInlinable(this: @This(), target: @This()) bool {
-        return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
-            this.out.id == target.out.id and
-            this.out.a_size == target.out.a_size and
-            this.out.z_size == target.out.z_size and
-            this.out.y_size == target.out.y_size and
-            this.out.x_size == target.out.x_size and
-            this.out.a_offset == target.out.a_offset and
-            this.out.z_offset == target.out.z_offset and
-            this.out.y_offset == target.out.y_offset and
-            this.out.x_offset == target.out.x_offset;
-    }
-    pub inline fn isInInlinable(this: @This(), target: @This()) bool {
-        return (!target.type.isReduce() and target.type != .expand_set and target.type != .binary_set and target.type != .unary_set) and
-            this.out.id == target.in.id and
-            this.out.a_size == target.in.a_size and
-            this.out.z_size == target.in.z_size and
-            this.out.y_size == target.in.y_size and
-            this.out.x_size == target.in.x_size and
-            this.out.a_offset == target.in.a_offset and
-            this.out.z_offset == target.in.z_offset and
-            this.out.y_offset == target.in.y_offset and
-            this.out.x_offset == target.in.x_offset;
-    }
     // $TODO Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
         if (this.type.isUnary()) {
