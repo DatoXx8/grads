@@ -2,10 +2,11 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const ClMem = @import("./runtimes/cl.zig").ClMem;
-const ClContext = @import("./runtimes/cl.zig").ClContext;
-const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const opencl = @import("./runtimes/cl.zig").opencl;
+const cl = @import("./runtimes/cl.zig");
+const ClMem = cl.ClMem;
+const ClContext = cl.ClContext;
+const ClCommandQueue = cl.ClCommandQueue;
+const opencl = cl.opencl;
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576

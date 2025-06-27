@@ -1,12 +1,13 @@
 pub const Optimization = @import("./compiler/optimize.zig").Optimization;
-pub const Program = @import("./compiler/program.zig").Program;
-pub const Neuralnet = @import("./nn.zig").Neuralnet;
-pub const ClContext = @import("./runtimes/cl.zig").ClContext;
-pub const ClDevice = @import("./runtimes/cl.zig").ClDevice;
-pub const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-pub const ClError = @import("./runtimes/cl.zig").ClError;
-pub const Tensor = @import("./tensor.zig").Tensor;
-pub const Buffer = @import("./tensor.zig").Buffer;
-pub const Op = @import("./tensor.zig").Op;
-pub const Linearized = @import("./tensor.zig").Linearized;
+pub const Program = @import("./compiler/Program.zig");
+pub const Neuralnet = @import("./Neuralnet.zig");
+const cl = @import("./runtimes/cl.zig");
+pub const ClContext = cl.ClContext;
+pub const ClDevice = cl.ClDevice;
+pub const ClCommandQueue = cl.ClCommandQueue;
+pub const ClError = cl.ClError;
+pub const Tensor = @import("./Tensor.zig");
+pub const Buffer = Tensor.Buffer;
+pub const Op = Tensor.Op;
+pub const Linearized = Tensor.Linearized;
 

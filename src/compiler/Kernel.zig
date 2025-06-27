@@ -2,17 +2,17 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Cl = @import("../runtimes/cl.zig");
-const ClMem = Cl.ClMem;
-const ClKernel = Cl.ClKernel;
-const ClProgram = Cl.ClProgram;
-const ClDevice = Cl.ClDevice;
-const ClContext = Cl.ClContext;
-const ClError = Cl.ClError;
-const opencl = @import("../runtimes/cl.zig").opencl;
-const buffer_name_size = @import("../tensor.zig").buffer_name_size;
-const Ssa = @import("./ssa.zig").Ssa;
-const Assign = @import("./ssa.zig").Assign;
+const cl = @import("../runtimes/cl.zig");
+const ClMem = cl.ClMem;
+const ClKernel = cl.ClKernel;
+const ClProgram = cl.ClProgram;
+const ClDevice = cl.ClDevice;
+const ClContext = cl.ClContext;
+const ClError = cl.ClError;
+const opencl = cl.opencl;
+const buffer_name_size = @import("../Tensor.zig").buffer_name_size;
+const Ssa = @import("./Ssa.zig");
+const Assign = Ssa.Assign;
 
 pub const Args = struct {
     arg_id: []u64,
@@ -65,36 +65,35 @@ pub const Args = struct {
     }
 };
 
-pub const Kernel = struct {
+pub const Kernel = @This();
+args: Args,
+kernel: ClKernel,
+pub fn alloc(
+    program: ClProgram,
+    name_c: []const u8,
     args: Args,
-    kernel: ClKernel,
-    pub fn alloc(
-        program: ClProgram,
-        name_c: []const u8,
-        args: Args,
-    ) !Kernel {
-        // This @ptrCast is the ultimate trust me bro
-        const kernel: ClKernel = try ClKernel.alloc(program, @ptrCast(name_c));
+) !Kernel {
+    // This @ptrCast is the ultimate trust me bro
+    const kernel: ClKernel = try ClKernel.alloc(program, @ptrCast(name_c));
 
-        for (0..args.arg_mem.len) |arg_idx| {
-            // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
-            // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
-            if (opencl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
-                @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
-            {
-                return ClError.ArgNotSet;
-            }
+    for (0..args.arg_mem.len) |arg_idx| {
+        // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
+        // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
+        if (opencl.clSetKernelArg(kernel.kernel, @truncate(arg_idx), //
+            @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
+        {
+            return ClError.ArgNotSet;
         }
+    }
 
-        return .{
-            .args = args,
-            .kernel = kernel,
-        };
-    }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.kernel.free() catch |err| {
-            std.log.err("Could not free kernel because of error {!}\n", .{err});
-        };
-        this.args.free(allocator);
-    }
-};
+    return .{
+        .args = args,
+        .kernel = kernel,
+    };
+}
+pub fn free(this: *@This(), allocator: Allocator) void {
+    this.kernel.free() catch |err| {
+        std.log.err("Could not free kernel because of error {!}\n", .{err});
+    };
+    this.args.free(allocator);
+}

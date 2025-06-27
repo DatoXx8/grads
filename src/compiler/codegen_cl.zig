@@ -4,16 +4,17 @@ const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
 const ClMem = @import("../runtimes/cl.zig").ClMem;
-const buffer_name_size = @import("../tensor.zig").buffer_name_size;
-const Op = @import("../tensor.zig").Op;
-const nameFromId = @import("../tensor.zig").Buffer.nameFromId;
+const Tensor = @import("../Tensor.zig");
+const buffer_name_size = Tensor.buffer_name_size;
+const Op = Tensor.Op;
+const nameFromId = Tensor.Buffer.nameFromId;
 const todo = @import("../util.zig").todo;
-const Args = @import("./kernel.zig").Args;
-const Ssa = @import("./ssa.zig").Ssa;
-const Assign = @import("./ssa.zig").Assign;
-const Base = @import("./ssa.zig").Base;
-const DimInfo = @import("./ssa.zig").DimInfo;
-const Inlined = @import("./ssa.zig").Inlined;
+const Args = @import("./Kernel.zig").Args;
+const Ssa = @import("./Ssa.zig");
+const Assign = Ssa.Assign;
+const Base = Ssa.Base;
+const DimInfo = Ssa.DimInfo;
+const Inlined = Ssa.Inlined;
 
 pub const kernel_base_name = "kern{}";
 pub const source_padding = 4096;

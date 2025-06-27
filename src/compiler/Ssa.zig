@@ -2,9 +2,10 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const Op = @import("../tensor.zig").Op;
-const Linearized = @import("../tensor.zig").Linearized;
-const Buffer = @import("../tensor.zig").Buffer;
+const Tensor = @import("../Tensor.zig");
+const Op = Tensor.Op;
+const Linearized = Tensor.Linearized;
+const Buffer = Tensor.Buffer;
 const opt = @import("./optimize.zig");
 const Optimization = opt.Optimization;
 
@@ -315,139 +316,138 @@ pub const Assign = struct {
     }
 };
 
-pub const Ssa = struct {
-    assign: []Assign,
-    assign_num: u32,
-    pub fn alloc(allocator: Allocator, linearized: Linearized) !Ssa {
-        assert(linearized.op_num > 0);
+pub const Ssa = @This();
+assign: []Assign,
+assign_num: u32,
+pub fn alloc(allocator: Allocator, linearized: Linearized) !Ssa {
+    assert(linearized.op_num > 0);
 
-        const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
-        errdefer allocator.free(assign);
+    const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
+    errdefer allocator.free(assign);
 
-        for (0..linearized.op_num) |op_idx| {
-            assign[op_idx] = .{
-                .base = .{
-                    .type = linearized.op[op_idx].type,
-                    .u_var = linearized.op[op_idx].u_var,
-                    .out = linearized.op[op_idx].out,
-                    .in = linearized.op[op_idx].in,
-                    .out_dim = DimInfo.init(assign[op_idx].base.out.offset),
-                    .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
-                    .repeats = 1,
-                },
-                .inlined = null,
-                .split = null,
-                .simd = null,
-                .block = null,
-            };
-        }
-
-        // Why was this ever here? Just to group assignments that could be on the same layer?
-        // std.mem.sort(Assign, assign, {}, layerLessThan);
-
-        return .{
-            .assign = assign,
-            .assign_num = @intCast(assign.len),
+    for (0..linearized.op_num) |op_idx| {
+        assign[op_idx] = .{
+            .base = .{
+                .type = linearized.op[op_idx].type,
+                .u_var = linearized.op[op_idx].u_var,
+                .out = linearized.op[op_idx].out,
+                .in = linearized.op[op_idx].in,
+                .out_dim = DimInfo.init(assign[op_idx].base.out.offset),
+                .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
+                .repeats = 1,
+            },
+            .inlined = null,
+            .split = null,
+            .simd = null,
+            .block = null,
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        for (0..this.assign_num) |assign_idx| {
-            if (this.assign[assign_idx].inlined) |*inlined| {
-                allocator.free(inlined.base);
-                allocator.free(inlined.in);
-                allocator.free(inlined.out);
-            }
-            if (this.assign[assign_idx].split) |split| {
-                _ = split;
-                unreachable;
-            }
-            if (this.assign[assign_idx].block) |block| {
-                _ = block;
-                unreachable;
-            }
-            if (this.assign[assign_idx].simd) |simd| {
-                _ = simd;
-                unreachable;
-            }
+
+    // Why was this ever here? Just to group assignments that could be on the same layer?
+    // std.mem.sort(Assign, assign, {}, layerLessThan);
+
+    return .{
+        .assign = assign,
+        .assign_num = @intCast(assign.len),
+    };
+}
+pub fn free(this: *@This(), allocator: Allocator) void {
+    for (0..this.assign_num) |assign_idx| {
+        if (this.assign[assign_idx].inlined) |*inlined| {
+            allocator.free(inlined.base);
+            allocator.free(inlined.in);
+            allocator.free(inlined.out);
         }
-        allocator.free(this.assign);
+        if (this.assign[assign_idx].split) |split| {
+            _ = split;
+            unreachable;
+        }
+        if (this.assign[assign_idx].block) |block| {
+            _ = block;
+            unreachable;
+        }
+        if (this.assign[assign_idx].simd) |simd| {
+            _ = simd;
+            unreachable;
+        }
     }
-    pub fn removeDefault(this: *@This()) void {
-        for (0..this.assign_num) |assign_idx| {
-            inline for (0..2) |dim_idx| {
-                const dim_info: *DimInfo = if (dim_idx == 0)
-                    &this.assign[assign_idx].base.out_dim
-                else
-                    &this.assign[assign_idx].base.in_dim;
-                if (dim_info.a_wait == DimInfo.value_none) dim_info.a_wait = DimInfo.wait_default;
-                if (dim_info.z_wait == DimInfo.value_none) dim_info.z_wait = DimInfo.wait_default;
-                if (dim_info.y_wait == DimInfo.value_none) dim_info.y_wait = DimInfo.wait_default;
-                if (dim_info.x_wait == DimInfo.value_none) dim_info.x_wait = DimInfo.wait_default;
+    allocator.free(this.assign);
+}
+pub fn removeDefault(this: *@This()) void {
+    for (0..this.assign_num) |assign_idx| {
+        inline for (0..2) |dim_idx| {
+            const dim_info: *DimInfo = if (dim_idx == 0)
+                &this.assign[assign_idx].base.out_dim
+            else
+                &this.assign[assign_idx].base.in_dim;
+            if (dim_info.a_wait == DimInfo.value_none) dim_info.a_wait = DimInfo.wait_default;
+            if (dim_info.z_wait == DimInfo.value_none) dim_info.z_wait = DimInfo.wait_default;
+            if (dim_info.y_wait == DimInfo.value_none) dim_info.y_wait = DimInfo.wait_default;
+            if (dim_info.x_wait == DimInfo.value_none) dim_info.x_wait = DimInfo.wait_default;
 
-                if (dim_info.a_stride == DimInfo.value_none) dim_info.a_stride = DimInfo.stride_default;
-                if (dim_info.z_stride == DimInfo.value_none) dim_info.z_stride = DimInfo.stride_default;
-                if (dim_info.y_stride == DimInfo.value_none) dim_info.y_stride = DimInfo.stride_default;
-                if (dim_info.x_stride == DimInfo.value_none) dim_info.x_stride = DimInfo.stride_default;
+            if (dim_info.a_stride == DimInfo.value_none) dim_info.a_stride = DimInfo.stride_default;
+            if (dim_info.z_stride == DimInfo.value_none) dim_info.z_stride = DimInfo.stride_default;
+            if (dim_info.y_stride == DimInfo.value_none) dim_info.y_stride = DimInfo.stride_default;
+            if (dim_info.x_stride == DimInfo.value_none) dim_info.x_stride = DimInfo.stride_default;
 
-                if (dim_info.a_reset == DimInfo.value_none) dim_info.a_reset = DimInfo.reset_default;
-                if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
-                if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
-                if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
-                if (this.assign[assign_idx].inlined) |inlined| {
-                    for (0..inlined.inlined_num) |inlined_idx| {
-                        const inlined_info: *DimInfo = if (dim_idx == 0)
-                            &inlined.base[inlined_idx].out_dim
-                        else
-                            &inlined.base[inlined_idx].in_dim;
-                        if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
-                        if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
-                        if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
-                        if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
+            if (dim_info.a_reset == DimInfo.value_none) dim_info.a_reset = DimInfo.reset_default;
+            if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
+            if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
+            if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
+            if (this.assign[assign_idx].inlined) |inlined| {
+                for (0..inlined.inlined_num) |inlined_idx| {
+                    const inlined_info: *DimInfo = if (dim_idx == 0)
+                        &inlined.base[inlined_idx].out_dim
+                    else
+                        &inlined.base[inlined_idx].in_dim;
+                    if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
+                    if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
+                    if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
+                    if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
 
-                        if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
-                        if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
-                        if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
-                        if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
+                    if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
+                    if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
+                    if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
+                    if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
 
-                        if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
-                        if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
-                        if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
-                        if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
-                    }
+                    if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
+                    if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
+                    if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
+                    if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
                 }
             }
         }
     }
-    pub fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !void {
-        if (optimization == .O0) {
-            return;
-        }
-
-        try opt.inlineOp(allocator, this);
-        try opt.parallelize(allocator, this);
-        try opt.splitKernel(allocator, this);
-
-        if (optimization == .O1) {
-            return;
-        }
-
-        try opt.simd(allocator, this);
-
-        if (optimization == .O2) {
-            return;
-        }
-
-        try opt.memoryLayout(allocator, this);
+}
+pub fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !void {
+    if (optimization == .O0) {
+        return;
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        if (name) |text| {
-            std.debug.print("{s}SSA {s}\n", .{ " " ** offset, text });
-        } else {
-            std.debug.print("{s}SSA\n", .{" " ** offset});
-        }
-        for (0..this.assign_num) |assign_idx| {
-            std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
-            this.assign[assign_idx].print(padding, offset + padding, null);
-        }
+
+    try opt.inlineOp(allocator, this);
+    try opt.parallelize(allocator, this);
+    try opt.splitKernel(allocator, this);
+
+    if (optimization == .O1) {
+        return;
     }
-};
+
+    try opt.simd(allocator, this);
+
+    if (optimization == .O2) {
+        return;
+    }
+
+    try opt.memoryLayout(allocator, this);
+}
+pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    if (name) |text| {
+        std.debug.print("{s}SSA {s}\n", .{ " " ** offset, text });
+    } else {
+        std.debug.print("{s}SSA\n", .{" " ** offset});
+    }
+    for (0..this.assign_num) |assign_idx| {
+        std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
+        this.assign[assign_idx].print(padding, offset + padding, null);
+    }
+}

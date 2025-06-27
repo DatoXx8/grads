@@ -1,29 +1,28 @@
-// $TODO Maybe just do the parallelize one at O0 anyways, because it is utterly useless without it
-// $TODO These levels
 // $TODO Expressive numerical representation of an optimization such that a casey type optimizer is possible
+// $TODO These levels
 // Optimization levels
-// O1 - parallelize, split, idempotent functions
-// O2 - SIMD
-// O3 - memory optimizer
-
-// Optimization levels
-// O0 - none
-// O1 - parallelize, inline, split, idempotent functions
-// O2 - SIMD
+// O1 - split
+// O2 - SIMD, float range based analysis
 // O3 - memory optimizer
 
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Op = @import("../tensor.zig").Op;
-const Buffer = @import("../tensor.zig").Buffer;
-const Ssa = @import("./ssa.zig").Ssa;
-const Assign = @import("./ssa.zig").Assign;
-const Base = @import("./ssa.zig").Base;
-const DimInfo = @import("./ssa.zig").DimInfo;
+const Tensor = @import("../Tensor.zig");
+const Op = Tensor.Op;
+const Buffer = Tensor.Buffer;
+const Ssa = @import("./Ssa.zig");
+const Assign = Ssa.Assign;
+const Base = Ssa.Base;
+const DimInfo = Ssa.DimInfo;
 
 /// $WARN O0 is **really** slow
+/// Planned optimization steps
+/// O0 - none
+/// O1 - parallelize, inline, split
+/// O2 - SIMD, float range based analysis
+/// O3 - memory optimizer
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
 
 fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {

@@ -3,25 +3,24 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const DefaultPrng = std.Random.DefaultPrng;
 
-const todo = @import("./util.zig").todo;
-
 const Optimization = @import("./compiler/optimize.zig").Optimization;
-const Program = @import("./compiler/program.zig").Program;
-const ClContext = @import("./runtimes/cl.zig").ClContext;
-const ClDevice = @import("./runtimes/cl.zig").ClDevice;
-const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const Tensor = @import("./tensor.zig").Tensor;
-const Linearized = @import("./tensor.zig").Linearized;
-const Op = @import("./tensor.zig").Op;
-const Buffer = @import("./tensor.zig").Buffer;
-
-const Layer = @import("./layer.zig").Layer;
+const Program = @import("./compiler/Program.zig");
+const Layer = @import("./Layer.zig");
 const Activation = Layer.Activation;
 const Dense = Layer.Dense;
 const Convolution = Layer.Convolution;
 const Reduce = Layer.Reduce;
 const Split = Layer.Split;
 const Residual = Layer.Residual;
+const cl = @import("./runtimes/cl.zig");
+const ClContext = cl.ClContext;
+const ClDevice = cl.ClDevice;
+const ClCommandQueue = cl.ClCommandQueue;
+const Tensor = @import("./Tensor.zig");
+const Linearized = Tensor.Linearized;
+const Op = Tensor.Op;
+const Buffer = Tensor.Buffer;
+const todo = @import("./util.zig").todo;
 
 pub const Neuralnet = @This();
 layer: []Layer,
@@ -378,7 +377,15 @@ pub fn init(this: *@This(), rng: u64) !void {
     try this.sync(true, true, true, true, true, .sync_to_device);
 }
 // $TODO Snyc option for temp buffers
-pub fn sync(this: *@This(), comptime force: bool, comptime in: bool, comptime out: bool, comptime weights: bool, comptime values: bool, t: Buffer.SyncStatus) !void {
+pub fn sync(
+    this: *@This(),
+    comptime force: bool,
+    comptime in: bool,
+    comptime out: bool,
+    comptime weights: bool,
+    comptime values: bool,
+    t: Buffer.SyncStatus,
+) !void {
     assert(t != .sync_to_none);
     if (in) {
         if (force) {
@@ -683,10 +690,7 @@ fn readArchV0(bytes: []const u8) Layer.Config {
         else => unreachable,
     };
 }
-pub fn readArch(
-    allocator: Allocator,
-    file_arch_name: []const u8,
-) !struct { config: []const Layer.Config, z_in: u32, y_in: u32, x_in: u32 } {
+pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct { config: []const Layer.Config, z_in: u32, y_in: u32, x_in: u32 } {
     const file_arch = std.fs.cwd().openFile(file_arch_name, .{ .mode = .read_only }) catch |err| switch (err) {
         error.FileTooBig => {
             std.log.err("File {s} exceeds max size of {} bytes. Increase `file_arch_size_max` if this is intentional.\n", //

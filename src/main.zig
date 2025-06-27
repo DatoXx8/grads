@@ -1,13 +1,14 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Program = @import("./compiler/program.zig").Program;
-const Neuralnet = @import("./nn.zig").Neuralnet;
-const Layer = @import("./layer.zig").Layer;
-const ClDevice = @import("./runtimes/cl.zig").ClDevice;
-const ClContext = @import("./runtimes/cl.zig").ClContext;
-const ClCommandQueue = @import("./runtimes/cl.zig").ClCommandQueue;
-const Tensor = @import("./tensor.zig").Tensor;
+const Program = @import("./compiler/Program.zig");
+const Layer = @import("./Layer.zig");
+const Neuralnet = @import("./Neuralnet.zig");
+const cl = @import("./runtimes/cl.zig");
+const ClDevice = cl.ClDevice;
+const ClContext = cl.ClContext;
+const ClCommandQueue = cl.ClCommandQueue;
+const Tensor = @import("./Tensor.zig");
 
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
 // $TODO Log failing simulator seeds to some test database file
