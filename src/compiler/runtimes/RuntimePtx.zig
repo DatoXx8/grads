@@ -6,10 +6,10 @@ const builtin = @import("builtin");
 // const OpenCl_version = @import("OpenCl_config").OpenCl_version;
 
 // It is just this followed by the index of the function
-pub const function_name_base: []const u8 = &[_]u8{'k'};
 
 // PTX is only accessible through the CUDA API from what I've seen
-// Man I really want to replace the entire NVIDIA stack or at least every compiler in it. Compiling OpenCL is unbearably slow, don't know about PTX yet.
+// Man I really want to replace the entire NVIDIA stack or at least every compiler in it
+// Compiling OpenCL is unbearably slow, don't know about PTX yet.
 const cuda_header = "cuda.h";
 pub const cuda = @cImport({
     @cInclude(cuda_header);

@@ -2,11 +2,9 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const cl = @import("./runtimes/cl.zig");
-const ClMem = cl.ClMem;
-const ClContext = cl.ClContext;
-const ClCommandQueue = cl.ClCommandQueue;
-const opencl = cl.opencl;
+const Program = @import("./compiler/Program.zig");
+const Memory = Program.Memory;
+const Runtime = @import("./compiler/runtimes/Runtime.zig");
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
@@ -41,11 +39,11 @@ pub const Buffer = struct {
     x_stride: u32,
     offset: u32,
     values: []f32,
-    values_cl: ?ClMem,
+    values_runtime: Memory,
     sync: SyncStatus,
     id: u64,
     intermediary: bool,
-    pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
+    pub fn alloc(runtime: Runtime, allocator: Allocator, a: u32, z: u32, y: u32, x: u32) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -65,12 +63,19 @@ pub const Buffer = struct {
             .x_stride = 1,
             .offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
-            .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
+            .values_runtime = try runtime.memoryAlloc(a, z, y, x),
             .intermediary = false,
         };
     }
     /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
-    pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext) !Buffer {
+    pub fn allocIntermediary(
+        runtime: Runtime,
+        allocator: Allocator,
+        a: u32,
+        z: u32,
+        y: u32,
+        x: u32,
+    ) !Buffer {
         assert(a > 0);
         assert(z > 0);
         assert(y > 0);
@@ -90,7 +95,7 @@ pub const Buffer = struct {
             .x_stride = 1,
             .offset = 0,
             .values = try allocator.alloc(f32, a * z * y * x),
-            .values_cl = if (context) |ctx| try ClMem.alloc(ctx, a, z, y, x) else null,
+            .values_runtime = try runtime.memoryAlloc(a, z, y, x),
             .intermediary = true,
         };
     }
@@ -99,7 +104,8 @@ pub const Buffer = struct {
         if (this.values_cl) |values_cl| {
             // I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
             values_cl.free() catch |err| {
-                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", .{ this.id, err });
+                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", //
+                    .{ this.id, err });
             };
         }
     }
@@ -135,29 +141,22 @@ pub const Buffer = struct {
     }
     pub inline fn at(this: @This(), a: u32, z: u32, y: u32, x: u32) u32 {
         // Could add the per dimension asserts back in
-        const offset: u32 = this.offset + a * this.a_stride + z * this.z_stride + y * this.y_stride + x * this.x_stride;
+        const offset: u32 = this.offset + a * this.a_stride + z * this.z_stride +
+            y * this.y_stride + x * this.x_stride;
         assert(offset < this.values.len);
         return offset;
     }
-    pub fn syncToHost(this: *@This(), queue: ClCommandQueue) !void {
+    pub fn syncToHost(this: *@This(), runtime: Runtime) !void {
         if (this.sync == .sync_to_host) {
-            const size: usize = this.values.len * @sizeOf(f32);
-            if (opencl.clEnqueueReadBuffer(queue.queue, this.values_cl.?.memory, //
-                opencl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
-            {
-                return SyncError.FailedToHost;
-            }
+            const n_bytes: u32 = @intCast(this.values.len * @sizeOf(@TypeOf(this.values[0])));
+            try runtime.memorySyncToHost(this.values_runtime, this.values.ptr, n_bytes);
             this.sync = .sync_to_none;
         }
     }
-    pub fn syncToDevice(this: *@This(), queue: ClCommandQueue) !void {
+    pub fn syncToDevice(this: *@This(), runtime: Runtime) !void {
         if (this.sync == .sync_to_device) {
-            const size: usize = this.values.len * @sizeOf(f32);
-            if (opencl.clEnqueueWriteBuffer(queue.queue, this.values_cl.?.memory, //
-                opencl.CL_TRUE, 0, size, this.values.ptr, 0, null, null) != 0)
-            {
-                return SyncError.FailedToDevice;
-            }
+            const n_bytes: u32 = @intCast(this.values.len * @sizeOf(@TypeOf(this.values[0])));
+            try runtime.memorySyncToDevice(this.values_runtime, this.values.ptr, n_bytes);
             this.sync = .sync_to_none;
         }
     }
@@ -165,13 +164,6 @@ pub const Buffer = struct {
         assert(this.sync == .sync_to_none or this.sync == sync);
         assert(sync != .sync_to_none);
         this.sync = sync;
-    }
-    pub fn syncWait(_: *@This(), queue: ClCommandQueue) !void {
-        if (opencl.clFinish(queue.queue) == 0) {
-            return;
-        } else {
-            return SyncError.FailedWait;
-        }
     }
     /// Checks for equal size, offset and name.
     pub inline fn equal(this: @This(), target: @This()) bool {
@@ -460,7 +452,10 @@ pub const Op = struct {
             else => {},
         }
 
-        var rng: ?std.Random.Pcg = if (this.type == .unary_random) std.Random.Pcg.init(@as(u32, @bitCast(this.u_var))) else null;
+        var rng: ?std.Random.Pcg = if (this.type == .unary_random)
+            std.Random.Pcg.init(@as(u32, @bitCast(this.u_var)))
+        else
+            null;
 
         // $TODO Add SIMD comptime width using @Vector
 
@@ -494,42 +489,48 @@ pub const Op = struct {
                                 this.out.values[this.out.at(a, z, y, x)] /= this.u_var;
                             },
                             .unary_exp => {
-                                this.out.values[this.out.at(a, z, y, x)] = @exp(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @exp(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_log => {
-                                this.out.values[this.out.at(a, z, y, x)] = @log(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @log(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_square => {
-                                this.out.values[this.out.at(a, z, y, x)] *= this.out.values[this.out.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] *=
+                                    this.out.values[this.out.at(a, z, y, x)];
                             },
                             .unary_sqrt => {
-                                this.out.values[this.out.at(a, z, y, x)] = @sqrt(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @sqrt(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_reciprocal => {
-                                this.out.values[this.out.at(a, z, y, x)] = 1 / this.out.values[this.out.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    1 / this.out.values[this.out.at(a, z, y, x)];
                             },
                             .unary_max => {
-                                this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @max(this.out.values[this.out.at(a, z, y, x)], this.u_var);
                             },
                             .unary_min => {
-                                this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @min(this.out.values[this.out.at(a, z, y, x)], this.u_var);
                             },
                             .unary_set => {
                                 this.out.values[this.out.at(a, z, y, x)] = this.u_var;
                             },
                             .unary_random => {
                                 // $TODO Make my own PCG implementation that can do SIMD
-                                this.out.values[this.out.at(a, z, y, x)] = rng.?.random().floatNorm(f32);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
-                                this.out.values[this.out.at(a, z, y, x)] = std.math.tanh(this.out.values[this.out.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    std.math.tanh(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_absolute => {
-                                if (this.out.values[this.out.at(a, z, y, x)] < 0) {
-                                    this.out.values[this.out.at(a, z, y, x)] = -this.out.values[this.out.at(a, z, y, x)];
-                                } else {
-                                    this.out.values[this.out.at(a, z, y, x)] = this.out.values[this.out.at(a, z, y, x)];
-                                }
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @abs(this.out.values[this.out.at(a, z, y, x)]);
                             },
                             .unary_sign => {
                                 if (this.out.values[this.out.at(a, z, y, x)] > 0) {
@@ -551,58 +552,82 @@ pub const Op = struct {
                                 // }
                             },
                             .binary_add => {
-                                this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] +=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .binary_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -= this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] -=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .binary_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *= this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] *=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .binary_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /= this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] /=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .binary_max => {
-                                this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @max(this.out.values[this.out.at(a, z, y, x)], //
+                                    this.in.values[this.in.at(a, z, y, x)]);
                             },
                             .binary_min => {
-                                this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(a, z, y, x)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @min(this.out.values[this.out.at(a, z, y, x)], //
+                                    this.in.values[this.in.at(a, z, y, x)]);
                             },
                             .binary_set => {
-                                this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .expand_add => {
-                                this.out.values[this.out.at(a, z, y, x)] += this.in.values[this.in.at(0, 0, 0, 0)];
+                                this.out.values[this.out.at(a, z, y, x)] +=
+                                    this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .expand_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -= this.in.values[this.in.at(0, 0, 0, 0)];
+                                this.out.values[this.out.at(a, z, y, x)] -=
+                                    this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .expand_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *= this.in.values[this.in.at(0, 0, 0, 0)];
+                                this.out.values[this.out.at(a, z, y, x)] *=
+                                    this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .expand_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /= this.in.values[this.in.at(0, 0, 0, 0)];
+                                this.out.values[this.out.at(a, z, y, x)] /=
+                                    this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .expand_max => {
-                                this.out.values[this.out.at(a, z, y, x)] = @max(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @max(this.out.values[this.out.at(a, z, y, x)], //
+                                    this.in.values[this.in.at(0, 0, 0, 0)]);
                             },
                             .expand_min => {
-                                this.out.values[this.out.at(a, z, y, x)] = @min(this.out.values[this.out.at(a, z, y, x)], this.in.values[this.in.at(0, 0, 0, 0)]);
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    @min(this.out.values[this.out.at(a, z, y, x)], //
+                                    this.in.values[this.in.at(0, 0, 0, 0)]);
                             },
                             .expand_set => {
-                                this.out.values[this.out.at(a, z, y, x)] = this.in.values[this.in.at(0, 0, 0, 0)];
+                                this.out.values[this.out.at(a, z, y, x)] =
+                                    this.in.values[this.in.at(0, 0, 0, 0)];
                             },
                             .reduce_sum => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] += this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(0, 0, 0, 0)] +=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                             .reduce_max => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] = @max(this.out.values[this.out.at(0, 0, 0, 0)], this.in.values[this.in.at(a, z, y, x)]);
+                                this.out.values[this.out.at(0, 0, 0, 0)] =
+                                    @max(this.out.values[this.out.at(0, 0, 0, 0)], //
+                                    this.in.values[this.in.at(a, z, y, x)]);
                             },
                             .reduce_min => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] = @min(this.out.values[this.out.at(0, 0, 0, 0)], this.in.values[this.in.at(a, z, y, x)]);
+                                this.out.values[this.out.at(0, 0, 0, 0)] =
+                                    @min(this.out.values[this.out.at(0, 0, 0, 0)], //
+                                    this.in.values[this.in.at(a, z, y, x)]);
                             },
                             .reduce_avg => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] += this.in.values[this.in.at(a, z, y, x)];
+                                this.out.values[this.out.at(0, 0, 0, 0)] +=
+                                    this.in.values[this.in.at(a, z, y, x)];
                             },
                         }
                     }
@@ -610,10 +635,17 @@ pub const Op = struct {
             }
         }
         if (this.type == .reduce_avg) {
-            this.out.values[this.out.at(0, 0, 0, 0)] /= @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
+            this.out.values[this.out.at(0, 0, 0, 0)] /=
+                @as(f32, //
+                @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
         }
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(
+        this: @This(),
+        padding: comptime_int,
+        offset: comptime_int,
+        name: ?[]const u8,
+    ) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
@@ -653,7 +685,13 @@ pub const Op = struct {
                 this.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.type.isBinary()) 'B' else (if (this.type.isExpand()) 'E' else 'R');
+            const op_kind: u8 = if (this.type.isBinary())
+                'B'
+            else
+                (if (this.type.isExpand())
+                    'E'
+                else
+                    'R');
             std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
                 switch (this.type) {
@@ -741,7 +779,12 @@ pub const Linearized = struct {
         this.op_num += source.op_num;
         source.clear();
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(
+        this: @This(),
+        padding: comptime_int,
+        offset: comptime_int,
+        name: ?[]const u8,
+    ) void {
         if (name) |text| {
             std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
         } else {
@@ -761,26 +804,42 @@ pub const Linearized = struct {
 pub const Tensor = @This();
 buffer: Buffer,
 linearized: Linearized,
-pub fn alloc(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
+pub fn alloc(
+    runtime: Runtime,
+    allocator: Allocator,
+    a: u32,
+    z: u32,
+    y: u32,
+    x: u32,
+    capacity: u32,
+) !Tensor {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
 
     return .{
-        .buffer = try Buffer.alloc(allocator, a, z, y, x, context),
+        .buffer = try Buffer.alloc(runtime, allocator, a, z, y, x),
         .linearized = try Linearized.alloc(allocator, capacity),
     };
 }
 /// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
-pub fn allocIntermediary(allocator: Allocator, a: u32, z: u32, y: u32, x: u32, context: ?ClContext, capacity: u32) !Tensor {
+pub fn allocIntermediary(
+    runtime: Runtime,
+    allocator: Allocator,
+    a: u32,
+    z: u32,
+    y: u32,
+    x: u32,
+    capacity: u32,
+) !Tensor {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
 
     return .{
-        .buffer = try Buffer.allocIntermediary(allocator, a, z, y, x, context),
+        .buffer = try Buffer.allocIntermediary(runtime, allocator, a, z, y, x),
         .linearized = try Linearized.alloc(allocator, capacity),
     };
 }

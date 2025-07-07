@@ -4,7 +4,6 @@ const Allocator = std.mem.Allocator;
 const DefaultPrng = std.Random.DefaultPrng;
 
 const Optimization = @import("./compiler/optimize.zig").Optimization;
-const Program = @import("./compiler/Program.zig");
 const Layer = @import("./Layer.zig");
 const Activation = Layer.Activation;
 const Dense = Layer.Dense;
@@ -12,10 +11,8 @@ const Convolution = Layer.Convolution;
 const Reduce = Layer.Reduce;
 const Split = Layer.Split;
 const Residual = Layer.Residual;
-const cl = @import("./runtimes/cl.zig");
-const ClContext = cl.ClContext;
-const ClDevice = cl.ClDevice;
-const ClCommandQueue = cl.ClCommandQueue;
+const Runtime = @import("./compiler/runtimes/Runtime.zig");
+const Program = @import("./compiler/Program.zig");
 const Tensor = @import("./Tensor.zig");
 const Linearized = Tensor.Linearized;
 const Op = Tensor.Op;
@@ -24,16 +21,14 @@ const todo = @import("./util.zig").todo;
 
 pub const Neuralnet = @This();
 layer: []Layer,
-queue: ClCommandQueue,
 in: Tensor,
 in_g: Tensor,
-forward_cl: Program,
-backward_cl: Program,
-learn_cl: Program,
-forward_cpu: Linearized,
-backward_cpu: Linearized,
-learn_cpu: Linearized,
+forward_compiled: Program,
+backward_compiled: Program,
+learn_compiled: Program,
+runtime: Runtime,
 pub fn alloc(
+    runtime: Runtime,
     allocator: Allocator,
     z_size: u32,
     y_size: u32,
@@ -41,9 +36,6 @@ pub fn alloc(
     config: []const Layer.Config,
     size_global: u32,
     size_local: u32,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
 ) !Neuralnet {
     assert(size_global > 0);
     assert(size_local > 0);
@@ -61,8 +53,8 @@ pub fn alloc(
     var z_in: u32 = z_size;
     var y_in: u32 = y_size;
     var x_in: u32 = x_size;
-    const in: Tensor = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, 1);
-    var in_g: Tensor = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, 1);
+    const in: Tensor = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 1);
+    var in_g: Tensor = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 1);
     var layer_idx: u32 = 0;
     while (layer_idx < config.len) : (layer_idx += 1) {
         // $TODO Activation and norming
@@ -115,26 +107,26 @@ pub fn alloc(
             .reduce => .none,
             .split => |s| s.activation_type,
             .residual => .none,
-        }, z_out, y_out, x_out, context);
+        }, z_out, y_out, x_out, runtime);
         layer[layer_idx].tag = switch (config[layer_idx]) {
-            .dense => |d| .{ .dense = try Dense.alloc(allocator, size_in, d.size_out, context) },
+            .dense => |d| .{ .dense = try Dense.alloc(allocator, size_in, d.size_out, runtime) },
             .convolution => |c| .{
-                .convolution = try Convolution.alloc(allocator, z_in, y_in, x_in, c.filters, c.kernel_size, //
-                    c.kernel_stride, c.kernel_padding, context),
+                .convolution = try Convolution.alloc(allocator, z_in, y_in, x_in, c.filters, //
+                    c.kernel_size, c.kernel_stride, c.kernel_padding, runtime),
             },
             .reduce => |r| .{ .reduce = Reduce.init(z_in, y_in, x_in, r.kernel_size, r.kernel_stride, r.t) },
-            .split => |s| .{ .split = try Split.alloc(allocator, s.filters, z_in, y_in, x_in, context) },
+            .split => |s| .{ .split = try Split.alloc(allocator, s.filters, z_in, y_in, x_in, runtime) },
             .residual => |r| .{ .residual = .{ .t = .identity, .in_layer = r.in_layer } },
         };
 
-        layer[layer_idx].values = try Tensor.alloc(allocator, 1, z_out, y_out, x_out, context, forward_cap);
+        layer[layer_idx].values = try Tensor.alloc(runtime, allocator, 1, z_out, y_out, x_out, forward_cap);
         if (layer_idx == 0) {
             try in_g.linearized.capacityEnsure(allocator, backward_cap);
         } else {
-            layer[layer_idx - 1].values_g = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, backward_cap);
+            layer[layer_idx - 1].values_g = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, backward_cap);
         }
         if (layer_idx == config.len - 1) {
-            layer[layer_idx].values_g = try Tensor.alloc(allocator, 1, z_out, y_out, x_out, context, 2);
+            layer[layer_idx].values_g = try Tensor.alloc(runtime, allocator, 1, z_out, y_out, x_out, 2);
         }
         capacity_forward += forward_cap;
         capacity_backward += backward_cap;
@@ -189,7 +181,8 @@ pub fn alloc(
                 values_next.moveReshape(1, z_in, y_in, x_in);
                 values_g_next.moveReshape(1, z_in, y_in, x_in);
             },
-            .convolution => |*c| c.backward(&values_next, &values_g_next, &layer[layer_idx].values, &layer[layer_idx].values_g),
+            .convolution => |*c| c.backward(&values_next, &values_g_next, //
+                &layer[layer_idx].values, &layer[layer_idx].values_g),
             .reduce => |*r| r.backward(&values_g_next, &layer[layer_idx].values_g),
             .split => |*s| s.backward(&values_next, &values_g_next, &layer[layer_idx].values_g),
             // .residual => |r| r.backward(&layer[r.in_layer].values_g, &layer[layer_idx].values_g),
@@ -248,33 +241,31 @@ pub fn alloc(
             .residual => {},
         }
     }
-    const forward_cl: Program = try Program.alloc(allocator, forward_cpu, size_global, size_local, .O3, device, context, queue);
-    errdefer forward_cl.free(allocator);
-    const backward_cl: Program = try Program.alloc(allocator, backward_cpu, size_global, size_local, .O3, device, context, queue);
-    errdefer backward_cl.free(allocator);
-    const learn_cl: Program = try Program.alloc(allocator, learn_cpu, size_global, size_local, .O3, device, context, queue);
+    const forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, .O3, //
+        size_global, size_local);
+    errdefer forward_compiled.free(allocator);
+    const backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, .O3, //
+        size_global, size_local);
+    errdefer backward_compiled.free(allocator);
+    const learn_compiled: Program = try Program.alloc(runtime, allocator, learn_cpu, .O3, //
+        size_global, size_local);
+
     return .{
         .layer = layer,
-        .queue = queue,
         .in = in,
         .in_g = in_g,
-        .forward_cl = forward_cl,
-        .backward_cl = backward_cl,
-        .learn_cl = learn_cl,
-        .forward_cpu = forward_cpu,
-        .backward_cpu = backward_cpu,
-        .learn_cpu = learn_cpu,
+        .forward_compiled = forward_compiled,
+        .backward_compiled = backward_compiled,
+        .learn_compiled = learn_compiled,
+        .runtime = runtime,
     };
 }
 pub fn free(this: *@This(), allocator: Allocator) void {
     this.in.free(allocator);
     this.in_g.free(allocator);
-    this.forward_cpu.free(allocator);
-    this.backward_cpu.free(allocator);
-    this.learn_cpu.free(allocator);
-    this.forward_cl.free(allocator);
-    this.backward_cl.free(allocator);
-    this.learn_cl.free(allocator);
+    this.forward_compiled.free(this.runtime, allocator);
+    this.backward_compiled.free(this.runtime, allocator);
+    this.learn_compiled.free(this.runtime, allocator);
     for (this.layer) |*layer| {
         layer.activation.free(allocator);
         layer.values.free(allocator);
@@ -291,18 +282,11 @@ pub fn free(this: *@This(), allocator: Allocator) void {
 }
 // $TODO / $FIXME The sync handling needs to be reworked
 // $TODO Add forward only pass where some additionaly tensors can be intermediaries
-pub fn forward(this: *@This(), t: ClDevice.Type) !void {
-    switch (t) {
-        .cpu => {
-            this.forward_cpu.run();
-        },
-        .gpu => {
-            try this.forward_cl.run();
-        },
-    }
+pub fn forward(this: *@This()) !void {
+    this.forward_compiled.run(this.runtime);
 }
 /// Input and output buffers have the same a_size as eachother and otherwise the same size of the nn in/output
-pub fn backward(this: *@This(), t: ClDevice.Type, in: *Tensor, out: *Tensor) !void {
+pub fn backward(this: *@This(), in: *Tensor, out: *Tensor) !void {
     assert(in.buffer.a_size == out.buffer.a_size);
     assert(in.buffer.offset == 0);
     assert(out.buffer.offset == 0);
@@ -318,32 +302,18 @@ pub fn backward(this: *@This(), t: ClDevice.Type, in: *Tensor, out: *Tensor) !vo
         this.in.binarySet(in);
         this.in.realize();
         try this.sync(true, true, true, false, false, .sync_to_device);
-        try this.forward(t);
+        try this.forward();
         try this.sync(true, true, true, false, false, .sync_to_host);
         this.layer[layers - 1].values_g.binarySet(&this.layer[layers - 1].values);
         this.layer[layers - 1].values_g.binarySubtract(out);
         // Technically there is a ` * 2` here because it's mean square error but that's just a constant factor so it doesn't really matter
         this.layer[layers - 1].values_g.realize();
         try this.sync(true, true, true, false, false, .sync_to_device);
-        switch (t) {
-            .cpu => {
-                this.backward_cpu.run();
-            },
-            .gpu => {
-                try this.backward_cl.run();
-            },
-        }
+        this.backward_compiled.run(this.runtime);
     }
 }
-pub fn learn(this: *@This(), t: ClDevice.Type) !void {
-    switch (t) {
-        .cpu => {
-            this.learn_cpu.run();
-        },
-        .gpu => {
-            try this.learn_cl.run();
-        },
-    }
+pub fn learn(this: *@This()) !void {
+    try this.learn_compiled.run(this.runtime);
 }
 pub fn init(this: *@This(), rng: u64) !void {
     // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
@@ -446,16 +416,16 @@ pub fn sync(
             }
             switch (t) {
                 .sync_to_device => {
-                    try weights_curr.buffer.syncToDevice(this.queue);
-                    try biases_curr.buffer.syncToDevice(this.queue);
-                    try weights_g_curr.buffer.syncToDevice(this.queue);
-                    try biases_g_curr.buffer.syncToDevice(this.queue);
+                    try weights_curr.buffer.syncToDevice(this.runtime);
+                    try biases_curr.buffer.syncToDevice(this.runtime);
+                    try weights_g_curr.buffer.syncToDevice(this.runtime);
+                    try biases_g_curr.buffer.syncToDevice(this.runtime);
                 },
                 .sync_to_host => {
-                    try weights_curr.buffer.syncToHost(this.queue);
-                    try biases_curr.buffer.syncToHost(this.queue);
-                    try weights_g_curr.buffer.syncToHost(this.queue);
-                    try biases_g_curr.buffer.syncToHost(this.queue);
+                    try weights_curr.buffer.syncToHost(this.runtime);
+                    try biases_curr.buffer.syncToHost(this.runtime);
+                    try weights_g_curr.buffer.syncToHost(this.runtime);
+                    try biases_g_curr.buffer.syncToHost(this.runtime);
                 },
                 .sync_to_none => unreachable,
             }
@@ -467,12 +437,12 @@ pub fn sync(
             }
             switch (t) {
                 .sync_to_device => {
-                    try layer.values.buffer.syncToDevice(this.queue);
-                    try layer.values_g.buffer.syncToDevice(this.queue);
+                    try layer.values.buffer.syncToDevice(this.runtime);
+                    try layer.values_g.buffer.syncToDevice(this.runtime);
                 },
                 .sync_to_host => {
-                    try layer.values.buffer.syncToHost(this.queue);
-                    try layer.values_g.buffer.syncToHost(this.queue);
+                    try layer.values.buffer.syncToHost(this.runtime);
+                    try layer.values_g.buffer.syncToHost(this.runtime);
                 },
                 .sync_to_none => unreachable,
             }
@@ -594,12 +564,13 @@ const file_param_size_max: usize = 4 * 1000 * 1000 * 1000;
 const file_arch_size_max: usize = 4 * 1000 * 1000;
 /// Returns the number of bytes read
 fn readParamsV0(weights: *Tensor, biases: *Tensor, bytes: []const u8) u64 {
-    const weights_size: u64 = weights.buffer.values.len * @sizeOf(@TypeOf(weights.buffer.values[0]));
+    const weights_size: u64 = weights.buffer.values.len *
+        @sizeOf(@TypeOf(weights.buffer.values[0]));
     const biases_size: u64 = biases.buffer.values.len * @sizeOf(@TypeOf(biases.buffer.values[0]));
-    const weights_slice: []const f32 = @alignCast(std.mem.bytesAsSlice(@TypeOf(biases.buffer.values[0]), //
-        bytes[0..weights_size]));
-    const biases_slice: []const f32 = @alignCast(std.mem.bytesAsSlice(@TypeOf(biases.buffer.values[0]), //
-        bytes[weights_size .. weights_size + biases_size]));
+    const weights_slice: []const f32 = @alignCast(std.mem.bytesAsSlice( //
+        @TypeOf(biases.buffer.values[0]), bytes[0..weights_size]));
+    const biases_slice: []const f32 = @alignCast(std.mem.bytesAsSlice( //
+        @TypeOf(biases.buffer.values[0]), bytes[weights_size .. weights_size + biases_size]));
     std.mem.copyBackwards(f32, weights.buffer.values, weights_slice);
     std.mem.copyBackwards(f32, biases.buffer.values, biases_slice);
     return weights_size + biases_size;
@@ -642,7 +613,8 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
         switch (format_version_read) {
             0 => idx += readParamsV0(weights, biases, file_param_bytes[idx..]),
             else => {
-                std.log.err("Unrecognized file format version {} for param file {s}\n", .{ format_version_read, file_param_name });
+                std.log.err("Unrecognized file format version {} for param file {s}\n", //
+                    .{ format_version_read, file_param_name });
                 unreachable;
             },
         }
@@ -650,7 +622,8 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
         hash.update(std.mem.sliceAsBytes(biases.buffer.values));
     }
     if (file_param_bytes.len != idx + 8) return error.ParamFileWrongSize;
-    if (hash.final() != std.mem.bytesToValue(u64, file_param_bytes[idx..])) return error.ParamHashMismatch;
+    if (hash.final() != std.mem.bytesToValue(u64, file_param_bytes[idx..]))
+        return error.ParamHashMismatch;
 }
 fn readInputV0(bytes: []const u8) struct { z: u32, y: u32, x: u32 } {
     assert(bytes[0] == 'i');
@@ -690,7 +663,12 @@ fn readArchV0(bytes: []const u8) Layer.Config {
         else => unreachable,
     };
 }
-pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct { config: []const Layer.Config, z_in: u32, y_in: u32, x_in: u32 } {
+pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
+    config: []const Layer.Config,
+    z_in: u32,
+    y_in: u32,
+    x_in: u32,
+} {
     const file_arch = std.fs.cwd().openFile(file_arch_name, .{ .mode = .read_only }) catch |err| switch (err) {
         error.FileTooBig => {
             std.log.err("File {s} exceeds max size of {} bytes. Increase `file_arch_size_max` if this is intentional.\n", //
@@ -762,10 +740,3 @@ pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?
         }
     }
 }
-// switch (config[layer_idx]) {
-//     .dense => |d| ,
-//     .convolution => |c| ,
-//     .reduce => |r| ,
-//     .split => |s| ,
-//     .residual => |r| ,
-// }

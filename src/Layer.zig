@@ -4,10 +4,7 @@ const Allocator = std.mem.Allocator;
 
 const Optimization = @import("./compiler/optimize.zig").Optimization;
 const Program = @import("./compiler/Program.zig");
-const cl = @import("./runtimes/cl.zig");
-const ClContext = cl.ClContext;
-const ClDevice = cl.ClDevice;
-const ClCommandQueue = cl.ClCommandQueue;
+const Runtime = @import("./compiler/runtimes/Runtime.zig");
 const Tensor = @import("./Tensor.zig");
 const Linearized = Tensor.Linearized;
 const Op = Tensor.Op;
@@ -15,7 +12,7 @@ const Buffer = Tensor.Buffer;
 const todo = @import("./util.zig").todo;
 
 pub const Activation = struct {
-    pub const Type = enum(u32) {
+    pub const Type = enum(u8) {
         none,
         relu,
         sigmoid,
@@ -23,7 +20,7 @@ pub const Activation = struct {
         relu_leaky,
         silu,
         gelu,
-        tanh, // 1 - tanh^2
+        tanh,
     };
     pub const relu_leaky_factor: f32 = 0.1;
     pub const relu_clipped_factor: f32 = 1;
@@ -33,23 +30,23 @@ pub const Activation = struct {
     }
     temp: Tensor,
     t: Activation.Type,
-    pub fn alloc(allocator: Allocator, t: Activation.Type, z_in: u32, y_in: u32, x_in: u32, context: ClContext) !Activation {
+    pub fn alloc(runtime: Runtime, allocator: Allocator, t: Activation.Type, z_in: u32, y_in: u32, x_in: u32) !Activation {
         return .{
             .t = t,
             .temp = switch (t) {
-                .none => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .relu => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .sigmoid => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .relu_clipped => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .relu_leaky => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .silu => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .gelu => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
-                .tanh => try Tensor.allocIntermediary(allocator, 1, z_in, y_in, x_in, context, 1),
+                .none => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .relu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .sigmoid => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .relu_clipped => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .relu_leaky => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .silu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .gelu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .tanh => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
             },
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.temp.free(allocator);
+    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+        this.temp.free(runtime, allocator);
     }
     pub fn forward(this: *@This(), values: *Tensor) void {
         switch (this.t) {
@@ -145,19 +142,21 @@ pub const Dense = struct {
     temp_in: Tensor,
     temp_out: Tensor,
     temp_full: Tensor,
-    pub fn alloc(allocator: Allocator, size_in: u32, size_out: u32, context: ClContext) !Dense {
+    pub fn alloc(runtime: Runtime, allocator: Allocator, size_in: u32, size_out: u32) !Dense {
         assert(size_in > 0);
         assert(size_out > 0);
         return .{
             .size_in = size_in,
             .size_out = size_out,
-            .weights = try Tensor.alloc(allocator, 1, 1, size_in, size_out, context, 2),
-            .weights_g = try Tensor.alloc(allocator, 1, 1, size_in, size_out, context, size_in + size_out + 1),
-            .biases = try Tensor.alloc(allocator, 1, 1, 1, size_out, context, 2),
-            .biases_g = try Tensor.alloc(allocator, 1, 1, 1, size_out, context, 2),
-            .temp_in = try Tensor.allocIntermediary(allocator, 1, 1, size_in, 1, context, 2),
-            .temp_out = try Tensor.allocIntermediary(allocator, 1, 1, 1, size_out, context, 2),
-            .temp_full = try Tensor.allocIntermediary(allocator, 1, 1, size_in, size_out, context, size_in + size_out),
+            .weights = try Tensor.alloc(runtime, allocator, 1, 1, size_in, size_out, 2),
+            .weights_g = try Tensor.alloc(runtime, allocator, 1, 1, size_in, size_out, //
+                size_in + size_out + 1),
+            .biases = try Tensor.alloc(runtime, allocator, 1, 1, 1, size_out, 2),
+            .biases_g = try Tensor.alloc(runtime, allocator, 1, 1, 1, size_out, 2),
+            .temp_in = try Tensor.allocIntermediary(runtime, allocator, 1, 1, size_in, 1, 2),
+            .temp_out = try Tensor.allocIntermediary(runtime, allocator, 1, 1, 1, size_out, 2),
+            .temp_full = try Tensor.allocIntermediary(runtime, allocator, 1, 1, size_in, //
+                size_out, size_in + size_out),
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
@@ -247,7 +246,8 @@ pub const Dense = struct {
         } else {
             std.debug.print("{s}Dense\n", .{" " ** offset});
         }
-        std.debug.print("{s}In {}, Out {}\n", .{ " " ** (offset + padding), this.size_in, this.size_out });
+        std.debug.print("{s}In {}, Out {}\n", //
+            .{ " " ** (offset + padding), this.size_in, this.size_out });
     }
     pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         this.print(padding, offset, name);
@@ -279,11 +279,12 @@ pub const Convolution = struct {
     temp_kernel: Tensor,
     temp_single: Tensor,
     /// Size is the per dimension size **`without`** padding
-    pub inline fn sizeNew(dim_size: u32, kernel_size: u32, kernel_stride: u32, kernel_padding: u32) u32 {
-        assert(dim_size >= kernel_size);
-        return @divFloor(dim_size + 2 * kernel_padding - kernel_size, kernel_stride) + 1;
+    pub inline fn sizeNew(dim_size: u32, size: u32, stride: u32, padding: u32) u32 {
+        assert(dim_size >= size);
+        return @divFloor(dim_size + 2 * padding - size, stride) + 1;
     }
     pub fn alloc(
+        runtime: Runtime,
         allocator: Allocator,
         z_in: u32,
         y_in: u32,
@@ -292,7 +293,6 @@ pub const Convolution = struct {
         kernel_size: u32,
         kernel_stride: u32,
         kernel_padding: u32,
-        context: ClContext,
     ) !Convolution {
         assert(filters > 0);
         assert(kernel_stride > 0);
@@ -310,14 +310,17 @@ pub const Convolution = struct {
             .kernel_size = kernel_size,
             .kernel_stride = kernel_stride,
             .kernel_padding = kernel_padding,
-            .weights = try Tensor.alloc(allocator, filters, z_in, kernel_size, kernel_size, context, 2),
-            .weights_g = try Tensor.alloc(allocator, filters, z_in, kernel_size, kernel_size, context, 3 * filters * y_out * x_out),
-            .biases = try Tensor.alloc(allocator, filters, 1, 1, 1, context, 2),
-            .biases_g = try Tensor.alloc(allocator, filters, 1, 1, 1, context, 2 * filters),
-            .temp_input_padded = try Tensor.alloc(allocator, 1, z_in, y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, context, 1),
-            .temp_grad_padded = try Tensor.alloc(allocator, 1, z_in, y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, context, 3 * filters * y_out * x_out),
-            .temp_kernel = try Tensor.alloc(allocator, 1, z_in, kernel_size, kernel_size, context, 2),
-            .temp_single = try Tensor.alloc(allocator, 1, 1, 1, 1, context, 1),
+            .weights = try Tensor.alloc(runtime, allocator, filters, z_in, kernel_size, kernel_size, 2),
+            .weights_g = try Tensor.alloc(runtime, allocator, filters, z_in, kernel_size, //
+                kernel_size, 3 * filters * y_out * x_out),
+            .biases = try Tensor.alloc(runtime, allocator, filters, 1, 1, 1, 2),
+            .biases_g = try Tensor.alloc(runtime, allocator, filters, 1, 1, 1, 2 * filters),
+            .temp_input_padded = try Tensor.alloc(runtime, allocator, 1, z_in, //
+                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 1),
+            .temp_grad_padded = try Tensor.alloc(runtime, allocator, 1, z_in, //
+                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 3 * filters * y_out * x_out),
+            .temp_kernel = try Tensor.alloc(runtime, allocator, 1, z_in, kernel_size, kernel_size, 2),
+            .temp_single = try Tensor.alloc(runtime, allocator, 1, 1, 1, 1, 1),
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
@@ -357,7 +360,8 @@ pub const Convolution = struct {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     out.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_input_padded.moveOffset(0, 0, y_out_idx * this.kernel_stride, x_out_idx * this.kernel_stride);
+                    this.temp_input_padded.moveOffset(0, 0, y_out_idx * this.kernel_stride, //
+                        x_out_idx * this.kernel_stride);
                     this.temp_kernel.binarySet(&this.temp_input_padded);
                     this.temp_kernel.binaryMultiply(&this.weights);
                     out.reduceSum(&this.temp_kernel);
@@ -371,7 +375,8 @@ pub const Convolution = struct {
         this.weights.moveOffset(0, 0, 0, 0);
         out.moveResize(1, this.z_in * this.filters, y_out, x_out);
         out.moveOffset(0, 0, 0, 0);
-        this.temp_input_padded.moveResize(1, this.z_in * this.filters, y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
+        this.temp_input_padded.moveResize(1, this.z_in * this.filters, //
+            y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
         this.temp_input_padded.moveOffset(0, 0, 0, 0);
     }
     pub fn backward(this: *@This(), in: *Tensor, in_g: *Tensor, out: *Tensor, out_g: *Tensor) void {
@@ -434,7 +439,8 @@ pub const Convolution = struct {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     out_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_grad_padded.moveOffset(0, 0, y_out_idx * this.kernel_padding, x_out_idx * this.kernel_padding);
+                    this.temp_grad_padded.moveOffset(0, 0, y_out_idx * this.kernel_padding, //
+                        x_out_idx * this.kernel_padding);
                     this.temp_kernel.binarySet(&this.weights);
                     this.temp_kernel.expandMultiply(out_g);
                     this.temp_grad_padded.binaryAdd(&this.temp_kernel);
@@ -448,7 +454,8 @@ pub const Convolution = struct {
         this.temp_grad_padded.moveResize(1, this.z_in, this.y_in, this.x_in);
         this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
         in_g.binaryAdd(&this.temp_grad_padded);
-        this.temp_grad_padded.moveResize(1, this.z_in, this.y_in + 2 * this.kernel_padding, this.x_in + 2 * this.kernel_padding);
+        this.temp_grad_padded.moveResize(1, this.z_in, this.y_in + 2 * this.kernel_padding, //
+            this.x_in + 2 * this.kernel_padding);
         this.temp_grad_padded.moveOffset(0, 0, 0, 0);
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -459,8 +466,8 @@ pub const Convolution = struct {
         }
         std.debug.print("{s}In (1, {}, {}, {}), Size {}, Stride {}, Padding {}\n", .{
             " " ** (offset + padding), //
-            this.z_in, this.y_in, this.x_in, //
-            this.kernel_size, this.kernel_stride, this.kernel_padding, //
+            this.z_in,        this.y_in,          this.x_in, //
+            this.kernel_size, this.kernel_stride, this.kernel_padding,
         });
     }
     pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -476,16 +483,16 @@ pub const Convolution = struct {
     }
 };
 pub const Reduce = struct {
-    pub const Type = enum(u32) { sum, avg, max, min };
+    pub const Type = enum(u8) { sum, avg, max, min };
     z_in: u32,
     y_in: u32,
     x_in: u32,
     kernel_size: u32,
     kernel_stride: u32,
     t: Reduce.Type,
-    pub inline fn sizeNew(dim_size: u32, kernel_size: u32, kernel_stride: u32) u32 {
-        assert(dim_size >= kernel_size);
-        return @divFloor(dim_size - kernel_size, kernel_stride) + 1;
+    pub inline fn sizeNew(dim_size: u32, size: u32, stride: u32) u32 {
+        assert(dim_size >= size);
+        return @divFloor(dim_size - size, stride) + 1;
     }
     pub fn init(z_in: u32, y_in: u32, x_in: u32, kernel_size: u32, kernel_stride: u32, t: Reduce.Type) Reduce {
         assert(z_in > 0);
@@ -536,7 +543,8 @@ pub const Reduce = struct {
             }
         }
     }
-    /// $FIXME This backprop is just straight up wrong, but it at least **somewhat** approximates the correct solution.
+    /// $FIXME This backprop is just straight up wrong
+    ///     but it at least **somewhat** approximates the correct solution.
     pub fn backward(this: *@This(), in_g: *Tensor, out_g: *Tensor) void {
         assert(in_g.buffer.a_size == 1);
         assert(in_g.buffer.z_size == this.z_in);
@@ -593,7 +601,7 @@ pub const Split = struct {
     biases_g: Tensor,
 
     temp_in: Tensor,
-    pub fn alloc(allocator: Allocator, filters: u32, z_in: u32, y_in: u32, x_in: u32, context: ClContext) !Split {
+    pub fn alloc(runtime: Runtime, allocator: Allocator, filters: u32, z_in: u32, y_in: u32, x_in: u32) !Split {
         assert(filters > 0);
         assert(z_in > 0);
         assert(y_in > 0);
@@ -603,11 +611,11 @@ pub const Split = struct {
             .z_in = z_in,
             .y_in = y_in,
             .x_in = x_in,
-            .weights = try Tensor.alloc(allocator, filters, z_in, y_in, x_in, context, 2),
-            .weights_g = try Tensor.alloc(allocator, filters, z_in, y_in, x_in, context, 3 * filters),
-            .biases = try Tensor.alloc(allocator, filters, z_in, y_in, x_in, context, 2),
-            .biases_g = try Tensor.alloc(allocator, filters, z_in, y_in, x_in, context, 2),
-            .temp_in = try Tensor.alloc(allocator, 1, z_in, y_in, x_in, context, 2),
+            .weights = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
+            .weights_g = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 3 * filters),
+            .biases = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
+            .biases_g = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
+            .temp_in = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 2),
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
@@ -691,8 +699,10 @@ pub const Split = struct {
             std.debug.print("{s}Reduce\n", .{" " ** offset});
         }
         std.debug.print("{s}In (1, {}, {}, {}), filters {}\n", .{
-            " " ** (offset + padding), //
-            this.z_in,    this.y_in, this.x_in, //
+            " " ** (offset + padding),
+            this.z_in,
+            this.y_in,
+            this.x_in,
             this.filters,
         });
     }
@@ -706,7 +716,7 @@ pub const Split = struct {
     }
 };
 pub const Residual = struct {
-    pub const Type = enum(u32) {
+    pub const Type = enum(u8) {
         identity,
     };
     t: Residual.Type,
@@ -748,8 +758,9 @@ pub const Residual = struct {
 };
 
 pub const Layer = @This();
-// $TODO Maybe just add values, values_g, activation and norming to the sub-structs so that Layer itself can be the union
-pub const Type = enum { dense, convolution, reduce, split, residual };
+// $TODO Maybe just add values, values_g, activation and norming to the sub-structs
+//  This would make the layer just the `tag` field which could be nicer
+pub const Type = enum(u8) { dense, convolution, reduce, split, residual };
 tag: union(Type) {
     dense: Dense,
     convolution: Convolution,

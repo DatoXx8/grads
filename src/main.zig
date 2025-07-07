@@ -4,11 +4,12 @@ const assert = std.debug.assert;
 const Program = @import("./compiler/Program.zig");
 const Layer = @import("./Layer.zig");
 const Neuralnet = @import("./Neuralnet.zig");
-const cl = @import("./runtimes/cl.zig");
-const ClDevice = cl.ClDevice;
-const ClContext = cl.ClContext;
-const ClCommandQueue = cl.ClCommandQueue;
+const Runtime = @import("./compiler/runtimes/Runtime.zig");
+const RuntimeCl = Runtime.RuntimeCl;
 const Tensor = @import("./Tensor.zig");
+
+// Runtime refactor
+// 100 column soft limit
 
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
 // $TODO Log failing simulator seeds to some test database file
@@ -28,16 +29,13 @@ pub fn main() !void {
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
 
-    var device: ClDevice = try ClDevice.alloc(.gpu);
-    var context: ClContext = try ClContext.alloc(device);
-    var queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
-    defer {
-        device.free() catch {};
-        context.free() catch {};
-        queue.free() catch {};
-    }
+    var runtime_cl: RuntimeCl = undefined;
+    var runtime: Runtime = runtime_cl.runtime();
+    try runtime.init();
+    defer runtime.deinit() catch {};
 
     var nn: Neuralnet = try Neuralnet.alloc(
+        runtime,
         allocator,
         2,
         2,
@@ -49,9 +47,6 @@ pub fn main() !void {
         },
         20,
         4,
-        device,
-        context,
-        queue,
     );
     errdefer nn.free(allocator);
     defer nn.free(allocator);

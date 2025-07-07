@@ -8,18 +8,17 @@ const Tensor = grads.Tensor;
 const Linearized = grads.Linearized;
 const OpType = grads.Op.Type;
 const Program = grads.Program;
-const ClContext = grads.ClContext;
-const ClDevice = grads.ClDevice;
-const ClCommandQueue = grads.ClCommandQueue;
+const Runtime = grads.Runtime;
+const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
 
-const randomLinearized = @import("random-linearized.zig").randomLinearized;
-const a_size_max = @import("random-linearized.zig").a_size_max;
-const z_size_max = @import("random-linearized.zig").z_size_max;
-const y_size_max = @import("random-linearized.zig").y_size_max;
-const x_size_max = @import("random-linearized.zig").x_size_max;
-const op_num = @import("random-linearized.zig").op_num;
-const tensor_num = @import("random-linearized.zig").tensor_num;
+const randomLinearized = @import("random_linearized.zig").randomLinearized;
+const a_size_max = @import("random_linearized.zig").a_size_max;
+const z_size_max = @import("random_linearized.zig").z_size_max;
+const y_size_max = @import("random_linearized.zig").y_size_max;
+const x_size_max = @import("random_linearized.zig").x_size_max;
+const op_num = @import("random_linearized.zig").op_num;
+const tensor_num = @import("random_linearized.zig").tensor_num;
 
 const AssertError = error{
     nan,
@@ -51,23 +50,21 @@ fn assertEq(val1: f32, val2: f32) !void {
 }
 
 fn simulateCompiler(
+    runtime: Runtime,
     allocator: Allocator,
     op_included: [op_num]bool,
     rng: u64,
     optimization: Optimization,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
 ) !void {
     var pcg = Pcg.init(rng);
 
-    var tensor1 = try randomLinearized(allocator, op_included, rng, context);
+    var tensor1 = try randomLinearized(runtime, allocator, op_included, rng);
     defer {
         for (&tensor1.tensor) |*tensor| {
             tensor.free(allocator);
         }
     }
-    var tensor2 = try randomLinearized(allocator, op_included, rng, context);
+    var tensor2 = try randomLinearized(runtime, allocator, op_included, rng);
     defer {
         for (&tensor2.tensor) |*tensor| {
             tensor.free(allocator);
@@ -82,17 +79,17 @@ fn simulateCompiler(
 
     for (0..tensor_num) |tensor_idx| {
         tensor1.tensor[tensor_idx].buffer.syncUpdate(.sync_to_device);
-        try tensor1.tensor[tensor_idx].buffer.syncToDevice(queue);
+        try tensor1.tensor[tensor_idx].buffer.syncToDevice();
     }
 
-    const program: Program = try Program.alloc(allocator, tensor1.tensor[tensor1.out_idx].linearized, //
-        size_global, size_local, optimization, device, context, queue);
+    const program: Program = try Program.alloc(runtime, allocator, //
+        tensor1.tensor[tensor1.out_idx].linearized, optimization, size_global, size_local);
     defer program.free(allocator);
 
     try program.run();
 
     tensor1.tensor[tensor1.out_idx].buffer.syncUpdate(.sync_to_host);
-    try tensor1.tensor[tensor1.out_idx].buffer.syncToHost(queue);
+    try tensor1.tensor[tensor1.out_idx].buffer.syncToHost(runtime);
 
     for (0..tensor1.tensor[tensor1.out_idx].buffer.values.len) |arg_idx| {
         assertEq(tensor1.tensor[tensor1.out_idx].buffer.values[arg_idx], tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx]) catch |err| {
@@ -114,13 +111,11 @@ fn simulateCompiler(
 }
 
 fn minifyCompiler(
+    runtime: Runtime,
     allocator: Allocator,
     rng: u64,
     optimization: Optimization,
     err: anytype,
-    device: ClDevice,
-    context: ClContext,
-    queue: ClCommandQueue,
 ) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -128,7 +123,7 @@ fn minifyCompiler(
     for (0..op_num) |op_idx| {
         var failed: bool = false;
         op_included[op_idx] = false;
-        simulateCompiler(allocator, op_included, rng, optimization, device, context, queue) catch {
+        simulateCompiler(runtime, allocator, op_included, rng, optimization) catch {
             failed = true;
         };
         if (!failed) {
@@ -200,17 +195,18 @@ pub fn main() !void {
         false => rng_saved.?,
     };
 
-    const device: ClDevice = try ClDevice.alloc(.gpu);
-    const context: ClContext = try ClContext.alloc(device);
-    const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
+    var runtime_cl: RuntimeCl = undefined;
+    var runtime: Runtime = runtime_cl.runtime();
+    try runtime.init();
+    defer runtime.deinit() catch {};
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;
         while (true) {
             std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, @splat(true), rng +% loop_idx, opt, device, context, queue) catch |err| {
-                    try minifyCompiler(allocator, rng +% loop_idx, opt, err, device, context, queue);
+                simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
+                    try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
                 std.debug.print("{s} ", .{
                     switch (opt) {
@@ -224,8 +220,8 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, @splat(true), rng +% loop_idx, value, device, context, queue) catch |err| {
-                        try minifyCompiler(allocator, rng +% loop_idx, value, err, device, context, queue);
+                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, value) catch |err| {
+                        try minifyCompiler(runtime, allocator, rng +% loop_idx, value, err);
                     };
                     std.debug.print("{s} ", .{name});
                 }
@@ -237,8 +233,8 @@ pub fn main() !void {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(allocator, @splat(true), rng +% loop_idx, opt, device, context, queue) catch |err| {
-                    try minifyCompiler(allocator, rng +% loop_idx, opt, err, device, context, queue);
+                simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
+                    try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
                 std.debug.print("{s} ", .{
                     switch (opt) {
@@ -252,8 +248,8 @@ pub fn main() !void {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
                     const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(allocator, @splat(true), rng +% loop_idx, value, device, context, queue) catch |err| {
-                        try minifyCompiler(allocator, rng +% loop_idx, value, err, device, context, queue);
+                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, value) catch |err| {
+                        try minifyCompiler(runtime, allocator, rng +% loop_idx, value, err);
                     };
                     std.debug.print("{s} ", .{name});
                 }

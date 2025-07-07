@@ -44,12 +44,12 @@ pub fn build(b: *std.Build) void {
 
     addExe(b, target, optimize, grads, "test", "src/main.zig", "run", //
         "Only used as a temporary main file. Don't use.");
-    addExe(b, target, optimize, grads, "unit-ops", "tests/unit-ops.zig", "unit-ops", //
+    addExe(b, target, optimize, grads, "unit_ops", "tests/unit_ops.zig", "unit_ops", //
         "Run unit tests for singular ops.");
-    addExe(b, target, optimize, grads, "simulate-linearized", "tests/simulate-linearized.zig", "simulate-linearized", //
+    addExe(b, target, optimize, grads, "simulate_linearized", "tests/simulate_linearized.zig", "simulate_linearized", //
         "Run simulation tests for linearized ops vs singular ops.");
-    addExe(b, target, optimize, grads, "simulate-compiler", "tests/simulate-compiler.zig", "simulate-compiler", //
+    addExe(b, target, optimize, grads, "simulate_compiler", "tests/simulate_compiler.zig", "simulate_compiler", //
         "Run simulation tests for compiler vs linearized ops.");
-    addExe(b, target, optimize, grads, "profile-compiler", "tests/profile-compiler.zig", "profile-compiler", //
+    addExe(b, target, optimize, grads, "profile_compiler", "tests/profile_compiler.zig", "profile_compiler", //
         "Run the simulator for the compiler optimisations and overall speed.");
 }

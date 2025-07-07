@@ -3,21 +3,19 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
-const ClMem = @import("../runtimes/cl.zig").ClMem;
-const Tensor = @import("../Tensor.zig");
-const buffer_name_size = Tensor.buffer_name_size;
-const Op = Tensor.Op;
-const nameFromId = Tensor.Buffer.nameFromId;
-const todo = @import("../util.zig").todo;
-const Args = @import("./Kernel.zig").Args;
-const Ssa = @import("./Ssa.zig");
+const Program = @import("../Program.zig");
+const source_padding = Program.source_padding;
+const Args = Program.Args;
+const Ssa = @import("../Ssa.zig");
 const Assign = Ssa.Assign;
 const Base = Ssa.Base;
 const DimInfo = Ssa.DimInfo;
 const Inlined = Ssa.Inlined;
-
-pub const kernel_base_name = "kern{}";
-pub const source_padding = 4096;
+const Tensor = @import("../../Tensor.zig");
+const buffer_name_size = Tensor.buffer_name_size;
+const Op = Tensor.Op;
+const nameFromId = Tensor.Buffer.nameFromId;
+const todo = @import("../../util.zig").todo;
 
 // $TODO Make my own format string implementation, can't really get faster trivially without changing behaviour, which I don't really mind
 
@@ -579,7 +577,7 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
     }
 }
 
-pub fn compileKernel(
+pub fn assignCompile(
     allocator: Allocator,
     source: *[]u8,
     offset: *usize,

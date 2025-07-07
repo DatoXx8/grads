@@ -12,13 +12,13 @@ const ClDevice = grads.ClDevice;
 const ClCommandQueue = grads.ClCommandQueue;
 const Optimization = grads.Optimization;
 
-const randomLinearized = @import("random-linearized.zig").randomLinearized;
-const a_size_max = @import("random-linearized.zig").a_size_max;
-const z_size_max = @import("random-linearized.zig").z_size_max;
-const y_size_max = @import("random-linearized.zig").y_size_max;
-const x_size_max = @import("random-linearized.zig").x_size_max;
-const op_num = @import("random-linearized.zig").op_num;
-const tensor_num = @import("random-linearized.zig").tensor_num;
+const randomLinearized = @import("random_linearized.zig").randomLinearized;
+const a_size_max = @import("random_linearized.zig").a_size_max;
+const z_size_max = @import("random_linearized.zig").z_size_max;
+const y_size_max = @import("random_linearized.zig").y_size_max;
+const x_size_max = @import("random_linearized.zig").x_size_max;
+const op_num = @import("random_linearized.zig").op_num;
+const tensor_num = @import("random_linearized.zig").tensor_num;
 
 const AssertError = error{
     nan,
