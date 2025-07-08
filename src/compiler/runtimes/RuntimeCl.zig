@@ -38,12 +38,15 @@ queue: ClCommandQueue,
 
 pub fn runtime(this: *@This()) Runtime {
     return Runtime{
-        .state = &this,
+        .state = this,
         .vtable = .{
             .init = init,
             .deinit = deinit,
             .memoryAlloc = memoryAlloc,
             .memoryFree = memoryFree,
+            .memorySyncToDevice = memorySyncToDevice,
+            .memorySyncToHost = memorySyncToHost,
+            .programLog = programLog,
             .programAlloc = programAlloc,
             .programFree = programFree,
             .kernelAlloc = kernelAlloc,
@@ -121,8 +124,7 @@ pub fn memoryAlloc(this: *anyopaque, a: u32, z: u32, y: u32, x: u32) ?Memory {
         return null;
     }
 }
-pub fn memoryFree(this: *anyopaque, memory: Memory) ?void {
-    _ = this;
+pub fn memoryFree(_: *anyopaque, memory: Memory) ?void {
     if (opencl.clReleaseMemObject(@ptrCast(memory)) != 0) {
         @branchHint(.cold);
         return null;
@@ -130,7 +132,7 @@ pub fn memoryFree(this: *anyopaque, memory: Memory) ?void {
 }
 pub fn memorySyncToHost(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
-    if (opencl.clEnqueueReadBuffer(state.queue, mem, opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
+    if (opencl.clEnqueueReadBuffer(state.queue, @ptrCast(mem), opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
         null, null) != 0)
     {
         @branchHint(.cold);
@@ -139,7 +141,7 @@ pub fn memorySyncToHost(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_b
 }
 pub fn memorySyncToDevice(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
-    if (opencl.clEnqueueWriteBuffer(state.queue, mem, opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
+    if (opencl.clEnqueueWriteBuffer(state.queue, @ptrCast(mem), opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
         null, null) != 0)
     {
         @branchHint(.cold);
@@ -165,8 +167,7 @@ pub fn programAlloc(this: *anyopaque, source: []const u8) ?ProgramPtr {
         return null;
     }
 }
-pub fn programFree(this: *anyopaque, program: ProgramPtr) ?void {
-    _ = this;
+pub fn programFree(_: *anyopaque, program: ProgramPtr) ?void {
     if (opencl.clReleaseProgram(@ptrCast(program)) != 0) {
         @branchHint(.cold);
         return null;
@@ -175,25 +176,24 @@ pub fn programFree(this: *anyopaque, program: ProgramPtr) ?void {
 pub fn programLog(this: *anyopaque, program: ProgramPtr, allocator: Allocator) ?void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     var log_size: usize = 0;
-    if (opencl.clGetProgramBuildInfo(program, state.device, opencl.CL_PROGRAM_BUILD_LOG, 0, //
+    if (opencl.clGetProgramBuildInfo(@ptrCast(program), state.device, opencl.CL_PROGRAM_BUILD_LOG, 0, //
         null, &log_size) != 0)
     {
         @branchHint(.cold);
         return null;
     }
-    const log: []u8 = try allocator.alloc(u8, log_size);
+    const log: []u8 = allocator.alloc(u8, log_size) catch return null;
     defer allocator.free(log);
     @memset(log[0..], 0);
-    if (opencl.clGetProgramBuildInfo(program, state.device, opencl.CL_PROGRAM_BUILD_LOG, //
-        log_size + 1, log, null) != 0)
+    if (opencl.clGetProgramBuildInfo(@ptrCast(program), state.device, opencl.CL_PROGRAM_BUILD_LOG, //
+        log_size + 1, @ptrCast(log), null) != 0)
     {
         @branchHint(.cold);
         return null;
     }
     std.debug.print("{s}\n", .{log});
 }
-pub fn kernelAlloc(this: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr {
-    _ = this;
+pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr {
     var err: i32 = 0;
     const kernel: opencl.cl_kernel = opencl.clCreateKernel(@ptrCast(program), name, &err);
     if (err != 0) {
@@ -205,19 +205,19 @@ pub fn kernelAlloc(this: *anyopaque, program: ProgramPtr, name: [*:0]const u8, a
         // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
         // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
         if (opencl.clSetKernelArg(kernel, @intCast(arg_idx), //
-            @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx].memory)) != 0)
+            @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx])) != 0)
         {
             @branchHint(.cold);
-            if (opencl.clReleaseKernel(kernel.ptr) != 0) {
+            if (opencl.clReleaseKernel(kernel) != 0) {
                 @branchHint(.cold);
                 return null;
             }
             return null;
         }
     }
+    return @ptrCast(kernel);
 }
-pub fn kernelFree(this: *anyopaque, kernel: KernelPtr) ?void {
-    _ = this;
+pub fn kernelFree(_: *anyopaque, kernel: KernelPtr) ?void {
     if (opencl.clReleaseKernel(@ptrCast(kernel)) != 0) {
         @branchHint(.cold);
         return null;
@@ -234,7 +234,7 @@ pub fn kernelRun(this: *anyopaque, kernel: KernelPtr, size_global: usize, size_l
 }
 pub fn queueWait(this: *anyopaque) ?void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
-    if (opencl.clWait(state.queue) != 0) {
+    if (opencl.clFinish(state.queue) != 0) {
         @branchHint(.cold);
         return null;
     }

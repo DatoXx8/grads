@@ -346,11 +346,11 @@ pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimiz
     // Why was this ever here? Just to group assignments that could be on the same layer?
     // std.mem.sort(Assign, assign, {}, layerLessThan);
 
-    const ssa: Ssa = .{
+    var ssa: Ssa = .{
         .assign = assign,
         .assign_num = @intCast(assign.len),
     };
-    ssa.optimize(allocator, optimization);
+    try ssa.optimize(allocator, optimization);
     ssa.removeDefault();
 
     return ssa;

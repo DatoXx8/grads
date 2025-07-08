@@ -4,6 +4,7 @@ pub const Program = @import("./compiler/Program.zig");
 pub const Runtime = @import("./compiler/runtimes/Runtime.zig");
 pub const RuntimeCl = Runtime.RuntimeCl;
 pub const RuntimePtx = Runtime.RuntimePtx;
+pub const RuntimeNoop = Runtime.RuntimeNoop;
 pub const Tensor = @import("./Tensor.zig");
 pub const Buffer = Tensor.Buffer;
 pub const Op = Tensor.Op;

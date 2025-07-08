@@ -6,6 +6,8 @@ const Allocator = std.mem.Allocator;
 const grads = @import("grads");
 const Tensor = grads.Tensor;
 const OpType = grads.Op.Type;
+const Runtime = grads.Runtime;
+const RuntimeNoop = grads.RuntimeNoop;
 
 const AssertError = error{
     nan,
@@ -46,6 +48,9 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
     assert(tensor_num > 1);
     assert(op_num > 0);
 
+    var runtime_noop: RuntimeNoop = undefined;
+    const runtime: Runtime = runtime_noop.runtime();
+
     var tensor1: [tensor_num]Tensor = undefined;
     var tensor2: [tensor_num]Tensor = undefined;
 
@@ -56,13 +61,13 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
 
     // $TODO I should just precompute the op amounts so there are way less allocations
     for (0..tensor_num) |tensor_idx| {
-        tensor1[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null, 1);
-        tensor2[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, null, 1);
+        tensor1[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, y_size_max, x_size_max, 1);
+        tensor2[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, y_size_max, x_size_max, 1);
     }
     defer {
         for (0..tensor_num) |tensor_idx| {
-            tensor1[tensor_idx].free(allocator);
-            tensor2[tensor_idx].free(allocator);
+            tensor1[tensor_idx].free(runtime, allocator);
+            tensor2[tensor_idx].free(runtime, allocator);
         }
     }
 

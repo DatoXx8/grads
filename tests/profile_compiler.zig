@@ -7,9 +7,8 @@ const grads = @import("grads");
 const Tensor = grads.Tensor;
 const OpType = grads.Op.Type;
 const Program = grads.Program;
-const ClContext = grads.ClContext;
-const ClDevice = grads.ClDevice;
-const ClCommandQueue = grads.ClCommandQueue;
+const Runtime = grads.Runtime;
+const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
@@ -87,31 +86,31 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
 
 // $WARN This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
 // $TODO The above warning should not need to exist
-fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: ClContext, queue: ClCommandQueue) !void {
+fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
     std.debug.print("profile-compiler: rng={}...\n", .{rng});
 
     var pcg = Pcg.init(rng);
 
-    var tensor1 = try randomLinearized(allocator, @splat(true), rng, context);
+    var tensor1 = try randomLinearized(runtime, allocator, @splat(true), rng);
     defer {
         for (&tensor1.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
     errdefer {
         for (&tensor1.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
-    var tensor2 = try randomLinearized(allocator, @splat(true), rng, context);
+    var tensor2 = try randomLinearized(runtime, allocator, @splat(true), rng);
     defer {
         for (&tensor2.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
     errdefer {
         for (&tensor2.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
     assert(tensor1.out_idx == tensor2.out_idx);
@@ -131,21 +130,21 @@ fn profileCompiler(allocator: Allocator, rng: u64, device: ClDevice, context: Cl
 
     for (0..tensor_num) |tensor_idx| {
         tensor1.tensor[tensor_idx].buffer.syncUpdate(.sync_to_device);
-        try tensor1.tensor[tensor_idx].buffer.syncToDevice(queue);
+        try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
     }
 
     inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
         const name: []const u8 = optimization.name;
         const value: Optimization = @enumFromInt(optimization.value);
 
-        const program: Program = try Program.alloc(allocator, tensor1.tensor[tensor1.out_idx].linearized, //
-            size_global, size_local, value, device, context, queue);
-        defer program.free(allocator);
+        var program: Program = try Program.alloc(runtime, allocator, tensor1.tensor[tensor1.out_idx].linearized, //
+            value, size_global, size_local);
+        defer program.free(runtime, allocator);
 
         var time_program: [iterations]i128 = undefined;
         for (0..iterations) |interation_idx| {
             const time_start: i128 = std.time.nanoTimestamp();
-            try program.run();
+            try program.run(runtime);
             time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
         }
         analyseTimes(time_program, name);
@@ -177,9 +176,11 @@ pub fn main() !void {
         false => rng_saved.?,
     };
 
-    const device: ClDevice = try ClDevice.alloc(.gpu);
-    const context: ClContext = try ClContext.alloc(device);
-    const queue: ClCommandQueue = try ClCommandQueue.alloc(device, context);
+    var runtime_cl: RuntimeCl = undefined;
+    var runtime: Runtime = runtime_cl.runtime();
+    try runtime.init();
+    defer runtime.deinit();
+    errdefer runtime.deinit();
 
-    try profileCompiler(allocator, rng, device, context, queue);
+    try profileCompiler(runtime, allocator, rng);
 }

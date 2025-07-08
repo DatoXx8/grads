@@ -578,6 +578,7 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
 }
 
 pub fn assignCompile(
+    _: *anyopaque,
     allocator: Allocator,
     source: *[]u8,
     offset: *usize,
@@ -586,25 +587,25 @@ pub fn assignCompile(
     kernel_args: Args,
     size_global: u32,
     size_local: u32,
-) WriteSourceError!void {
+) ?void {
     assert(assign.base.repeats > 0);
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
 
-    try writeSource(allocator, source, offset, "__kernel void {s}(", .{kernel_name});
+    writeSource(allocator, source, offset, "__kernel void {s}(", .{kernel_name}) catch return null;
     assert(kernel_args.arg_mem.len == kernel_args.arg_id.len);
     for (0..kernel_args.arg_id.len) |arg_idx| {
         if (arg_idx == 0) {
-            try writeSource(allocator, source, offset, "__global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])});
+            writeSource(allocator, source, offset, "__global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])}) catch return null;
         } else {
-            try writeSource(allocator, source, offset, ", __global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])});
+            writeSource(allocator, source, offset, ", __global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])}) catch return null;
         }
     }
 
-    try writeSource(allocator, source, offset, ") {{\n", .{});
-    try writeSource(allocator, source, offset, "const int gid = get_global_id(0);\n", .{});
-    try writeSource(allocator, source, offset, "int id;\n", .{});
+    writeSource(allocator, source, offset, ") {{\n", .{}) catch return null;
+    writeSource(allocator, source, offset, "const int gid = get_global_id(0);\n", .{}) catch return null;
+    writeSource(allocator, source, offset, "int id;\n", .{}) catch return null;
 
     const kernel_loop_leftover: bool = (assign.base.repeats % size_global) != 0;
     const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover);
@@ -612,25 +613,25 @@ pub fn assignCompile(
     var kernel_loop_idx: u32 = 0;
     while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
         if (kernel_loop_idx == 0) {
-            try writeSource(allocator, source, offset, "id = gid;\n", .{});
+            writeSource(allocator, source, offset, "id = gid;\n", .{}) catch return null;
         } else {
-            try writeSource(allocator, source, offset, "id += {};\n", .{size_global});
+            writeSource(allocator, source, offset, "id += {};\n", .{size_global}) catch return null;
         }
 
         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            try writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign.base.repeats % size_global});
+            writeSource(allocator, source, offset, "if(gid < {}) {{\n", .{assign.base.repeats % size_global}) catch return null;
         }
 
-        try writeIndices(allocator, source, offset, assign, kernel_loop_idx, 0);
-        try writeAssign(allocator, source, offset, assign, kernel_loop_idx, 0);
+        writeIndices(allocator, source, offset, assign, kernel_loop_idx, 0) catch return null;
+        writeAssign(allocator, source, offset, assign, kernel_loop_idx, 0) catch return null;
 
         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            try writeSource(allocator, source, offset, "}}\n", .{});
+            writeSource(allocator, source, offset, "}}\n", .{}) catch return null;
         }
 
-        try capacityEnsure(allocator, source, offset.*);
+        capacityEnsure(allocator, source, offset.*) catch return null;
     }
 
-    try writeSource(allocator, source, offset, "}}\n", .{});
-    try capacityEnsure(allocator, source, offset.*);
+    writeSource(allocator, source, offset, "}}\n", .{}) catch return null;
+    capacityEnsure(allocator, source, offset.*) catch return null;
 }

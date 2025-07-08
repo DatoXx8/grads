@@ -61,13 +61,13 @@ fn simulateCompiler(
     var tensor1 = try randomLinearized(runtime, allocator, op_included, rng);
     defer {
         for (&tensor1.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
     var tensor2 = try randomLinearized(runtime, allocator, op_included, rng);
     defer {
         for (&tensor2.tensor) |*tensor| {
-            tensor.free(allocator);
+            tensor.free(runtime, allocator);
         }
     }
     assert(tensor1.out_idx == tensor2.out_idx);
@@ -79,14 +79,14 @@ fn simulateCompiler(
 
     for (0..tensor_num) |tensor_idx| {
         tensor1.tensor[tensor_idx].buffer.syncUpdate(.sync_to_device);
-        try tensor1.tensor[tensor_idx].buffer.syncToDevice();
+        try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
     }
 
-    const program: Program = try Program.alloc(runtime, allocator, //
+    var program: Program = try Program.alloc(runtime, allocator, //
         tensor1.tensor[tensor1.out_idx].linearized, optimization, size_global, size_local);
-    defer program.free(allocator);
+    defer program.free(runtime, allocator);
 
-    try program.run();
+    try program.run(runtime);
 
     tensor1.tensor[tensor1.out_idx].buffer.syncUpdate(.sync_to_host);
     try tensor1.tensor[tensor1.out_idx].buffer.syncToHost(runtime);
@@ -198,7 +198,8 @@ pub fn main() !void {
     var runtime_cl: RuntimeCl = undefined;
     var runtime: Runtime = runtime_cl.runtime();
     try runtime.init();
-    defer runtime.deinit() catch {};
+    defer runtime.deinit();
+    errdefer runtime.deinit();
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;

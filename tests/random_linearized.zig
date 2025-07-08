@@ -9,8 +9,7 @@ const grads = @import("grads");
 const Tensor = grads.Tensor;
 const Linearized = grads.Linearized;
 const OpType = grads.Op.Type;
-const ClContext = grads.ClContext;
-const ClDevice = grads.ClDevice;
+const Runtime = grads.Runtime;
 
 pub const a_size_max: u32 = 7;
 pub const z_size_max: u32 = 6;
@@ -25,7 +24,7 @@ comptime {
 // $TODO Have chances of changing offsets, sizes, u_var and everything else
 
 // $FIXME If this fails a bunch of memory leaks
-pub fn randomLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64, context: ClContext) !struct {
+pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op_num]bool, rng: u64) !struct {
     tensor: [tensor_num]Tensor,
     out_idx: u32,
 } {
@@ -67,12 +66,15 @@ pub fn randomLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u6
     // $TODO Also make it randomize the out buffer and if it is random then assert that no actual ops are computed
     for (0..tensor_num) |tensor_idx| {
         if (tensor_idx == op_out[op_num - 1]) {
-            tensor[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+            tensor[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, //
+                y_size_max, x_size_max, 1);
         } else {
             if (pcg.random().boolean()) {
-                tensor[tensor_idx] = try Tensor.alloc(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+                tensor[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, //
+                    y_size_max, x_size_max, 1);
             } else {
-                tensor[tensor_idx] = try Tensor.allocIntermediary(allocator, a_size_max, z_size_max, y_size_max, x_size_max, context, 1);
+                tensor[tensor_idx] = try Tensor.allocIntermediary(runtime, allocator, a_size_max, //
+                    z_size_max, y_size_max, x_size_max, 1);
             }
         }
     }

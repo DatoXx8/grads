@@ -101,21 +101,21 @@ pub fn alloc(
             .split => 4,
             .residual => 0,
         };
-        layer[layer_idx].activation = try Activation.alloc(allocator, switch (config[layer_idx]) {
+        layer[layer_idx].activation = try Activation.alloc(runtime, allocator, switch (config[layer_idx]) {
             .dense => |d| d.activation_type,
             .convolution => |c| c.activation_type,
             .reduce => .none,
             .split => |s| s.activation_type,
             .residual => .none,
-        }, z_out, y_out, x_out, runtime);
+        }, z_out, y_out, x_out);
         layer[layer_idx].tag = switch (config[layer_idx]) {
-            .dense => |d| .{ .dense = try Dense.alloc(allocator, size_in, d.size_out, runtime) },
+            .dense => |d| .{ .dense = try Dense.alloc(runtime, allocator, size_in, d.size_out) },
             .convolution => |c| .{
-                .convolution = try Convolution.alloc(allocator, z_in, y_in, x_in, c.filters, //
-                    c.kernel_size, c.kernel_stride, c.kernel_padding, runtime),
+                .convolution = try Convolution.alloc(runtime, allocator, z_in, y_in, x_in, c.filters, //
+                    c.kernel_size, c.kernel_stride, c.kernel_padding),
             },
             .reduce => |r| .{ .reduce = Reduce.init(z_in, y_in, x_in, r.kernel_size, r.kernel_stride, r.t) },
-            .split => |s| .{ .split = try Split.alloc(allocator, s.filters, z_in, y_in, x_in, runtime) },
+            .split => |s| .{ .split = try Split.alloc(runtime, allocator, s.filters, z_in, y_in, x_in) },
             .residual => |r| .{ .residual = .{ .t = .identity, .in_layer = r.in_layer } },
         };
 
@@ -137,10 +137,13 @@ pub fn alloc(
     }
 
     var forward_cpu: Linearized = try Linearized.alloc(allocator, capacity_forward);
+    defer forward_cpu.free(allocator);
     errdefer forward_cpu.free(allocator);
     var backward_cpu: Linearized = try Linearized.alloc(allocator, capacity_backward);
+    defer backward_cpu.free(allocator);
     errdefer backward_cpu.free(allocator);
     var learn_cpu: Linearized = try Linearized.alloc(allocator, capacity_learn);
+    defer learn_cpu.free(allocator);
     errdefer learn_cpu.free(allocator);
 
     var values_prev: Tensor = in;
@@ -241,12 +244,12 @@ pub fn alloc(
             .residual => {},
         }
     }
-    const forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, .O3, //
+    var forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, .O3, //
         size_global, size_local);
-    errdefer forward_compiled.free(allocator);
-    const backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, .O3, //
+    errdefer forward_compiled.free(runtime, allocator);
+    var backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, .O3, //
         size_global, size_local);
-    errdefer backward_compiled.free(allocator);
+    errdefer backward_compiled.free(runtime, allocator);
     const learn_compiled: Program = try Program.alloc(runtime, allocator, learn_cpu, .O3, //
         size_global, size_local);
 
@@ -261,20 +264,20 @@ pub fn alloc(
     };
 }
 pub fn free(this: *@This(), allocator: Allocator) void {
-    this.in.free(allocator);
-    this.in_g.free(allocator);
+    this.in.free(this.runtime, allocator);
+    this.in_g.free(this.runtime, allocator);
     this.forward_compiled.free(this.runtime, allocator);
     this.backward_compiled.free(this.runtime, allocator);
     this.learn_compiled.free(this.runtime, allocator);
     for (this.layer) |*layer| {
-        layer.activation.free(allocator);
-        layer.values.free(allocator);
-        layer.values_g.free(allocator);
+        layer.activation.free(this.runtime, allocator);
+        layer.values.free(this.runtime, allocator);
+        layer.values_g.free(this.runtime, allocator);
         switch (layer.tag) {
-            .dense => |*d| d.free(allocator),
-            .convolution => |*c| c.free(allocator),
+            .dense => |*d| d.free(this.runtime, allocator),
+            .convolution => |*c| c.free(this.runtime, allocator),
             .reduce => {},
-            .split => |*s| s.free(allocator),
+            .split => |*s| s.free(this.runtime, allocator),
             .residual => {},
         }
     }
@@ -283,7 +286,7 @@ pub fn free(this: *@This(), allocator: Allocator) void {
 // $TODO / $FIXME The sync handling needs to be reworked
 // $TODO Add forward only pass where some additionaly tensors can be intermediaries
 pub fn forward(this: *@This()) !void {
-    this.forward_compiled.run(this.runtime);
+    try this.forward_compiled.run(this.runtime);
 }
 /// Input and output buffers have the same a_size as eachother and otherwise the same size of the nn in/output
 pub fn backward(this: *@This(), in: *Tensor, out: *Tensor) !void {
@@ -364,12 +367,12 @@ pub fn sync(
         }
         switch (t) {
             .sync_to_device => {
-                try this.in.buffer.syncToDevice(this.queue);
-                try this.in_g.buffer.syncToDevice(this.queue);
+                try this.in.buffer.syncToDevice(this.runtime);
+                try this.in_g.buffer.syncToDevice(this.runtime);
             },
             .sync_to_host => {
-                try this.in.buffer.syncToHost(this.queue);
-                try this.in_g.buffer.syncToHost(this.queue);
+                try this.in.buffer.syncToHost(this.runtime);
+                try this.in_g.buffer.syncToHost(this.runtime);
             },
             .sync_to_none => unreachable,
         }
@@ -448,7 +451,8 @@ pub fn sync(
             }
         }
     }
-    try this.in.buffer.syncWait(this.queue);
+
+    try this.runtime.queueWait();
 }
 /// File format v0:
 /// Every field is u32

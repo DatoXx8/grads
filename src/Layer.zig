@@ -159,14 +159,14 @@ pub const Dense = struct {
                 size_out, size_in + size_out),
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.weights.free(allocator);
-        this.weights_g.free(allocator);
-        this.biases.free(allocator);
-        this.biases_g.free(allocator);
-        this.temp_in.free(allocator);
-        this.temp_out.free(allocator);
-        this.temp_full.free(allocator);
+    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+        this.weights.free(runtime, allocator);
+        this.weights_g.free(runtime, allocator);
+        this.biases.free(runtime, allocator);
+        this.biases_g.free(runtime, allocator);
+        this.temp_in.free(runtime, allocator);
+        this.temp_out.free(runtime, allocator);
+        this.temp_full.free(runtime, allocator);
     }
     pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
         assert(in.buffer.a_size == 1);
@@ -323,15 +323,15 @@ pub const Convolution = struct {
             .temp_single = try Tensor.alloc(runtime, allocator, 1, 1, 1, 1, 1),
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.weights.free(allocator);
-        this.weights_g.free(allocator);
-        this.biases.free(allocator);
-        this.biases_g.free(allocator);
-        this.temp_input_padded.free(allocator);
-        this.temp_grad_padded.free(allocator);
-        this.temp_kernel.free(allocator);
-        this.temp_single.free(allocator);
+    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+        this.weights.free(runtime, allocator);
+        this.weights_g.free(runtime, allocator);
+        this.biases.free(runtime, allocator);
+        this.biases_g.free(runtime, allocator);
+        this.temp_input_padded.free(runtime, allocator);
+        this.temp_grad_padded.free(runtime, allocator);
+        this.temp_kernel.free(runtime, allocator);
+        this.temp_single.free(runtime, allocator);
     }
     pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
         assert(1 == in.buffer.a_size);
@@ -618,12 +618,12 @@ pub const Split = struct {
             .temp_in = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 2),
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        this.weights.free(allocator);
-        this.weights_g.free(allocator);
-        this.biases.free(allocator);
-        this.biases_g.free(allocator);
-        this.temp_in.free(allocator);
+    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+        this.weights.free(runtime, allocator);
+        this.weights_g.free(runtime, allocator);
+        this.biases.free(runtime, allocator);
+        this.biases_g.free(runtime, allocator);
+        this.temp_in.free(runtime, allocator);
     }
     pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
         assert(in.buffer.a_size == 1);

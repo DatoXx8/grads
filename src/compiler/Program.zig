@@ -13,48 +13,56 @@ const Assign = Ssa.Assign;
 pub const Memory = *anyopaque;
 // $TODO Support integer arguments
 pub const Args = struct {
-    /// arg_num is separate to make handling kernels with no arguments easier
-    arg_num: u32,
+    /// arg_num is separate to make kernels with no arguments easier to handle
+    arg_num: u64,
+    arg_id: []u64,
     arg_mem: []Memory,
     pub fn alloc(allocator: Allocator, assign: Assign) !Args {
-        var arg_unique = std.AutoHashMap(Memory, void).init(allocator);
+        var arg_unique = std.AutoHashMap(u64, Memory).init(allocator);
         errdefer arg_unique.deinit();
         defer arg_unique.deinit();
 
-        try arg_unique.put(assign.base.out.values_cl.?, @as(void, {}));
+        try arg_unique.put(assign.base.out.id, assign.base.out.values_runtime);
         if (!assign.base.type.isUnary()) {
-            try arg_unique.put(assign.base.in.values_cl.?, @as(void, {}));
+            try arg_unique.put(assign.base.in.id, assign.base.in.values_runtime);
         }
 
         if (assign.inlined) |inlined| {
             // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
             for (0..inlined.inlined_num) |inlined_idx| {
-                try arg_unique.put(inlined.base[inlined_idx].out.values_cl.?, @as(void, {}));
+                try arg_unique.put(inlined.base[inlined_idx].out.id, //
+                    inlined.base[inlined_idx].out.values_runtime);
                 if (!inlined.base[inlined_idx].type.isUnary()) {
-                    try arg_unique.put(inlined.base[inlined_idx].in.values_cl.?, @as(void, {}));
+                    try arg_unique.put(inlined.base[inlined_idx].in.id, //
+                        inlined.base[inlined_idx].in.values_runtime);
                 }
             }
         }
 
         const arg_num: usize = arg_unique.count();
+        const arg_id: []u64 = try allocator.alloc(u64, arg_num);
         const arg_mem: []Memory = try allocator.alloc(Memory, arg_num);
         var arg_id_iterator = arg_unique.keyIterator();
         for (0..arg_num) |arg_idx| {
-            arg_mem[arg_idx] = arg_id_iterator.next().?.*;
+            arg_id[arg_idx] = arg_id_iterator.next().?.*;
+            arg_mem[arg_idx] = arg_unique.get(arg_id[arg_idx]) orelse @panic("Severe error in argument gathering."); // This should be doable differently
         }
 
         return .{
             .arg_num = arg_num,
+            .arg_id = arg_id,
             .arg_mem = arg_mem,
         };
     }
     pub fn allocEmpty(allocator: Allocator) !Args {
         return .{
             .arg_num = 0,
+            .arg_id = try allocator.alloc(Memory, 1),
             .arg_mem = try allocator.alloc(Memory, 1),
         };
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
+        allocator.free(this.arg_id);
         // The arg_mem get's freed with the tensors
         allocator.free(this.arg_mem);
     }
@@ -70,7 +78,7 @@ pub const ProgramPtr = *anyopaque;
 pub const Program = @This();
 size_global: u32,
 size_local: u32,
-kernel: []const Kernel,
+kernel: []Kernel,
 ptr: ProgramPtr,
 
 pub const kernel_base_name = "kern{}";
@@ -86,7 +94,7 @@ pub fn alloc(
     assert(size_global >= size_local);
     assert(size_global % size_local == 0);
 
-    const ssa: Ssa = Ssa.alloc(allocator, linearized, optimization);
+    var ssa: Ssa = try Ssa.alloc(allocator, linearized, optimization);
     errdefer ssa.free(allocator);
     defer ssa.free(allocator);
 
@@ -127,8 +135,9 @@ pub fn alloc(
         @memset(&kernel_name, 0);
         const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
             kernel_base_name ++ "\x00", .{kernel_idx})).len;
-        kernel[kernel_idx] = try runtime.kernelAlloc(program_ptr, //
+        kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
             kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
+        kernel[kernel_idx].args = kernel_args[kernel_idx];
     }
 
     return .{
@@ -138,13 +147,13 @@ pub fn alloc(
         .ptr = program_ptr,
     };
 }
-pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) !void {
-    for (this.kernel) |kernel| {
+pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+    for (this.kernel) |*kernel| {
         runtime.kernelFree(kernel.ptr);
         kernel.args.free(allocator);
     }
     allocator.free(this.kernel);
 }
-pub fn run(this: *@This(), runtime: Runtime) !void {
+pub fn run(this: @This(), runtime: Runtime) !void {
     try runtime.programRun(this);
 }

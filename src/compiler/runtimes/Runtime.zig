@@ -9,9 +9,12 @@ const Kernel = Program.Kernel;
 const ProgramPtr = Program.ProgramPtr;
 const KernelPtr = Program.KernelPtr;
 const Args = Program.Args;
+const Ssa = @import("../Ssa.zig");
+const Assign = Ssa.Assign;
 
 pub const RuntimeCl = @import("./RuntimeCl.zig");
 pub const RuntimePtx = @import("./RuntimePtx.zig");
+pub const RuntimeNoop = @import("./RuntimeNoop.zig");
 
 // $TODO Add a single and multithread CPU runtime for x86_64 avx2 & bmi2 and no extension
 
@@ -30,6 +33,7 @@ pub const Error = error{
     KernelAlloc,
     KernelFree,
     QueueWait,
+    AssignCompile,
 };
 
 state: *anyopaque,
@@ -47,7 +51,7 @@ pub const VTable = struct {
     memorySyncToDevice: *const fn (state: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void,
     programAlloc: *const fn (state: *anyopaque, source: []const u8) ?ProgramPtr,
     programFree: *const fn (state: *anyopaque, program: ProgramPtr) ?void,
-    programLog: *const fn (state: *anyopaque, program: Program, allocator: Allocator) ?void,
+    programLog: *const fn (state: *anyopaque, program: ProgramPtr, allocator: Allocator) ?void,
     kernelAlloc: *const fn (state: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr,
     kernelFree: *const fn (state: *anyopaque, kernel: KernelPtr) ?void,
     kernelRun: *const fn (state: *anyopaque, kernel: KernelPtr, size_global: usize, size_local: usize) ?void,
@@ -57,10 +61,11 @@ pub const VTable = struct {
         allocator: Allocator,
         source: *[]u8,
         offset: *usize,
+        assign: Assign,
         name: []const u8,
         args: Args,
-        size_global: usize,
-        size_local: usize,
+        size_global: u32,
+        size_local: u32,
     ) ?void,
 };
 
@@ -70,10 +75,10 @@ pub fn init(runtime: Runtime) !void {
         return Error.ContextInit;
     }
 }
-pub fn deinit(runtime: Runtime) !void {
+pub fn deinit(runtime: Runtime) void {
     if (runtime.vtable.deinit(runtime.state) == null) {
         @branchHint(.cold);
-        return Error.ContextDeinit;
+        std.log.err("Could not free runtime context\n", .{});
     }
 }
 pub fn memoryAlloc(runtime: Runtime, a: u32, z: u32, y: u32, x: u32) !Memory {
@@ -85,10 +90,10 @@ pub fn memoryAlloc(runtime: Runtime, a: u32, z: u32, y: u32, x: u32) !Memory {
         return Error.MemoryAlloc;
     }
 }
-pub fn memoryFree(runtime: Runtime, memory: Memory) !void {
+pub fn memoryFree(runtime: Runtime, memory: Memory) void {
     if (runtime.vtable.memoryFree(runtime.state, memory) == null) {
         @branchHint(.cold);
-        return Error.MemoryFree;
+        std.log.err("Could not free runtime Memory\n", .{});
     }
 }
 pub fn memorySyncToHost(runtime: Runtime, memory: Memory, memory_host: *anyopaque, n_bytes: u32) !void {
@@ -112,10 +117,10 @@ pub fn programAlloc(runtime: Runtime, source: []const u8) !ProgramPtr {
         return Error.ProgramAlloc;
     }
 }
-pub fn programFree(runtime: Runtime, program: ProgramPtr) !void {
+pub fn programFree(runtime: Runtime, program: ProgramPtr) void {
     if (runtime.vtable.programFree(runtime.state, program) == null) {
         @branchHint(.cold);
-        return Error.ProgramFree;
+        std.log.err("Could not free runtime Program\n", .{});
     }
 }
 // Kind of stupid that this is basically the only non ProgramPtr in here
@@ -131,8 +136,9 @@ pub fn programRun(runtime: Runtime, program: Program) !void {
         return Error.ProgramRun;
     }
 }
-pub fn kernelAlloc(runtime: Runtime, program: ProgramPtr, name: [*:0]const u8, args: Args) !KernelPtr {
-    if (runtime.vtable.kernelAlloc(runtime.state, program, name, args)) |kernel_ptr| {
+pub fn kernelAlloc(runtime: Runtime, program: ProgramPtr, name: []const u8, args: Args) !KernelPtr {
+    assert(name[name.len - 1] == '\x00');
+    if (runtime.vtable.kernelAlloc(runtime.state, program, @ptrCast(name), args)) |kernel_ptr| {
         @branchHint(.likely);
         return kernel_ptr;
     } else {
@@ -140,14 +146,14 @@ pub fn kernelAlloc(runtime: Runtime, program: ProgramPtr, name: [*:0]const u8, a
         return Error.KernelAlloc;
     }
 }
-pub fn kernelFree(runtime: Runtime, kernel: KernelPtr) !void {
+pub fn kernelFree(runtime: Runtime, kernel: KernelPtr) void {
     if (runtime.vtable.kernelFree(runtime.state, kernel) == null) {
         @branchHint(.cold);
-        return Error.KernelFree;
+        std.log.err("Could not free runtime Kernel\n", .{});
     }
 }
 pub fn queueWait(runtime: Runtime) !void {
-    if (runtime.vtable.queueWait() == null) {
+    if (runtime.vtable.queueWait(runtime.state) == null) {
         @branchHint(.cold);
         return Error.QueueWait;
     }
@@ -157,12 +163,13 @@ pub fn assignCompile(
     allocator: Allocator,
     source: *[]u8,
     offset: *usize,
+    assign: Assign,
     name: []const u8,
     args: Args,
-    size_global: usize,
-    size_local: usize,
+    size_global: u32,
+    size_local: u32,
 ) !void {
-    if (runtime.vtable.assignCompile(runtime.state, allocator, source, offset, name, args, //
+    if (runtime.vtable.assignCompile(runtime.state, allocator, source, offset, assign, name, args, //
         size_global, size_local) == null)
     {
         @branchHint(.cold);

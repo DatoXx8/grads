@@ -32,7 +32,7 @@ pub fn main() !void {
     var runtime_cl: RuntimeCl = undefined;
     var runtime: Runtime = runtime_cl.runtime();
     try runtime.init();
-    defer runtime.deinit() catch {};
+    defer runtime.deinit();
 
     var nn: Neuralnet = try Neuralnet.alloc(
         runtime,
@@ -52,7 +52,7 @@ pub fn main() !void {
     defer nn.free(allocator);
     try nn.init(0);
     try nn.sync(true, true, true, true, true, .sync_to_device);
-    try nn.forward(.gpu);
+    try nn.forward();
     try nn.sync(true, true, true, true, true, .sync_to_host);
     nn.layer[nn.layer.len - 1].values.print(4, 0, null);
 }

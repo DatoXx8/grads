@@ -4,6 +4,8 @@ const Pcg = std.Random.Pcg;
 
 const grads = @import("grads");
 const Tensor = grads.Tensor;
+const Runtime = grads.Runtime;
+const RuntimeNoop = grads.RuntimeNoop;
 
 const AssertError = error{
     nan,
@@ -51,16 +53,19 @@ pub fn main() !void {
         }
     }
 
+    var runtime_noop: RuntimeNoop = undefined;
+    const runtime: Runtime = runtime_noop.runtime();
+
     const a_size: u32 = 6;
     const z_size: u32 = 5;
     const y_size: u32 = 4;
     const x_size: u32 = 3;
-    var tensor1 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null, 3);
-    var tensor2 = try Tensor.alloc(allocator, a_size, z_size, y_size, x_size, null, 3);
+    var tensor1 = try Tensor.alloc(runtime, allocator, a_size, z_size, y_size, x_size, 3);
+    var tensor2 = try Tensor.alloc(runtime, allocator, a_size, z_size, y_size, x_size, 3);
     const val1 = try allocator.alloc(f32, a_size * z_size * y_size * x_size);
     const val2 = try allocator.alloc(f32, a_size * z_size * y_size * x_size);
-    defer tensor1.free(allocator);
-    defer tensor2.free(allocator);
+    defer tensor1.free(runtime, allocator);
+    defer tensor2.free(runtime, allocator);
     defer allocator.free(val1);
     defer allocator.free(val2);
 

@@ -99,15 +99,9 @@ pub const Buffer = struct {
             .intermediary = true,
         };
     }
-    pub fn free(this: @This(), allocator: Allocator) void {
+    pub fn free(this: @This(), runtime: Runtime, allocator: Allocator) void {
         allocator.free(this.values);
-        if (this.values_cl) |values_cl| {
-            // I am not sure if this is the right approach or to just return the error, but I hate that the free function could fail then
-            values_cl.free() catch |err| {
-                std.log.err("Could not free values_cl in buffer {} because of error {!}\n", //
-                    .{ this.id, err });
-            };
-        }
+        runtime.memoryFree(this.values_runtime);
     }
     // $PERF these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
     //  to reduce memory usage. Like the nameFromId function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
@@ -843,8 +837,8 @@ pub fn allocIntermediary(
         .linearized = try Linearized.alloc(allocator, capacity),
     };
 }
-pub fn free(this: *@This(), allocator: Allocator) void {
-    this.buffer.free(allocator);
+pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
+    this.buffer.free(runtime, allocator);
     this.linearized.free(allocator);
 }
 /// Clears the linearized ops in the tensor, meaning that if you want to run it a few times then use tensor.linearized.run() or compile it to a program if you run it often.
