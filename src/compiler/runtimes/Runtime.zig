@@ -48,7 +48,7 @@ pub const VTable = struct {
     programAlloc: *const fn (state: *anyopaque, source: []const u8) ?ProgramPtr,
     programFree: *const fn (state: *anyopaque, program: ProgramPtr) ?void,
     programLog: *const fn (state: *anyopaque, program: Program, allocator: Allocator) ?void,
-    kernelAlloc: *const fn (state: *anyopaque, program: ProgramPtr, name: []const u8, args: Args) ?KernelPtr,
+    kernelAlloc: *const fn (state: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr,
     kernelFree: *const fn (state: *anyopaque, kernel: KernelPtr) ?void,
     kernelRun: *const fn (state: *anyopaque, kernel: KernelPtr, size_global: usize, size_local: usize) ?void,
     queueWait: *const fn (state: *anyopaque) ?void,
