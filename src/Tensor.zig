@@ -103,9 +103,6 @@ pub const Buffer = struct {
         allocator.free(this.values);
         runtime.memoryFree(this.values_runtime);
     }
-    // $PERF these function below are used to calculate fields that I removed from the struct because they can just be calculated relatively quickly
-    //  to reduce memory usage. Like the nameFromId function takes about 20ns on my machine (Ryzen 5 5600x) using a debug build to calculate a name for buffer_name_size = 8
-    //  which is ~5x faster than a read from main memory.
     pub inline fn name(this: @This()) [buffer_name_size]u8 {
         return nameFromId(this.id);
     }

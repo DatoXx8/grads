@@ -109,7 +109,7 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
         const u_var: f32 = pcg.random().floatNorm(f32);
 
         // $FIXME This should never be 0
-        const loop_len: u32 = pcg.random().uintLessThan(u32, @truncate(op_num - op_idx));
+        const loop_len: u32 = if (op_num == op_idx + 1) 1 else pcg.random().uintLessThan(u32, @truncate(op_num - op_idx - 1)) + 1;
         op_idx_used = op_idx + loop_len;
 
         var a_idx: u32 = 0;
@@ -288,5 +288,14 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
         }
     }
 
-    return .{ .tensor = tensor, .out_idx = op_out[op_idx_used] };
+    var out_idx: u32 = undefined;
+    var search_idx: i32 = @intCast(op_num - 1);
+    while (search_idx >= 0) : (search_idx -= 1) {
+        if (op_included[@intCast(search_idx)]) {
+            out_idx = op_out[@intCast(search_idx)];
+            break;
+        }
+    }
+
+    return .{ .tensor = tensor, .out_idx = out_idx };
 }

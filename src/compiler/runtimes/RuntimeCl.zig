@@ -201,7 +201,7 @@ pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args
         // std.log.err("Could not build kernel with name {s} because of error {}\n", .{ name, err });
         return null;
     }
-    for (0..args.arg_mem.len) |arg_idx| {
+    for (0..args.arg_num) |arg_idx| {
         // This pointer cast business is necessary because the function expects a pointer to the cl_mem,
         // but the function signature is just a void *, which confuses the zig compiler because cl_mem is a pointer to _cl_mem
         if (opencl.clSetKernelArg(kernel, @intCast(arg_idx), //

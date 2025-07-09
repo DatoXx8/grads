@@ -15,18 +15,6 @@ pub const cuda = @cImport({
     @cInclude(cuda_header);
 });
 
-pub const CuError = error{
-    DeviceNotFound,
-    DeviceNotFreed,
-    ContextNotFound,
-    ContextNotFreed,
-    MemNotAlloc,
-    MemNotFreed,
-    ModuleNotFreed,
-    ModulePtxNotAdded,
-    FunctionNotBuilt,
-    FunctionNotFreed,
-};
 // $TODO Support multiple devices
 pub const CuDevice = struct {
     device: cuda.CUdevice,
@@ -37,13 +25,13 @@ pub const CuDevice = struct {
             return .{ .device = device };
         } else {
             @branchHint(.cold);
-            return CuError.DeviceNotFound;
+            return null;
         }
     }
     pub fn free(this: @This()) !void {
         if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.DeviceNotFreed;
+            return null;
         }
     }
 };
@@ -56,13 +44,13 @@ pub const CuContext = struct {
             return .{ .context = context };
         } else {
             @branchHint(.cold);
-            return CuError.ContextNotFound;
+            return null;
         }
     }
     pub fn free(this: @This()) !void {
         if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.ContextNotFreed;
+            return null;
         }
     }
 };
@@ -71,13 +59,13 @@ pub const CuModule = struct {
     pub fn addPtx(this: *@This(), source_c: [*:0]const u8) !void {
         if (cuda.cuModuleLoadData(this, @ptrCast(source_c)) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.ModulePtxNotAdded;
+            return null;
         }
     }
     pub fn free(this: *@This()) !void {
         if (cuda.moduleUnload(this) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.ModuleNotFreed;
+            return null;
         }
     }
 };
@@ -88,13 +76,13 @@ pub const CuFunction = struct {
         try module.addPtx(source_c);
         if (cuda.cuModuleGetFunction(&function.function, module, @ptrCast(name_c)) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.FunctionNotBuilt;
+            return null;
         }
     }
     pub fn free(this: @This()) !void {
         if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.FunctionNotFreed;
+            return null;
         }
     }
 };
@@ -111,13 +99,13 @@ pub const CuMem = struct {
             return .{ .memory = memory };
         } else {
             @branchHint(.cold);
-            return CuError.MemNotAlloc;
+            return null;
         }
     }
     pub fn free(this: @This()) !void {
         if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
             @branchHint(.cold);
-            return CuError.MemNotFreed;
+            return null;
         }
     }
 };

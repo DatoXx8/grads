@@ -8,9 +8,6 @@ const Runtime = @import("./compiler/runtimes/Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
 const Tensor = @import("./Tensor.zig");
 
-// Runtime refactor
-// 100 column soft limit
-
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
 // $TODO Log failing simulator seeds to some test database file
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized

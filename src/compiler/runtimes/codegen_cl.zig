@@ -595,7 +595,7 @@ pub fn assignCompile(
 
     writeSource(allocator, source, offset, "__kernel void {s}(", .{kernel_name}) catch return null;
     assert(kernel_args.arg_mem.len == kernel_args.arg_id.len);
-    for (0..kernel_args.arg_id.len) |arg_idx| {
+    for (0..kernel_args.arg_num) |arg_idx| {
         if (arg_idx == 0) {
             writeSource(allocator, source, offset, "__global float *{s}", .{nameFromId(kernel_args.arg_id[arg_idx])}) catch return null;
         } else {
