@@ -57,7 +57,7 @@ pub const Args = struct {
     pub fn allocEmpty(allocator: Allocator) !Args {
         return .{
             .arg_num = 0,
-            .arg_id = try allocator.alloc(Memory, 1),
+            .arg_id = try allocator.alloc(u64, 1),
             .arg_mem = try allocator.alloc(Memory, 1),
         };
     }
@@ -94,58 +94,81 @@ pub fn alloc(
     assert(size_global >= size_local);
     assert(size_global % size_local == 0);
 
-    var ssa: Ssa = try Ssa.alloc(allocator, linearized, optimization);
-    errdefer ssa.free(allocator);
-    defer ssa.free(allocator);
+    if (linearized.op_num == 0) {
+        @branchHint(.unlikely);
+        const kernel_empty_name = "empty";
+        const source: []const u8 = "kernel void " ++ kernel_empty_name ++ "() {}\n\x00";
 
-    var source: []u8 = try allocator.alloc(u8, source_padding);
-    errdefer allocator.free(source);
-    defer allocator.free(source);
-    @memset(source, 0);
-    var source_len: usize = 0;
+        const program_ptr: ProgramPtr = try runtime.programAlloc(source);
+        errdefer runtime.programFree(program_ptr);
+        var kernel: []Kernel = try allocator.alloc(Kernel, 1);
+        errdefer allocator.free(kernel);
+        kernel[0].args = try Args.allocEmpty(allocator);
+        kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
+            kernel_empty_name ++ "\x00", kernel[0].args);
 
-    var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
-    errdefer allocator.free(kernel_args);
-    defer allocator.free(kernel_args);
+        return .{
+            .kernel = kernel,
+            .size_global = size_global,
+            .size_local = size_local,
+            .ptr = program_ptr,
+        };
+    } else {
+        @branchHint(.likely);
+        var ssa: Ssa = try Ssa.alloc(allocator, linearized, optimization);
+        errdefer ssa.free(allocator);
+        defer ssa.free(allocator);
 
-    const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
-        comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(ssa.assign_num))));
-    var kernel_name: [kernel_name_len_max]u8 = @splat(0);
+        var source: []u8 = try allocator.alloc(u8, source_padding);
+        errdefer allocator.free(source);
+        defer allocator.free(source);
+        @memset(source, 0);
+        var source_len: usize = 0;
 
-    for (0..ssa.assign_num) |assign_idx| {
+        var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
+        errdefer allocator.free(kernel_args);
+        defer allocator.free(kernel_args);
 
-        // This should be enough work to justify storing it in memory
-        // $TODO Rethink this when I refactor the args gathering
-        kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
+        const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
+            comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(ssa.assign_num))));
+        var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
-        @memset(&kernel_name, 0);
-        const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
-            kernel_base_name, .{assign_idx});
-        const kernel_name_len: usize = kernel_name_written.len;
+        for (0..ssa.assign_num) |assign_idx| {
 
-        try runtime.assignCompile(allocator, &source, &source_len, ssa.assign[assign_idx], //
-            kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
+            // This should be enough work to justify storing it in memory
+            // $TODO Rethink this when I refactor the args gathering
+            kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
+
+            @memset(&kernel_name, 0);
+            const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
+                kernel_base_name, .{assign_idx});
+            const kernel_name_len: usize = kernel_name_written.len;
+
+            try runtime.assignCompile(allocator, &source, &source_len, ssa.assign[assign_idx], //
+                kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
+        }
+
+        const program_ptr: ProgramPtr = try runtime.programAlloc(source);
+        errdefer runtime.programFree(program_ptr);
+        var kernel: []Kernel = try allocator.alloc(Kernel, ssa.assign_num);
+        errdefer allocator.free(kernel);
+
+        for (0..ssa.assign_num) |kernel_idx| {
+            @memset(&kernel_name, 0);
+            const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
+                kernel_base_name ++ "\x00", .{kernel_idx})).len;
+            kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
+                kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
+            kernel[kernel_idx].args = kernel_args[kernel_idx];
+        }
+
+        return .{
+            .kernel = kernel,
+            .size_global = size_global,
+            .size_local = size_local,
+            .ptr = program_ptr,
+        };
     }
-
-    const program_ptr: ProgramPtr = try runtime.programAlloc(source);
-    var kernel: []Kernel = try allocator.alloc(Kernel, ssa.assign_num);
-    errdefer allocator.free(kernel);
-
-    for (0..ssa.assign_num) |kernel_idx| {
-        @memset(&kernel_name, 0);
-        const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
-            kernel_base_name ++ "\x00", .{kernel_idx})).len;
-        kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
-            kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
-        kernel[kernel_idx].args = kernel_args[kernel_idx];
-    }
-
-    return .{
-        .kernel = kernel,
-        .size_global = size_global,
-        .size_local = size_local,
-        .ptr = program_ptr,
-    };
 }
 pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
     for (this.kernel) |*kernel| {
