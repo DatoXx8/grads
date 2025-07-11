@@ -51,10 +51,15 @@ pub const VTable = struct {
     memorySyncToDevice: *const fn (state: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void,
     programAlloc: *const fn (state: *anyopaque, source: []const u8) ?ProgramPtr,
     programFree: *const fn (state: *anyopaque, program: ProgramPtr) ?void,
-    programLog: *const fn (state: *anyopaque, program: ProgramPtr, allocator: Allocator) ?void,
     kernelAlloc: *const fn (state: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr,
     kernelFree: *const fn (state: *anyopaque, kernel: KernelPtr) ?void,
-    kernelRun: *const fn (state: *anyopaque, kernel: KernelPtr, size_global: usize, size_local: usize) ?void,
+    kernelRun: *const fn (
+        state: *anyopaque,
+        kernel: KernelPtr,
+        args: Args,
+        size_global: usize,
+        size_local: usize,
+    ) ?void,
     queueWait: *const fn (state: *anyopaque) ?void,
     assignCompile: *const fn (
         state: *anyopaque,
@@ -126,7 +131,9 @@ pub fn programFree(runtime: Runtime, program: ProgramPtr) void {
 // Kind of stupid that this is basically the only non ProgramPtr in here
 pub fn programRun(runtime: Runtime, program: Program) !void {
     for (program.kernel) |kernel| {
-        if (runtime.vtable.kernelRun(runtime.state, kernel.ptr, program.size_global, program.size_local) == null) {
+        if (runtime.vtable.kernelRun(runtime.state, kernel.ptr, kernel.args, program.size_global, //
+            program.size_local) == null)
+        {
             @branchHint(.cold);
             return Error.ProgramRun;
         }

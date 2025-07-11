@@ -3,109 +3,166 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const builtin = @import("builtin");
 
-// const OpenCl_version = @import("OpenCl_config").OpenCl_version;
+const codegen_ptx = @import("./codegen_ptx.zig");
+const Runtime = @import("./Runtime.zig");
+const Program = @import("../Program.zig");
+const Kernel = Program.Kernel;
+const KernelPtr = Program.KernelPtr;
+const ProgramPtr = Program.ProgramPtr;
+const Memory = Program.Memory;
+const Args = Program.Args;
+const Sync = Program.Sync;
 
 // It is just this followed by the index of the function
 
 // PTX is only accessible through the CUDA API from what I've seen
 // Man I really want to replace the entire NVIDIA stack or at least every compiler in it
 // Compiling OpenCL is unbearably slow, don't know about PTX yet.
+// Just look at the naming. of the types and function. They seem so horribly inconsistent
 const cuda_header = "cuda.h";
 pub const cuda = @cImport({
     @cInclude(cuda_header);
 });
 
-// $TODO Support multiple devices
-pub const CuDevice = struct {
-    device: cuda.CUdevice,
-    pub fn alloc() !CuDevice {
-        var device: cuda.CUdevice = null;
-        if (cuda.cuDeviceGet(&device, 0) == cuda.CUDA_SUCCESS) {
-            @branchHint(.likely);
-            return .{ .device = device };
-        } else {
-            @branchHint(.cold);
-            return null;
-        }
+const CuDevice = cuda.CUdevice;
+const CuContext = cuda.CUcontext;
+
+device: CuDevice,
+context: CuContext,
+// $TODO Maybe make a non-default stream
+
+pub const RuntimePtx = @This();
+
+pub fn runtime(this: *@This()) Runtime {
+    return .{
+        .state = this,
+        .vtable = .{
+            .init = init,
+            .deinit = deinit,
+            .memoryAlloc = memoryAlloc,
+            .memoryFree = memoryFree,
+            .memorySyncToDevice = memorySyncToDevice,
+            .memorySyncToHost = memorySyncToHost,
+            .programAlloc = programAlloc,
+            .programFree = programFree,
+            .kernelAlloc = kernelAlloc,
+            .kernelFree = kernelFree,
+            .kernelRun = kernelRun,
+            .queueWait = queueWait,
+            .assignCompile = codegen_ptx.assignCompile,
+        },
+    };
+}
+
+pub fn init(this: *anyopaque) ?void {
+    var state: *RuntimePtx = @alignCast(@ptrCast(this));
+
+    if (cuda.cuDeviceGet(&state.device, 0) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
     }
-    pub fn free(this: @This()) !void {
-        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+    if (cuda.cuCtxCreate(&state.context, 0, state.device) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        _ = cuda.cudaFree(state.device);
+        return null;
     }
-};
-pub const CuContext = struct {
-    context: cuda.CUcontext,
-    pub fn alloc(device: CuDevice) !CuContext {
-        var context: cuda.CUcontext = null;
-        if (cuda.cuCtxCreate(&context, 0, device.device) == cuda.CUDA_SUCCESS) {
-            @branchHint(.likely);
-            return .{ .context = context };
-        } else {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn deinit(this: *anyopaque) ?void {
+    const state: *RuntimePtx = @alignCast(@ptrCast(this));
+
+    var failed: bool = false;
+    if (cuda.cudaFree(state.device) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        failed = true;
     }
-    pub fn free(this: @This()) !void {
-        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+    if (cuda.cuCtxDestrooy(state.context) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        failed = true;
     }
-};
-pub const CuModule = struct {
-    module: cuda.CUmodule,
-    pub fn addPtx(this: *@This(), source_c: [*:0]const u8) !void {
-        if (cuda.cuModuleLoadData(this, @ptrCast(source_c)) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+    if (failed) {
+        @branchHint(.cold);
+        return null;
     }
-    pub fn free(this: *@This()) !void {
-        if (cuda.moduleUnload(this) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn memoryAlloc(_: *anyopaque, a: u32, z: u32, y: u32, x: u32) ?Memory {
+    assert(a > 0);
+    assert(z > 0);
+    assert(y > 0);
+    assert(x > 0);
+    var memory: cuda.CUdeviceptr = null;
+    if (cuda.cuMemAlloc(&memory, a * z * y * x) == cuda.CUDA_SUCCESS) {
+        @branchHint(.likely);
+        return @ptrCast(memory);
+    } else {
+        @branchHint(.cold);
+        return null;
     }
-};
-pub const CuFunction = struct {
-    function: cuda.CUfunction,
-    pub fn alloc(module: CuModule, source_c: [*:0]const u8, name_c: [*:0]const u8) !CuFunction {
-        const function: CuFunction = undefined;
-        try module.addPtx(source_c);
-        if (cuda.cuModuleGetFunction(&function.function, module, @ptrCast(name_c)) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn memoryFree(_: *anyopaque, memory: Memory) ?void {
+    if (cuda.cudaFree(memory) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
     }
-    pub fn free(this: @This()) !void {
-        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn memorySyncToDevice(_: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
+    if (cuda.cudaMemcpyAsync(@ptrCast(mem), @ptrCast(mem_host), n_bytes, //
+        cuda.cudaMemcpyHostToDevice, null) != cuda.CUDA_SUCCESS)
+    {
+        @branchHint(.cold);
+        return null;
     }
-};
-pub const CuMem = struct {
-    memory: cuda.CUdeviceptr,
-    pub fn alloc(a: u32, z: u32, y: u32, x: u32) !CuMem {
-        assert(a > 0);
-        assert(z > 0);
-        assert(y > 0);
-        assert(x > 0);
-        var memory: cuda.CUdeviceptr = null;
-        if (cuda.cuMemAlloc(&memory, a * z * y * x) == cuda.CUDA_SUCCESS) {
-            @branchHint(.likely);
-            return .{ .memory = memory };
-        } else {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn memorySyncToHost(_: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
+    if (cuda.cudaMemcpyAsync(@ptrCast(mem), @ptrCast(mem_host), n_bytes, //
+        cuda.cudaMemcpyHostToHost, null) != cuda.CUDA_SUCCESS)
+    {
+        @branchHint(.cold);
+        return null;
     }
-    pub fn free(this: @This()) !void {
-        if (cuda.cudaFree(this) != cuda.CUDA_SUCCESS) {
-            @branchHint(.cold);
-            return null;
-        }
+}
+pub fn programAlloc(_: *anyopaque, source: []const u8) ?ProgramPtr {
+    var module: cuda.CUmodule = null;
+    if (cuda.cuModuleLoadData(@ptrCast(&module), @ptrCast(source)) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
     }
-};
+    return @ptrCast(module);
+}
+pub fn programFree(_: *anyopaque, program: ProgramPtr) ?void {
+    if (cuda.moduleUnload(@ptrCast(program)) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
+    }
+}
+pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, _: Args) !KernelPtr {
+    const function: cuda.CUfunction = null;
+    if (cuda.cuModuleGetFunction(&function.function, @ptrCast(program), @ptrCast(name)) //
+    != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
+    }
+}
+pub fn kernelFree(_: *anyopaque, kernel: KernelPtr) ?void {
+    if (cuda.cudaFree(@ptrCast(kernel)) != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
+    }
+}
+pub fn kernelRun(_: *anyopaque, kernel: KernelPtr, args: Args, size_global: u32, size_local: u32) ?void {
+    const z_dim_grid: u32 = 1;
+    const y_dim_grid: u32 = 1;
+    const z_dim_block: u32 = 1;
+    const y_dim_block: u32 = 1;
+    if (cuda.cuLaunchKernel(@ptrCast(kernel), size_global, y_dim_grid, z_dim_grid, //
+        size_local, y_dim_block, z_dim_block, 0, 0, @ptrCast(args.arg_mem), null) != cuda.CUDA_SUCCESS)
+    {
+        @branchHint(.cold);
+        return null;
+    }
+}
+pub fn queueWait(_: *anyopaque) ?void {
+    if (cuda.cuCtxSynchronize() != cuda.CUDA_SUCCESS) {
+        @branchHint(.cold);
+        return null;
+    }
+}

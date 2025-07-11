@@ -34,7 +34,6 @@ pub fn runtime(this: *@This()) Runtime {
             .memoryFree = memoryFree,
             .memorySyncToDevice = memorySyncToDevice,
             .memorySyncToHost = memorySyncToHost,
-            .programLog = programLog,
             .programAlloc = programAlloc,
             .programFree = programFree,
             .kernelAlloc = kernelAlloc,
@@ -58,12 +57,11 @@ pub fn programAlloc(_: *anyopaque, _: []const u8) ?ProgramPtr {
     return undefined;
 }
 pub fn programFree(_: *anyopaque, _: ProgramPtr) ?void {}
-pub fn programLog(_: *anyopaque, _: ProgramPtr, _: Allocator) ?void {}
 pub fn kernelAlloc(_: *anyopaque, _: ProgramPtr, _: [*:0]const u8, _: Args) ?KernelPtr {
     return undefined;
 }
 pub fn kernelFree(_: *anyopaque, _: KernelPtr) ?void {}
-pub fn kernelRun(_: *anyopaque, _: KernelPtr, _: usize, _: usize) ?void {}
+pub fn kernelRun(_: *anyopaque, _: KernelPtr, _: Args, _: usize, _: usize) ?void {}
 pub fn queueWait(_: *anyopaque) ?void {}
 pub fn assignCompile(
     _: *anyopaque,
