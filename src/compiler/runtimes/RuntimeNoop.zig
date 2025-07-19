@@ -14,8 +14,8 @@ const ProgramPtr = Program.ProgramPtr;
 const Memory = Program.Memory;
 const Args = Program.Args;
 const Sync = Program.Sync;
-const Ssa = @import("../Ssa.zig");
-const Assign = Ssa.Assign;
+const Pir = @import("../Pir.zig");
+const Assign = Pir.Assign;
 
 // const opencl_version = @import("opencl_config").opencl_version;
 

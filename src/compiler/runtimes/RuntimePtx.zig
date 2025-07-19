@@ -13,8 +13,6 @@ const Memory = Program.Memory;
 const Args = Program.Args;
 const Sync = Program.Sync;
 
-// It is just this followed by the index of the function
-
 // PTX is only accessible through the CUDA API from what I've seen
 // Man I really want to replace the entire NVIDIA stack or at least every compiler in it
 // Compiling OpenCL is unbearably slow, don't know about PTX yet.
@@ -29,6 +27,7 @@ const CuContext = cuda.CUcontext;
 
 device: CuDevice,
 context: CuContext,
+registers_max: u32,
 // $TODO Maybe make a non-default stream
 
 pub const RuntimePtx = @This();
@@ -64,6 +63,14 @@ pub fn init(this: *anyopaque) ?void {
     if (cuda.cuCtxCreate(&state.context, 0, state.device) != cuda.CUDA_SUCCESS) {
         @branchHint(.cold);
         _ = cuda.cudaFree(state.device);
+        return null;
+    }
+    if (cuda.cuDeviceGetAttribute(state.registers_max, cuda.CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK, //
+        state.device) != cuda.CUDA_SUCCESS)
+    {
+        @branchHint(.cold);
+        _ = cuda.cudaFree(state.device);
+        _ = cuda.cuCtxDestrooy(state.context);
         return null;
     }
 }
@@ -134,10 +141,11 @@ pub fn programFree(_: *anyopaque, program: ProgramPtr) ?void {
         return null;
     }
 }
-pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, _: Args) !KernelPtr {
+pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, _: Args) ?KernelPtr {
     const function: cuda.CUfunction = null;
-    if (cuda.cuModuleGetFunction(&function.function, @ptrCast(program), @ptrCast(name)) //
-    != cuda.CUDA_SUCCESS) {
+    if (cuda.cuModuleGetFunction(&function.function, @ptrCast(program), @ptrCast(name)) != //
+        cuda.CUDA_SUCCESS)
+    {
         @branchHint(.cold);
         return null;
     }

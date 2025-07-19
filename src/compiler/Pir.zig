@@ -316,10 +316,10 @@ pub const Assign = struct {
     }
 };
 
-pub const Ssa = @This();
+pub const Pir = @This();
 assign: []Assign,
 assign_num: u32,
-pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimization) !Ssa {
+pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimization) !Pir {
     assert(linearized.op_num > 0);
 
     const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
@@ -346,14 +346,14 @@ pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimiz
     // Why was this ever here? Just to group assignments that could be on the same layer?
     // std.mem.sort(Assign, assign, {}, layerLessThan);
 
-    var ssa: Ssa = .{
+    var pir: Pir = .{
         .assign = assign,
         .assign_num = @intCast(assign.len),
     };
-    try ssa.optimize(allocator, optimization);
-    ssa.removeDefault();
+    try pir.optimize(allocator, optimization);
+    pir.removeDefault();
 
-    return ssa;
+    return pir;
 }
 pub fn free(this: *@This(), allocator: Allocator) void {
     for (0..this.assign_num) |assign_idx| {

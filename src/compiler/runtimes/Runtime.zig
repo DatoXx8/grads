@@ -9,8 +9,8 @@ const Kernel = Program.Kernel;
 const ProgramPtr = Program.ProgramPtr;
 const KernelPtr = Program.KernelPtr;
 const Args = Program.Args;
-const Ssa = @import("../Ssa.zig");
-const Assign = Ssa.Assign;
+const Pir = @import("../Pir.zig");
+const Assign = Pir.Assign;
 
 pub const RuntimeCl = @import("./RuntimeCl.zig");
 pub const RuntimePtx = @import("./RuntimePtx.zig");

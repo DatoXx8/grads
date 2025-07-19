@@ -7,8 +7,8 @@ const Linearized = Tensor.Linearized;
 const opt = @import("./optimize.zig");
 const Optimization = opt.Optimization;
 const Runtime = @import("./runtimes/Runtime.zig");
-const Ssa = @import("./Ssa.zig");
-const Assign = Ssa.Assign;
+const Pir = @import("./Pir.zig");
+const Assign = Pir.Assign;
 
 pub const Memory = *anyopaque;
 // $TODO Support integer arguments
@@ -115,9 +115,9 @@ pub fn alloc(
         };
     } else {
         @branchHint(.likely);
-        var ssa: Ssa = try Ssa.alloc(allocator, linearized, optimization);
-        errdefer ssa.free(allocator);
-        defer ssa.free(allocator);
+        var pir: Pir = try Pir.alloc(allocator, linearized, optimization);
+        errdefer pir.free(allocator);
+        defer pir.free(allocator);
 
         var source: []u8 = try allocator.alloc(u8, source_padding);
         errdefer allocator.free(source);
@@ -125,35 +125,35 @@ pub fn alloc(
         @memset(source, 0);
         var source_len: usize = 0;
 
-        var kernel_args: []Args = try allocator.alloc(Args, ssa.assign_num);
+        var kernel_args: []Args = try allocator.alloc(Args, pir.assign_num);
         errdefer allocator.free(kernel_args);
         defer allocator.free(kernel_args);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
-            comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(ssa.assign_num))));
+            comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
         var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
-        for (0..ssa.assign_num) |assign_idx| {
+        for (0..pir.assign_num) |assign_idx| {
 
             // This should be enough work to justify storing it in memory
             // $TODO Rethink this when I refactor the args gathering
-            kernel_args[assign_idx] = try Args.alloc(allocator, ssa.assign[assign_idx]);
+            kernel_args[assign_idx] = try Args.alloc(allocator, pir.assign[assign_idx]);
 
             @memset(&kernel_name, 0);
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
             const kernel_name_len: usize = kernel_name_written.len;
 
-            try runtime.assignCompile(allocator, &source, &source_len, ssa.assign[assign_idx], //
+            try runtime.assignCompile(allocator, &source, &source_len, pir.assign[assign_idx], //
                 kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
         }
 
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
-        var kernel: []Kernel = try allocator.alloc(Kernel, ssa.assign_num);
+        var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
         errdefer allocator.free(kernel);
 
-        for (0..ssa.assign_num) |kernel_idx| {
+        for (0..pir.assign_num) |kernel_idx| {
             @memset(&kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name ++ "\x00", .{kernel_idx})).len;

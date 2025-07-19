@@ -12,10 +12,10 @@ const Allocator = std.mem.Allocator;
 const Tensor = @import("../Tensor.zig");
 const Op = Tensor.Op;
 const Buffer = Tensor.Buffer;
-const Ssa = @import("./Ssa.zig");
-const Assign = Ssa.Assign;
-const Base = Ssa.Base;
-const DimInfo = Ssa.DimInfo;
+const Pir = @import("./Pir.zig");
+const Assign = Pir.Assign;
+const Base = Pir.Base;
+const DimInfo = Pir.DimInfo;
 
 /// $WARN O0 is **really** slow
 /// Planned optimization steps
@@ -165,32 +165,32 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 // $TODO Either make the order irrelevant here or assert the right order
 // $TODO This memory management is horrible. Refactor refactor refactor
 //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
-pub fn inlineOp(allocator: Allocator, ssa: *Ssa) !void {
-    const temp_written: []bool = try allocator.alloc(bool, ssa.assign_num);
+pub fn inlineOp(allocator: Allocator, pir: *Pir) !void {
+    const temp_written: []bool = try allocator.alloc(bool, pir.assign_num);
     errdefer allocator.free(temp_written);
     defer allocator.free(temp_written);
     @memset(temp_written, false);
 
     var start_idx: u32 = 0;
-    while (start_idx < ssa.assign_num - 1) : (start_idx += 1) {
-        temp_written[start_idx] = try inlineOpStep(allocator, ssa.assign, start_idx);
+    while (start_idx < pir.assign_num - 1) : (start_idx += 1) {
+        temp_written[start_idx] = try inlineOpStep(allocator, pir.assign, start_idx);
     }
 
     var assign_idx: u32 = 0;
     var assign_num_new: u32 = 0;
-    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (temp_written[assign_idx]) {
-            if (ssa.assign[assign_idx].inlined) |*inlined| {
+            if (pir.assign[assign_idx].inlined) |*inlined| {
                 allocator.free(inlined.base);
                 allocator.free(inlined.out);
                 allocator.free(inlined.in);
             }
         } else {
-            ssa.assign[assign_num_new] = ssa.assign[assign_idx];
+            pir.assign[assign_num_new] = pir.assign[assign_idx];
             assign_num_new += 1;
         }
     }
-    ssa.assign_num = assign_num_new;
+    pir.assign_num = assign_num_new;
 }
 
 // $FIX / $TODO / $PERF / $HACK         don't even know what to mark this shit with
@@ -430,26 +430,26 @@ fn dimInfoOverlap(this: Buffer, this_dim: DimInfo, this_repeats: u32, target: Bu
 }
 
 /// Returns 0 in case nothing was parallelized, assign_loop_id in case an assign got added to the an existant loop and assign_loop_id + 1 in case a new one had to be created
-fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
+fn parallelizeStep(pir: *Pir, start_idx: u32) bool {
     var assign_idx: u32 = start_idx + 1;
 
-    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         // I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
         // At the very least it is not obvious to me how to loosen them.
-        const overlap_out_out: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.out.id and
-            dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
-                ssa.assign[assign_idx].base.out, ssa.assign[assign_idx].base.out_dim, ssa.assign[assign_idx].base.repeats);
-        const overlap_out_in: bool = ssa.assign[start_idx].base.out.id == ssa.assign[assign_idx].base.in.id and
-            dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
-                ssa.assign[assign_idx].base.in, ssa.assign[assign_idx].base.in_dim, ssa.assign[assign_idx].base.repeats);
-        const overlap_in_out: bool = ssa.assign[start_idx].base.in.id == ssa.assign[assign_idx].base.out.id and
-            dimInfoOverlap(ssa.assign[start_idx].base.in, ssa.assign[start_idx].base.in_dim, ssa.assign[start_idx].base.repeats, //
-                ssa.assign[assign_idx].base.out, ssa.assign[assign_idx].base.out_dim, ssa.assign[assign_idx].base.repeats);
+        const overlap_out_out: bool = pir.assign[start_idx].base.out.id == pir.assign[assign_idx].base.out.id and
+            dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
+                pir.assign[assign_idx].base.out, pir.assign[assign_idx].base.out_dim, pir.assign[assign_idx].base.repeats);
+        const overlap_out_in: bool = pir.assign[start_idx].base.out.id == pir.assign[assign_idx].base.in.id and
+            dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
+                pir.assign[assign_idx].base.in, pir.assign[assign_idx].base.in_dim, pir.assign[assign_idx].base.repeats);
+        const overlap_in_out: bool = pir.assign[start_idx].base.in.id == pir.assign[assign_idx].base.out.id and
+            dimInfoOverlap(pir.assign[start_idx].base.in, pir.assign[start_idx].base.in_dim, pir.assign[start_idx].base.repeats, //
+                pir.assign[assign_idx].base.out, pir.assign[assign_idx].base.out_dim, pir.assign[assign_idx].base.repeats);
         const overlap_inline: bool = blk: {
-            if (ssa.assign[assign_idx].inlined) |inlined| {
+            if (pir.assign[assign_idx].inlined) |inlined| {
                 for (0..inlined.inlined_num) |inlined_idx| {
-                    if (ssa.assign[start_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null and
-                        dimInfoOverlap(ssa.assign[start_idx].base.out, ssa.assign[start_idx].base.out_dim, ssa.assign[start_idx].base.repeats, //
+                    if (pir.assign[start_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null and
+                        dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
                             inlined.base[inlined_idx].in, inlined.base[inlined_idx].in_dim, inlined.base[inlined_idx].repeats))
                     {
                         break :blk true;
@@ -462,49 +462,49 @@ fn parallelizeStep(ssa: *Ssa, start_idx: u32) bool {
             break;
         }
 
-        if (dimInfoMergePossible(ssa.assign[start_idx], ssa.assign[assign_idx])) {
-            dimInfoMerge(ssa.assign[start_idx], &ssa.assign[assign_idx]);
+        if (dimInfoMergePossible(pir.assign[start_idx], pir.assign[assign_idx])) {
+            dimInfoMerge(pir.assign[start_idx], &pir.assign[assign_idx]);
             return true;
         }
     }
     return false;
 }
 // I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large SSAs
-pub fn parallelize(allocator: Allocator, ssa: *Ssa) !void {
-    var temp_remove: []bool = try allocator.alloc(bool, ssa.assign_num);
+pub fn parallelize(allocator: Allocator, pir: *Pir) !void {
+    var temp_remove: []bool = try allocator.alloc(bool, pir.assign_num);
     errdefer allocator.free(temp_remove);
     defer allocator.free(temp_remove);
 
     var assign_idx: u32 = 0;
-    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
-        temp_remove[assign_idx] = parallelizeStep(ssa, assign_idx);
+    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
+        temp_remove[assign_idx] = parallelizeStep(pir, assign_idx);
     }
 
     var assign_num_new: u32 = 0;
     assign_idx = 0;
-    while (assign_idx < ssa.assign_num) : (assign_idx += 1) {
+    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (temp_remove[assign_idx]) {
-            if (ssa.assign[assign_idx].inlined) |*inlined| {
+            if (pir.assign[assign_idx].inlined) |*inlined| {
                 allocator.free(inlined.base);
                 allocator.free(inlined.out);
                 allocator.free(inlined.in);
             }
         } else {
-            ssa.assign[assign_num_new] = ssa.assign[assign_idx];
+            pir.assign[assign_num_new] = pir.assign[assign_idx];
             assign_num_new += 1;
         }
     }
-    ssa.assign_num = assign_num_new;
+    pir.assign_num = assign_num_new;
 }
-pub fn splitKernel(allocator: Allocator, ssa: *Ssa) !void {
+pub fn splitKernel(allocator: Allocator, pir: *Pir) !void {
     _ = allocator;
-    _ = ssa;
+    _ = pir;
 }
-pub fn simd(allocator: Allocator, ssa: *Ssa) !void {
+pub fn simd(allocator: Allocator, pir: *Pir) !void {
     _ = allocator;
-    _ = ssa;
+    _ = pir;
 }
-pub fn memoryLayout(allocator: Allocator, ssa: *Ssa) !void {
+pub fn memoryLayout(allocator: Allocator, pir: *Pir) !void {
     _ = allocator;
-    _ = ssa;
+    _ = pir;
 }
