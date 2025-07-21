@@ -4,10 +4,10 @@ const Allocator = std.mem.Allocator;
 
 const Tensor = @import("../Tensor.zig");
 const Linearized = Tensor.Linearized;
-const opt = @import("./optimize.zig");
+const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
-const Runtime = @import("./runtimes/Runtime.zig");
-const Pir = @import("./Pir.zig");
+const Runtime = @import("runtimes/Runtime.zig");
+const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
 
 pub const Memory = *anyopaque;

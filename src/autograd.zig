@@ -2,11 +2,11 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const Tensor = @import("./Tensor.zig");
+const Tensor = @import("Tensor.zig");
 const Linearized = Tensor.Linearized;
 const Op = Tensor.Op;
 const Buffer = Tensor.Buffer;
-const todo = @import("./util.zig").todo;
+const todo = @import("util.zig").todo;
 
 // u add a 1 f'(x)
 // ... g'(x)

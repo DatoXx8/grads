@@ -6,8 +6,8 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const builtin = @import("builtin");
 
-const codegen_ptx = @import("./codegen_ptx.zig");
-const Runtime = @import("./Runtime.zig");
+const codegen_ptx = @import("codegen_ptx.zig");
+const Runtime = @import("Runtime.zig");
 const Program = @import("../Program.zig");
 const Kernel = Program.Kernel;
 const KernelPtr = Program.KernelPtr;

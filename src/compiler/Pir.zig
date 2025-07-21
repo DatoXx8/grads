@@ -6,7 +6,7 @@ const Tensor = @import("../Tensor.zig");
 const Op = Tensor.Op;
 const Linearized = Tensor.Linearized;
 const Buffer = Tensor.Buffer;
-const opt = @import("./optimize.zig");
+const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 
 pub const DimInfo = struct {

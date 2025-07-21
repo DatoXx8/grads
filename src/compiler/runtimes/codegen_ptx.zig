@@ -17,7 +17,7 @@ const Program = @import("../Program.zig");
 const source_padding = Program.source_padding;
 const kernel_base_name = Program.kernel_base_name;
 const Args = Program.Args;
-const Runtime = @import("./Runtime.zig");
+const Runtime = @import("Runtime.zig");
 const RuntimePtx = Runtime.RuntimePtx;
 
 // Register scheme:

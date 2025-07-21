@@ -2,14 +2,14 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Optimization = @import("./compiler/optimize.zig").Optimization;
-const Program = @import("./compiler/Program.zig");
-const Runtime = @import("./compiler/runtimes/Runtime.zig");
-const Tensor = @import("./Tensor.zig");
+const Optimization = @import("compiler/optimize.zig").Optimization;
+const Program = @import("compiler/Program.zig");
+const Runtime = @import("compiler/runtimes/Runtime.zig");
+const Tensor = @import("Tensor.zig");
 const Linearized = Tensor.Linearized;
 const Op = Tensor.Op;
 const Buffer = Tensor.Buffer;
-const todo = @import("./util.zig").todo;
+const todo = @import("util.zig").todo;
 
 pub const Activation = struct {
     pub const Type = enum(u8) {

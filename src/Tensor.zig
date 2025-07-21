@@ -2,9 +2,9 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Program = @import("./compiler/Program.zig");
+const Program = @import("compiler/Program.zig");
 const Memory = Program.Memory;
-const Runtime = @import("./compiler/runtimes/Runtime.zig");
+const Runtime = @import("compiler/runtimes/Runtime.zig");
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576

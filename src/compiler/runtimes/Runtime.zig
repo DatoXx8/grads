@@ -12,9 +12,9 @@ const Args = Program.Args;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;
 
-pub const RuntimeCl = @import("./RuntimeCl.zig");
-pub const RuntimePtx = @import("./RuntimePtx.zig");
-pub const RuntimeNoop = @import("./RuntimeNoop.zig");
+pub const RuntimeCl = @import("RuntimeCl.zig");
+pub const RuntimePtx = @import("RuntimePtx.zig");
+pub const RuntimeNoop = @import("RuntimeNoop.zig");
 
 // $TODO Add a single and multithread CPU runtime for x86_64 avx2 & bmi2 and no extension
 
