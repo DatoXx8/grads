@@ -1,3 +1,6 @@
+//! Runtime based on NVidia PTX.
+//! Created because the NVidida OpenCl compiler is dog slow and I want to see if this is faster
+
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;

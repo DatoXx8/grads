@@ -283,7 +283,6 @@ pub fn free(this: *@This(), allocator: Allocator) void {
     }
     allocator.free(this.layer);
 }
-// $TODO / $FIXME The sync handling needs to be reworked
 // $TODO Add forward only pass where some additionaly tensors can be intermediaries
 pub fn forward(this: *@This()) !void {
     try this.forward_compiled.run(this.runtime);

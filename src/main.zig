@@ -28,6 +28,8 @@ pub fn main() !void {
 
     var runtime_cl: RuntimeCl = undefined;
     var runtime: Runtime = runtime_cl.runtime();
+    // var runtime_ptx: RuntimePtx = undefined;
+    // var runtime: Runtime = runtime_ptx.runtime();
     try runtime.init();
     defer runtime.deinit();
 

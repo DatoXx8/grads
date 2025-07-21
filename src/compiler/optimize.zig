@@ -357,7 +357,7 @@ fn dimInfoMerge(base: Assign, merge: *Assign) void {
                     assert(stride.* != DimInfo.value_none);
                     if (reset.* == DimInfo.value_none) {
                         if (off_pre == off_post) {
-                            reset.* = pre.repeats; // $FIXME This might need to be repeats + 1
+                            reset.* = pre.repeats;
                         }
                     }
                 }
