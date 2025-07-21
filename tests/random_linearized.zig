@@ -108,8 +108,8 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
         // Putting this out here to make snycing the prng state trivial
         const u_var: f32 = pcg.random().floatNorm(f32);
 
-        // $FIXME This should never be 0
         const loop_len: u32 = if (op_num == op_idx + 1) 1 else pcg.random().uintLessThan(u32, @truncate(op_num - op_idx - 1)) + 1;
+        assert(loop_len != 0);
         op_idx_used = op_idx + loop_len;
 
         var a_idx: u32 = 0;
