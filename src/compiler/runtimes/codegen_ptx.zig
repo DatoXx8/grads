@@ -22,7 +22,7 @@ const RuntimePtx = Runtime.RuntimePtx;
 
 // Register scheme:
 // %r___ .b32
-//      %r1 always holds the global id, the other %r___ are only used to compute %r1.
+//      %r1 always holds the global id, %r7 hold the unincremented global id, the other %r___ are only used to compute %r1.
 //      6 in total? 7 with envreg
 //
 // %rd___ .b64
@@ -96,6 +96,7 @@ const RuntimePtx = Runtime.RuntimePtx;
 // Float format 0f[hex] instead of 0x[hex]. Doable with 0f{X}
 
 const tab: []const u8 = "    ";
+const register_global_id: []const u8 = "%r1";
 
 /// Expand buffer if necessary and set new bytes to 0
 fn capacityEnsure(allocator: Allocator, source: *[]u8, offset: usize) Allocator.Error!void {
@@ -113,6 +114,39 @@ fn writeSource(allocator: Allocator, source: *[]u8, offset: *usize, comptime fmt
     const written = try bufPrint(source.*[offset.*..], fmt, args);
     offset.* += written.len;
     try capacityEnsure(allocator, source, offset.*);
+}
+
+/// Store the offset of the buffer at base_idx in %rd(base_idx + @intFromBool(is_in))
+fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign) WriteSourceError!void {
+    const base_num: u32 = 1 + if (assign.inlined) |inlined| inlined.inlined_num else 0;
+    var base_idx: u32 = 0;
+
+    while (base_idx < base_num) : (base_idx += 1) {
+        // const in_dim: DimInfo = if (base_idx == 0)
+        //     assign.base.in_dim
+        // else
+        //     assign.inlined.?.base[base_idx - 1].in_dim;
+        const out_dim: DimInfo = if (base_idx == 0)
+            assign.base.out_dim
+        else
+            assign.inlined.?.base[base_idx - 1].out_dim;
+        try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {};\n", .{ 2 * base_idx, out_dim.off });
+        if (out_dim.a_stride != 0) {
+            try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {s};\n", .{ 2 * base_num, register_global_id });
+            // $TODO For power of two (detemined with @popCount = 1) this can be bitwise and by power of two - 1
+            if (out_dim.a_reset != DimInfo.reset_default) {
+                try writeSource(allocator, source, offset, tab ++ "rem.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_reset });
+            }
+            if (out_dim.a_wait != 1) {
+                try writeSource(allocator, source, offset, tab ++ "div.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_wait });
+            }
+            if (out_dim.a_stride != 1) {
+                try writeSource(allocator, source, offset, tab ++ "div.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_stride });
+            }
+            try writeSource(allocator, source, offset, tab ++ "add.u64 %rd{}, %rd{}, %rd{};\n", //
+                .{ 2 * base_idx, 2 * base_idx, 2 * base_num });
+        }
+    }
 }
 
 pub fn assignCompile(
@@ -149,28 +183,40 @@ pub fn assignCompile(
             \\.version 8.7
             \\.target sm_89, texmode_independent
             \\.address_size 64
-        , .{}) catch unreachable;
+        , .{}) catch return null;
     }
-    writeSource(allocator, source, offset, ".entry {s}(\n", .{name}) catch unreachable;
+    writeSource(allocator, source, offset, ".entry {s}(\n", .{name}) catch return null;
     for (0..args.arg_num) |arg_idx| {
         if (arg_idx == args.arg_num - 1) {
             writeSource(allocator, source, offset, //
-                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{}\n", .{ name, arg_idx }) catch unreachable;
+                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{}\n", .{ name, arg_idx }) catch return null;
         } else {
             writeSource(allocator, source, offset, //
-                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{},\n", .{ name, arg_idx }) catch unreachable;
+                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{},\n", .{ name, arg_idx }) catch return null;
         }
     }
-    writeSource(allocator, source, offset, ")\n{{\n", .{}) catch unreachable;
+    writeSource(allocator, source, offset, ")\n{{\n", .{}) catch return null;
 
-    writeId(allocator, source, offset, assign);
+    // $FIXME reserve registers
 
+    // $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
+    writeSource(allocator, source, offset, tab ++ "mov.u32 %r2, %ctaid.x;\n", .{}) catch return null;
+    writeSource(allocator, source, offset, tab ++ "mov.u32 %r3, %ntid.x;\n", .{}) catch return null;
+    writeSource(allocator, source, offset, tab ++ "mov.u32 %r4, %tid.x;\n", .{}) catch return null;
+    writeSource(allocator, source, offset, tab ++ "mad.lo.s32 %r1, %r3, %r2, %r4;\n", .{}) catch return null;
+    writeSource(allocator, source, offset, tab ++ "mov.u32 %r7, %r1;\n", .{}) catch return null;
+
+    const kernel_repeats_leftover: bool = (assign.base.repeats % size_global) != 0;
+    const kernel_repeats: u32 = @divFloor(assign.base.repeats, size_global) +
+        @intFromBool(kernel_repeats_leftover);
     for (0..kernel_repeats) |kernel_idx| {
         if (kernel_idx != 0) {
-            writeIdIncrement(allocator, source, offset, assign, size_global);
+            writeSource(allocator, source, offset, tab ++ "add.u32 %r1, %r1, {};\n", .{size_global}) catch return null;
         }
-        writeSource(allocator, source, offset, tab ++ "setp.gt.s32 %p1, %r1, {};\n", .{kernel_repeats_leftover - 1}) catch unreachable;
-        writeSource(allocator, source, offset, tab ++ "@%p1 bra $EXIT;\n", .{}) catch unreachable;
+        if (kernel_repeats_leftover and kernel_idx == kernel_repeats - 1) {
+            writeSource(allocator, source, offset, tab ++ "setp.gt.u32 %p1, %r7, {};\n", .{kernel_repeats_leftover - 1}) catch return null;
+            writeSource(allocator, source, offset, tab ++ "@%p1 bra $EXIT;\n", .{}) catch return null;
+        }
 
         writeIndices(allocator, source, offset, assign);
         writeValue(allocator, source, offset, assign, a, z, y, x);
@@ -180,5 +226,5 @@ pub fn assignCompile(
         \\$EXIT:
         \\    ret;
         \\}}\n
-    , .{}) catch unreachable;
+    , .{}) catch return null;
 }
