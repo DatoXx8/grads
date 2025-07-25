@@ -122,29 +122,67 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
     var base_idx: u32 = 0;
 
     while (base_idx < base_num) : (base_idx += 1) {
-        // const in_dim: DimInfo = if (base_idx == 0)
-        //     assign.base.in_dim
-        // else
-        //     assign.inlined.?.base[base_idx - 1].in_dim;
-        const out_dim: DimInfo = if (base_idx == 0)
-            assign.base.out_dim
-        else
-            assign.inlined.?.base[base_idx - 1].out_dim;
-        try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {};\n", .{ 2 * base_idx, out_dim.off });
-        if (out_dim.a_stride != 0) {
-            try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {s};\n", .{ 2 * base_num, register_global_id });
-            // $TODO For power of two (detemined with @popCount = 1) this can be bitwise and by power of two - 1
-            if (out_dim.a_reset != DimInfo.reset_default) {
-                try writeSource(allocator, source, offset, tab ++ "rem.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_reset });
+        for (0..2) |side| {
+            const is_out: bool = side == 0;
+            const dim_info: DimInfo = if (base_idx == 0)
+                (if (is_out) assign.base.out_dim else assign.base.in_dim)
+            else
+                (if (is_out) assign.inlined.?.base[base_idx - 1].out_dim else assign.inlined.?.base[base_idx - 1].in_dim);
+            try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {};\n", //
+                .{ 2 * base_idx + side, dim_info.off });
+            inline for (0..4) |dim| {
+                const stride: u32 = switch (dim) {
+                    0 => dim_info.a_stride,
+                    1 => dim_info.x_stride,
+                    2 => dim_info.y_stride,
+                    3 => dim_info.z_stride,
+                    else => unreachable,
+                };
+                const wait: u32 = switch (dim) {
+                    0 => dim_info.a_wait,
+                    1 => dim_info.x_wait,
+                    2 => dim_info.y_wait,
+                    3 => dim_info.z_wait,
+                    else => unreachable,
+                };
+                const reset: u32 = switch (dim) {
+                    0 => dim_info.a_reset,
+                    1 => dim_info.x_reset,
+                    2 => dim_info.y_reset,
+                    3 => dim_info.z_reset,
+                    else => unreachable,
+                };
+                if (stride != 0) {
+                    try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {s};\n", //
+                        .{ 2 * base_num, register_global_id });
+                    if (reset != DimInfo.reset_default) {
+                        assert(reset != 0);
+                        assert(reset != 1);
+                        // const power_of_two: bool = std.math.isPowerOfTwo(reset);
+                        const power_of_two: bool = @popCount(reset) == 1;
+                        if (power_of_two) {
+                            try writeSource(allocator, source, offset, tab ++ "and.u64 %rd{}, {d};\n", //
+                                .{ 2 * base_num, reset - 1 });
+                        } else {
+                            try writeSource(allocator, source, offset, tab ++ "rem.u64 %rd{}, {d};\n", //
+                                .{ 2 * base_num, reset });
+                        }
+                    }
+                    if (wait != 1) {
+                        assert(wait != 0);
+                        try writeSource(allocator, source, offset, tab ++ "div.b64 %rd{}, {d};\n", //
+                            .{ 2 * base_num, wait });
+                    }
+                    if (stride == 1) {
+                        assert(stride != 0);
+                        try writeSource(allocator, source, offset, tab ++ "add.u64 %rd{}, %rd{}, %rd{};\n", //
+                            .{ 2 * base_idx + side, 2 * base_num, 2 * base_idx + side });
+                    } else {
+                        try writeSource(allocator, source, offset, tab ++ "mad.lo.u64 %rd{}, %rd{}, {d}, %rd{};\n", //
+                            .{ 2 * base_idx + side, 2 * base_num, stride, 2 * base_idx + side });
+                    }
+                }
             }
-            if (out_dim.a_wait != 1) {
-                try writeSource(allocator, source, offset, tab ++ "div.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_wait });
-            }
-            if (out_dim.a_stride != 1) {
-                try writeSource(allocator, source, offset, tab ++ "div.u64 %rd{}, {d};\n", .{ 2 * base_num, out_dim.a_stride });
-            }
-            try writeSource(allocator, source, offset, tab ++ "add.u64 %rd{}, %rd{}, %rd{};\n", //
-                .{ 2 * base_idx, 2 * base_idx, 2 * base_num });
         }
     }
 }
@@ -170,7 +208,9 @@ pub fn assignCompile(
     const registers_max: u32 = state.registers_max;
     // No support for cards with less than this many registers planned.
     // You can try disabling this assertion, but this is not designed for such a case.
+    // $FIXME For the codegen right now we just ignore the register limit and keep on allocating
     assert(registers_max >= 32);
+
 
     // $FIXME Recognize actual address size. Don't know how to do that yet
     if (std.mem.eql(u8, name, kernel_base_name ++ "0")) {
@@ -200,11 +240,14 @@ pub fn assignCompile(
     // $FIXME reserve registers
 
     // $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
-    writeSource(allocator, source, offset, tab ++ "mov.u32 %r2, %ctaid.x;\n", .{}) catch return null;
-    writeSource(allocator, source, offset, tab ++ "mov.u32 %r3, %ntid.x;\n", .{}) catch return null;
-    writeSource(allocator, source, offset, tab ++ "mov.u32 %r4, %tid.x;\n", .{}) catch return null;
-    writeSource(allocator, source, offset, tab ++ "mad.lo.s32 %r1, %r3, %r2, %r4;\n", .{}) catch return null;
-    writeSource(allocator, source, offset, tab ++ "mov.u32 %r7, %r1;\n", .{}) catch return null;
+    writeSource(allocator, source, offset,
+        \\    mov.u32 %r2, %ctaid.x;
+        \\    mov.u32 %r3, %ntid.x;
+        \\    mov.u32 %r4, %tid.x
+        \\    mad.lo.s32 %r1, %r3, %r2, %r4;
+        \\    mov.u32 %r7, %r1;
+        \\
+    , .{}) catch return null;
 
     const kernel_repeats_leftover: bool = (assign.base.repeats % size_global) != 0;
     const kernel_repeats: u32 = @divFloor(assign.base.repeats, size_global) +
@@ -219,7 +262,7 @@ pub fn assignCompile(
         }
 
         writeIndices(allocator, source, offset, assign);
-        writeValue(allocator, source, offset, assign, a, z, y, x);
+        writeCompute(allocator, source, offset, assign, a, z, y, x);
     }
 
     writeSource(allocator, source, offset,
