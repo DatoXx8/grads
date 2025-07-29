@@ -130,7 +130,7 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                 (if (is_out) assign.inlined.?.base[base_idx - 1].out_dim else assign.inlined.?.base[base_idx - 1].in_dim);
             try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {};\n", //
                 .{ 2 * base_idx + side, dim_info.off });
-            inline for (0..4) |dim| {
+            for (0..4) |dim| {
                 const stride: u32 = switch (dim) {
                     0 => dim_info.a_stride,
                     1 => dim_info.x_stride,
@@ -186,6 +186,28 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
         }
     }
 }
+fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign) WriteSourceError!void {
+    _ = allocator;
+    _ = source;
+    _ = offset;
+    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+    var a: u32 = 0;
+    while (a < a_size) : (a += 1) {
+        var z: u32 = 0;
+        while (z < z_size) : (z += 1) {
+            var y: u32 = 0;
+            while (y < y_size) : (y += 1) {
+                var x: u32 = 0;
+                while (x < x_size) : (x += 1) {
+                    //
+                }
+            }
+        }
+    }
+}
 
 pub fn assignCompile(
     this: *anyopaque,
@@ -210,7 +232,6 @@ pub fn assignCompile(
     // You can try disabling this assertion, but this is not designed for such a case.
     // $FIXME For the codegen right now we just ignore the register limit and keep on allocating
     assert(registers_max >= 32);
-
 
     // $FIXME Recognize actual address size. Don't know how to do that yet
     if (std.mem.eql(u8, name, kernel_base_name ++ "0")) {
@@ -262,7 +283,7 @@ pub fn assignCompile(
         }
 
         writeIndices(allocator, source, offset, assign);
-        writeCompute(allocator, source, offset, assign, a, z, y, x);
+        writeAssign(allocator, source, offset, assign);
     }
 
     writeSource(allocator, source, offset,

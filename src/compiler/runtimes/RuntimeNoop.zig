@@ -21,12 +21,9 @@ const Assign = Pir.Assign;
 
 pub const RuntimeNop = @This();
 
-// $TODO This should be removed
-dummy: u32,
-
-pub fn runtime(this: *@This()) Runtime {
+pub fn runtime(_: *@This()) Runtime {
     return Runtime{
-        .state = this,
+        .state = undefined,
         .vtable = .{
             .init = init,
             .deinit = deinit,

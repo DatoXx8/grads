@@ -13,7 +13,8 @@ pub const DimInfo = struct {
     pub const value_none: u32 = std.math.maxInt(u32);
     pub const wait_default: u32 = 1;
     pub const stride_default: u32 = 0;
-    pub const reset_default: u32 = ~(value_none >> 1); // Just the highest bit
+    /// Just the highest bit
+    pub const reset_default: u32 = ~(value_none >> 1);
     off: u32,
     a_stride: u32,
     z_stride: u32,
