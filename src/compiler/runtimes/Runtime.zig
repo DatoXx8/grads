@@ -61,9 +61,16 @@ pub const VTable = struct {
         size_local: usize,
     ) ?void,
     queueWait: *const fn (state: *anyopaque) ?void,
+    assignCompileBytes: *const fn (
+        state: *anyopaque,
+        assign: Assign,
+        name_len_max: u32,
+        args: Args,
+        size_global: u32,
+        size_local: u32,
+    ) u32,
     assignCompile: *const fn (
         state: *anyopaque,
-        allocator: Allocator,
         source: *[]u8,
         offset: *usize,
         assign: Assign,
@@ -71,7 +78,7 @@ pub const VTable = struct {
         args: Args,
         size_global: u32,
         size_local: u32,
-    ) ?void,
+    ) void,
 };
 
 pub fn init(runtime: Runtime) !void {
@@ -165,9 +172,20 @@ pub fn queueWait(runtime: Runtime) !void {
         return Error.QueueWait;
     }
 }
+pub fn assignCompileBytes(
+    runtime: Runtime,
+    assign: Assign,
+    name_len_max: u32,
+    args: Args,
+    size_global: u32,
+    size_local: u32,
+) u32 {
+    return runtime.vtable.assignCompileBytes(runtime.state, assign, name_len_max, args, //
+        size_global, size_local);
+}
+/// Crashes if source doesn't have enough space
 pub fn assignCompile(
     runtime: Runtime,
-    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     assign: Assign,
@@ -175,11 +193,7 @@ pub fn assignCompile(
     args: Args,
     size_global: u32,
     size_local: u32,
-) !void {
-    if (runtime.vtable.assignCompile(runtime.state, allocator, source, offset, assign, name, args, //
-        size_global, size_local) == null)
-    {
-        @branchHint(.cold);
-        return Error.AssignCompile;
-    }
+) void {
+    runtime.vtable.assignCompile(runtime.state, source, offset, assign, name, args, //
+        size_global, size_local);
 }

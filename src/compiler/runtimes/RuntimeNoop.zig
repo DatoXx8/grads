@@ -37,7 +37,8 @@ pub fn runtime(_: *@This()) Runtime {
             .kernelFree = kernelFree,
             .kernelRun = kernelRun,
             .queueWait = queueWait,
-            .assignCompile = codegen_cl.assignCompile,
+            .assignCompileBytes = assignCompileBytes,
+            .assignCompile = assignCompile,
         },
     };
 }
@@ -60,9 +61,11 @@ pub fn kernelAlloc(_: *anyopaque, _: ProgramPtr, _: [*:0]const u8, _: Args) ?Ker
 pub fn kernelFree(_: *anyopaque, _: KernelPtr) ?void {}
 pub fn kernelRun(_: *anyopaque, _: KernelPtr, _: Args, _: usize, _: usize) ?void {}
 pub fn queueWait(_: *anyopaque) ?void {}
+pub fn assignCompileBytes(_: *anyopaque, _: Assign, _: u32, _: Args, _: u32, _: u32) u32 {
+    return undefined;
+}
 pub fn assignCompile(
     _: *anyopaque,
-    _: Allocator,
     _: *[]u8,
     _: *usize,
     _: Assign,
@@ -70,6 +73,4 @@ pub fn assignCompile(
     _: Args,
     _: u32,
     _: u32,
-) ?void {
-    @panic("Tried to compile source for no-op runtime\n");
-}
+) void {}

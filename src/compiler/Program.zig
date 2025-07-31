@@ -82,7 +82,6 @@ kernel: []Kernel,
 ptr: ProgramPtr,
 
 pub const kernel_base_name = "kern{}";
-pub const source_padding = 4096;
 pub fn alloc(
     runtime: Runtime,
     allocator: Allocator,
@@ -104,6 +103,7 @@ pub fn alloc(
         var kernel: []Kernel = try allocator.alloc(Kernel, 1);
         errdefer allocator.free(kernel);
         kernel[0].args = try Args.allocEmpty(allocator);
+        errdefer kernel[0].args.free(allocator);
         kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
             kernel_empty_name ++ "\x00", kernel[0].args);
 
@@ -119,33 +119,37 @@ pub fn alloc(
         errdefer pir.free(allocator);
         defer pir.free(allocator);
 
-        var source: []u8 = try allocator.alloc(u8, source_padding);
-        errdefer allocator.free(source);
-        defer allocator.free(source);
-        @memset(source, 0);
-        var source_len: usize = 0;
-
-        var kernel_args: []Args = try allocator.alloc(Args, pir.assign_num);
-        errdefer allocator.free(kernel_args);
-        defer allocator.free(kernel_args);
-
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
         var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
-        for (0..pir.assign_num) |assign_idx| {
+        var kernel_args: []Args = try allocator.alloc(Args, pir.assign_num);
+        errdefer allocator.free(kernel_args);
 
+        var source_len: usize = 0;
+        for (0..pir.assign_num) |assign_idx| {
+            kernel_args[assign_idx] = try Args.alloc(allocator, pir.assign[assign_idx]);
+            source_len += runtime.assignCompileBytes(pir.assign[assign_idx], kernel_name_len_max, //
+                kernel_args[assign_idx], size_global, size_local);
+        }
+
+        std.debug.print("source_len = {}\n", .{source_len});
+
+        var source: []u8 = try allocator.alloc(u8, source_len);
+        errdefer allocator.free(source);
+        defer allocator.free(source);
+        @memset(source, 0);
+
+        for (0..pir.assign_num) |assign_idx| {
             // This should be enough work to justify storing it in memory
             // $TODO Rethink this when I refactor the args gathering
-            kernel_args[assign_idx] = try Args.alloc(allocator, pir.assign[assign_idx]);
 
             @memset(&kernel_name, 0);
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
-            const kernel_name_len: usize = kernel_name_written.len;
 
-            try runtime.assignCompile(allocator, &source, &source_len, pir.assign[assign_idx], //
-                kernel_name[0..kernel_name_len], kernel_args[assign_idx], size_global, size_local);
+            runtime.assignCompile(&source, &source_len, pir.assign[assign_idx], //
+                kernel_name_written, kernel_args[assign_idx], size_global, size_local);
         }
 
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);

@@ -54,6 +54,7 @@ pub fn runtime(this: *@This()) Runtime {
             .kernelFree = kernelFree,
             .kernelRun = kernelRun,
             .queueWait = queueWait,
+            .assignCompileBytes = codegen_cl.assignCompileBytes,
             .assignCompile = codegen_cl.assignCompile,
         },
     };

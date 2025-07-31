@@ -14,7 +14,6 @@ const Base = Pir.Base;
 const DimInfo = Pir.DimInfo;
 const Inlined = Pir.Inlined;
 const Program = @import("../Program.zig");
-const source_padding = Program.source_padding;
 const kernel_base_name = Program.kernel_base_name;
 const Args = Program.Args;
 const Runtime = @import("Runtime.zig");
@@ -98,26 +97,15 @@ const RuntimePtx = Runtime.RuntimePtx;
 const tab: []const u8 = "    ";
 const register_global_id: []const u8 = "%r1";
 
-/// Expand buffer if necessary and set new bytes to 0
-fn capacityEnsure(allocator: Allocator, source: *[]u8, offset: usize) Allocator.Error!void {
-    if (source.len - offset < source_padding) {
-        const len_old: usize = source.len;
-        source.* = try allocator.realloc(source.*, len_old * 2);
-        @memset(source.*[len_old..], 0);
-    }
-}
-
-const WriteSourceError = Allocator.Error || std.fmt.BufPrintError;
 /// Write format string to buffer and ensure there is at least `padding` bytes left
-fn writeSource(allocator: Allocator, source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) WriteSourceError!void {
+fn writeSource(source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) void {
     // $TODO Validate that there is enough space for this and expand if there isn't
-    const written = try bufPrint(source.*[offset.*..], fmt, args);
+    const written = bufPrint(source.*[offset.*..], fmt, args) catch unreachable;
     offset.* += written.len;
-    try capacityEnsure(allocator, source, offset.*);
 }
 
 /// Store the offset of the buffer at base_idx in %rd(base_idx + @intFromBool(is_in))
-fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign) WriteSourceError!void {
+fn writeIndices(source: *[]u8, offset: *usize, assign: Assign) void {
     const base_num: u32 = 1 + if (assign.inlined) |inlined| inlined.inlined_num else 0;
     var base_idx: u32 = 0;
 
@@ -128,7 +116,7 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                 (if (is_out) assign.base.out_dim else assign.base.in_dim)
             else
                 (if (is_out) assign.inlined.?.base[base_idx - 1].out_dim else assign.inlined.?.base[base_idx - 1].in_dim);
-            try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {};\n", //
+            writeSource(source, offset, tab ++ "mov.u64 %rd{}, {};\n", //
                 .{ 2 * base_idx + side, dim_info.off });
             for (0..4) |dim| {
                 const stride: u32 = switch (dim) {
@@ -153,7 +141,7 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                     else => unreachable,
                 };
                 if (stride != 0) {
-                    try writeSource(allocator, source, offset, tab ++ "mov.u64 %rd{}, {s};\n", //
+                    writeSource(source, offset, tab ++ "mov.u64 %rd{}, {s};\n", //
                         .{ 2 * base_num, register_global_id });
                     if (reset != DimInfo.reset_default) {
                         assert(reset != 0);
@@ -161,24 +149,24 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
                         // const power_of_two: bool = std.math.isPowerOfTwo(reset);
                         const power_of_two: bool = @popCount(reset) == 1;
                         if (power_of_two) {
-                            try writeSource(allocator, source, offset, tab ++ "and.u64 %rd{}, {d};\n", //
+                            writeSource(source, offset, tab ++ "and.u64 %rd{}, {d};\n", //
                                 .{ 2 * base_num, reset - 1 });
                         } else {
-                            try writeSource(allocator, source, offset, tab ++ "rem.u64 %rd{}, {d};\n", //
+                            writeSource(source, offset, tab ++ "rem.u64 %rd{}, {d};\n", //
                                 .{ 2 * base_num, reset });
                         }
                     }
                     if (wait != 1) {
                         assert(wait != 0);
-                        try writeSource(allocator, source, offset, tab ++ "div.b64 %rd{}, {d};\n", //
+                        writeSource(source, offset, tab ++ "div.b64 %rd{}, {d};\n", //
                             .{ 2 * base_num, wait });
                     }
                     if (stride == 1) {
                         assert(stride != 0);
-                        try writeSource(allocator, source, offset, tab ++ "add.u64 %rd{}, %rd{}, %rd{};\n", //
+                        writeSource(source, offset, tab ++ "add.u64 %rd{}, %rd{}, %rd{};\n", //
                             .{ 2 * base_idx + side, 2 * base_num, 2 * base_idx + side });
                     } else {
-                        try writeSource(allocator, source, offset, tab ++ "mad.lo.u64 %rd{}, %rd{}, {d}, %rd{};\n", //
+                        writeSource(source, offset, tab ++ "mad.lo.u64 %rd{}, %rd{}, {d}, %rd{};\n", //
                             .{ 2 * base_idx + side, 2 * base_num, stride, 2 * base_idx + side });
                     }
                 }
@@ -186,8 +174,12 @@ fn writeIndices(allocator: Allocator, source: *[]u8, offset: *usize, assign: Ass
         }
     }
 }
-fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign) WriteSourceError!void {
-    _ = allocator;
+fn writeBase(source: *[]u8, offset: *usize, assign: Assign) void {
+    _ = source;
+    _ = offset;
+    _ = assign;
+}
+fn writeAssign(source: *[]u8, offset: *usize, assign: Assign) void {
     _ = source;
     _ = offset;
     const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
@@ -202,16 +194,31 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
             while (y < y_size) : (y += 1) {
                 var x: u32 = 0;
                 while (x < x_size) : (x += 1) {
-                    //
+                    const off_out: u32 = if (assign.base.type.isReduce())
+                        0
+                    else
+                        assign.base.out.at(a, z, y, x);
+                    const off_in: u32 = if (assign.base.type.isExpand())
+                        assign.base.out.at(a, z, y, x)
+                    else
+                        0;
+                    _ = off_out;
+                    _ = off_in;
                 }
             }
         }
     }
 }
-
+pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, size_local: u32) u32 {
+    _ = assign;
+    _ = name_len_max;
+    _ = args;
+    _ = size_global;
+    _ = size_local;
+    return 0;
+}
 pub fn assignCompile(
     this: *anyopaque,
-    allocator: Allocator,
     source: *[]u8,
     offset: *usize,
     assign: Assign,
@@ -219,7 +226,7 @@ pub fn assignCompile(
     args: Args,
     size_global: u32,
     size_local: u32,
-) ?void {
+) void {
     assert(assign.base.repeats > 0);
     assert(size_global > 0);
     assert(size_local > 0);
@@ -227,68 +234,76 @@ pub fn assignCompile(
     assert(std.mem.startsWith(u8, name, kernel_base_name));
 
     const state: *RuntimePtx = @alignCast(@ptrCast(this));
+    assert(offset.* + assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local) < source.len);
+
     const registers_max: u32 = state.registers_max;
     // No support for cards with less than this many registers planned.
     // You can try disabling this assertion, but this is not designed for such a case.
     // $FIXME For the codegen right now we just ignore the register limit and keep on allocating
     assert(registers_max >= 32);
 
+    // $FIXME This is really just a bug. This case needs to be handled
+    assert(registers_max >= 2 + if (assign.inlined) |i| i.inlined_num else 0);
+
     // $FIXME Recognize actual address size. Don't know how to do that yet
     if (std.mem.eql(u8, name, kernel_base_name ++ "0")) {
         assert(source.*[0] == '\x00');
         assert(offset.* == 0);
-        writeSource(allocator, source, offset,
-            \\// Non official PTX generated by the Grads cmopiler for PTX 
-            \\// Based on NVVM 7.0.1
-            \\
-            \\.version 8.7
-            \\.target sm_89, texmode_independent
-            \\.address_size 64
-        , .{}) catch return null;
+        const header_global: []const u8 =
+            "// Non official PTX generated by the Grads cmopiler for PTX " ++
+            "// Based on NVVM 7.0.1" ++
+            "\n" ++
+            ".version 8.7\n" ++
+            ".target sm_89, texmode_independent\n" ++
+            ".address_size 64\n";
+        writeSource(source, offset, header_global, .{});
     }
-    writeSource(allocator, source, offset, ".entry {s}(\n", .{name}) catch return null;
+    writeSource(source, offset, ".entry {s}(\n", .{name});
     for (0..args.arg_num) |arg_idx| {
         if (arg_idx == args.arg_num - 1) {
-            writeSource(allocator, source, offset, //
-                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{}\n", .{ name, arg_idx }) catch return null;
+            writeSource(source, offset, //
+                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{}\n", .{ name, arg_idx });
         } else {
-            writeSource(allocator, source, offset, //
-                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{},\n", .{ name, arg_idx }) catch return null;
+            writeSource(source, offset, //
+                tab ++ ".param .u64 .ptr .global .align 4 {s}_param_{},\n", .{ name, arg_idx });
         }
     }
-    writeSource(allocator, source, offset, ")\n{{\n", .{}) catch return null;
+    writeSource(source, offset, ")\n{{\n", .{});
 
     // $FIXME reserve registers
+    todo(@src());
 
     // $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
-    writeSource(allocator, source, offset,
-        \\    mov.u32 %r2, %ctaid.x;
-        \\    mov.u32 %r3, %ntid.x;
-        \\    mov.u32 %r4, %tid.x
-        \\    mad.lo.s32 %r1, %r3, %r2, %r4;
-        \\    mov.u32 %r7, %r1;
-        \\
-    , .{}) catch return null;
+    const register_global_id_calculation: []const u8 =
+        tab ++ "mov.u32 %r2, %ctaid.x;\n" ++
+        tab ++ "mov.u32 %r3, %ntid.x;\n" ++
+        tab ++ "mov.u32 %r4, %tid.x;\n" ++
+        tab ++ "mad.lo.s32 %r1, %r3, %r2, %r4;\n" ++
+        tab ++ "mov.u32 %r7, %r1;\n" ++
+        "\n";
+    writeSource(source, offset, register_global_id_calculation, .{});
 
     const kernel_repeats_leftover: bool = (assign.base.repeats % size_global) != 0;
     const kernel_repeats: u32 = @divFloor(assign.base.repeats, size_global) +
         @intFromBool(kernel_repeats_leftover);
     for (0..kernel_repeats) |kernel_idx| {
         if (kernel_idx != 0) {
-            writeSource(allocator, source, offset, tab ++ "add.u32 %r1, %r1, {};\n", .{size_global}) catch return null;
+            writeSource(source, offset, tab ++ "add.u32 %r1, %r1, {};\n", .{size_global});
         }
         if (kernel_repeats_leftover and kernel_idx == kernel_repeats - 1) {
-            writeSource(allocator, source, offset, tab ++ "setp.gt.u32 %p1, %r7, {};\n", .{kernel_repeats_leftover - 1}) catch return null;
-            writeSource(allocator, source, offset, tab ++ "@%p1 bra $EXIT;\n", .{}) catch return null;
+            const early_exit_condition: []const u8 =
+                tab ++ "setp.gt.u32 %p1, %r7, {};\n" ++
+                tab ++ "@%p1 bra $EXIT;\n";
+            writeSource(source, offset, early_exit_condition, .{kernel_repeats_leftover - 1});
         }
 
-        writeIndices(allocator, source, offset, assign);
-        writeAssign(allocator, source, offset, assign);
+        writeIndices(source, offset, assign);
+        writeAssign(source, offset, assign);
     }
 
-    writeSource(allocator, source, offset,
-        \\$EXIT:
-        \\    ret;
-        \\}}\n
-    , .{}) catch return null;
+    const early_exit_and_ret: []const u8 =
+        "$EXIT:\n" ++
+        tab ++ "ret;\n" ++
+        "}}\n";
+    writeSource(source, offset, early_exit_and_ret, .{});
 }
