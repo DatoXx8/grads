@@ -545,15 +545,45 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u
         });
     }
 }
-fn assignCompileBytesBase(base: Base) u32 {
-    todo(@src());
-    return 0;
-}
 /// This one does not return the buffers included. That only gets added if there is no inlined
 /// thing for that specific buffer
-fn assignCompileBytesInlined(base: Base) u32 {
-    todo(@src());
-    return 0;
+fn assignCompileBytesBase(base: Base) u32 {
+    return switch (base.type) {
+        .unary_add => "(+)".len,
+        .unary_subtract => "(-)".len,
+        .unary_multiply => "(*)".len,
+        .unary_divide => "(/)".len,
+        .unary_exp => "exp()".len,
+        .unary_log => "log()".len,
+        .unary_square => "pow(,2)".len,
+        .unary_sqrt => "sqrt()".len,
+        .unary_reciprocal => "(1/)".len,
+        .unary_max => "fmax(,)".len,
+        .unary_min => "fmin(,)".len,
+        .unary_set => "()".len,
+        .unary_random => unreachable, // $TODO: Do this
+        .unary_tanh => "tanh()".len,
+        .unary_absolute => "fabs()".len,
+        .unary_sign => unreachable, // $TODO: Do this
+        .binary_add => "(+)".len,
+        .binary_subtract => "(-)".len,
+        .binary_multiply => "(*)".len,
+        .binary_divide => "(/)".len,
+        .binary_max => "fmax(,)".len,
+        .binary_min => "fmin(,)".len,
+        .binary_set => "()".len,
+        .expand_add => "(+)".len,
+        .expand_subtract => "(-)".len,
+        .expand_multiply => "(*)".len,
+        .expand_divide => "(/)".len,
+        .expand_max => "fmax(,)".len,
+        .expand_min => "fmin(,)".len,
+        .expand_set => "()".len,
+        .reduce_sum => "()".len,
+        .reduce_max => "()".len,
+        .reduce_avg => "()".len,
+        .reduce_min => "()".len,
+    };
 }
 pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, _: u32) u32 {
     const boilerplate_kernel: []const u8 =
@@ -573,12 +603,20 @@ pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args
     const boilerplate_index: []const u8 = "int ___ = (id%)/*+(id%)/*+(id%)/*+(id%)/*+;\n"; // 4 * 3 + 1 + 3 int_width_max + 1 * buffer_name_size
     const length_index: u32 = @intCast(boilerplate_index.len + 16 * length_int_max + buffer_name_size *
         (1 + if (assign.inlined) |i| i.inlined_num else 0));
-    const boilerplate_assign_outer: []const u8 = "[___+] = ();\n"; // buffer_name_size + 4 * int_width_max
-    const length_assign_outer: u32 = @intCast(boilerplate_assign_outer.len + buffer_name_size + 4 * length_int_max);
-    const length_assign_inner: u32 = assignCompileBytesBase(assign.base);
+    const boilerplate_assign_outer: []const u8 = "[___+] += ();\n"; // buffer_name_size + 4 * int_width_max. += is in case of reduce
+    const length_assign_root: u32 = (if (assign.inlined) |inlined|
+        @as(u32, @intFromBool(inlined.in_root == null)) + @as(u32, @intFromBool(inlined.out_root == null))
+    else
+        2) * (buffer_name_size + 4 * length_int_max);
+    const length_assign_outer: u32 = @intCast(boilerplate_assign_outer.len + buffer_name_size + 4 * length_int_max +
+        length_assign_root);
+    var length_assign_inner: u32 = assignCompileBytesBase(assign.base);
     if (assign.inlined) |inlined| {
         for (0..inlined.inlined_num) |inlined_idx| {
-            length_assign_inner += assignCompileBytesInlined(base: Base) + ;
+            length_assign_inner += assignCompileBytesBase(inlined.base[inlined_idx]) +
+                (buffer_name_size + 4 * length_int_max) *
+                    (@as(u32, @intFromBool(inlined.in[inlined_idx] == null)) +
+                        @as(u32, @intFromBool(inlined.out[inlined_idx] == null)));
         }
     }
 

@@ -8,9 +8,9 @@ const Runtime = @import("compiler/runtimes/Runtime.zig");
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
-pub const buffer_name_size: u64 = 8;
+pub const buffer_name_size: u32 = 8;
 /// Valid increment of the char values in the buffer name
-pub const buffer_name_char_options: u64 = 'z' - 'a' + 1;
+pub const buffer_name_char_options: u32 = 'z' - 'a' + 1;
 /// For keeping track of the current number of buffers allocated
 var buffer_id: u64 = 0;
 

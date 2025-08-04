@@ -128,22 +128,22 @@ pub fn alloc(
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
         var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
-        var kernel_args: []Args = try allocator.alloc(Args, pir.assign_num);
-        errdefer allocator.free(kernel_args);
+        // $FIXME If this errdefer is triggered, then all of the memory in the args leaks.
+        var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
+        errdefer allocator.free(kernel);
 
         var source_len: usize = 0;
         for (0..pir.assign_num) |assign_idx| {
-            kernel_args[assign_idx] = try Args.alloc(allocator, pir.assign[assign_idx]);
+            kernel[assign_idx].args = try Args.alloc(allocator, pir.assign[assign_idx]);
             source_len += runtime.assignCompileBytes(pir.assign[assign_idx], kernel_name_len_max, //
-                kernel_args[assign_idx], size_global, size_local);
+                kernel[assign_idx].args, size_global, size_local);
         }
-
-        std.debug.print("source_len = {}\n", .{source_len});
 
         var source: []u8 = try allocator.alloc(u8, source_len);
         errdefer allocator.free(source);
         defer allocator.free(source);
         @memset(source, 0);
+        var source_idx: usize = 0;
 
         for (0..pir.assign_num) |assign_idx| {
             // This should be enough work to justify storing it in memory
@@ -153,22 +153,19 @@ pub fn alloc(
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
 
-            runtime.assignCompile(&source, &source_len, pir.assign[assign_idx], //
-                kernel_name_written, kernel_args[assign_idx], size_global, size_local);
+            runtime.assignCompile(&source, &source_idx, pir.assign[assign_idx], //
+                kernel_name_written, kernel[assign_idx].args, size_global, size_local);
         }
 
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
-        var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
-        errdefer allocator.free(kernel);
 
         for (0..pir.assign_num) |kernel_idx| {
             @memset(&kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name ++ "\x00", .{kernel_idx})).len;
             kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
-                kernel_name[0..kernel_name_len], kernel_args[kernel_idx]);
-            kernel[kernel_idx].args = kernel_args[kernel_idx];
+                kernel_name[0..kernel_name_len], kernel[kernel_idx].args);
         }
 
         return .{
