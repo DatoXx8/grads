@@ -93,7 +93,7 @@ fn simulateCompiler(
 
     for (0..tensor1.tensor[tensor1.out_idx].buffer.values.len) |arg_idx| {
         assertEq(tensor1.tensor[tensor1.out_idx].buffer.values[arg_idx], tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx]) catch |err| {
-            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\"\n", .{
+            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={}\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
                 arg_idx / (y_size_max * x_size_max) % z_size_max,
@@ -104,6 +104,7 @@ fn simulateCompiler(
                 tensor1.tensor[tensor1.out_idx].buffer.name(),
                 tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx],
                 tensor2.tensor[tensor2.out_idx].buffer.name(),
+                rng,
             });
             return err;
         };
