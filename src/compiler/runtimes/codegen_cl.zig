@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
 const Program = @import("../Program.zig");
+const length_int_max = Program.length_int_max;
 const Args = Program.Args;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;
@@ -544,14 +545,51 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u
         });
     }
 }
-pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, size_local: u32) u32 {
+fn assignCompileBytesBase(base: Base) u32 {
     todo(@src());
-    _ = assign;
-    _ = name_len_max;
-    _ = args;
-    _ = size_global;
-    _ = size_local;
     return 0;
+}
+/// This one does not return the buffers included. That only gets added if there is no inlined
+/// thing for that specific buffer
+fn assignCompileBytesInlined(base: Base) u32 {
+    todo(@src());
+    return 0;
+}
+pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, _: u32) u32 {
+    const boilerplate_kernel: []const u8 =
+        \\ __kernel void () {
+        \\ const int gid = get_global_id(0);
+        \\ int id;
+        \\ id = gid;
+        \\ }
+    ;
+    const boilerplate_argument: []const u8 = ", global float *";
+    const length_header: u32 = @intCast(boilerplate_kernel.len + name_len_max + args.arg_num * (boilerplate_argument.len + buffer_name_size));
+    const boilerplate_conditional: []const u8 = "if(gid < ) {\n" ++ "}\n";
+    const leangth_conditional: u32 = if (assign.base.repeats % size_global > 0)
+        @intCast(boilerplate_conditional.len + length_int_max)
+    else
+        0;
+    const boilerplate_index: []const u8 = "int ___ = (id%)/*+(id%)/*+(id%)/*+(id%)/*+;\n"; // 4 * 3 + 1 + 3 int_width_max + 1 * buffer_name_size
+    const length_index: u32 = @intCast(boilerplate_index.len + 16 * length_int_max + buffer_name_size *
+        (1 + if (assign.inlined) |i| i.inlined_num else 0));
+    const boilerplate_assign_outer: []const u8 = "[___+] = ();\n"; // buffer_name_size + 4 * int_width_max
+    const length_assign_outer: u32 = @intCast(boilerplate_assign_outer.len + buffer_name_size + 4 * length_int_max);
+    const length_assign_inner: u32 = assignCompileBytesBase(assign.base);
+    if (assign.inlined) |inlined| {
+        for (0..inlined.inlined_num) |inlined_idx| {
+            length_assign_inner += assignCompileBytesInlined(base: Base) + ;
+        }
+    }
+
+    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+
+    const length_assign: u32 = a_size * z_size * y_size * x_size * (length_assign_outer + length_assign_inner);
+
+    return length_header + leangth_conditional + length_index + length_assign;
 }
 pub fn assignCompile(
     this: *anyopaque,

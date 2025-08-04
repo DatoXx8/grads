@@ -81,6 +81,11 @@ size_local: u32,
 kernel: []Kernel,
 ptr: ProgramPtr,
 
+// $FIXME assert with zig magic that there are no integers with bit width > 64 in any of the relevant structs / values:
+//  DimInfo, Buffer, Args, size_global, size_local
+/// This is enough for u64 integers.
+/// If you try to print larger integers in the codegen then this will break the capacity calculations.
+pub const length_int_max: u32 = 20;
 pub const kernel_base_name = "kern{}";
 pub fn alloc(
     runtime: Runtime,
