@@ -1,20 +1,17 @@
 # Grads
 
-Grads is a deep learning framework written in Zig. It is a recreational project, though you can use it for serious projects if you want to.
-It is essentialy an optimizing transpiler to OpenCL.
+Grads is a deep learning framework written in Zig and it is a recreational project.
+Essentialy this is just an optimizing transpiler to either OpenCL or PTX (maybe more in the future).
 
 Grads is currently licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/), but I am unsure if it will stay like this forever.
 
 ## Dependencies
 
-There are only 3 dependencies:
+There are only 2 hard and 2 optional dependencies:
 - The Zig compiler
 - the Zig standard library
-- OpenCL runtime & headers
-
-I am not happy with the NVIDIA OpenCL implementation, but reimplementing that myself will be a huge amount of work, so don't count on that happening any time soon.
-
-I see no point in removing the entire Zig stdlib, but if I notice that some performance could be gained by rewriting portions of it, then I will do so.
+- OpenCL runtime & headers (optional)
+- CUDA runtime & headers (optional)
 
 ## Installation
 
@@ -41,7 +38,7 @@ const grads = @import("grads");
 
 ## Example
 
-An example program will be uploaded soon.
+An example program will be uploaded when the API is stable.
 
 ## Testing
 
@@ -54,16 +51,3 @@ To run the simulation tests for the compiler run `zig build simulate_compiler`.
 To profile the optimizer you can run `zig build profile_compiler`.
 
 In case a test fails, you can open an issue on the GitHub with the random seed and because the tests are deterministic that means me and others can then fix that bug.
-
-## Coming up
-
-I will not work on these in optimal order, because this just a hobby project.
-
-| Step                         | Expected work | Expected gain                                  |
-| ---------------------------- | ------------- | ---------------------------------------------- |
-| Compiler optimizations       | High          | Very high                                      |
-| Write OpenCl debug impl      | Very high     | High (Debug time), None (Performance)          |
-| Autograd                     | Moderate      | None (Performance), Moderate (Dev time)        |
-| Multi GPU                    | High (?)      | Very high                                      |
-| Completely custom OpenCL     | Extreme       | High (No clue)                                 |
-| Better offset handling       | Moderate (??) | None for normal kernels, high for strange ones |
