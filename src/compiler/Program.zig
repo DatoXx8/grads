@@ -11,7 +11,6 @@ const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
 
 pub const Memory = *anyopaque;
-// $TODO Support integer arguments
 pub const Args = struct {
     /// arg_num is separate to make kernels with no arguments easier to handle
     arg_num: u64,
@@ -63,10 +62,11 @@ pub const Args = struct {
     }
     pub fn free(this: *@This(), allocator: Allocator) void {
         allocator.free(this.arg_id);
-        // The arg_mem get's freed with the tensors
+        // The runtime specific arg_mem get's freed with the tensors
         allocator.free(this.arg_mem);
     }
 };
+// $TODO Support integer arguments
 pub const Sync = enum(u8) { sync_to_none, sync_to_device, sync_to_host };
 pub const KernelPtr = *anyopaque;
 // $TODO Support multiple devices

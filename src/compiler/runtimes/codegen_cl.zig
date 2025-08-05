@@ -587,12 +587,11 @@ fn assignCompileBytesBase(base: Base) u32 {
 }
 pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, _: u32) u32 {
     const boilerplate_kernel: []const u8 =
-        \\ __kernel void () {
-        \\ const int gid = get_global_id(0);
-        \\ int id;
-        \\ id = gid;
-        \\ }
-    ;
+        "__kernel void () {\n" ++
+        "const int gid = get_global_id(0);\n" ++
+        "int id;\n" ++
+        "id = gid;\n" ++
+        "}\n";
     const boilerplate_argument: []const u8 = ", global float *";
     const length_header: u32 = @intCast(boilerplate_kernel.len + name_len_max + args.arg_num * (boilerplate_argument.len + buffer_name_size));
     const boilerplate_conditional: []const u8 = "if(gid < ) {\n" ++ "}\n";
@@ -658,9 +657,9 @@ pub fn assignCompile(
         }
     }
 
-    writeSource(source, offset, ") {{\n", .{});
-    writeSource(source, offset, "const int gid = get_global_id(0);\n", .{});
-    writeSource(source, offset, "int id;\n", .{});
+    writeSource(source, offset, ") {{\n" ++
+        "const int gid = get_global_id(0);\n" ++
+        "int id;\n", .{});
 
     const kernel_loop_leftover: bool = (assign.base.repeats % size_global) != 0;
     const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover);

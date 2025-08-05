@@ -15,6 +15,7 @@ const DimInfo = Pir.DimInfo;
 const Inlined = Pir.Inlined;
 const Program = @import("../Program.zig");
 const kernel_base_name = Program.kernel_base_name;
+const length_int_max = Program.length_int_max;
 const Args = Program.Args;
 const Runtime = @import("Runtime.zig");
 const RuntimePtx = Runtime.RuntimePtx;
@@ -209,13 +210,36 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign) void {
         }
     }
 }
+// $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
+const register_global_id_calculation: []const u8 =
+    tab ++ "mov.u32 %r2, %ctaid.x;\n" ++
+    tab ++ "mov.u32 %r3, %ntid.x;\n" ++
+    tab ++ "mov.u32 %r4, %tid.x;\n" ++
+    tab ++ "mad.lo.s32 %r1, %r3, %r2, %r4;\n" ++
+    tab ++ "mov.u32 %r7, %r1;\n" ++
+    "\n";
 pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args: Args, size_global: u32, size_local: u32) u32 {
+    const boilerplate_kernel: []const u8 =
+        ".entry (\n" ++
+        ")\n" ++
+        "{\n" ++
+        tab ++ ".reg .pred %p<>;\n" ++
+        tab ++ ".reg .f32 %f<>;\n" ++
+        tab ++ ".reg .b32 %r<>;\n" ++
+        tab ++ ".reg .b64 %rd<>;\n" ++
+        "}\n";
+    const boilerplate_argument: []const u8 = tab ++ ".param .u64 .ptr .global .align 4 _param_,\n" ++
+        "ld.param.u64 %rd, [_param_];\n";
+    const length_header: u32 = @intCast(boilerplate_kernel.len + name_len_max + 4 * length_int_max +
+        args.arg_num * (boilerplate_argument.len + 2 * name_len_max + 2 * length_int_max));
+
+    const length_register_id_calculation: u32 = @intCast(register_global_id_calculation.len);
+
     _ = assign;
-    _ = name_len_max;
-    _ = args;
     _ = size_global;
     _ = size_local;
-    return 0;
+
+    return length_register_id_calculation + length_header;
 }
 pub fn assignCompile(
     this: *anyopaque,
@@ -234,6 +258,7 @@ pub fn assignCompile(
     assert(std.mem.startsWith(u8, name, kernel_base_name));
 
     const state: *RuntimePtx = @alignCast(@ptrCast(this));
+    std.debug.print("offset {} + bytes {} < len {}", .{ offset.*, assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local), source.len });
     assert(offset.* + assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local) < source.len);
 
     const registers_max: u32 = state.registers_max;
@@ -273,14 +298,6 @@ pub fn assignCompile(
     // $FIXME reserve registers
     todo(@src());
 
-    // $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
-    const register_global_id_calculation: []const u8 =
-        tab ++ "mov.u32 %r2, %ctaid.x;\n" ++
-        tab ++ "mov.u32 %r3, %ntid.x;\n" ++
-        tab ++ "mov.u32 %r4, %tid.x;\n" ++
-        tab ++ "mad.lo.s32 %r1, %r3, %r2, %r4;\n" ++
-        tab ++ "mov.u32 %r7, %r1;\n" ++
-        "\n";
     writeSource(source, offset, register_global_id_calculation, .{});
 
     const kernel_repeats_leftover: bool = (assign.base.repeats % size_global) != 0;

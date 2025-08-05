@@ -32,6 +32,7 @@ pub fn main() !void {
     // var runtime: Runtime = runtime_ptx.runtime();
     try runtime.init();
     defer runtime.deinit();
+    errdefer runtime.deinit();
 
     var nn: Neuralnet = try Neuralnet.alloc(
         runtime,
