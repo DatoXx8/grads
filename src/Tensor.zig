@@ -205,6 +205,7 @@ pub const Buffer = struct {
     }
 };
 pub const Op = struct {
+    // $TODO Do I really need unary_subtract and unary_divide?
     pub const Type = enum(u8) {
         unary_add,
         unary_subtract,

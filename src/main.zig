@@ -32,7 +32,6 @@ pub fn main() !void {
     // var runtime: Runtime = runtime_ptx.runtime();
     try runtime.init();
     defer runtime.deinit();
-    errdefer runtime.deinit();
 
     var nn: Neuralnet = try Neuralnet.alloc(
         runtime,
@@ -48,7 +47,6 @@ pub fn main() !void {
         20,
         4,
     );
-    errdefer nn.free(allocator);
     defer nn.free(allocator);
     try nn.init(0);
     try nn.sync(true, true, true, true, true, .sync_to_device);

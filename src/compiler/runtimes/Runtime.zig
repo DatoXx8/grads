@@ -19,7 +19,6 @@ pub const RuntimeNoop = @import("RuntimeNoop.zig");
 // $TODO Add a single and multithread CPU runtime for x86_64 avx2 & bmi2 and no extension
 
 pub const Runtime = @This();
-pub const kernel_name_base: []const u8 = &[_]u8{'k'};
 
 pub const Error = error{
     ContextInit,

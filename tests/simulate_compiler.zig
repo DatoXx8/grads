@@ -131,6 +131,14 @@ fn minifyCompiler(
             op_included[op_idx] = true;
         }
     }
+    std.debug.print("\n\nMinimal: {any}\n", .{op_included});
+    var failed: bool = false;
+    simulateCompiler(runtime, allocator, op_included, rng, optimization) catch {
+        failed = true;
+    };
+    if (!failed) {
+        std.log.err("Strange error. Probably from some race condition.\n", .{});
+    }
     return err;
 }
 
@@ -200,7 +208,6 @@ pub fn main() !void {
     var runtime: Runtime = runtime_cl.runtime();
     try runtime.init();
     defer runtime.deinit();
-    errdefer runtime.deinit();
 
     if (loop_infinite) {
         var loop_idx: u64 = 0;

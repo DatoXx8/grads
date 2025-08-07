@@ -138,13 +138,10 @@ pub fn alloc(
 
     var forward_cpu: Linearized = try Linearized.alloc(allocator, capacity_forward);
     defer forward_cpu.free(allocator);
-    errdefer forward_cpu.free(allocator);
     var backward_cpu: Linearized = try Linearized.alloc(allocator, capacity_backward);
     defer backward_cpu.free(allocator);
-    errdefer backward_cpu.free(allocator);
     var learn_cpu: Linearized = try Linearized.alloc(allocator, capacity_learn);
     defer learn_cpu.free(allocator);
-    errdefer learn_cpu.free(allocator);
 
     var values_prev: Tensor = in;
     layer_idx = 0;
@@ -469,10 +466,8 @@ pub fn sync(
 const format_version: u64 = 0;
 pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const u8, force: bool) !void {
     const file_param = try std.fs.cwd().createFile(file_param_name, .{ .exclusive = !force, .truncate = true });
-    errdefer file_param.close();
     defer file_param.close();
     const file_arch = try std.fs.cwd().createFile(file_arch_name, .{ .exclusive = !force, .truncate = true });
-    errdefer file_arch.close();
     defer file_arch.close();
     var buffer: [4096]u8 = @splat(0);
     try file_arch.writeAll(&std.mem.toBytes(format_version));
@@ -590,7 +585,6 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
         },
         else => return err,
     };
-    errdefer allocator.free(file_param_bytes);
     defer allocator.free(file_param_bytes);
     const format_version_read: u64 = std.mem.bytesToValue(u64, file_param_bytes[0..8]);
     var hash = std.hash.XxHash64.init(format_version_read);
@@ -680,11 +674,9 @@ pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
         },
         else => return err,
     };
-    errdefer file_arch.close();
     defer file_arch.close();
     var idx: u64 = 0;
     const file_arch_bytes: []const u8 = try file_arch.readToEndAlloc(allocator, file_arch_size_max);
-    errdefer allocator.free(file_arch_bytes);
     defer allocator.free(file_arch_bytes);
     assert(file_arch_bytes.len > 16); // The version and hash already take up 16 bytes and there has to be other info on top of that
     const newlines: u64 = std.mem.count(u8, file_arch_bytes, "\n");

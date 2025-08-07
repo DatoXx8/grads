@@ -18,7 +18,6 @@ pub const Args = struct {
     arg_mem: []Memory,
     pub fn alloc(allocator: Allocator, assign: Assign) !Args {
         var arg_unique = std.AutoHashMap(u64, Memory).init(allocator);
-        errdefer arg_unique.deinit();
         defer arg_unique.deinit();
 
         try arg_unique.put(assign.base.out.id, assign.base.out.values_runtime);
@@ -121,7 +120,6 @@ pub fn alloc(
     } else {
         @branchHint(.likely);
         var pir: Pir = try Pir.alloc(allocator, linearized, optimization);
-        errdefer pir.free(allocator);
         defer pir.free(allocator);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
@@ -140,7 +138,6 @@ pub fn alloc(
         }
 
         var source: []u8 = try allocator.alloc(u8, source_len);
-        errdefer allocator.free(source);
         defer allocator.free(source);
         @memset(source, 0);
         var source_idx: usize = 0;

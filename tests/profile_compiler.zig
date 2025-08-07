@@ -97,18 +97,8 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
             tensor.free(runtime, allocator);
         }
     }
-    errdefer {
-        for (&tensor1.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
-        }
-    }
     var tensor2 = try randomLinearized(runtime, allocator, @splat(true), rng);
     defer {
-        for (&tensor2.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
-        }
-    }
-    errdefer {
         for (&tensor2.tensor) |*tensor| {
             tensor.free(runtime, allocator);
         }
@@ -180,7 +170,6 @@ pub fn main() !void {
     var runtime: Runtime = runtime_cl.runtime();
     try runtime.init();
     defer runtime.deinit();
-    errdefer runtime.deinit();
 
     try profileCompiler(runtime, allocator, rng);
 }
