@@ -1,9 +1,4 @@
 // $TODO Expressive numerical representation of an optimization such that a casey type optimizer is possible
-// $TODO These levels
-// Optimization levels
-// O1 - split
-// O2 - SIMD, float range based analysis
-// O3 - memory optimizer
 
 const std = @import("std");
 const assert = std.debug.assert;
@@ -17,13 +12,272 @@ const Assign = Pir.Assign;
 const Base = Pir.Base;
 const DimInfo = Pir.DimInfo;
 
-/// $WARN O0 is **really** slow
 /// Planned optimization steps
 /// O0 - none
-/// O1 - parallelize, inline, split
-/// O2 - SIMD, float range based analysis
+/// O1 - parallelize, inline, split, fuse ops, constant folding
+/// O2 - SIMD
 /// O3 - memory optimizer
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
+
+/// $WARN Things like `sqrt(x)^2` for `x <= 0` are undefined behaviour and will just be optimized to `id(x)`
+/// Check if left and right can be merged.
+/// Assumes there is no useage of the out buffer of left between the two bases.
+fn mergeOpPossible(left: Base, right: Base) bool {
+    if (!left.out.equal(right.out) or !left.in.equal(right.in)) return false;
+
+    if (right.type.isReduce()) return false;
+    if (right.overwrites()) return true;
+
+    // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
+    return switch (left.type) {
+        .unary_add, .unary_subtract => return switch (right.type) {
+            .unary_add => true,
+            .unary_subtract => true,
+            else => false,
+        },
+        .unary_multiply, .unary_divide => return switch (right.type) {
+            .unary_multiply => true,
+            .unary_divide => true,
+            else => false,
+        },
+        .unary_random => return false,
+        .unary_square => return switch (right.type) {
+            .unary_sqrt => true,
+            .unary_absolute => true,
+            else => false,
+        },
+        .unary_absolute => return switch (right.type) {
+            .unary_square => true,
+            .unary_absolute => true,
+            else => false,
+        },
+        .unary_sqrt => return right.type == .unary_square,
+        .unary_set => return false,
+        .unary_exp => return switch (right.type) {
+            .unary_log => true,
+            .unary_absolute => true,
+            else => false,
+        },
+        .unary_log => return right.type == .unary_exp,
+        .unary_max => return right.type == .unary_max,
+        .unary_min => return right.type == .unary_min,
+        .unary_reciprocal => return switch (right.type) {
+            .unary_reciprocal => true,
+            .unary_sign => true,
+            else => false,
+        },
+        .unary_sign => return switch (right.type) {
+            .unary_reciprocal => true,
+            .unary_sign => true,
+            else => false,
+        },
+        .unary_tanh => false,
+        .binary_add => return right.type == .binary_subtract,
+        .binary_subtract => return right.type == .binary_add,
+        .binary_multiply => return right.type == .binary_divide,
+        .binary_divide => return right.type == .binary_multiply,
+        .binary_max => return right.type == .binary_max,
+        .binary_min => return right.type == .binary_min,
+        .binary_set => false,
+        .expand_add => return right.type == .expand_subtract,
+        .expand_subtract => return right.type == .expand_add,
+        .expand_multiply => return right.type == .expand_divide,
+        .expand_divide => return right.type == .expand_multiply,
+        .expand_max => return right.type == .expand_max,
+        .expand_min => return right.type == .expand_min,
+        .expand_set => false,
+        // $TODO Rethink these
+        .reduce_avg => false,
+        .reduce_max => false,
+        .reduce_min => false,
+        .reduce_sum => false,
+    };
+}
+/// Modifies `right`
+/// Return wether both bases should be removed. Happens if `right(left(x)) == id(x)`
+fn mergeOpCombine(left: Base, right: *Base) bool {
+    assert(mergeOpPossible(left, right.*));
+
+    if (right.overwrites()) return false;
+
+    const delete_both: bool = true;
+    const delete_first: bool = false;
+
+    // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
+    switch (left.type) {
+        // $TODO Don't know how I feel about this being a singular case
+        .unary_add, .unary_subtract => {
+            right.u_var = if (left.type == right.type)
+                right.u_var + left.u_var
+            else
+                right.u_var - left.u_var;
+        },
+        // $TODO Don't know how I feel about this being a singular case
+        .unary_multiply, .unary_divide => {
+            right.u_var = if (left.type == right.type)
+                right.u_var * left.u_var
+            else
+                right.u_var / left.u_var;
+        },
+        .unary_square => {
+            right.type = switch (right.type) {
+                .unary_sqrt => .unary_absolute, // sqrt(x^2) = |x|
+                .unary_absolute => .unary_square, // |x^2| = x^2
+                else => unreachable,
+            };
+        },
+        .unary_absolute => {
+            right.type = switch (right.type) {
+                .unary_square => .unary_square, // |x|^2 = x^2
+                .unary_absolute => .unary_absolute, // ||x|| = |x|
+                else => unreachable,
+            };
+        },
+        .unary_sqrt => switch (right.type) {
+            .unary_square => return delete_both, // sqrt(x)^2 = x by assumption of valid input
+            else => unreachable,
+        },
+        .unary_exp => switch (right.type) {
+            .unary_log => return delete_both, // log_e(e^x) = id(x)
+            .unary_absolute => {
+                right.type = .unary_exp; // |e^x| = e^x
+            },
+            else => unreachable,
+        },
+        .unary_log => switch (right.type) {
+            .unary_exp => return delete_both, // e^(log_e(x)) = id(x) by assumption of valid input
+            else => unreachable,
+        },
+        .unary_max => switch (right.type) {
+            .unary_max => {
+                right.u_var = @max(left.u_var, right.u_var); // max(max(x, a), b) = max(x, max(a, b))
+            },
+            else => unreachable,
+        },
+        .unary_min => switch (right.type) {
+            .unary_min => {
+                right.u_var = @min(left.u_var, right.u_var); // min(min(x, a), b) = min(x, min(a, b))
+            },
+            else => unreachable,
+        },
+        .unary_reciprocal => switch (right.type) {
+            .unary_reciprocal => return delete_both, // 1 / (1 / x) = x assumes x != 0
+            .unary_sign => {
+                right.type = .unary_sign; // sign(1 / x) = sign(x) assumes x != 0
+            },
+            else => unreachable,
+        },
+        .unary_sign => switch (right.type) {
+            .unary_reciprocal => {
+                right.type = .unary_sign; // 1 / sign(x) = sign(x) assumes x != 0
+            },
+            .unary_sign => {
+                right.type = .unary_sign; // sign(sign(x)) = sign(x)
+            },
+            else => unreachable,
+        },
+        .binary_add => switch (right.type) {
+            .binary_subtract => return delete_both,
+            else => unreachable,
+        },
+        .binary_subtract => switch (right.type) {
+            .binary_add => return delete_both,
+            else => unreachable,
+        },
+        .binary_multiply => switch (right.type) {
+            .binary_divide => return delete_both,
+            else => unreachable,
+        },
+        .binary_divide => switch (right.type) {
+            .binary_multiply => return delete_both,
+            else => unreachable,
+        },
+        .binary_max => {
+            right.type = switch (right.type) {
+                .binary_max => .binary_max,
+                else => unreachable,
+            };
+        },
+        .binary_min => {
+            right.type = switch (right.type) {
+                .binary_min => .binary_min,
+                else => unreachable,
+            };
+        },
+        .expand_add => switch (right.type) {
+            .expand_subtract => return delete_both,
+            else => unreachable,
+        },
+        .expand_subtract => switch (right.type) {
+            .expand_add => return delete_both,
+            else => unreachable,
+        },
+        .expand_multiply => switch (right.type) {
+            .expand_divide => return delete_both,
+            else => unreachable,
+        },
+        .expand_divide => switch (right.type) {
+            .expand_multiply => return delete_both,
+            else => unreachable,
+        },
+        .expand_max => {
+            right.type = switch (right.type) {
+                .expand_max => .expand_max,
+                else => unreachable,
+            };
+        },
+        .expand_min => {
+            right.type = switch (right.type) {
+                .expand_min => .expand_min,
+                else => unreachable,
+            };
+        },
+        else => unreachable,
+    }
+    return delete_first;
+}
+pub fn mergeOp(allocator: Allocator, pir: *Pir) !void {
+    const merged: []bool = try allocator.alloc(bool, pir.assign_num);
+    defer allocator.free(merged);
+    @memset(merged, false);
+
+    for (0..pir.assign_num - 1) |left_idx| {
+        if (merged[left_idx]) continue;
+
+        for (left_idx + 1..pir.assign_num) |right_idx| {
+            if (merged[right_idx]) continue;
+
+            if (mergeOpPossible(pir.assign[left_idx].base, pir.assign[right_idx].base)) {
+                const merge_both: bool = mergeOpCombine(pir.assign[left_idx].base, &pir.assign[right_idx].base);
+                merged[left_idx] = true;
+                if (merge_both) {
+                    merged[right_idx] = true;
+                }
+                break;
+            } else {
+                const left: Base = pir.assign[left_idx].base;
+                const right: Base = pir.assign[right_idx].base;
+                // If there is a simulator failure try removing the overlap condition here
+                const out_out_conflict = left.out.id == right.out.id and left.out.overlaps(right.out);
+                const out_in_conflict = left.out.id == right.in.id and left.out.overlaps(right.in);
+                const in_out_conflict = left.in.id == right.out.id and left.out.overlaps(right.in);
+                if (out_out_conflict or out_in_conflict or in_out_conflict) {
+                    break;
+                }
+            }
+        }
+    }
+
+    var assign_num_new: u32 = 0;
+    for (0..pir.assign_num) |assign_idx| {
+        if (!merged[assign_idx]) {
+            pir.assign[assign_num_new] = pir.assign[assign_idx];
+            assign_num_new += 1;
+        }
+    }
+    assert(assign_num_new > 0);
+    pir.assign_num = assign_num_new;
+}
 
 fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
     assert(start_idx + 1 < assign.len);
@@ -167,7 +421,6 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, start_idx: u32) !bool {
 //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
 pub fn inlineOp(allocator: Allocator, pir: *Pir) !void {
     const temp_written: []bool = try allocator.alloc(bool, pir.assign_num);
-    errdefer allocator.free(temp_written);
     defer allocator.free(temp_written);
     @memset(temp_written, false);
 
@@ -469,10 +722,9 @@ fn parallelizeStep(pir: *Pir, start_idx: u32) bool {
     }
     return false;
 }
-// I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large SSAs
+// I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large PIRs
 pub fn parallelize(allocator: Allocator, pir: *Pir) !void {
     var temp_remove: []bool = try allocator.alloc(bool, pir.assign_num);
-    errdefer allocator.free(temp_remove);
     defer allocator.free(temp_remove);
 
     var assign_idx: u32 = 0;

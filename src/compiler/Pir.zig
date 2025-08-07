@@ -360,8 +360,8 @@ pub fn free(this: *@This(), allocator: Allocator) void {
     for (0..this.assign_num) |assign_idx| {
         if (this.assign[assign_idx].inlined) |*inlined| {
             allocator.free(inlined.base);
-            allocator.free(inlined.in);
             allocator.free(inlined.out);
+            allocator.free(inlined.in);
         }
         if (this.assign[assign_idx].split) |split| {
             _ = split;
@@ -429,6 +429,7 @@ fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !v
         return;
     }
 
+    try opt.mergeOp(allocator, this); // Done first to make the other steps less costly
     try opt.inlineOp(allocator, this);
     try opt.parallelize(allocator, this);
     try opt.splitKernel(allocator, this);
@@ -447,9 +448,9 @@ fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !v
 }
 pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
-        std.debug.print("{s}SSA {s}\n", .{ " " ** offset, text });
+        std.debug.print("{s}PIR {s}\n", .{ " " ** offset, text });
     } else {
-        std.debug.print("{s}SSA\n", .{" " ** offset});
+        std.debug.print("{s}PIR\n", .{" " ** offset});
     }
     for (0..this.assign_num) |assign_idx| {
         std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
