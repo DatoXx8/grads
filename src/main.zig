@@ -8,18 +8,17 @@ const Runtime = @import("compiler/runtimes/Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
 const Tensor = @import("Tensor.zig");
 
+// $TODO Make casey style optimizer as an alternative with genetic algorithm to change optimization steps saved in array
+// $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
+// $TODO Make swarm tests for the compiler
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
-// $TODO Log failing simulator seeds to some test database file
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)
-// $TODO Factor out all the places in which we create random linearized ops. This also makes it easier to keep consistent prng states across the simulator and profiler
 // $TODO Make debug flag for compile step that adds debug printing if enabled
-// $TODO Make optimizer both the standard way and the one casey described that's like perpetually running on a seperate thread and make optimizer.step()
-// $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
 // $TODO Add autograd
 // $TODO Add automatic quantization
-// $TODO Really need to compress every single struct. DimInfo struct is *huge*, that is probably the biggest target
-// $TODO Analyse /usr/lib/libnvidia-opencl.so and /usr/lib/libcuda.so (/opt/cuda/targets/x86_64-linux/include/cuda.h for PTX)
+// $TODO Really need to compress every single struct
+// $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

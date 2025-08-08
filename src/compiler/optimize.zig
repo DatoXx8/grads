@@ -19,7 +19,7 @@ const DimInfo = Pir.DimInfo;
 /// O3 - memory optimizer
 pub const Optimization = enum(u8) { O0, O1, O2, O3 };
 
-/// $WARN Things like `sqrt(x)^2` for `x <= 0` are undefined behaviour and will just be optimized to `id(x)`
+/// $WARN Things like `sqrt(x)^2` for `x < 0` are undefined behaviour and will just be optimized to `id(x)`
 /// Check if left and right can be merged.
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Base, right: Base) bool {
