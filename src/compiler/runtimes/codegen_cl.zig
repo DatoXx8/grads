@@ -601,9 +601,6 @@ fn writeAssignInBaseBlock(
     inlined_idx_curr: u32,
     kernel_block_idx: u32,
 ) void {
-    if (base.type.isExpand()) {
-        assert(kernel_block_idx == 0);
-    }
     switch (base.type) {
         .binary_add,
         .binary_subtract,
