@@ -673,7 +673,7 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
                     base.out.a_size * base.out.z_size * base.out.y_size * base.out.x_size, base.out.z_size * base.out.y_size * base.out.x_size, if (base.out.a_size == 1) 0 else base.out.a_stride, //
                     base.out.z_size * base.out.y_size * base.out.x_size,                   base.out.y_size * base.out.x_size,                   if (base.out.z_size == 1) 0 else base.out.z_stride,
-                    base.out.y_size * base.out.x_size,                                     base.out.x_size,                                     if (base.out.z_size == 1) 0 else base.out.y_stride,
+                    base.out.y_size * base.out.x_size,                                     base.out.x_size,                                     if (base.out.y_size == 1) 0 else base.out.y_stride,
                     base.out.x_size,                                                       1,                                                   if (base.out.x_size == 1) 0 else base.out.x_stride,
                 },
             );
@@ -695,7 +695,7 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
                         base.in.a_size * base.in.z_size * base.in.y_size * base.in.x_size, base.in.z_size * base.in.y_size * base.in.x_size, if (base.in.a_size == 1) 0 else base.in.a_stride, //
                         base.in.z_size * base.in.y_size * base.in.x_size,                  base.in.y_size * base.in.x_size,                  if (base.in.z_size == 1) 0 else base.in.z_stride,
-                        base.in.y_size * base.in.x_size,                                   base.in.x_size,                                   if (base.in.z_size == 1) 0 else base.in.y_stride,
+                        base.in.y_size * base.in.x_size,                                   base.in.x_size,                                   if (base.in.y_size == 1) 0 else base.in.y_stride,
                         base.in.x_size,                                                    1,                                                if (base.in.x_size == 1) 0 else base.in.x_stride,
                     },
                 );
