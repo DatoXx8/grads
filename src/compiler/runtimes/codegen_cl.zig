@@ -651,6 +651,7 @@ fn writeAssignInBaseBlock(
         => unreachable,
     }
 }
+// $TODO Refactor this horrible shit
 fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32, kernel_block_idx: u32) void {
     const inlined_num: u32 = 1 + (if (assign.inlined) |inlined| inlined.inlined_num else 0);
     var inlined_idx: u32 = 0;
@@ -661,20 +662,19 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
                 source,
                 offset,
                 "int {s}_{}_{}_{} = {};\n",
-                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, base.out.offset },
+                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, 0 },
             );
         } else {
             writeSource(
                 source,
                 offset,
-                "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+                "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                 .{
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                    base.out.a_stride, base.out.a_stride, //
-                    base.out.a_stride, base.out.z_stride, base.out.z_stride, //
-                    base.out.z_stride, base.out.y_stride, base.out.y_stride, //
-                    base.out.y_stride, base.out.x_stride, base.out.x_stride, //
-                    base.out.offset,
+                    base.out.z_size * base.out.y_size * base.out.x_size, if (base.out.a_size == 1) 0 else base.out.a_stride, //
+                    base.out.z_size * base.out.y_size * base.out.x_size, base.out.y_size * base.out.x_size, if (base.out.z_size == 1) 0 else base.out.z_stride, //
+                    base.out.y_size * base.out.x_size,                   base.out.x_size,                   if (base.out.z_size == 1) 0 else base.out.y_stride,
+                    base.out.x_size,                                     1,                                 if (base.out.x_size == 1) 0 else base.out.x_stride,
                 },
             );
         }
@@ -683,21 +683,20 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
                 writeSource(
                     source,
                     offset,
-                    "int {s}_{}_{}_{} = {};\n",
-                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, base.in.offset },
+                    "int {s}_{}_{}_{} = 0;\n",
+                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
                 );
             } else {
                 writeSource(
                     source,
                     offset,
-                    "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+                    "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                     .{
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                        base.in.a_stride, base.in.a_stride, //
-                        base.in.a_stride, base.in.z_stride, base.in.z_stride, //
-                        base.in.z_stride, base.in.y_stride, base.in.y_stride, //
-                        base.in.y_stride, base.in.x_stride, base.in.x_stride, //
-                        base.in.offset,
+                        base.in.z_size * base.in.y_size * base.in.x_size, if (base.in.a_size == 1) 0 else base.in.a_stride, //
+                        base.in.z_size * base.in.y_size * base.in.x_size, base.in.y_size * base.in.x_size, if (base.in.z_size == 1) 0 else base.in.z_stride, //
+                        base.in.y_size * base.in.x_size,                  base.in.x_size,                  if (base.in.z_size == 1) 0 else base.in.y_stride,
+                        base.in.x_size,                                   1,                               if (base.in.x_size == 1) 0 else base.in.x_stride,
                     },
                 );
             }
@@ -946,13 +945,15 @@ pub fn assignCompile(
     // $TODO Merge these cases in to 1 case. Should not really be that difficult
     if (assign.split) {
         assert(kernel_loop_num == 1); // This is necessary for the current understanding of splitting.
+        // In the future this limitation might be removed.
 
         writeIndices(source, offset, assign, 0);
 
-        // In the future this limitation might be removed.
         var kernel_block_idx: u32 = 0;
         while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
-            writeSource(source, offset, "id = (gid*{})+{};\n", .{ kernel_block_size, kernel_block_idx });
+            writeSource(source, offset, "id = gid+({}*{});\n", .{ size_global, kernel_block_idx });
+            // $TODO Make it so that the same kernels gets adjacent values for better caching i.e. kernel 0 gets 0,1,2 kernel 1 gets 3,4,5 etc.
+            // writeSource(source, offset, "id = (gid*{})+{};\n", .{ kernel_block_size, kernel_block_idx });
 
             if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
                 writeSource(source, offset, "if(gid < {}) {{\n", .{kernel_block_leftover});
