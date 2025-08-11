@@ -27,7 +27,6 @@ fn writeSource(source: *[]u8, offset: *usize, comptime fmt: []const u8, args: an
     const written = bufPrint(source.*[offset.*..], fmt, args) catch unreachable;
     offset.* += written.len;
 }
-
 fn writeIndices(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: usize) void {
     const inlined_num: u32 = 1 + (if (assign.inlined) |inlined| inlined.inlined_num else 0);
     var inlined_idx: u32 = 0;
@@ -65,7 +64,6 @@ fn writeIndices(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: 
         }
     }
 }
-
 fn writeAssignPrefix(source: *[]u8, offset: *usize, base: Base) void {
     switch (base.type) {
         .unary_add,
@@ -131,7 +129,6 @@ fn writeAssignPrefix(source: *[]u8, offset: *usize, base: Base) void {
         },
     }
 }
-
 fn writeAssignMidfix(source: *[]u8, offset: *usize, base: Base) void {
     switch (base.type) {
         .unary_add,
@@ -190,7 +187,6 @@ fn writeAssignMidfix(source: *[]u8, offset: *usize, base: Base) void {
         },
     }
 }
-
 fn writeAssignPostfix(source: *[]u8, offset: *usize, base: Base) void {
     switch (base.type) {
         .unary_add,
@@ -238,7 +234,6 @@ fn writeAssignPostfix(source: *[]u8, offset: *usize, base: Base) void {
         },
     }
 }
-
 fn writeAssignOutBase(source: *[]u8, offset: *usize, base: Base, kernel_loop_idx: u32, inlined_idx_curr: u32, offset_out: u32) void {
     if (base.type.isReduce()) {
         assert(inlined_idx_curr == 0);
@@ -293,7 +288,6 @@ fn writeAssignOutBase(source: *[]u8, offset: *usize, base: Base, kernel_loop_idx
         => {},
     }
 }
-
 fn writeAssignInBase(
     source: *[]u8,
     offset: *usize,
@@ -352,7 +346,6 @@ fn writeAssignInBase(
         => unreachable,
     }
 }
-
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignOut(
     source: *[]u8,
@@ -398,7 +391,6 @@ fn writeAssignOut(
 
     writeAssignPostfix(source, offset, inlined.base[inlined_idx_actual]);
 }
-
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignIn(
     source: *[]u8,
@@ -444,7 +436,6 @@ fn writeAssignIn(
 
     writeAssignPostfix(source, offset, inlined.base[inlined_idx_actual]);
 }
-
 fn writeAssign(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32) void {
     if (assign.base.type.isReduce()) {
         writeSource(source, offset, "{s}[{s}_{}_{}+{}]={s};\n", .{
@@ -544,6 +535,287 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u
             @as(f64, @floatFromInt(a_size * z_size * y_size * x_size)),
         });
     }
+}
+fn writeAssignOutBaseBlock(source: *[]u8, offset: *usize, base: Base, kernel_loop_idx: u32, inlined_idx_curr: u32, kernel_block_idx: u32) void {
+    if (base.type.isReduce()) {
+        assert(inlined_idx_curr == 0);
+        assert(kernel_block_idx == 0);
+    }
+    switch (base.type) {
+        .unary_add,
+        .unary_subtract,
+        .unary_multiply,
+        .unary_divide,
+        .unary_exp,
+        .unary_log,
+        .unary_square,
+        .unary_sqrt,
+        .unary_reciprocal,
+        .unary_max,
+        .unary_min,
+        .unary_random,
+        .unary_tanh,
+        .unary_absolute,
+        .unary_sign,
+        .binary_add,
+        .binary_subtract,
+        .binary_multiply,
+        .binary_divide,
+        .binary_max,
+        .binary_min,
+        .expand_add,
+        .expand_subtract,
+        .expand_multiply,
+        .expand_divide,
+        .expand_max,
+        .expand_min,
+        .reduce_sum,
+        .reduce_max,
+        .reduce_avg,
+        .reduce_min,
+        => {
+            writeSource(source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
+                base.out.name(),
+                base.out.name(),
+                kernel_loop_idx,
+                inlined_idx_curr,
+                base.out.name(),
+                kernel_loop_idx,
+                inlined_idx_curr,
+                kernel_block_idx,
+            });
+        },
+        .unary_set => {
+            writeSource(source, offset, "((float){d})", .{base.u_var});
+        },
+        .binary_set,
+        .expand_set,
+        => {},
+    }
+}
+fn writeAssignInBaseBlock(
+    source: *[]u8,
+    offset: *usize,
+    base: Base,
+    kernel_loop_idx: u32,
+    inlined_idx_curr: u32,
+    kernel_block_idx: u32,
+) void {
+    if (base.type.isExpand()) {
+        assert(kernel_block_idx == 0);
+    }
+    switch (base.type) {
+        .binary_add,
+        .binary_subtract,
+        .binary_multiply,
+        .binary_divide,
+        .binary_max,
+        .binary_min,
+        .expand_add,
+        .expand_subtract,
+        .expand_multiply,
+        .expand_divide,
+        .expand_max,
+        .expand_min,
+        .reduce_sum,
+        .reduce_max,
+        .reduce_avg,
+        .reduce_min,
+        .binary_set,
+        .expand_set,
+        => {
+            writeSource(source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
+                base.in.name(),
+                base.in.name(),
+                kernel_loop_idx,
+                inlined_idx_curr,
+                base.in.name(),
+                kernel_loop_idx,
+                inlined_idx_curr,
+                kernel_block_idx,
+            });
+        },
+        .unary_add,
+        .unary_subtract,
+        .unary_multiply,
+        .unary_divide,
+        .unary_max,
+        .unary_min,
+        .unary_set,
+        .unary_exp,
+        .unary_log,
+        .unary_square,
+        .unary_sqrt,
+        .unary_reciprocal,
+        .unary_random,
+        .unary_tanh,
+        .unary_absolute,
+        .unary_sign,
+        => unreachable,
+    }
+}
+fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32, kernel_block_idx: u32) void {
+    const inlined_num: u32 = 1 + (if (assign.inlined) |inlined| inlined.inlined_num else 0);
+    var inlined_idx: u32 = 0;
+    while (inlined_idx < inlined_num) : (inlined_idx += 1) {
+        const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.?.base[inlined_idx - 1];
+        if (base.type.isReduce()) {
+            writeSource(
+                source,
+                offset,
+                "int {s}_{}_{}_{} = {};\n",
+                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, base.out.offset },
+            );
+        } else {
+            writeSource(
+                source,
+                offset,
+                "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+                .{
+                    base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
+                    base.out.a_stride, base.out.a_stride, //
+                    base.out.a_stride, base.out.z_stride, base.out.z_stride, //
+                    base.out.z_stride, base.out.y_stride, base.out.y_stride, //
+                    base.out.y_stride, base.out.x_stride, base.out.x_stride, //
+                    base.out.offset,
+                },
+            );
+        }
+        if (!base.type.isUnary()) {
+            if (base.type.isExpand()) {
+                writeSource(
+                    source,
+                    offset,
+                    "int {s}_{}_{}_{} = {};\n",
+                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, base.in.offset },
+                );
+            } else {
+                writeSource(
+                    source,
+                    offset,
+                    "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+                    .{
+                        base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
+                        base.in.a_stride, base.in.a_stride, //
+                        base.in.a_stride, base.in.z_stride, base.in.z_stride, //
+                        base.in.z_stride, base.in.y_stride, base.in.y_stride, //
+                        base.in.y_stride, base.in.x_stride, base.in.x_stride, //
+                        base.in.offset,
+                    },
+                );
+            }
+        }
+    }
+}
+// inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+fn writeAssignOutBlock(
+    source: *[]u8,
+    offset: *usize,
+    inlined: Inlined,
+    kernel_loop_idx: u32,
+    inlined_idx_curr: u32,
+    kernel_block_idx: u32,
+) void {
+    const inlined_idx_actual: u32 = inlined_idx_curr - 1;
+
+    writeAssignPrefix(source, offset, inlined.base[inlined_idx_actual]);
+
+    const base_relevant: Base = inlined.base[inlined_idx_actual];
+    if (inlined.out[inlined_idx_actual]) |inlined_out| {
+        writeAssignOutBlock(source, offset, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+    } else {
+        writeAssignOutBaseBlock(source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+    }
+
+    writeAssignMidfix(source, offset, inlined.base[inlined_idx_actual]);
+
+    if (inlined.in[inlined_idx_actual]) |inlined_in| {
+        writeAssignInBlock(source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+    } else {
+        if (!base_relevant.type.isUnary()) {
+            writeAssignInBaseBlock(source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+        }
+    }
+
+    writeAssignPostfix(source, offset, inlined.base[inlined_idx_actual]);
+}
+// inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
+fn writeAssignInBlock(
+    source: *[]u8,
+    offset: *usize,
+    inlined: Inlined,
+    kernel_loop_idx: u32,
+    inlined_idx_curr: u32,
+    kernel_block_idx: u32,
+) void {
+    const inlined_idx_actual: u32 = inlined_idx_curr - 1;
+
+    writeAssignPrefix(source, offset, inlined.base[inlined_idx_actual]);
+
+    const base_relevant: Base = inlined.base[inlined_idx_actual];
+    if (inlined.out[inlined_idx_actual]) |inlined_out| {
+        writeAssignOutBlock(source, offset, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+    } else {
+        writeAssignOutBaseBlock(source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+    }
+
+    writeAssignMidfix(source, offset, inlined.base[inlined_idx_actual]);
+
+    if (inlined.in[inlined_idx_actual]) |inlined_in| {
+        writeAssignInBlock(source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+    } else {
+        if (!base_relevant.type.isUnary()) {
+            writeAssignInBaseBlock(source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+        }
+    }
+
+    writeAssignPostfix(source, offset, inlined.base[inlined_idx_actual]);
+}
+fn writeAssignBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32, kernel_block_idx: u32) void {
+    assert(!assign.base.type.isReduce());
+
+    writeSource(source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}] = ", .{
+        assign.base.out.name(),
+        assign.base.out.name(),
+        kernel_loop_idx,
+        0,
+        assign.base.out.name(),
+        kernel_loop_idx,
+        0,
+        kernel_block_idx,
+    });
+
+    writeAssignPrefix(source, offset, assign.base);
+
+    if (assign.inlined) |inlined| {
+        if (inlined.out_root) |inlined_out| {
+            writeAssignOutBlock(source, offset, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+        } else {
+            writeAssignOutBaseBlock(source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+        }
+    } else {
+        writeAssignOutBaseBlock(source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+    }
+
+    writeAssignMidfix(source, offset, assign.base);
+
+    if (assign.inlined) |inlined| {
+        if (inlined.in_root) |inlined_in| {
+            writeAssignInBlock(source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+        } else {
+            if (!assign.base.type.isUnary()) {
+                writeAssignInBaseBlock(source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+            }
+        }
+    } else {
+        if (!assign.base.type.isUnary()) {
+            writeAssignInBaseBlock(source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+        }
+    }
+
+    writeAssignPostfix(source, offset, assign.base);
+
+    writeSource(source, offset, ";\n", .{});
 }
 /// This one does not return the buffers included. That only gets added if there is no inlined
 /// thing for that specific buffer
@@ -661,28 +933,63 @@ pub fn assignCompile(
         "const int gid = get_global_id(0);\n" ++
         "int id;\n", .{});
 
-    const kernel_loop_leftover: bool = (assign.base.repeats % size_global) != 0;
-    const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover);
+    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+    const size: u32 = a_size * z_size * y_size * x_size;
 
-    var kernel_loop_idx: u32 = 0;
-    while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
-        if (kernel_loop_idx == 0) {
-            writeSource(source, offset, "id = gid;\n", .{});
-        } else {
-            writeSource(source, offset, "id += {};\n", .{size_global});
+    const kernel_block_split: u32 = if (assign.split) size_global else 1;
+    const kernel_block_leftover: u32 = size % kernel_block_split;
+    const kernel_block_size: u32 = std.math.divCeil(u32, size, kernel_block_split) catch unreachable;
+
+    const kernel_loop_leftover: u32 = assign.base.repeats % size_global;
+    const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
+
+    // $TODO Merge these cases in to 1 case. Should not really be that difficult
+    if (assign.split) {
+        assert(kernel_loop_num == 1); // This is necessary for the current understanding of splitting.
+
+        writeIndices(source, offset, assign, 0);
+
+        // In the future this limitation might be removed.
+        var kernel_block_idx: u32 = 0;
+        while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
+            writeSource(source, offset, "id = (gid*{})+{};\n", .{ kernel_block_size, kernel_block_idx });
+
+            if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
+                writeSource(source, offset, "if(gid < {}) {{\n", .{kernel_block_leftover});
+            }
+
+            writeIndicesBlock(source, offset, assign, 0, kernel_block_idx);
+            writeAssignBlock(source, offset, assign, 0, kernel_block_idx);
+
+            if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
+                writeSource(source, offset, "}}\n", .{});
+            }
         }
+    } else {
+        var kernel_loop_idx: u32 = 0;
+        while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
+            writeSource(source, offset, "id = gid+{};\n", .{size_global * kernel_loop_idx});
 
-        if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            writeSource(source, offset, "if(gid < {}) {{\n", .{assign.base.repeats % size_global});
-        }
+            if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
+                writeSource(source, offset, "if(gid < {}) {{\n", .{kernel_loop_leftover});
+            }
 
-        writeIndices(source, offset, assign, kernel_loop_idx);
-        writeAssign(source, offset, assign, kernel_loop_idx);
+            writeIndices(source, offset, assign, kernel_loop_idx);
+            writeAssign(source, offset, assign, kernel_loop_idx);
 
-        if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover) {
-            writeSource(source, offset, "}}\n", .{});
+            if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
+                writeSource(source, offset, "}}\n", .{});
+            }
         }
     }
 
     writeSource(source, offset, "}}\n", .{});
+
+    // if (assign.split) {
+    //     std.debug.print("{s}\n", .{source.*});
+    //     todo(@src());
+    // }
 }

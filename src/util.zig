@@ -8,6 +8,6 @@ pub fn maybe(ok: bool) void {
 
 /// Just to make intent clearer instead of saying unreachable or assert(false)
 pub fn todo(src: std.builtin.SourceLocation) void {
-    std.log.err("Reached `todo` in {s} at line {} in function {s} at column {}\n", .{ src.file, src.line, src.fn_name, src.column });
+    std.log.err("Reached `todo` in {s}:{}:{} in function {s}\n", .{ src.file, src.line, src.column, src.fn_name });
     @panic("");
 }

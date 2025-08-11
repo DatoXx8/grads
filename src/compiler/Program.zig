@@ -119,7 +119,7 @@ pub fn alloc(
         };
     } else {
         @branchHint(.likely);
-        var pir: Pir = try Pir.alloc(allocator, linearized, optimization);
+        var pir: Pir = try Pir.alloc(allocator, linearized, optimization, size_global, size_local);
         defer pir.free(allocator);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +

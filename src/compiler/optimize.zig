@@ -682,7 +682,6 @@ fn dimInfoOverlap(this: Buffer, this_dim: DimInfo, this_repeats: u32, target: Bu
     return false;
 }
 
-/// Returns 0 in case nothing was parallelized, assign_loop_id in case an assign got added to the an existant loop and assign_loop_id + 1 in case a new one had to be created
 fn parallelizeStep(pir: *Pir, start_idx: u32) bool {
     var assign_idx: u32 = start_idx + 1;
 
@@ -748,9 +747,14 @@ pub fn parallelize(allocator: Allocator, pir: *Pir) !void {
     }
     pir.assign_num = assign_num_new;
 }
-pub fn splitKernel(allocator: Allocator, pir: *Pir) !void {
-    _ = allocator;
-    _ = pir;
+// $TODO Add in local size as a factor because those are also likely to have some cache coherency
+/// Split work more evenly across kernels. Does nothing to reduce ops as they can't trivially be parallilized (yet (copium))
+pub fn splitKernel(pir: *Pir, size_global: u32, size_local: u32) void {
+    _ = size_local;
+    for (0..pir.assign_num) |assign_idx| {
+        pir.assign[assign_idx].split = !(pir.assign[assign_idx].base.type.isReduce() or
+            pir.assign[assign_idx].base.repeats >= size_global);
+    }
 }
 pub fn simd(allocator: Allocator, pir: *Pir) !void {
     _ = allocator;

@@ -9,6 +9,8 @@ const RuntimeCl = Runtime.RuntimeCl;
 const Tensor = @import("Tensor.zig");
 
 // $TODO Make casey style optimizer as an alternative with genetic algorithm to change optimization steps saved in array
+// $TODO Refactor all of the assignments to not be optionals. Just have default values that are equivalent to no optimization.
+// $TODO Try out this ZII thing
 // $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
 // $TODO Make swarm tests for the compiler
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
@@ -21,7 +23,7 @@ const Tensor = @import("Tensor.zig");
 // $TODO Implement weightgen and that arnold net thing where there are cubic functions as connections
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}).init;
     defer _ = gpa.detectLeaks();
     const allocator = gpa.allocator();
 
@@ -53,3 +55,10 @@ pub fn main() !void {
     try nn.sync(true, true, true, true, true, .sync_to_host);
     nn.layer[nn.layer.len - 1].values.print(4, 0, null);
 }
+
+// std.debug.print("PIR:       {d:6}b = {d:6}B\n", .{ @bitSizeOf(Pir), @sizeOf(Pir) });
+// std.debug.print("Assign:    {d:6}b = {d:6}B\n", .{ @bitSizeOf(Assign), @sizeOf(Assign) });
+// std.debug.print("Base:      {d:6}b = {d:6}B\n", .{ @bitSizeOf(Base), @sizeOf(Base) });
+// std.debug.print("DimInfo:   {d:6}b = {d:6}B\n", .{ @bitSizeOf(DimInfo), @sizeOf(DimInfo) });
+// std.debug.print("Buffer:    {d:6}b = {d:6}B\n", .{ @bitSizeOf(Buffer), @sizeOf(Buffer) });
+// std.debug.print("Op:        {d:6}b = {d:6}B\n", .{ @bitSizeOf(Op), @sizeOf(Op) });

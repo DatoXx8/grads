@@ -63,7 +63,6 @@ pub const DimInfo = struct {
         });
     }
 };
-
 // I removed the dependency layers for now, because they just weren't used anywhere. Add those back if necessary.
 /// The basic thing the Assignment does without any funny business
 pub const Base = struct {
@@ -218,7 +217,6 @@ pub const Base = struct {
         this.in_dim.print(padding, padding + offset, "in_dim");
     }
 };
-
 // $TODO Maybe make all these slices from a global / per ssa buffer
 /// Tree representation of inlined ops
 pub const Inlined = struct {
@@ -267,27 +265,21 @@ pub const Inlined = struct {
         return true;
     }
 };
-
 /// Wether or not to split a single operation across kernels
-pub const Split = struct {
-    //
-};
-
+pub const Split = bool;
 /// Describes how to utilize blocks for better caching
 pub const Block = struct {
     //
 };
-
 /// Describes the SIMD width and tells to codegen to actually use SIMD
 pub const Simd = struct {
     //
 };
-
 /// Essentialy this is one unit of work
 pub const Assign = struct {
     base: Base,
     inlined: ?Inlined,
-    split: ?Split,
+    split: Split,
     block: ?Block,
     simd: ?Simd,
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -302,9 +294,8 @@ pub const Assign = struct {
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
-        if (this.split) |split| {
-            _ = split;
-            unreachable;
+        if (this.split) {
+            std.debug.print("{s}Splitting\n", .{" " ** (offset + padding)});
         }
         if (this.block) |block| {
             _ = block;
@@ -316,11 +307,16 @@ pub const Assign = struct {
         }
     }
 };
-
 pub const Pir = @This();
 assign: []Assign,
 assign_num: u32,
-pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimization) !Pir {
+pub fn alloc(
+    allocator: Allocator,
+    linearized: Linearized,
+    optimization: Optimization,
+    size_global: u32,
+    size_local: u32,
+) !Pir {
     assert(linearized.op_num > 0);
 
     const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
@@ -338,7 +334,7 @@ pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimiz
                 .repeats = 1,
             },
             .inlined = null,
-            .split = null,
+            .split = false,
             .simd = null,
             .block = null,
         };
@@ -351,7 +347,7 @@ pub fn alloc(allocator: Allocator, linearized: Linearized, optimization: Optimiz
         .assign = assign,
         .assign_num = @intCast(assign.len),
     };
-    try pir.optimize(allocator, optimization);
+    try pir.optimize(allocator, optimization, size_global, size_local);
     pir.removeDefault();
 
     return pir;
@@ -363,10 +359,7 @@ pub fn free(this: *@This(), allocator: Allocator) void {
             allocator.free(inlined.out);
             allocator.free(inlined.in);
         }
-        if (this.assign[assign_idx].split) |split| {
-            _ = split;
-            unreachable;
-        }
+        // Split has nothing to free rn
         if (this.assign[assign_idx].block) |block| {
             _ = block;
             unreachable;
@@ -424,7 +417,7 @@ fn removeDefault(this: *@This()) void {
         }
     }
 }
-fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !void {
+fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization, size_global: u32, size_local: u32) !void {
     if (optimization == .O0) {
         return;
     }
@@ -432,7 +425,7 @@ fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization) !v
     try opt.mergeOp(allocator, this); // Done first to make the other steps less costly
     try opt.inlineOp(allocator, this);
     try opt.parallelize(allocator, this);
-    try opt.splitKernel(allocator, this);
+    opt.splitKernel(this, size_global, size_local);
 
     if (optimization == .O1) {
         return;
