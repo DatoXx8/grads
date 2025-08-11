@@ -668,13 +668,13 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
             writeSource(
                 source,
                 offset,
-                "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
+                "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                 .{
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                    base.out.z_size * base.out.y_size * base.out.x_size, if (base.out.a_size == 1) 0 else base.out.a_stride, //
-                    base.out.z_size * base.out.y_size * base.out.x_size, base.out.y_size * base.out.x_size, if (base.out.z_size == 1) 0 else base.out.z_stride, //
-                    base.out.y_size * base.out.x_size,                   base.out.x_size,                   if (base.out.z_size == 1) 0 else base.out.y_stride,
-                    base.out.x_size,                                     1,                                 if (base.out.x_size == 1) 0 else base.out.x_stride,
+                    base.out.a_size * base.out.z_size * base.out.y_size * base.out.x_size, base.out.z_size * base.out.y_size * base.out.x_size, if (base.out.a_size == 1) 0 else base.out.a_stride, //
+                    base.out.z_size * base.out.y_size * base.out.x_size,                   base.out.y_size * base.out.x_size,                   if (base.out.z_size == 1) 0 else base.out.z_stride,
+                    base.out.y_size * base.out.x_size,                                     base.out.x_size,                                     if (base.out.z_size == 1) 0 else base.out.y_stride,
+                    base.out.x_size,                                                       1,                                                   if (base.out.x_size == 1) 0 else base.out.x_stride,
                 },
             );
         }
@@ -690,13 +690,13 @@ fn writeIndicesBlock(source: *[]u8, offset: *usize, assign: Assign, kernel_loop_
                 writeSource(
                     source,
                     offset,
-                    "int {s}_{}_{}_{} = (id)/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
+                    "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                     .{
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                        base.in.z_size * base.in.y_size * base.in.x_size, if (base.in.a_size == 1) 0 else base.in.a_stride, //
-                        base.in.z_size * base.in.y_size * base.in.x_size, base.in.y_size * base.in.x_size, if (base.in.z_size == 1) 0 else base.in.z_stride, //
-                        base.in.y_size * base.in.x_size,                  base.in.x_size,                  if (base.in.z_size == 1) 0 else base.in.y_stride,
-                        base.in.x_size,                                   1,                               if (base.in.x_size == 1) 0 else base.in.x_stride,
+                        base.in.a_size * base.in.z_size * base.in.y_size * base.in.x_size, base.in.z_size * base.in.y_size * base.in.x_size, if (base.in.a_size == 1) 0 else base.in.a_stride, //
+                        base.in.z_size * base.in.y_size * base.in.x_size,                  base.in.y_size * base.in.x_size,                  if (base.in.z_size == 1) 0 else base.in.z_stride,
+                        base.in.y_size * base.in.x_size,                                   base.in.x_size,                                   if (base.in.z_size == 1) 0 else base.in.y_stride,
+                        base.in.x_size,                                                    1,                                                if (base.in.x_size == 1) 0 else base.in.x_stride,
                     },
                 );
             }
@@ -929,44 +929,40 @@ pub fn assignCompile(
         "const int gid = get_global_id(0);\n" ++
         "int id;\n", .{});
 
-    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
-    const size: u32 = a_size * z_size * y_size * x_size;
-
-    const kernel_block_split: u32 = if (assign.split) size_global else 1;
-    const kernel_block_leftover: u32 = size % kernel_block_split;
-    const kernel_block_size: u32 = std.math.divCeil(u32, size, kernel_block_split) catch unreachable;
-
-    const kernel_loop_leftover: u32 = assign.base.repeats % size_global;
-    const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
-
     // $TODO Merge these cases in to 1 case. Should not really be that difficult
     if (assign.split) {
-        assert(kernel_loop_num == 1); // This is necessary for the current understanding of splitting.
-        // In the future this limitation might be removed.
+        const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+        const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+        const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+        const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+        const size: u32 = a_size * z_size * y_size * x_size;
+        const size_with_repeats: u32 = size * assign.base.repeats;
 
-        writeIndices(source, offset, assign, 0);
+        const kernel_block_leftover: u32 = size_with_repeats % size_global;
+        const kernel_block_size: u32 = std.math.divCeil(u32, size_with_repeats, size_global) catch unreachable;
+
+        assert(kernel_block_size <= size);
 
         var kernel_block_idx: u32 = 0;
         while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
-            writeSource(source, offset, "id = gid+({}*{});\n", .{ size_global, kernel_block_idx });
-            // $TODO Make it so that the same kernels gets adjacent values for better caching i.e. kernel 0 gets 0,1,2 kernel 1 gets 3,4,5 etc.
-            // writeSource(source, offset, "id = (gid*{})+{};\n", .{ kernel_block_size, kernel_block_idx });
-
             if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
-                writeSource(source, offset, "if(gid < {}) {{\n", .{kernel_block_leftover});
+                writeSource(source, offset, "if(gid<{}) {{\n", .{kernel_block_leftover});
             }
 
-            writeIndicesBlock(source, offset, assign, 0, kernel_block_idx);
-            writeAssignBlock(source, offset, assign, 0, kernel_block_idx);
+            writeSource(source, offset, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, size });
+            writeIndices(source, offset, assign, kernel_block_idx);
+            writeSource(source, offset, "id = gid+{};\n", .{size_global * kernel_block_idx});
+            writeIndicesBlock(source, offset, assign, kernel_block_idx, kernel_block_idx);
+            writeAssignBlock(source, offset, assign, kernel_block_idx, kernel_block_idx);
 
             if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
                 writeSource(source, offset, "}}\n", .{});
             }
         }
     } else {
+        const kernel_loop_leftover: u32 = (assign.base.repeats) % size_global;
+        const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
+
         var kernel_loop_idx: u32 = 0;
         while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
             writeSource(source, offset, "id = gid+{};\n", .{size_global * kernel_loop_idx});
@@ -985,9 +981,4 @@ pub fn assignCompile(
     }
 
     writeSource(source, offset, "}}\n", .{});
-
-    // if (assign.split) {
-    //     std.debug.print("{s}\n", .{source.*});
-    //     todo(@src());
-    // }
 }

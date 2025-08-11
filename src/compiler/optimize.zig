@@ -752,8 +752,8 @@ pub fn parallelize(allocator: Allocator, pir: *Pir) !void {
 pub fn splitKernel(pir: *Pir, size_global: u32, size_local: u32) void {
     _ = size_local;
     for (0..pir.assign_num) |assign_idx| {
-        pir.assign[assign_idx].split = !(pir.assign[assign_idx].base.type.isReduce() or
-            pir.assign[assign_idx].base.repeats >= size_global);
+        pir.assign[assign_idx].split = !pir.assign[assign_idx].base.type.isReduce() and
+            pir.assign[assign_idx].base.repeats < size_global;
     }
 }
 pub fn simd(allocator: Allocator, pir: *Pir) !void {
