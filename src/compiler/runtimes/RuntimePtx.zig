@@ -31,7 +31,7 @@ const CuContext = cuda.CUcontext;
 device: CuDevice,
 context: CuContext,
 registers_max: u32,
-// $TODO Maybe make a non-default stream
+// $MAYBE make a non-default stream?
 
 pub const RuntimePtx = @This();
 

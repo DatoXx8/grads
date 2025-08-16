@@ -143,7 +143,7 @@ pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, ou
         },
         .binary_divide => {
             d_out.binarySet(d_in);
-            d_out.binaryMultiply(in); // $TODO Test if doing a square thing is faster here
+            d_out.binaryMultiply(in);
             d_out.binaryMultiply(in);
             d_out.unaryMultiply(-1);
         },

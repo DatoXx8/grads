@@ -16,6 +16,7 @@ pub const RuntimeCl = @import("RuntimeCl.zig");
 pub const RuntimePtx = @import("RuntimePtx.zig");
 pub const RuntimeNoop = @import("RuntimeNoop.zig");
 
+// This one is gonna take a while
 // $TODO Add a single and multithread CPU runtime for x86_64 avx2 & bmi2 and no extension
 
 pub const Runtime = @This();

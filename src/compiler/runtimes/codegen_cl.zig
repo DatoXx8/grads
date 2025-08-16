@@ -19,11 +19,8 @@ const todo = @import("../../util.zig").todo;
 const Runtime = @import("Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
 
-// $TODO Make my own format string implementation, can't really get faster trivially without changing behaviour, which I don't really mind
-
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeSource(source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) void {
-    // $TODO Validate that there is enough space for this and expand if there isn't
     const written = bufPrint(source.*[offset.*..], fmt, args) catch unreachable;
     offset.* += written.len;
 }

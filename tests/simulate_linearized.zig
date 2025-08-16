@@ -400,7 +400,6 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
 }
 
 fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
-    // $TODO Assert that the thing actually fails
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);

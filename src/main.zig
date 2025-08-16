@@ -8,11 +8,10 @@ const Runtime = @import("compiler/runtimes/Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
 const Tensor = @import("Tensor.zig");
 
-// $TODO Make casey style optimizer as an alternative with genetic algorithm to change optimization steps saved in array
+// $TODO Make casey style optimizer as an alternative with genetic algorithm to change optimization steps saved in array (When making this add reorder optimization for potentially better loop behavior)
 // $TODO Refactor all of the assignments to not be optionals. Just have default values that are equivalent to no optimization.
 // $TODO Try out this ZII thing
 // $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
-// $TODO Make swarm tests for the compiler
 // $TODO Log test fail seeds to file, this requires not changing the random generation scheme
 // $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)

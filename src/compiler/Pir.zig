@@ -74,7 +74,6 @@ pub const Base = struct {
     repeats: u32,
     out_dim: DimInfo,
     in_dim: DimInfo,
-    // $TODO Unsure how to check the layer things
     pub inline fn equal(this: @This(), target: @This()) bool {
         return this.out.equal(target.out) and this.in.equal(target.in) and
             this.type == target.type and this.u_var == target.u_var;

@@ -446,14 +446,12 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir) !void {
     pir.assign_num = assign_num_new;
 }
 
-// $FIX / $TODO / $PERF / $HACK         don't even know what to mark this shit with
 // If you are unlucky with the layout of your offsets then you can get into a situation where the offsets for each assign can't be modeled by a linear function.
 // This is a huge issue because other functions that model the offsets can't be found easily and table driven solutions limit the loop size artificially,
 // because of the limits on local memory per kernel.
 // As a hacky fix we just split the loop up if there is something that can't be modeled linearly. This sucks bad. I hate that I have to do this.
 // I am sorry for this terrible shittines, I just can't think of a better solution right now
 
-// $TODO Support reordering
 fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
     if ((if (base.inlined) |i| i.inlined_num else 0) != (if (merge.inlined) |i| i.inlined_num else 0)) {
         return false;

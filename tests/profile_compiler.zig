@@ -85,7 +85,6 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
 }
 
 // $WARN This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
-// $TODO The above warning should not need to exist
 fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
     std.debug.print("profile-compiler: rng={}...\n", .{rng});
 

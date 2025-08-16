@@ -100,7 +100,6 @@ const register_global_id: []const u8 = "%r1";
 
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeSource(source: *[]u8, offset: *usize, comptime fmt: []const u8, args: anytype) void {
-    // $TODO Validate that there is enough space for this and expand if there isn't
     const written = bufPrint(source.*[offset.*..], fmt, args) catch unreachable;
     offset.* += written.len;
 }
@@ -210,7 +209,7 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign) void {
         }
     }
 }
-// $TODO What about %envreg3? It's there in the compiled OpenCl but I don't understand it
+// If this breaks it might be some %envreg3 stuff. It's there in the compiled OpenCl but I don't understand it
 const register_global_id_calculation: []const u8 =
     tab ++ "mov.u32 %r2, %ctaid.x;\n" ++
     tab ++ "mov.u32 %r3, %ntid.x;\n" ++

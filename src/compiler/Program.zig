@@ -143,9 +143,6 @@ pub fn alloc(
         var source_idx: usize = 0;
 
         for (0..pir.assign_num) |assign_idx| {
-            // This should be enough work to justify storing it in memory
-            // $TODO Rethink this when I refactor the args gathering
-
             @memset(&kernel_name, 0);
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});

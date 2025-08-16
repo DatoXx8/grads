@@ -1,7 +1,5 @@
 const std = @import("std");
 
-// $TODO Support compiling to a static lib
-
 fn addExe(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
