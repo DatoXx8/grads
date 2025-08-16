@@ -20,11 +20,6 @@ pub const Buffer = struct {
         sync_to_device,
         sync_to_none,
     };
-    pub const SyncError = error{
-        FailedToHost,
-        FailedToDevice,
-        FailedWait,
-    };
 
     // I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
     //  necessary and that is already saved in values.len
@@ -200,7 +195,6 @@ pub const Buffer = struct {
     }
     /// Return wether the two buffers overlap in some, but not all places
     pub inline fn overlapsPartial(this: @This(), target: @This()) bool {
-        // $TODO Fix this version that should be slightly faster
         return this.overlaps(target) and !this.overlapsAll(target);
     }
 };

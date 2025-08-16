@@ -278,7 +278,6 @@ pub fn mergeOp(allocator: Allocator, pir: *Pir) !void {
     assert(assign_num_new > 0);
     pir.assign_num = assign_num_new;
 }
-
 fn inlineOpStep(allocator: Allocator, assign: []Assign, assign_num: u32, start_idx: u32) !bool {
     assert(start_idx + 1 < assign_num);
 
@@ -415,7 +414,6 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, assign_num: u32, start_i
 
     return written;
 }
-
 // $TODO Either make the order irrelevant here or assert the right order
 // $TODO This memory management is horrible. Refactor refactor refactor
 //  I feel like there should be a really simple way to do this but I for the life of me can not figure it out
@@ -445,13 +443,11 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir) !void {
     }
     pir.assign_num = assign_num_new;
 }
-
 // If you are unlucky with the layout of your offsets then you can get into a situation where the offsets for each assign can't be modeled by a linear function.
 // This is a huge issue because other functions that model the offsets can't be found easily and table driven solutions limit the loop size artificially,
 // because of the limits on local memory per kernel.
 // As a hacky fix we just split the loop up if there is something that can't be modeled linearly. This sucks bad. I hate that I have to do this.
 // I am sorry for this terrible shittines, I just can't think of a better solution right now
-
 fn dimInfoMergePossible(base: Assign, merge: Assign) bool {
     if ((if (base.inlined) |i| i.inlined_num else 0) != (if (merge.inlined) |i| i.inlined_num else 0)) {
         return false;
@@ -626,7 +622,6 @@ fn dimInfoMerge(base: Assign, merge: *Assign) void {
         post.repeats = pre.repeats + 1;
     }
 }
-
 // Assumes `this` and `base` hold the base offsets
 fn dimInfoOverlap(this: Buffer, this_dim: DimInfo, this_repeats: u32, target: Buffer, target_dim: DimInfo, target_repeats: u32) bool {
     const this_a_reset: u32 = if (this_dim.a_reset == DimInfo.value_none) DimInfo.reset_default else this_dim.a_reset;
@@ -679,7 +674,6 @@ fn dimInfoOverlap(this: Buffer, this_dim: DimInfo, this_repeats: u32, target: Bu
     }
     return false;
 }
-
 fn parallelizeStep(pir: *Pir, start_idx: u32) bool {
     var assign_idx: u32 = start_idx + 1;
 

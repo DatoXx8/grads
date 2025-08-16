@@ -70,7 +70,6 @@ pub const Base = struct {
     in: Buffer,
     type: Op.Type,
     u_var: f32,
-    // $FIXME kind of unhappy this is separate but having it in dim_info would store it twice for no reason
     repeats: u32,
     out_dim: DimInfo,
     in_dim: DimInfo,

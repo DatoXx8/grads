@@ -54,10 +54,3 @@ pub fn main() !void {
     try nn.sync(true, true, true, true, true, .sync_to_host);
     nn.layer[nn.layer.len - 1].values.print(4, 0, null);
 }
-
-// std.debug.print("PIR:       {d:6}b = {d:6}B\n", .{ @bitSizeOf(Pir), @sizeOf(Pir) });
-// std.debug.print("Assign:    {d:6}b = {d:6}B\n", .{ @bitSizeOf(Assign), @sizeOf(Assign) });
-// std.debug.print("Base:      {d:6}b = {d:6}B\n", .{ @bitSizeOf(Base), @sizeOf(Base) });
-// std.debug.print("DimInfo:   {d:6}b = {d:6}B\n", .{ @bitSizeOf(DimInfo), @sizeOf(DimInfo) });
-// std.debug.print("Buffer:    {d:6}b = {d:6}B\n", .{ @bitSizeOf(Buffer), @sizeOf(Buffer) });
-// std.debug.print("Op:        {d:6}b = {d:6}B\n", .{ @bitSizeOf(Op), @sizeOf(Op) });
