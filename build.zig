@@ -17,6 +17,7 @@ fn addExe(
         .root_source_file = b.path(root_file),
         .target = target,
         .optimize = optimize,
+        .use_llvm = false,
     });
     exe.addIncludePath(.{
         .cwd_relative = "/usr/include/",

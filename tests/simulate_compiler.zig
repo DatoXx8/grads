@@ -13,6 +13,7 @@ const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
+const textifyLinearized = @import("textify_linearized.zig").textifyLinearized;
 const a_size_max = @import("random_linearized.zig").a_size_max;
 const z_size_max = @import("random_linearized.zig").z_size_max;
 const y_size_max = @import("random_linearized.zig").y_size_max;
