@@ -50,6 +50,7 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
+// $FIXME There is memory leak in here
 fn simulateCompiler(
     runtime: Runtime,
     allocator: Allocator,
@@ -218,14 +219,7 @@ pub fn main() !void {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{s} ", .{
-                    switch (opt) {
-                        .O0 => "O0",
-                        .O1 => "O1",
-                        .O2 => "O2",
-                        .O3 => "O3",
-                    },
-                });
+                std.debug.print("{s} ", .{@tagName(opt)});
             } else {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
@@ -246,14 +240,7 @@ pub fn main() !void {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{s} ", .{
-                    switch (opt) {
-                        .O0 => "O0",
-                        .O1 => "O1",
-                        .O2 => "O2",
-                        .O3 => "O3",
-                    },
-                });
+                std.debug.print("{s} ", .{@tagName(opt)});
             } else {
                 inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
                     const name: []const u8 = optimization.name;
