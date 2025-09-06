@@ -7,6 +7,7 @@ const builtin = @import("builtin");
 
 const codegen_cl = @import("codegen_cl.zig");
 const Runtime = @import("Runtime.zig");
+const Error = Runtime.Error;
 const Program = @import("../Program.zig");
 const Kernel = Program.Kernel;
 const KernelPtr = Program.KernelPtr;
@@ -37,35 +38,32 @@ pub fn runtime(_: *@This()) Runtime {
             .kernelFree = kernelFree,
             .kernelRun = kernelRun,
             .queueWait = queueWait,
-            .assignCompileBytes = assignCompileBytes,
             .assignCompile = assignCompile,
         },
     };
 }
 
-pub fn init(_: *anyopaque) ?void {}
-pub fn deinit(_: *anyopaque) ?void {}
-pub fn memoryAlloc(_: *anyopaque, _: u32, _: u32, _: u32, _: u32) ?Memory {
+pub fn init(_: *anyopaque) Error!void {}
+pub fn deinit(_: *anyopaque) void {}
+pub fn memoryAlloc(_: *anyopaque, _: u32, _: u32, _: u32, _: u32) Error!Memory {
     return undefined;
 }
-pub fn memoryFree(_: *anyopaque, _: Memory) ?void {}
-pub fn memorySyncToHost(_: *anyopaque, _: Memory, _: *anyopaque, _: u32) ?void {}
-pub fn memorySyncToDevice(_: *anyopaque, _: Memory, _: *anyopaque, _: u32) ?void {}
-pub fn programAlloc(_: *anyopaque, _: []const u8) ?ProgramPtr {
+pub fn memoryFree(_: *anyopaque, _: Memory) void {}
+pub fn memorySyncToHost(_: *anyopaque, _: Memory, _: *anyopaque, _: u32) Error!void {}
+pub fn memorySyncToDevice(_: *anyopaque, _: Memory, _: *anyopaque, _: u32) Error!void {}
+pub fn programAlloc(_: *anyopaque, _: []const u8) Error!ProgramPtr {
     return undefined;
 }
-pub fn programFree(_: *anyopaque, _: ProgramPtr) ?void {}
-pub fn kernelAlloc(_: *anyopaque, _: ProgramPtr, _: [*:0]const u8, _: Args) ?KernelPtr {
+pub fn programFree(_: *anyopaque, _: ProgramPtr) void {}
+pub fn kernelAlloc(_: *anyopaque, _: ProgramPtr, _: [*:0]const u8, _: Args) Error!KernelPtr {
     return undefined;
 }
-pub fn kernelFree(_: *anyopaque, _: KernelPtr) ?void {}
-pub fn kernelRun(_: *anyopaque, _: KernelPtr, _: Args, _: usize, _: usize) ?void {}
-pub fn queueWait(_: *anyopaque) ?void {}
-pub fn assignCompileBytes(_: *anyopaque, _: Assign, _: u32, _: Args, _: u32, _: u32) u32 {
-    return undefined;
-}
+pub fn kernelFree(_: *anyopaque, _: KernelPtr) void {}
+pub fn kernelRun(_: *anyopaque, _: KernelPtr, _: Args, _: usize, _: usize) Error!void {}
+pub fn queueWait(_: *anyopaque) Error!void {}
 pub fn assignCompile(
     _: *anyopaque,
+    _: Allocator,
     _: *[]u8,
     _: *usize,
     _: Assign,
@@ -73,4 +71,4 @@ pub fn assignCompile(
     _: Args,
     _: u32,
     _: u32,
-) void {}
+) Allocator.Error!void {}

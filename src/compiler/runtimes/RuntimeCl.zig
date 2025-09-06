@@ -7,6 +7,7 @@ const builtin = @import("builtin");
 
 const codegen_cl = @import("codegen_cl.zig");
 const Runtime = @import("Runtime.zig");
+const Error = Runtime.Error;
 const Program = @import("../Program.zig");
 const Kernel = Program.Kernel;
 const KernelPtr = Program.KernelPtr;
@@ -54,59 +55,44 @@ pub fn runtime(this: *@This()) Runtime {
             .kernelFree = kernelFree,
             .kernelRun = kernelRun,
             .queueWait = queueWait,
-            .assignCompileBytes = codegen_cl.assignCompileBytes,
             .assignCompile = codegen_cl.assignCompile,
         },
     };
 }
 
-pub fn init(this: *anyopaque) ?void {
+pub fn init(this: *anyopaque) Error!void {
     var state: *RuntimeCl = @alignCast(@ptrCast(this));
 
     var platform: ClPlatform = null;
 
     if (opencl.clGetPlatformIDs(1, &platform, null) != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.ContextInit;
     }
     if (opencl.clGetDeviceIDs(platform, opencl.CL_DEVICE_TYPE_GPU, 1, &state.device, null) != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.ContextInit;
     }
     var err: i32 = 0;
     state.context = opencl.clCreateContext(null, 1, &state.device, null, null, &err);
     if (err != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.ContextInit;
     }
     state.queue = opencl.clCreateCommandQueueWithProperties(state.context, state.device, null, &err);
     if (err != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.ContextInit;
     }
 }
-pub fn deinit(this: *anyopaque) ?void {
+pub fn deinit(this: *anyopaque) void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
 
-    var failed: bool = false;
-    if (opencl.clReleaseDevice(state.device) != 0) {
-        @branchHint(.cold);
-        failed = true;
-    }
-    if (opencl.clReleaseContext(state.context) != 0) {
-        @branchHint(.cold);
-        failed = true;
-    }
-    if (opencl.clReleaseCommandQueue(state.queue) != 0) {
-        @branchHint(.cold);
-        failed = true;
-    }
-    if (failed) {
-        @branchHint(.cold);
-        return null;
-    }
+    _ = opencl.clReleaseDevice(state.device);
+    _ = opencl.clReleaseContext(state.context);
+    _ = opencl.clReleaseCommandQueue(state.queue);
 }
-pub fn memoryAlloc(this: *anyopaque, a: u32, z: u32, y: u32, x: u32) ?Memory {
+pub fn memoryAlloc(this: *anyopaque, a: u32, z: u32, y: u32, x: u32) Error!Memory {
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
@@ -119,37 +105,34 @@ pub fn memoryAlloc(this: *anyopaque, a: u32, z: u32, y: u32, x: u32) ?Memory {
         a * z * y * x * @sizeOf(f32), null, &err);
     if (err == 0) {
         @branchHint(.likely);
-        return memory;
+        return @ptrCast(memory);
     } else {
         @branchHint(.cold);
-        return null;
+        return Error.MemoryAlloc;
     }
 }
-pub fn memoryFree(_: *anyopaque, memory: Memory) ?void {
-    if (opencl.clReleaseMemObject(@ptrCast(memory)) != 0) {
-        @branchHint(.cold);
-        return null;
-    }
+pub fn memoryFree(_: *anyopaque, memory: Memory) void {
+    _ = opencl.clReleaseMemObject(@ptrCast(memory));
 }
-pub fn memorySyncToHost(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
+pub fn memorySyncToHost(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) Error!void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     if (opencl.clEnqueueReadBuffer(state.queue, @ptrCast(mem), opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
         null, null) != 0)
     {
         @branchHint(.cold);
-        return null;
+        return Error.MemorySync;
     }
 }
-pub fn memorySyncToDevice(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) ?void {
+pub fn memorySyncToDevice(this: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) Error!void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     if (opencl.clEnqueueWriteBuffer(state.queue, @ptrCast(mem), opencl.CL_TRUE, 0, n_bytes, mem_host, 0, //
         null, null) != 0)
     {
         @branchHint(.cold);
-        return null;
+        return Error.MemorySync;
     }
 }
-pub fn programAlloc(this: *anyopaque, source: []const u8) ?ProgramPtr {
+pub fn programAlloc(this: *anyopaque, source: []const u8) Error!ProgramPtr {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     var err: i32 = 0;
     var source_c: [*c]const u8 = source[0 .. source.len - 1 :0];
@@ -157,64 +140,54 @@ pub fn programAlloc(this: *anyopaque, source: []const u8) ?ProgramPtr {
         &source_c, &source.len, &err);
     if (err != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.ProgramAlloc;
     }
 
     if (opencl.clBuildProgram(program_ptr, 0, null, null, null, null) == 0) {
         @branchHint(.likely);
-        return program_ptr;
+        return @ptrCast(program_ptr);
     } else {
         @branchHint(.cold);
-        return null;
+        return Error.ProgramAlloc;
     }
 }
-pub fn programFree(_: *anyopaque, program: ProgramPtr) ?void {
-    if (opencl.clReleaseProgram(@ptrCast(program)) != 0) {
-        @branchHint(.cold);
-        return null;
-    }
+pub fn programFree(_: *anyopaque, program: ProgramPtr) void {
+    _ = opencl.clReleaseProgram(@ptrCast(program));
 }
-pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) ?KernelPtr {
+pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args: Args) Error!KernelPtr {
     var err: i32 = 0;
     const kernel: opencl.cl_kernel = opencl.clCreateKernel(@ptrCast(program), name, &err);
     if (err != 0) {
         @branchHint(.cold);
-        // std.log.err("Could not build kernel with name {s} because of error {}\n", .{ name, err });
-        return null;
+        return Error.KernelAlloc;
     }
     for (0..args.arg_num) |arg_idx| {
         if (opencl.clSetKernelArg(kernel, @intCast(arg_idx), //
             @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx])) != 0)
         {
             @branchHint(.cold);
-            if (opencl.clReleaseKernel(kernel) != 0) {
-                @branchHint(.cold);
-                return null;
-            }
-            return null;
+            _ = opencl.clReleaseKernel(kernel);
+            return Error.KernelAlloc;
         }
     }
     return @ptrCast(kernel);
 }
-pub fn kernelFree(_: *anyopaque, kernel: KernelPtr) ?void {
-    if (opencl.clReleaseKernel(@ptrCast(kernel)) != 0) {
-        @branchHint(.cold);
-        return null;
-    }
+pub fn kernelFree(_: *anyopaque, kernel: KernelPtr) void {
+    _ = opencl.clReleaseKernel(@ptrCast(kernel));
 }
-pub fn kernelRun(this: *anyopaque, kernel: KernelPtr, _: Args, size_global: usize, size_local: usize) ?void {
+pub fn kernelRun(this: *anyopaque, kernel: KernelPtr, _: Args, size_global: usize, size_local: usize) Error!void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     if (opencl.clEnqueueNDRangeKernel(state.queue, @ptrCast(kernel), 1, null, //
         &size_global, &size_local, 0, null, null) != 0)
     {
         @branchHint(.cold);
-        return null;
+        return Error.KernelRun;
     }
 }
-pub fn queueWait(this: *anyopaque) ?void {
+pub fn queueWait(this: *anyopaque) Error!void {
     const state: *RuntimeCl = @alignCast(@ptrCast(this));
     if (opencl.clFinish(state.queue) != 0) {
         @branchHint(.cold);
-        return null;
+        return Error.QueueWait;
     }
 }

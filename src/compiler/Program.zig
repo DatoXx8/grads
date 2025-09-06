@@ -130,14 +130,8 @@ pub fn alloc(
         var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
         errdefer allocator.free(kernel);
 
-        var source_len: usize = 0;
-        for (0..pir.assign_num) |assign_idx| {
-            kernel[assign_idx].args = try Args.alloc(allocator, pir.assign[assign_idx]);
-            source_len += runtime.assignCompileBytes(pir.assign[assign_idx], kernel_name_len_max, //
-                kernel[assign_idx].args, size_global, size_local);
-        }
-
-        var source: []u8 = try allocator.alloc(u8, source_len);
+        const source_len_init: u32 = 16 * 1024; // Arbitrary value
+        var source: []u8 = try allocator.alloc(u8, source_len_init);
         defer allocator.free(source);
         @memset(source, 0);
         var source_idx: usize = 0;
@@ -147,7 +141,8 @@ pub fn alloc(
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
 
-            runtime.assignCompile(&source, &source_idx, pir.assign[assign_idx], //
+            kernel[assign_idx].args = try Args.alloc(allocator, pir.assign[assign_idx]);
+            try runtime.assignCompile(allocator, &source, &source_idx, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);
         }
 
