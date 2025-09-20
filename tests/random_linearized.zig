@@ -16,7 +16,7 @@ pub const z_size_max: u32 = 6;
 pub const y_size_max: u32 = 5;
 pub const x_size_max: u32 = 4;
 pub const tensor_num: u32 = 10;
-pub const op_num: u32 = 10;
+pub const op_num: u32 = 40;
 comptime {
     assert(tensor_num > 1);
     assert(op_num > 0);
