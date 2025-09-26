@@ -62,9 +62,9 @@ const RuntimePtx = Runtime.RuntimePtx;
 // "
 
 // Find address_size in here?
-// typedef enum CUpointer_attribute_enum {
+// kinddef enum CUpointer_attribute_enum {
 //     CU_POINTER_ATTRIBUTE_CONTEXT = 1,                     /**< The ::CUcontext on which a pointer was allocated or registered */
-//     CU_POINTER_ATTRIBUTE_MEMORY_TYPE = 2,                 /**< The ::CUmemorytype describing the physical location of a pointer */
+//     CU_POINTER_ATTRIBUTE_MEMORY_kind = 2,                 /**< The ::CUmemorykind describing the physical location of a pointer */
 //     CU_POINTER_ATTRIBUTE_DEVICE_POINTER = 3,              /**< The address at which a pointer's memory may be accessed on the device */
 //     CU_POINTER_ATTRIBUTE_HOST_POINTER = 4,                /**< The address at which a pointer's memory may be accessed on the host */
 //     CU_POINTER_ATTRIBUTE_P2P_TOKENS = 5,                  /**< A pair of tokens for use with the nv-p2p.h Linux kernel interface */
@@ -76,7 +76,7 @@ const RuntimePtx = Runtime.RuntimePtx;
 //     CU_POINTER_ATTRIBUTE_RANGE_START_ADDR = 11,           /**< Starting address for this requested pointer */
 //     CU_POINTER_ATTRIBUTE_RANGE_SIZE = 12,                 /**< Size of the address range for this requested pointer */
 //     CU_POINTER_ATTRIBUTE_MAPPED = 13,                     /**< 1 if this pointer is in a valid address range that is mapped to a backing allocation, 0 otherwise **/
-//     CU_POINTER_ATTRIBUTE_ALLOWED_HANDLE_TYPES = 14,       /**< Bitmask of allowed ::CUmemAllocationHandleType for this allocation **/
+//     CU_POINTER_ATTRIBUTE_ALLOWED_HANDLE_kindS = 14,       /**< Bitmask of allowed ::CUmemAllocationHandleKind for this allocation **/
 //     CU_POINTER_ATTRIBUTE_IS_GPU_DIRECT_RDMA_CAPABLE = 15, /**< 1 if the memory this pointer is referencing can be used with the GPUDirect RDMA API **/
 //     CU_POINTER_ATTRIBUTE_ACCESS_FLAGS = 16,               /**< Returns the access flags the device associated with the current context has on the corresponding memory referenced by the pointer given */
 //     CU_POINTER_ATTRIBUTE_MEMPOOL_HANDLE = 17,             /**< Returns the mempool handle for the allocation if it was allocated from a mempool. Otherwise returns NULL. **/
@@ -182,10 +182,10 @@ fn writeBase(source: *[]u8, offset: *usize, assign: Assign) void {
 fn writeAssign(source: *[]u8, offset: *usize, assign: Assign) void {
     _ = source;
     _ = offset;
-    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+    const a_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
     var a: u32 = 0;
     while (a < a_size) : (a += 1) {
         var z: u32 = 0;
@@ -194,11 +194,11 @@ fn writeAssign(source: *[]u8, offset: *usize, assign: Assign) void {
             while (y < y_size) : (y += 1) {
                 var x: u32 = 0;
                 while (x < x_size) : (x += 1) {
-                    const off_out: u32 = if (assign.base.type.isReduce())
+                    const off_out: u32 = if (assign.base.kind.isReduce())
                         0
                     else
                         assign.base.out.at(a, z, y, x);
-                    const off_in: u32 = if (assign.base.type.isExpand())
+                    const off_in: u32 = if (assign.base.kind.isExpand())
                         assign.base.out.at(a, z, y, x)
                     else
                         0;
@@ -256,7 +256,7 @@ pub fn assignCompile(
     assert(size_global % size_local == 0);
     assert(std.mem.startsWith(u8, name, kernel_base_name));
 
-    const state: *RuntimePtx = @alignCast(@ptrCast(this));
+    const state: *RuntimePtx = @ptrCast(@alignCast(this));
     std.debug.print("offset {} + bytes {} < len {}", .{ offset.*, assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local), source.len });
     assert(offset.* + assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local) < source.len);
 

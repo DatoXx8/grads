@@ -61,7 +61,7 @@ fn writeIndices(
                 out_dim.off,
             },
         );
-        if (!base.type.isUnary()) {
+        if (!base.kind.isUnary()) {
             try writeSource(
                 allocator,
                 source,
@@ -80,7 +80,7 @@ fn writeIndices(
     }
 }
 fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
-    switch (base.type) {
+    switch (base.kind) {
         .unary_add,
         .unary_subtract,
         .unary_multiply,
@@ -145,7 +145,7 @@ fn writeAssignPrefix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
     }
 }
 fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
-    switch (base.type) {
+    switch (base.kind) {
         .unary_add,
         .binary_add,
         .expand_add,
@@ -203,7 +203,7 @@ fn writeAssignMidfix(allocator: Allocator, source: *[]u8, offset: *usize, base: 
     }
 }
 fn writeAssignPostfix(allocator: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
-    switch (base.type) {
+    switch (base.kind) {
         .unary_add,
         .unary_subtract,
         .unary_multiply,
@@ -258,11 +258,11 @@ fn writeAssignOutBase(
     inlined_idx_curr: u32,
     offset_out: u32,
 ) Allocator.Error!void {
-    if (base.type.isReduce()) {
+    if (base.kind.isReduce()) {
         assert(inlined_idx_curr == 0);
         assert(offset_out == 0);
     }
-    switch (base.type) {
+    switch (base.kind) {
         .unary_add,
         .unary_subtract,
         .unary_multiply,
@@ -320,10 +320,10 @@ fn writeAssignInBase(
     inlined_idx_curr: u32,
     offset_in: u32,
 ) Allocator.Error!void {
-    if (base.type.isExpand()) {
+    if (base.kind.isExpand()) {
         assert(offset_in == 0);
     }
-    switch (base.type) {
+    switch (base.kind) {
         .binary_add,
         .binary_subtract,
         .binary_multiply,
@@ -388,10 +388,10 @@ fn writeAssignOut(
     try writeAssignPrefix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
-    const a_out: u32 = if (base_relevant.type.isReduce()) 0 else a;
-    const z_out: u32 = if (base_relevant.type.isReduce()) 0 else z;
-    const y_out: u32 = if (base_relevant.type.isReduce()) 0 else y;
-    const x_out: u32 = if (base_relevant.type.isReduce()) 0 else x;
+    const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
+    const z_out: u32 = if (base_relevant.kind.isReduce()) 0 else z;
+    const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
+    const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
         try writeAssignOut(allocator, source, offset, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
     } else {
@@ -401,14 +401,14 @@ fn writeAssignOut(
 
     try writeAssignMidfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    const a_in: u32 = if (base_relevant.type.isExpand()) 0 else a;
-    const z_in: u32 = if (base_relevant.type.isExpand()) 0 else z;
-    const y_in: u32 = if (base_relevant.type.isExpand()) 0 else y;
-    const x_in: u32 = if (base_relevant.type.isExpand()) 0 else x;
+    const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
+    const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
+    const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
+    const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
     } else {
-        if (!base_relevant.type.isUnary()) {
+        if (!base_relevant.kind.isUnary()) {
             const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
             try writeAssignInBase(allocator, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
         }
@@ -434,10 +434,10 @@ fn writeAssignIn(
     try writeAssignPrefix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
-    const a_out: u32 = if (base_relevant.type.isReduce()) 0 else a;
-    const z_out: u32 = if (base_relevant.type.isReduce()) 0 else z;
-    const y_out: u32 = if (base_relevant.type.isReduce()) 0 else y;
-    const x_out: u32 = if (base_relevant.type.isReduce()) 0 else x;
+    const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
+    const z_out: u32 = if (base_relevant.kind.isReduce()) 0 else z;
+    const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
+    const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
         try writeAssignOut(allocator, source, offset, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
     } else {
@@ -447,14 +447,14 @@ fn writeAssignIn(
 
     try writeAssignMidfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 
-    const a_in: u32 = if (base_relevant.type.isExpand()) 0 else a;
-    const z_in: u32 = if (base_relevant.type.isExpand()) 0 else z;
-    const y_in: u32 = if (base_relevant.type.isExpand()) 0 else y;
-    const x_in: u32 = if (base_relevant.type.isExpand()) 0 else x;
+    const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
+    const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
+    const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
+    const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
     } else {
-        if (!base_relevant.type.isUnary()) {
+        if (!base_relevant.kind.isUnary()) {
             const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
             try writeAssignInBase(allocator, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
         }
@@ -463,14 +463,14 @@ fn writeAssignIn(
     try writeAssignPostfix(allocator, source, offset, inlined.base[inlined_idx_actual]);
 }
 fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32) Allocator.Error!void {
-    if (assign.base.type.isReduce()) {
+    if (assign.base.kind.isReduce()) {
         try writeSource(allocator, source, offset, "{s}[{s}_{}_{}+{}]={s};\n", .{
             assign.base.out.name(),
             assign.base.out.name(),
             kernel_loop_idx,
             0,
             0,
-            switch (assign.base.type) {
+            switch (assign.base.kind) {
                 .reduce_sum => "0",
                 .reduce_avg => "0",
                 .reduce_max => "-INFINITY",
@@ -480,10 +480,10 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
         });
     }
 
-    const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-    const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-    const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-    const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+    const a_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+    const z_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+    const y_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+    const x_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
 
     var a: u32 = 0;
     while (a < a_size) : (a += 1) {
@@ -493,10 +493,10 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
             while (y < y_size) : (y += 1) {
                 var x: u32 = 0;
                 while (x < x_size) : (x += 1) {
-                    const a_out: u32 = if (assign.base.type.isReduce()) 0 else a;
-                    const z_out: u32 = if (assign.base.type.isReduce()) 0 else z;
-                    const y_out: u32 = if (assign.base.type.isReduce()) 0 else y;
-                    const x_out: u32 = if (assign.base.type.isReduce()) 0 else x;
+                    const a_out: u32 = if (assign.base.kind.isReduce()) 0 else a;
+                    const z_out: u32 = if (assign.base.kind.isReduce()) 0 else z;
+                    const y_out: u32 = if (assign.base.kind.isReduce()) 0 else y;
+                    const x_out: u32 = if (assign.base.kind.isReduce()) 0 else x;
 
                     const offset_out: u32 = assign.base.out.at(a_out, z_out, y_out, x_out) - assign.base.out.offset;
 
@@ -522,23 +522,23 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
 
                     try writeAssignMidfix(allocator, source, offset, assign.base);
 
-                    const a_in: u32 = if (assign.base.type.isExpand()) 0 else a;
-                    const z_in: u32 = if (assign.base.type.isExpand()) 0 else z;
-                    const y_in: u32 = if (assign.base.type.isExpand()) 0 else y;
-                    const x_in: u32 = if (assign.base.type.isExpand()) 0 else x;
+                    const a_in: u32 = if (assign.base.kind.isExpand()) 0 else a;
+                    const z_in: u32 = if (assign.base.kind.isExpand()) 0 else z;
+                    const y_in: u32 = if (assign.base.kind.isExpand()) 0 else y;
+                    const x_in: u32 = if (assign.base.kind.isExpand()) 0 else x;
 
                     if (assign.inlined) |inlined| {
                         if (inlined.in_root) |inlined_in| {
                             try writeAssignIn(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
                         } else {
-                            if (!assign.base.type.isUnary()) {
-                                const offset_in: u32 = if (assign.base.type.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
+                            if (!assign.base.kind.isUnary()) {
+                                const offset_in: u32 = if (assign.base.kind.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
                                 try writeAssignInBase(allocator, source, offset, assign.base, kernel_loop_idx, 0, offset_in);
                             }
                         }
                     } else {
-                        if (!assign.base.type.isUnary()) {
-                            const offset_in: u32 = if (assign.base.type.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
+                        if (!assign.base.kind.isUnary()) {
+                            const offset_in: u32 = if (assign.base.kind.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
                             try writeAssignInBase(allocator, source, offset, assign.base, kernel_loop_idx, 0, offset_in);
                         }
                     }
@@ -551,7 +551,7 @@ fn writeAssign(allocator: Allocator, source: *[]u8, offset: *usize, assign: Assi
         }
     }
 
-    if (assign.base.type == .reduce_avg) {
+    if (assign.base.kind == .reduce_avg) {
         try writeSource(allocator, source, offset, "{s}[{s}_{}_{}+{}]/={d};\n", .{
             assign.base.out.name(),
             assign.base.out.name(),
@@ -571,11 +571,11 @@ fn writeAssignOutBaseBlock(
     inlined_idx_curr: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
-    if (base.type.isReduce()) {
+    if (base.kind.isReduce()) {
         assert(inlined_idx_curr == 0);
         assert(kernel_block_idx == 0);
     }
-    switch (base.type) {
+    switch (base.kind) {
         .unary_add,
         .unary_subtract,
         .unary_multiply,
@@ -636,7 +636,7 @@ fn writeAssignInBaseBlock(
     inlined_idx_curr: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
-    switch (base.type) {
+    switch (base.kind) {
         .binary_add,
         .binary_subtract,
         .binary_multiply,
@@ -699,7 +699,7 @@ fn writeIndicesBlock(
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.?.base[inlined_idx - 1];
-        if (base.type.isReduce()) {
+        if (base.kind.isReduce()) {
             try writeSource(
                 allocator,
                 source,
@@ -722,8 +722,8 @@ fn writeIndicesBlock(
                 },
             );
         }
-        if (!base.type.isUnary()) {
-            if (base.type.isExpand()) {
+        if (!base.kind.isUnary()) {
+            if (base.kind.isExpand()) {
                 try writeSource(
                     allocator,
                     source,
@@ -775,7 +775,7 @@ fn writeAssignOutBlock(
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignInBlock(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
     } else {
-        if (!base_relevant.type.isUnary()) {
+        if (!base_relevant.kind.isUnary()) {
             try writeAssignInBaseBlock(allocator, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
         }
     }
@@ -808,7 +808,7 @@ fn writeAssignInBlock(
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
         try writeAssignInBlock(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
     } else {
-        if (!base_relevant.type.isUnary()) {
+        if (!base_relevant.kind.isUnary()) {
             try writeAssignInBaseBlock(allocator, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
         }
     }
@@ -823,7 +823,7 @@ fn writeAssignBlock(
     kernel_loop_idx: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
-    assert(!assign.base.type.isReduce());
+    assert(!assign.base.kind.isReduce());
 
     try writeSource(allocator, source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}] = ", .{
         assign.base.out.name(),
@@ -854,12 +854,12 @@ fn writeAssignBlock(
         if (inlined.in_root) |inlined_in| {
             try writeAssignInBlock(allocator, source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
         } else {
-            if (!assign.base.type.isUnary()) {
+            if (!assign.base.kind.isUnary()) {
                 try writeAssignInBaseBlock(allocator, source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
             }
         }
     } else {
-        if (!assign.base.type.isUnary()) {
+        if (!assign.base.kind.isUnary()) {
             try writeAssignInBaseBlock(allocator, source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
         }
     }
@@ -902,10 +902,10 @@ pub fn assignCompile(
 
     // $TODO Merge these cases in to 1 case. Should not really be that difficult
     if (assign.split) {
-        const a_size: u32 = if (assign.base.type.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-        const z_size: u32 = if (assign.base.type.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-        const y_size: u32 = if (assign.base.type.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-        const x_size: u32 = if (assign.base.type.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+        const a_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
+        const z_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
+        const y_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
+        const x_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
         const size: u32 = a_size * z_size * y_size * x_size;
         const size_with_repeats: u32 = size * assign.base.repeats;
 

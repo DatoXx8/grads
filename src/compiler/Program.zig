@@ -21,7 +21,7 @@ pub const Args = struct {
         defer arg_unique.deinit();
 
         try arg_unique.put(assign.base.out.id, assign.base.out.values_runtime);
-        if (!assign.base.type.isUnary()) {
+        if (!assign.base.kind.isUnary()) {
             try arg_unique.put(assign.base.in.id, assign.base.in.values_runtime);
         }
 
@@ -30,7 +30,7 @@ pub const Args = struct {
             for (0..inlined.inlined_num) |inlined_idx| {
                 try arg_unique.put(inlined.base[inlined_idx].out.id, //
                     inlined.base[inlined_idx].out.values_runtime);
-                if (!inlined.base[inlined_idx].type.isUnary()) {
+                if (!inlined.base[inlined_idx].kind.isUnary()) {
                     try arg_unique.put(inlined.base[inlined_idx].in.id, //
                         inlined.base[inlined_idx].in.values_runtime);
                 }

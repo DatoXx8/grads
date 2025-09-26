@@ -69,7 +69,7 @@ pub fn init(this: *anyopaque) Error!void {
         @branchHint(.cold);
         return Error.ContextInit;
     }
-    if (opencl.clGetDeviceIDs(platform, opencl.CL_DEVICE_TYPE_GPU, 1, &state.device, null) != 0) {
+    if (opencl.clGetDeviceIDs(platform, opencl.CL_DEVICE_kind_GPU, 1, &state.device, null) != 0) {
         @branchHint(.cold);
         return Error.ContextInit;
     }

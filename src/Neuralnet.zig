@@ -102,10 +102,10 @@ pub fn alloc(
             .residual => 0,
         };
         layer[layer_idx].activation = try Activation.alloc(runtime, allocator, switch (config[layer_idx]) {
-            .dense => |d| d.activation_type,
-            .convolution => |c| c.activation_type,
+            .dense => |d| d.activation_kind,
+            .convolution => |c| c.activation_kind,
             .reduce => .none,
-            .split => |s| s.activation_type,
+            .split => |s| s.activation_kind,
             .residual => .none,
         }, z_out, y_out, x_out);
         layer[layer_idx].tag = switch (config[layer_idx]) {
@@ -635,27 +635,27 @@ fn readArchV0(bytes: []const u8) Layer.Config {
     return switch (bytes[0]) {
         'd' => .{ .dense = .{
             .size_out = std.mem.bytesAsValue(u32, bytes[1..5]).*,
-            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[5..9]).*,
+            .activation_kind = std.mem.bytesAsValue(Activation.Kind, bytes[5..9]).*,
         } },
         'c' => .{ .convolution = .{
             .kernel_size = std.mem.bytesAsValue(u32, bytes[1..5]).*,
             .kernel_stride = std.mem.bytesAsValue(u32, bytes[5..9]).*,
             .kernel_padding = std.mem.bytesAsValue(u32, bytes[9..13]).*,
             .filters = std.mem.bytesAsValue(u32, bytes[13..17]).*,
-            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[17..21]).*,
+            .activation_kind = std.mem.bytesAsValue(Activation.Kind, bytes[17..21]).*,
         } },
         'r' => .{ .reduce = .{
             .kernel_size = std.mem.bytesAsValue(u32, bytes[1..5]).*,
             .kernel_stride = std.mem.bytesAsValue(u32, bytes[5..9]).*,
-            .t = std.mem.bytesAsValue(Reduce.Type, bytes[9..13]).*,
+            .t = std.mem.bytesAsValue(Reduce.Kind, bytes[9..13]).*,
         } },
         's' => .{ .split = .{
             .filters = std.mem.bytesAsValue(u32, bytes[1..5]).*,
-            .activation_type = std.mem.bytesAsValue(Activation.Type, bytes[5..9]).*,
+            .activation_kind = std.mem.bytesAsValue(Activation.Kind, bytes[5..9]).*,
         } },
         'R' => .{ .residual = .{
             .in_layer = std.mem.bytesAsValue(u32, bytes[1..5]).*,
-            .t = std.mem.bytesAsValue(Residual.Type, bytes[5..9]).*,
+            .t = std.mem.bytesAsValue(Residual.Kind, bytes[5..9]).*,
         } },
         else => unreachable,
     };

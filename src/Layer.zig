@@ -12,7 +12,7 @@ const Buffer = Tensor.Buffer;
 const todo = @import("util.zig").todo;
 
 pub const Activation = struct {
-    pub const Type = enum(u8) {
+    pub const Kind = enum(u8) {
         none,
         relu,
         sigmoid,
@@ -29,8 +29,8 @@ pub const Activation = struct {
         assert(relu_clipped_factor > 0);
     }
     temp: Tensor,
-    t: Activation.Type,
-    pub fn alloc(runtime: Runtime, allocator: Allocator, t: Activation.Type, z_in: u32, y_in: u32, x_in: u32) !Activation {
+    t: Activation.Kind,
+    pub fn alloc(runtime: Runtime, allocator: Allocator, t: Activation.Kind, z_in: u32, y_in: u32, x_in: u32) !Activation {
         return .{
             .t = t,
             .temp = switch (t) {
@@ -483,18 +483,18 @@ pub const Convolution = struct {
     }
 };
 pub const Reduce = struct {
-    pub const Type = enum(u8) { sum, avg, max, min };
+    pub const Kind = enum(u8) { sum, avg, max, min };
     z_in: u32,
     y_in: u32,
     x_in: u32,
     kernel_size: u32,
     kernel_stride: u32,
-    t: Reduce.Type,
+    t: Reduce.Kind,
     pub inline fn sizeNew(dim_size: u32, size: u32, stride: u32) u32 {
         assert(dim_size >= size);
         return @divFloor(dim_size - size, stride) + 1;
     }
-    pub fn init(z_in: u32, y_in: u32, x_in: u32, kernel_size: u32, kernel_stride: u32, t: Reduce.Type) Reduce {
+    pub fn init(z_in: u32, y_in: u32, x_in: u32, kernel_size: u32, kernel_stride: u32, t: Reduce.Kind) Reduce {
         assert(z_in > 0);
         assert(y_in > 0);
         assert(x_in > 0);
@@ -716,10 +716,10 @@ pub const Split = struct {
     }
 };
 pub const Residual = struct {
-    pub const Type = enum(u8) {
+    pub const Kind = enum(u8) {
         identity,
     };
-    t: Residual.Type,
+    t: Residual.Kind,
     in_layer: u32,
     pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
         assert(in.buffer.overlapsAll(out.buffer));
@@ -760,8 +760,8 @@ pub const Residual = struct {
 pub const Layer = @This();
 // $TODO Maybe just add values, values_g, activation and norming to the sub-structs
 //  This would make the layer just the `tag` field which could be nicer
-pub const Type = enum(u8) { dense, convolution, reduce, split, residual };
-tag: union(Type) {
+pub const Kind = enum(u8) { dense, convolution, reduce, split, residual };
+tag: union(Kind) {
     dense: Dense,
     convolution: Convolution,
     reduce: Reduce,
@@ -771,29 +771,29 @@ tag: union(Type) {
 values: Tensor,
 values_g: Tensor,
 activation: Activation,
-pub const Config = union(Type) {
+pub const Config = union(Kind) {
     dense: struct {
         size_out: u32,
-        activation_type: Activation.Type,
+        activation_kind: Activation.Kind,
     },
     convolution: struct {
         filters: u32,
         kernel_size: u32,
         kernel_stride: u32,
         kernel_padding: u32,
-        activation_type: Activation.Type,
+        activation_kind: Activation.Kind,
     },
     reduce: struct {
         kernel_size: u32,
         kernel_stride: u32,
-        t: Reduce.Type,
+        t: Reduce.Kind,
     },
     split: struct {
         filters: u32,
-        activation_type: Activation.Type,
+        activation_kind: Activation.Kind,
     },
     residual: struct {
         in_layer: u32,
-        t: Residual.Type,
+        t: Residual.Kind,
     },
 };

@@ -8,6 +8,7 @@ const Runtime = @import("compiler/runtimes/Runtime.zig");
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
+/// No real downside to making this a larger value except making codegen slightly slower
 pub const buffer_name_size: u32 = 8;
 /// Valid increment of the char values in the buffer name
 pub const buffer_name_char_options: u32 = 'z' - 'a' + 1;
@@ -200,7 +201,7 @@ pub const Buffer = struct {
 };
 pub const Op = struct {
     // $TODO Do I really need unary_subtract and unary_divide?
-    pub const Type = enum(u8) {
+    pub const Kind = enum(u8) {
         unary_add,
         unary_subtract,
         unary_multiply,
@@ -388,8 +389,47 @@ pub const Op = struct {
                 .reduce_min => true,
             };
         }
+        /// Not a great name. Essentially this returns wether the result is independant of what was in `this.out` before
+        pub fn overwrites(this: @This()) bool {
+            return switch (this) {
+                .unary_add => false,
+                .unary_subtract => false,
+                .unary_multiply => false,
+                .unary_divide => false,
+                .unary_exp => false,
+                .unary_log => false,
+                .unary_square => false,
+                .unary_sqrt => false,
+                .unary_reciprocal => false,
+                .unary_max => false,
+                .unary_min => false,
+                .unary_set => true,
+                .unary_random => true,
+                .unary_tanh => false,
+                .unary_absolute => false,
+                .unary_sign => false,
+                .binary_add => false,
+                .binary_subtract => false,
+                .binary_multiply => false,
+                .binary_divide => false,
+                .binary_max => false,
+                .binary_min => false,
+                .binary_set => true,
+                .expand_add => false,
+                .expand_subtract => false,
+                .expand_multiply => false,
+                .expand_divide => false,
+                .expand_max => false,
+                .expand_min => false,
+                .expand_set => true,
+                .reduce_sum => true,
+                .reduce_max => true,
+                .reduce_avg => true,
+                .reduce_min => true,
+            };
+        }
     };
-    type: Type,
+    kind: Kind,
     // When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
     //  here's hoping some NaN floating point magic doesn't ruin that
     u_var: f32,
@@ -397,23 +437,23 @@ pub const Op = struct {
     in: Buffer,
     // $TODO Make this sucker SIMD-able
     pub fn realize(this: @This()) void {
-        if (this.type.isUnary()) {
+        if (this.kind.isUnary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (this.type.isBinary()) {
+        } else if (this.kind.isBinary()) {
             assert(this.out.a_size == this.in.a_size);
             assert(this.out.z_size == this.in.z_size);
             assert(this.out.y_size == this.in.y_size);
             assert(this.out.x_size == this.in.x_size);
-        } else if (this.type.isExpand()) {
+        } else if (this.kind.isExpand()) {
             assert(this.in.a_size == 1);
             assert(this.in.z_size == 1);
             assert(this.in.y_size == 1);
             assert(this.in.x_size == 1);
-        } else if (this.type.isReduce()) {
+        } else if (this.kind.isReduce()) {
             assert(this.out.a_size == 1);
             assert(this.out.z_size == 1);
             assert(this.out.y_size == 1);
@@ -422,7 +462,7 @@ pub const Op = struct {
             unreachable;
         }
 
-        switch (this.type) {
+        switch (this.kind) {
             .reduce_sum => {
                 this.out.values[this.out.at(0, 0, 0, 0)] = 0;
             },
@@ -438,7 +478,7 @@ pub const Op = struct {
             else => {},
         }
 
-        var rng: ?std.Random.Pcg = if (this.type == .unary_random)
+        var rng: ?std.Random.Pcg = if (this.kind == .unary_random)
             std.Random.Pcg.init(@as(u32, @bitCast(this.u_var)))
         else
             null;
@@ -447,10 +487,10 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        const a_size: u32 = if (this.type.isReduce()) this.in.a_size else this.out.a_size;
-        const z_size: u32 = if (this.type.isReduce()) this.in.z_size else this.out.z_size;
-        const y_size: u32 = if (this.type.isReduce()) this.in.y_size else this.out.y_size;
-        const x_size: u32 = if (this.type.isReduce()) this.in.x_size else this.out.x_size;
+        const a_size: u32 = if (this.kind.isReduce()) this.in.a_size else this.out.a_size;
+        const z_size: u32 = if (this.kind.isReduce()) this.in.z_size else this.out.z_size;
+        const y_size: u32 = if (this.kind.isReduce()) this.in.y_size else this.out.y_size;
+        const x_size: u32 = if (this.kind.isReduce()) this.in.x_size else this.out.x_size;
         var a: u32 = 0;
         while (a < a_size) : (a += 1) {
             var z: u32 = 0;
@@ -459,7 +499,7 @@ pub const Op = struct {
                 while (y < y_size) : (y += 1) {
                     var x: u32 = 0;
                     while (x < x_size) : (x += 1) {
-                        switch (this.type) {
+                        switch (this.kind) {
                             .unary_add => {
                                 this.out.values[this.out.at(a, z, y, x)] += this.u_var;
                             },
@@ -524,7 +564,7 @@ pub const Op = struct {
                                 } else {
                                     this.out.values[this.out.at(a, z, y, x)] = 0;
                                 }
-                                // $fn signVector(comptime T: type, vector @Vector(4, T)) @Vector(4, i32) {
+                                // $fn signVector(comptime T: kind, vector @Vector(4, T)) @Vector(4, i32) {
                                 //     const zero = @splat(4, @as(T, 0));
                                 //     const one = @splat(4, @as(T, 1));
                                 //     const neg_one = @splat(4, @as(T, -1));
@@ -618,7 +658,7 @@ pub const Op = struct {
                 }
             }
         }
-        if (this.type == .reduce_avg) {
+        if (this.kind == .reduce_avg) {
             this.out.values[this.out.at(0, 0, 0, 0)] /=
                 @as(f32, //
                 @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
@@ -635,9 +675,9 @@ pub const Op = struct {
         } else {
             std.debug.print("{s}", .{" " ** (padding + offset)});
         }
-        if (this.type.isUnary()) {
+        if (this.kind.isUnary()) {
             std.debug.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
-                switch (this.type) {
+                switch (this.kind) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
                     .unary_multiply => "mul",
@@ -669,16 +709,16 @@ pub const Op = struct {
                 this.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.type.isBinary())
+            const op_kind: u8 = if (this.kind.isBinary())
                 'B'
             else
-                (if (this.type.isExpand())
+                (if (this.kind.isExpand())
                     'E'
                 else
                     'R');
             std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
-                switch (this.type) {
+                switch (this.kind) {
                     .binary_add => "add",
                     .binary_subtract => "sub",
                     .binary_multiply => "mul",
@@ -902,7 +942,7 @@ pub fn unaryAdd(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_add,
+        .kind = .unary_add,
         .u_var = u_var,
     });
 }
@@ -912,7 +952,7 @@ pub fn unarySubtract(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_subtract,
+        .kind = .unary_subtract,
         .u_var = u_var,
     });
 }
@@ -922,7 +962,7 @@ pub fn unaryMultiply(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_multiply,
+        .kind = .unary_multiply,
         .u_var = u_var,
     });
 }
@@ -932,7 +972,7 @@ pub fn unaryDivide(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_divide,
+        .kind = .unary_divide,
         .u_var = u_var,
     });
 }
@@ -940,7 +980,7 @@ pub fn unaryExp(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_exp,
+        .kind = .unary_exp,
         .u_var = 0,
     });
 }
@@ -948,7 +988,7 @@ pub fn unaryLog(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_log,
+        .kind = .unary_log,
         .u_var = 0,
     });
 }
@@ -956,7 +996,7 @@ pub fn unarySquare(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_square,
+        .kind = .unary_square,
         .u_var = 0,
     });
 }
@@ -964,7 +1004,7 @@ pub fn unarySqrt(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_sqrt,
+        .kind = .unary_sqrt,
         .u_var = 0,
     });
 }
@@ -972,7 +1012,7 @@ pub fn unaryReciprocal(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_reciprocal,
+        .kind = .unary_reciprocal,
         .u_var = 0,
     });
 }
@@ -982,7 +1022,7 @@ pub fn unaryMax(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_max,
+        .kind = .unary_max,
         .u_var = u_var,
     });
 }
@@ -992,7 +1032,7 @@ pub fn unaryMin(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_min,
+        .kind = .unary_min,
         .u_var = u_var,
     });
 }
@@ -1002,7 +1042,7 @@ pub fn unarySet(this: *@This(), u_var: f32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_set,
+        .kind = .unary_set,
         .u_var = u_var,
     });
 }
@@ -1013,7 +1053,7 @@ pub fn unaryRandom(this: *@This(), u_var: u32) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_random,
+        .kind = .unary_random,
         .u_var = @bitCast(u_var),
     });
 }
@@ -1021,7 +1061,7 @@ pub fn unaryTanh(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_tanh,
+        .kind = .unary_tanh,
         .u_var = 0,
     });
 }
@@ -1029,7 +1069,7 @@ pub fn unaryAbsolute(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_absolute,
+        .kind = .unary_absolute,
         .u_var = 0,
     });
 }
@@ -1038,7 +1078,7 @@ pub fn unarySign(this: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = this.buffer,
-        .type = .unary_sign,
+        .kind = .unary_sign,
         .u_var = 0,
     });
 }
@@ -1051,7 +1091,7 @@ pub fn binaryAdd(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_add,
+        .kind = .binary_add,
         .u_var = 0,
     });
 }
@@ -1064,7 +1104,7 @@ pub fn binarySubtract(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_subtract,
+        .kind = .binary_subtract,
         .u_var = 0,
     });
 }
@@ -1077,7 +1117,7 @@ pub fn binaryMultiply(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_multiply,
+        .kind = .binary_multiply,
         .u_var = 0,
     });
 }
@@ -1090,7 +1130,7 @@ pub fn binaryDivide(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_divide,
+        .kind = .binary_divide,
         .u_var = 0,
     });
 }
@@ -1103,7 +1143,7 @@ pub fn binaryMax(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_max,
+        .kind = .binary_max,
         .u_var = 0,
     });
 }
@@ -1116,7 +1156,7 @@ pub fn binaryMin(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_min,
+        .kind = .binary_min,
         .u_var = 0,
     });
 }
@@ -1129,7 +1169,7 @@ pub fn binarySet(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .binary_set,
+        .kind = .binary_set,
         .u_var = 0,
     });
 }
@@ -1142,7 +1182,7 @@ pub fn expandAdd(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_add,
+        .kind = .expand_add,
         .u_var = 0,
     });
 }
@@ -1155,7 +1195,7 @@ pub fn expandSubtract(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_subtract,
+        .kind = .expand_subtract,
         .u_var = 0,
     });
 }
@@ -1168,7 +1208,7 @@ pub fn expandMultiply(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_multiply,
+        .kind = .expand_multiply,
         .u_var = 0,
     });
 }
@@ -1181,7 +1221,7 @@ pub fn expandDivide(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_divide,
+        .kind = .expand_divide,
         .u_var = 0,
     });
 }
@@ -1194,7 +1234,7 @@ pub fn expandMax(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_max,
+        .kind = .expand_max,
         .u_var = 0,
     });
 }
@@ -1207,7 +1247,7 @@ pub fn expandMin(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_min,
+        .kind = .expand_min,
         .u_var = 0,
     });
 }
@@ -1220,7 +1260,7 @@ pub fn expandSet(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .expand_set,
+        .kind = .expand_set,
         .u_var = 0,
     });
 }
@@ -1233,7 +1273,7 @@ pub fn reduceSum(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .reduce_sum,
+        .kind = .reduce_sum,
         .u_var = 0,
     });
 }
@@ -1246,7 +1286,7 @@ pub fn reduceMax(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .reduce_max,
+        .kind = .reduce_max,
         .u_var = 0,
     });
 }
@@ -1259,7 +1299,7 @@ pub fn reduceMin(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .reduce_min,
+        .kind = .reduce_min,
         .u_var = 0,
     });
 }
@@ -1272,7 +1312,7 @@ pub fn reduceAvg(this: *@This(), source: *@This()) void {
     this.linearized.append(.{
         .out = this.buffer,
         .in = source.buffer,
-        .type = .reduce_avg,
+        .kind = .reduce_avg,
         .u_var = 0,
     });
 }

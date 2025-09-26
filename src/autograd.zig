@@ -33,11 +33,11 @@ const todo = @import("util.zig").todo;
 /// For unary ops `d_out` should be equal to `d_in`
 /// Assumes d_out is zeroed appropriatly and the values in `out` where the ones in the forward pass and weren't changed from then.
 /// Otherwise the gradients will be wrong.
-pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, out: Tensor, d_out: Tensor, in: Tensor, d_in: Tensor) !void {
-    if (op_type.isUnary()) {
+pub fn differentiateOp(allocator: Allocator, op_kind: Op.Kind, op_u_var: f32, out: Tensor, d_out: Tensor, in: Tensor, d_in: Tensor) !void {
+    if (op_kind.isUnary()) {
         assert(d_out.buffer.equal(d_in.buffer));
         assert(out.buffer.equal(in.buffer));
-    } else if (op_type.isBinary()) {
+    } else if (op_kind.isBinary()) {
         assert(d_out.buffer.id != d_in.buffer.id);
         assert(d_out.buffer.a_size == d_in.buffer.a_size);
         assert(d_out.buffer.z_size == d_in.buffer.z_size);
@@ -48,7 +48,7 @@ pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, ou
         assert(out.buffer.z_size == in.buffer.z_size);
         assert(out.buffer.y_size == in.buffer.y_size);
         assert(out.buffer.x_size == in.buffer.x_size);
-    } else if (op_type.isExpand()) {
+    } else if (op_kind.isExpand()) {
         assert(d_out.buffer.id != d_in.buffer.id);
         assert(d_out.buffer.a_size == 1);
         assert(d_out.buffer.z_size == 1);
@@ -59,7 +59,7 @@ pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, ou
         assert(out.buffer.z_size == 1);
         assert(out.buffer.y_size == 1);
         assert(out.buffer.x_size == 1);
-    } else if (op_type.isReduce()) {
+    } else if (op_kind.isReduce()) {
         assert(d_out.buffer.id != d_in.buffer.id);
         assert(d_in.buffer.a_size == 1);
         assert(d_in.buffer.z_size == 1);
@@ -78,14 +78,14 @@ pub fn differentiateOp(allocator: Allocator, op_type: Op.Type, op_u_var: f32, ou
     assert(out.buffer.id != d_out.buffer.id);
     assert(in.buffer.id != d_in.buffer.id);
 
-    if (op_type.isUnary() or op_type.isBinary() or op_type.isExpand() or op_type.isReduce()) {
+    if (op_kind.isUnary() or op_kind.isBinary() or op_kind.isExpand() or op_kind.isReduce()) {
         try d_out.linearized.capacityEnsure(allocator, d_in.linearized.op_num + 2);
     } else {
         unreachable;
     }
 
     // f'(x) = g'(x) / h'(f(x));
-    switch (op_type) {
+    switch (op_kind) {
         .unary_add, .unary_subtract => {},
         .unary_multiply => d_out.unaryDivide(op_u_var),
         .unary_divide => d_out.unaryMultiply(op_u_var),

@@ -40,9 +40,9 @@ pub fn main() !void {
         2,
         2,
         &[_]Layer.Config{
-            .{ .dense = .{ .size_out = 4, .activation_type = .none } },
-            // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation_type = .none } },
-            // .{ .split = .{ .filters = 2, .activation_type = .none } },
+            .{ .dense = .{ .size_out = 4, .activation_kind = .none } },
+            // .{ .convolution = .{ .filters = 2, .kernel_size = 4, .kernel_padding = 1, .kernel_stride = 2, .activation_kind = .none } },
+            // .{ .split = .{ .filters = 2, .activation_kind = .none } },
         },
         20,
         4,

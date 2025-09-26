@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 
 const grads = @import("grads");
 const Tensor = grads.Tensor;
-const OpType = grads.Op.Type;
+const OpKind = grads.Op.Kind;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
 
@@ -81,12 +81,12 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
         }
     }
 
-    var op_type: [op_num]OpType = undefined;
+    var op_kind: [op_num]OpKind = undefined;
     var op_out: [op_num]u32 = undefined;
     var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
-        op_type[op_idx] = pcg.random().enumValueWithIndex(OpType, u32);
+        op_kind[op_idx] = pcg.random().enumValueWithIndex(OpKind, u32);
 
         if (op_idx == 0) {
             op_out[0] = pcg.random().uintLessThan(u32, tensor_num);
@@ -141,14 +141,14 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
             continue;
         }
 
-        if (op_type[op_idx].isReduce()) {
+        if (op_kind[op_idx].isReduce()) {
             tensor1[tensor_out].moveResize(1, 1, 1, 1);
             tensor2[tensor_out].moveResize(1, 1, 1, 1);
         } else {
             tensor1[tensor_out].moveResize(a_size, z_size, y_size, x_size);
             tensor2[tensor_out].moveResize(a_size, z_size, y_size, x_size);
         }
-        if (op_type[op_idx].isExpand()) {
+        if (op_kind[op_idx].isExpand()) {
             tensor1[tensor_in].moveResize(1, 1, 1, 1);
             tensor2[tensor_in].moveResize(1, 1, 1, 1);
         } else {
@@ -161,7 +161,7 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
         tensor1[tensor_in].moveOffset(a_off, z_off, y_off, x_off);
         tensor2[tensor_in].moveOffset(a_off, z_off, y_off, x_off);
 
-        switch (op_type[op_idx]) {
+        switch (op_kind[op_idx]) {
             .unary_add => {
                 tensor1[tensor_out].unaryAdd(u_var);
                 tensor2[tensor_out].unaryAdd(u_var);

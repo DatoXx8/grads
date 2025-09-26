@@ -8,7 +8,7 @@ const Allocator = std.mem.Allocator;
 const grads = @import("grads");
 const Tensor = grads.Tensor;
 const Linearized = grads.Linearized;
-const OpType = grads.Op.Type;
+const OpKind = grads.Op.Kind;
 const Runtime = grads.Runtime;
 
 pub const a_size_max: u32 = 7;
@@ -32,12 +32,12 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
 
     var pcg = Pcg.init(rng);
 
-    var op_type: [op_num]OpType = undefined;
+    var op_kind: [op_num]OpKind = undefined;
     var op_out: [op_num]u32 = undefined;
     var op_in: [op_num]u32 = undefined;
 
     for (0..op_num) |op_idx| {
-        op_type[op_idx] = pcg.random().enumValueWithIndex(OpType, u32);
+        op_kind[op_idx] = pcg.random().enumValueWithIndex(OpKind, u32);
 
         if (op_idx == 0) {
             op_out[0] = pcg.random().uintLessThan(u32, tensor_num);
@@ -133,12 +133,12 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
                                 tensor[tensor_in].linearized.op_num);
                             try tensor[tensor_in].linearized.capacityEnsure(allocator, 2);
 
-                            if (op_type[op_idx + loop_idx].isReduce()) {
+                            if (op_kind[op_idx + loop_idx].isReduce()) {
                                 tensor[tensor_out].moveResize(1, 1, 1, 1);
                             } else {
                                 tensor[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                             }
-                            if (op_type[op_idx + loop_idx].isExpand()) {
+                            if (op_kind[op_idx + loop_idx].isExpand()) {
                                 tensor[tensor_in].moveResize(1, 1, 1, 1);
                             } else {
                                 tensor[tensor_in].moveResize(a_size, z_size, y_size, x_size);
@@ -147,7 +147,7 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
                             tensor[tensor_out].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
                             tensor[tensor_in].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
 
-                            switch (op_type[op_idx + loop_idx]) {
+                            switch (op_kind[op_idx + loop_idx]) {
                                 .unary_add => {
                                     tensor[tensor_out].unaryAdd(u_var);
                                 },

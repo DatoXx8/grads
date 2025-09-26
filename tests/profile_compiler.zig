@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 
 const grads = @import("grads");
 const Tensor = grads.Tensor;
-const OpType = grads.Op.Type;
+const OpKind = grads.Op.Kind;
 const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;

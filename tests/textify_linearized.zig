@@ -9,7 +9,7 @@ const Tensor = grads.Tensor;
 const Buffer = Tensor.Buffer;
 const Op = Tensor.Op;
 const Linearized = grads.Linearized;
-const OpType = grads.Op.Type;
+const OpKind = grads.Op.Kind;
 const buffer_name_size = grads.Tensor.buffer_name_size;
 
 // $FIXME This can't handle reshapes right now, only resizes
@@ -36,7 +36,7 @@ pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z
             unique_buffer_ids[unique_buffer_num] = linearized.op[op_idx].out.id;
             unique_buffer_num += 1;
         }
-        if (!linearized.op[op_idx].type.isUnary()) {
+        if (!linearized.op[op_idx].kind.isUnary()) {
             found = false;
             op_idx_search = 0;
             while (op_idx_search < unique_buffer_num) : (op_idx_search += 1) {
@@ -73,7 +73,7 @@ pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z
             name_out, out.aOffset(), out.zOffset(), out.yOffset(), out.xOffset(),
         });
         text_idx += @intCast(written.len);
-        if (!op.type.isUnary()) {
+        if (!op.kind.isUnary()) {
             written = try std.fmt.bufPrint(text[text_idx..], "{s}.moveResize({}, {}, {}, {});\n" ++
                 "{s}.moveOffset({}, {}, {}, {});\n", .{
                 name_in, in.a_size,    in.z_size,    in.y_size,    in.x_size, //
@@ -82,7 +82,7 @@ pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z
             text_idx += @intCast(written.len);
         }
 
-        written = try switch (op.type) {
+        written = try switch (op.kind) {
             .unary_add => std.fmt.bufPrint(text[text_idx..], "{s}.unaryAdd({d});\n", .{ name_out, op.u_var }),
             .unary_subtract => std.fmt.bufPrint(text[text_idx..], "{s}.unarySubtract({d});\n", .{ name_out, op.u_var }),
             .unary_multiply => std.fmt.bufPrint(text[text_idx..], "{s}.unaryMultiply({d});\n", .{ name_out, op.u_var }),
