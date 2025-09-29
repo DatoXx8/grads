@@ -26,7 +26,7 @@ fn mergeOpPossible(left: Base, right: Base) bool {
     if (!left.out.equal(right.out) or !left.in.equal(right.in)) return false;
 
     if (right.kind.isReduce()) return false;
-    if (right.overwrites()) return true;
+    if (right.kind.overwrites()) return true;
 
     // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
     return switch (left.kind) {
@@ -98,7 +98,7 @@ fn mergeOpPossible(left: Base, right: Base) bool {
 fn mergeOpCombine(left: Base, right: *Base) bool {
     assert(mergeOpPossible(left, right.*));
 
-    if (right.overwrites()) return false;
+    if (right.kind.overwrites()) return false;
 
     const delete_both: bool = true;
     const delete_first: bool = false;
@@ -314,7 +314,7 @@ fn inlineOpStep(allocator: Allocator, assign: []Assign, assign_num: u32, start_i
     assign_idx = start_idx + 1;
     while (assign_idx < assign_num) : (assign_idx += 1) {
         if (assign[start_idx].base.out.equal(assign[assign_idx].base.out)) {
-            if (assign[assign_idx].base.overwrites()) {
+            if (assign[assign_idx].base.kind.overwrites()) {
                 return written;
             }
 
