@@ -311,6 +311,7 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
 pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var assign_idx: u32 = 0;
     outer: while (assign_idx < pir.assign_num - 1) : (assign_idx += 1) {
+        var inlineable: bool = false;
         var out_found: bool = false;
         var in_found: bool = false;
 
@@ -352,12 +353,19 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                 break :blk false;
             };
             if (overlap_out_out or overlap_out_in or overlap_in_out or repeat_different or overlap_out_x_inlined) {
+                inlineable = false;
                 continue :outer;
             }
             if (pir.assign[assign_idx].base.out.equal(pir.assign[search_idx].base.out)) {
+                inlineable = true;
+                break;
+            }
+            if (pir.assign[assign_idx].base.out.equal(pir.assign[search_idx].base.in)) {
+                inlineable = true;
                 out_found = true;
             }
             if (pir.assign[assign_idx].base.in.equal(pir.assign[search_idx].base.out) and !pir.assign[assign_idx].base.kind.isUnary()) {
+                inlineable = true;
                 in_found = true;
             }
             if (out_found and in_found) {
@@ -365,7 +373,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
             }
         }
 
-        if (out_found or in_found) {
+        if (inlineable) {
             defer optimization_count.* += 1;
             if (optimization_count.* == optimization.*.len) {
                 optimization.* = try allocator.realloc(optimization.*, optimization.*.len * 2);
@@ -381,7 +389,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
 pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
     assert(left_idx + 1 < pir.assign_num);
 
-    var search_idx: u32 = 0;
+    var search_idx: u32 = left_idx + 1;
     while (search_idx < pir.assign_num) : (search_idx += 1) {
         if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.out)) {
             if (pir.assign[search_idx].base.kind.overwrites()) {
@@ -403,15 +411,26 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
 
             if (pir.assign[search_idx].inlined) |*inlined| {
-                assert(inlined.out_root == null);
-                inlined.* = .{
-                    .inlined_num = inlined_num_new,
-                    .base = try allocator.realloc(inlined.base, inlined_num_new),
-                    .out = try allocator.realloc(inlined.out, inlined_num_new),
-                    .in = try allocator.realloc(inlined.in, inlined_num_new),
-                    .in_root = inlined.in_root,
-                    .out_root = inlined_num_new - 1,
-                };
+                if (inlined.out_root) |out_root_old_val| {
+                    inlined.* = .{
+                        .inlined_num = inlined_num_new,
+                        .base = try allocator.realloc(inlined.base, inlined_num_new),
+                        .out = try allocator.realloc(inlined.out, inlined_num_new),
+                        .in = try allocator.realloc(inlined.in, inlined_num_new),
+                        .in_root = inlined.in_root,
+                        .out_root = inlined.out_root,
+                    };
+                    inlined.*.out[out_root_old_val] = inlined_num_new - 1;
+                } else {
+                    inlined.* = .{
+                        .inlined_num = inlined_num_new,
+                        .base = try allocator.realloc(inlined.base, inlined_num_new),
+                        .out = try allocator.realloc(inlined.out, inlined_num_new),
+                        .in = try allocator.realloc(inlined.in, inlined_num_new),
+                        .in_root = inlined.in_root,
+                        .out_root = inlined_num_new - 1,
+                    };
+                }
             } else {
                 assert(inlined_num_old == 0);
                 pir.assign[search_idx].inlined = .{
@@ -441,7 +460,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
             pir.assign[search_idx].inlined.?.inlined_num = inlined_num_new;
             break;
-        } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.out)) {
+        } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.in)) {
             if (!pir.assign[left_idx].base.out.intermediary) {
                 // This should never be the case I think
                 break;
@@ -540,7 +559,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                         }
                     }
                 }
-                pir.assign[search_idx].inlined.?.inlined_num = inlined_num_new;
+                inlined.inlined_num = inlined_num_new;
             }
         }
     }
@@ -571,6 +590,26 @@ fn dimInfoMergePossible(left: Assign, right: Assign) bool {
     for (0..base_num) |base_idx| {
         const left_base: Base = if (base_idx == 0) left.base else left.inlined.?.base[base_idx - 1];
         const right_base: Base = if (base_idx == 0) right.base else right.inlined.?.base[base_idx - 1];
+
+        if (base_idx != 0) {
+            assert(left.inlined != null);
+            assert(right.inlined != null);
+            if (left.inlined.?.out[base_idx - 1] == right.inlined.?.out[base_idx - 1]) {
+                if (left.inlined.?.out[base_idx - 1] != null) {
+                    continue;
+                }
+            } else {
+                return false;
+            }
+            if (left.inlined.?.in[base_idx - 1] == right.inlined.?.in[base_idx - 1]) {
+                if (left.inlined.?.in[base_idx - 1] != null) {
+                    continue;
+                }
+            } else {
+                return false;
+            }
+        }
+
         if (!left_base.equalNoOffset(right_base)) {
             return false;
         }
@@ -851,8 +890,8 @@ fn dimInfoMerge(left: *Assign, right: Assign) void {
                 }
             }
         }
+        left_base.repeats += right_base.repeats;
     }
-    left.base.repeats += right.base.repeats;
 }
 fn dimInfoOverlap(left: Buffer, left_dim: DimInfo, left_repeats: u32, right: Buffer, right_dim: DimInfo, right_repeats: u32) bool {
     var left_idx: u32 = 0;
