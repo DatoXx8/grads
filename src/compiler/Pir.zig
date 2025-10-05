@@ -9,6 +9,8 @@ const Buffer = Tensor.Buffer;
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 
+const VGpu = @import("VGpu.zig");
+
 pub const DimInfo = struct {
     pub const value_none: u32 = std.math.maxInt(u32);
     pub const wait_default: u32 = 1;
@@ -44,6 +46,15 @@ pub const DimInfo = struct {
             .y_wait = value_none,
             .x_wait = value_none,
         };
+    }
+    pub fn equal(this: DimInfo, target: DimInfo) bool {
+        return this.off == target.off and
+            this.a_stride == target.a_stride and this.z_stride == target.z_stride and
+            this.y_stride == target.y_stride and this.x_stride == target.x_stride and
+            this.a_wait == target.a_wait and this.z_wait == target.z_wait and
+            this.y_wait == target.y_wait and this.x_wait == target.x_wait and
+            this.a_reset == target.a_reset and this.z_reset == target.z_reset and
+            this.y_reset == target.y_reset and this.x_reset == target.x_reset;
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
@@ -271,7 +282,7 @@ assign_num: u32,
 pub fn alloc(
     allocator: Allocator,
     linearized: Linearized,
-    optimization: Optimization,
+    depth_max: u32,
     size_global: u32,
     size_local: u32,
 ) !Pir {
@@ -305,10 +316,50 @@ pub fn alloc(
         .assign = assign,
         .assign_num = @intCast(assign.len),
     };
-    try pir.optimize(allocator, optimization, size_global, size_local);
+
+    const vgpu: VGpu = .{ // $FIXME This is just a dummy.
+        .detail = .simple,
+        .features = .{
+            .simd_width_bytes = 128,
+            .cache_l1_kb = 32,
+            .cache_l2_kb = 512,
+        },
+    };
+    try pir.optimize(allocator, depth_max, vgpu, size_global, size_local);
     pir.removeDefault();
 
     return pir;
+}
+// $TODO This should really not involve any allocator calls when switching to Pool based impl
+pub fn copy(this: Pir, allocator: Allocator) !Pir {
+    var result: Pir = .{
+        .assign = try allocator.alloc(Assign, this.assign.len),
+        .assign_num = this.assign_num,
+    };
+
+    for (0..this.assign_num) |assign_idx| {
+        result.assign[assign_idx] = .{
+            .base = this.assign[assign_idx].base,
+            .inlined = if (this.assign[assign_idx].inlined) |inlined|
+                .{
+                    .in_root = inlined.in_root,
+                    .out_root = inlined.out_root,
+                    .inlined_num = inlined.inlined_num,
+                    .base = try allocator.dupe(Base, inlined.base), // $FIXME If this fails memory leaks
+                    .out = try allocator.dupe(?u32, inlined.out), // $FIXME If this fails memory leaks
+                    .in = try allocator.dupe(?u32, inlined.in), // $FIXME If this fails memory leaks
+                }
+            else
+                null,
+            .split = this.assign[assign_idx].split,
+            .simd = null,
+            .block = null,
+        };
+        assert(this.assign[assign_idx].simd == null);
+        assert(this.assign[assign_idx].block == null);
+    }
+
+    return result;
 }
 pub fn free(this: *@This(), allocator: Allocator) void {
     for (0..this.assign_num) |assign_idx| {
@@ -375,27 +426,101 @@ fn removeDefault(this: *@This()) void {
         }
     }
 }
-fn optimize(this: *@This(), allocator: Allocator, optimization: Optimization, size_global: u32, size_local: u32) !void {
-    if (optimization == .O0) {
-        return;
+/// Simple greedy search over the field of possible optimizations
+fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
+    const optimization_len_initial: u32 = 128; // Pretty arbitrary
+    var optimization_count: u32 = 0;
+    var optimization: []Optimization = try allocator.alloc(Optimization, optimization_len_initial);
+    defer allocator.free(optimization);
+
+    // $TODO This is so unoptimized and horrible it might worthy of a fix me tag
+
+    var copying: i128 = 0;
+    var gathering: i128 = 0;
+    var optimizating: i128 = 0;
+
+    var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
+    var depth_idx: u32 = 0;
+    while (depth_idx < depth_max) : (depth_idx += 1) {
+        optimization_count = 0;
+        const now1: i128 = std.time.nanoTimestamp();
+        try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
+        try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*); // $FIXME This doesn't seem to do anything
+        try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
+        try opt.splitKernelGather(allocator, &optimization, &optimization_count, this.*, size_global, size_local);
+        const now2: i128 = std.time.nanoTimestamp();
+        gathering += now2 - now1;
+
+        if (optimization_count == 0) {
+            break;
+        }
+
+        var cost_next_best: u64 = cost_curr;
+        var cost_next_best_idx: u32 = 0; // Easy filter with cost_next_best == cost_curr
+
+        var arena: std.heap.ArenaAllocator = .init(allocator);
+        defer arena.deinit();
+        const a: Allocator = arena.allocator();
+
+        var optimization_idx: u32 = 0;
+        while (optimization_idx < optimization_count) : (optimization_idx += 1) {
+            defer _ = arena.reset(.retain_capacity);
+
+            const now3: i128 = std.time.nanoTimestamp();
+            var pir_temp: Pir = try this.copy(a);
+            const now4: i128 = std.time.nanoTimestamp();
+            copying += now4 - now3;
+
+            const now5: i128 = std.time.nanoTimestamp();
+            switch (optimization[optimization_idx]) {
+                .parallelize => |parallelize| {
+                    try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
+                },
+                .inlined => |inlined| {
+                    try opt.inlineOp(a, &pir_temp, inlined.idx);
+                },
+                .split => |split| {
+                    opt.splitKernel(&pir_temp, split.idx);
+                },
+                .fuse => |fuse| {
+                    opt.mergeOp(&pir_temp, fuse.left_idx, fuse.right_idx);
+                },
+            }
+            const now6: i128 = std.time.nanoTimestamp();
+            optimizating += now6 - now5;
+            const cost_next: u64 = vgpu.costEstimate(pir_temp, size_global, size_local);
+            if (cost_next < cost_next_best) {
+                cost_next_best = cost_next;
+                cost_next_best_idx = optimization_idx;
+            }
+        }
+
+        if (cost_next_best == cost_curr) {
+            break; // No better optimization found
+        } else {
+            std.debug.print("{}\n", .{optimization[cost_next_best_idx]});
+            switch (optimization[cost_next_best_idx]) {
+                .parallelize => |parallelize| {
+                    try opt.parallelize(allocator, this, parallelize.left_idx, parallelize.right_idx);
+                },
+                .inlined => |inlined| {
+                    try opt.inlineOp(allocator, this, inlined.idx);
+                },
+                .split => |split| {
+                    opt.splitKernel(this, split.idx);
+                },
+                .fuse => |fuse| {
+                    opt.mergeOp(this, fuse.left_idx, fuse.right_idx);
+                },
+            }
+            cost_curr = cost_next_best;
+        }
     }
 
-    try opt.mergeOp(allocator, this); // Done first to make the other steps less costly
-    try opt.inlineOp(allocator, this);
-    try opt.parallelize(allocator, this);
-    opt.splitKernel(this, size_global, size_local);
-
-    if (optimization == .O1) {
-        return;
-    }
-
-    try opt.simd(allocator, this);
-
-    if (optimization == .O2) {
-        return;
-    }
-
-    try opt.memoryLayout(allocator, this);
+    std.debug.print("\n", .{});
+    std.debug.print("Copying   : {d:12}ns\n", .{copying});
+    std.debug.print("Gathering : {d:12}ns\n", .{gathering});
+    std.debug.print("Optimizing: {d:12}ns\n", .{optimizating});
 }
 pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {

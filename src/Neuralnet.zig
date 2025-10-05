@@ -3,7 +3,6 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const DefaultPrng = std.Random.DefaultPrng;
 
-const Optimization = @import("compiler/optimize.zig").Optimization;
 const Layer = @import("Layer.zig");
 const Activation = Layer.Activation;
 const Dense = Layer.Dense;
@@ -241,13 +240,13 @@ pub fn alloc(
             .residual => {},
         }
     }
-    var forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, .O3, //
+    var forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, 1000, //
         size_global, size_local);
     errdefer forward_compiled.free(runtime, allocator);
-    var backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, .O3, //
+    var backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, 1000, //
         size_global, size_local);
     errdefer backward_compiled.free(runtime, allocator);
-    const learn_compiled: Program = try Program.alloc(runtime, allocator, learn_cpu, .O3, //
+    const learn_compiled: Program = try Program.alloc(runtime, allocator, learn_cpu, 1000, //
         size_global, size_local);
 
     return .{

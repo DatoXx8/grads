@@ -104,7 +104,6 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
     }
     assert(tensor1.out_idx == tensor2.out_idx);
 
-    // tensor1[tensor_out].linearized.print(4, 0, null);
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
         // Not using realize here because that clears the linearized
@@ -122,12 +121,10 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
         try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
     }
 
-    inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
-        const name: []const u8 = optimization.name;
-        const value: Optimization = @enumFromInt(optimization.value);
-
+    const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };
+    for (depth_max) |depth| {
         var program: Program = try Program.alloc(runtime, allocator, tensor1.tensor[tensor1.out_idx].linearized, //
-            value, size_global, size_local);
+            depth, size_global, size_local);
         defer program.free(runtime, allocator);
 
         var time_program: [iterations]i128 = undefined;
@@ -136,7 +133,9 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
             try program.run(runtime);
             time_program[interation_idx] = std.time.nanoTimestamp() - time_start;
         }
-        analyseTimes(time_program, name);
+        var buf: [512]u8 = @splat(0);
+        const written: []const u8 = try std.fmt.bufPrint(&buf, "d={d}", .{depth});
+        analyseTimes(time_program, written);
     }
 }
 

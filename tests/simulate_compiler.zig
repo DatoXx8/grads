@@ -56,7 +56,7 @@ fn simulateCompiler(
     allocator: Allocator,
     op_included: [op_num]bool,
     rng: u64,
-    optimization: Optimization,
+    depth_max: u32,
 ) !void {
     var pcg = Pcg.init(rng);
 
@@ -84,8 +84,9 @@ fn simulateCompiler(
         try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
     }
 
+    tensor1.tensor[tensor1.out_idx].linearized.print(4, 0, null);
     var program: Program = try Program.alloc(runtime, allocator, //
-        tensor1.tensor[tensor1.out_idx].linearized, optimization, size_global, size_local);
+        tensor1.tensor[tensor1.out_idx].linearized, depth_max, size_global, size_local);
     defer program.free(runtime, allocator);
 
     try program.run(runtime);
@@ -113,11 +114,12 @@ fn simulateCompiler(
     }
 }
 
+// $TODO Also minify the depth
 fn minifyCompiler(
     runtime: Runtime,
     allocator: Allocator,
     rng: u64,
-    optimization: Optimization,
+    depth_max: u32,
     err: anytype,
 ) !void {
     assert(tensor_num > 1);
@@ -126,7 +128,7 @@ fn minifyCompiler(
     for (0..op_num) |op_idx| {
         var failed: bool = false;
         op_included[op_idx] = false;
-        simulateCompiler(runtime, allocator, op_included, rng, optimization) catch {
+        simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch {
             failed = true;
         };
         if (!failed) {
@@ -135,7 +137,7 @@ fn minifyCompiler(
     }
     std.debug.print("\n\nMinimal: {any}\n", .{op_included});
     var failed: bool = false;
-    simulateCompiler(runtime, allocator, op_included, rng, optimization) catch {
+    simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch {
         failed = true;
     };
     if (!failed) {
@@ -155,7 +157,7 @@ pub fn main() !void {
     var rng_saved: ?u64 = null;
     var loop_infinite: bool = false;
     var loop_count: u64 = 1;
-    var opt_saved: ?Optimization = null;
+    var opt_saved: ?u32 = null;
     // Skip the executable call
     _ = args.next();
     while (args.next()) |arg| {
@@ -173,30 +175,14 @@ pub fn main() !void {
         } else if (std.mem.startsWith(u8, arg, "opt=")) {
             const offset = "opt="[0..].len;
             const parse: []const u8 = arg[offset..];
-            opt_saved = std.meta.stringToEnum(Optimization, parse);
+            opt_saved = std.fmt.parseInt(u32, arg[offset..], 10) catch null;
 
             if (opt_saved == null) {
-                std.debug.print("Found unrecognized optimization {s}, expected opt=[", .{parse});
-                inline for (@typeInfo(Optimization).@"enum".fields, 0..) |optimization, optimization_idx| {
-                    if (optimization_idx == 0) {
-                        std.debug.print("{s} ", .{optimization.name});
-                    } else {
-                        std.debug.print("| {s} ", .{optimization.name});
-                    }
-                }
-                std.debug.print("]\n", .{});
+                std.debug.print("Found unrecognized optimization {s}, expected opt=[number]\n", .{parse});
                 @panic("See above error message");
             }
         } else {
-            std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[", .{arg});
-            inline for (@typeInfo(Optimization).@"enum".fields, 0..) |optimization, optimization_idx| {
-                if (optimization_idx == 0) {
-                    std.debug.print("{s} ", .{optimization.name});
-                } else {
-                    std.debug.print("| {s} ", .{optimization.name});
-                }
-            }
-            std.log.err("]\n", .{});
+            std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[number]\n", .{arg});
             @panic("See above error message");
         }
     }
@@ -211,6 +197,8 @@ pub fn main() !void {
     try runtime.init();
     defer runtime.deinit();
 
+    const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };
+
     if (loop_infinite) {
         var loop_idx: u64 = 0;
         while (true) {
@@ -219,15 +207,13 @@ pub fn main() !void {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{s} ", .{@tagName(opt)});
+                std.debug.print("{d} ", .{opt});
             } else {
-                inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
-                    const name: []const u8 = optimization.name;
-                    const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, value) catch |err| {
-                        try minifyCompiler(runtime, allocator, rng +% loop_idx, value, err);
+                for (depth_max) |depth| {
+                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, depth) catch |err| {
+                        try minifyCompiler(runtime, allocator, rng +% loop_idx, depth, err);
                     };
-                    std.debug.print("{s} ", .{name});
+                    std.debug.print("{d} ", .{depth});
                 }
             }
             loop_idx += 1;
@@ -240,15 +226,13 @@ pub fn main() !void {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{s} ", .{@tagName(opt)});
+                std.debug.print("{d} ", .{opt});
             } else {
-                inline for (@typeInfo(Optimization).@"enum".fields) |optimization| {
-                    const name: []const u8 = optimization.name;
-                    const value: Optimization = @enumFromInt(optimization.value);
-                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, value) catch |err| {
-                        try minifyCompiler(runtime, allocator, rng +% loop_idx, value, err);
+                for (depth_max) |depth| {
+                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, depth) catch |err| {
+                        try minifyCompiler(runtime, allocator, rng +% loop_idx, depth, err);
                     };
-                    std.debug.print("{s} ", .{name});
+                    std.debug.print("{d} ", .{depth});
                 }
             }
             std.debug.print("passed!\n", .{});
