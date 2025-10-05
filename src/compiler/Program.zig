@@ -121,7 +121,6 @@ pub fn alloc(
         @branchHint(.likely);
         var pir: Pir = try Pir.alloc(allocator, linearized, depth_max, size_global, size_local);
         defer pir.free(allocator);
-        pir.print(4, 0, null);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
@@ -150,7 +149,6 @@ pub fn alloc(
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
 
-        const now: i128 = std.time.nanoTimestamp();
         for (0..pir.assign_num) |kernel_idx| {
             @memset(&kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
@@ -158,10 +156,6 @@ pub fn alloc(
             kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
                 kernel_name[0..kernel_name_len], kernel[kernel_idx].args);
         }
-        const now2: i128 = std.time.nanoTimestamp();
-        std.debug.print("Compiling : {d:12}ns\n", .{now2 - now});
-
-        std.debug.print("{s}\n", .{source});
 
         return .{
             .kernel = kernel,

@@ -435,21 +435,14 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
 
     // $TODO This is so unoptimized and horrible it might worthy of a fix me tag
 
-    var copying: i128 = 0;
-    var gathering: i128 = 0;
-    var optimizating: i128 = 0;
-
     var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
         optimization_count = 0;
-        const now1: i128 = std.time.nanoTimestamp();
         try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
         try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*); // $FIXME This doesn't seem to do anything
         try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
         try opt.splitKernelGather(allocator, &optimization, &optimization_count, this.*, size_global, size_local);
-        const now2: i128 = std.time.nanoTimestamp();
-        gathering += now2 - now1;
 
         if (optimization_count == 0) {
             break;
@@ -466,12 +459,8 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         while (optimization_idx < optimization_count) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
-            const now3: i128 = std.time.nanoTimestamp();
             var pir_temp: Pir = try this.copy(a);
-            const now4: i128 = std.time.nanoTimestamp();
-            copying += now4 - now3;
 
-            const now5: i128 = std.time.nanoTimestamp();
             switch (optimization[optimization_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
@@ -486,8 +475,6 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
                     opt.mergeOp(&pir_temp, fuse.left_idx, fuse.right_idx);
                 },
             }
-            const now6: i128 = std.time.nanoTimestamp();
-            optimizating += now6 - now5;
             const cost_next: u64 = vgpu.costEstimate(pir_temp, size_global, size_local);
             if (cost_next < cost_next_best) {
                 cost_next_best = cost_next;
@@ -498,7 +485,6 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         if (cost_next_best == cost_curr) {
             break; // No better optimization found
         } else {
-            std.debug.print("{}\n", .{optimization[cost_next_best_idx]});
             switch (optimization[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(allocator, this, parallelize.left_idx, parallelize.right_idx);
@@ -516,11 +502,6 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
             cost_curr = cost_next_best;
         }
     }
-
-    std.debug.print("\n", .{});
-    std.debug.print("Copying   : {d:12}ns\n", .{copying});
-    std.debug.print("Gathering : {d:12}ns\n", .{gathering});
-    std.debug.print("Optimizing: {d:12}ns\n", .{optimizating});
 }
 pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {

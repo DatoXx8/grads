@@ -84,7 +84,6 @@ fn simulateCompiler(
         try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
     }
 
-    tensor1.tensor[tensor1.out_idx].linearized.print(4, 0, null);
     var program: Program = try Program.alloc(runtime, allocator, //
         tensor1.tensor[tensor1.out_idx].linearized, depth_max, size_global, size_local);
     defer program.free(runtime, allocator);
