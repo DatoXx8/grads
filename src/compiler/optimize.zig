@@ -581,7 +581,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
     pir.assign_num = assign_num_new;
 }
 fn dimInfoMergePossible(left: Assign, right: Assign) bool {
-    if ((if (left.inlined) |i| i.inlined_num else 0) != (if (left.inlined) |i| i.inlined_num else 0)) {
+    if ((if (left.inlined) |i| i.inlined_num else 0) != (if (right.inlined) |i| i.inlined_num else 0)) {
         return false;
     }
 
