@@ -458,7 +458,6 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                 }
             }
 
-            pir.assign[search_idx].inlined.?.inlined_num = inlined_num_new;
             break;
         } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.in)) {
             if (!pir.assign[left_idx].base.out.intermediary) {
@@ -481,6 +480,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
 
             if (pir.assign[search_idx].inlined) |*inlined| {
+                // Potential $FIXME This might need the same treatment as the out inlined assert above
                 assert(inlined.in_root == null);
                 inlined.* = .{
                     .inlined_num = inlined_num_new,
@@ -544,6 +544,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                                 inlined.out[inlined_num_old + inlined_left_idx] = if (inlined_left.out[inlined_left_idx]) |out| out + inlined_num_old else null;
                                 inlined.base[inlined_num_old + inlined_left_idx] = inlined_left.base[inlined_left_idx];
                             }
+                            inlined.inlined_num = inlined_num_new;
                         }
                     } else if (pir.assign[left_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null) {
                         inlined.in[inlined_idx] = inlined_num_new - 1;
@@ -556,10 +557,10 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                                 inlined.out[inlined_num_old + inlined_left_idx] = if (inlined_left.out[inlined_left_idx]) |out| out + inlined_num_old else null;
                                 inlined.base[inlined_num_old + inlined_left_idx] = inlined_left.base[inlined_left_idx];
                             }
+                            inlined.inlined_num = inlined_num_new;
                         }
                     }
                 }
-                inlined.inlined_num = inlined_num_new;
             }
         }
     }
