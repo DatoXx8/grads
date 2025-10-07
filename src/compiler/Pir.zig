@@ -257,7 +257,8 @@ pub const Assign = struct {
         }
         this.base.print(padding, offset, null);
         if (this.inlined) |inlined| {
-            std.debug.print("{s}Inlined out_base {?} in_base {?}\n", .{ " " ** (offset + padding), inlined.out_root, inlined.in_root });
+            std.debug.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
+                .{ " " ** (offset + padding), inlined.out_root, inlined.in_root, inlined.inlined_num });
             for (0..inlined.inlined_num) |inlined_idx| {
                 std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, inlined.out[inlined_idx], inlined.in[inlined_idx] });
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
