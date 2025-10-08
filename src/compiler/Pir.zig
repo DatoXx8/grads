@@ -434,7 +434,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
     var optimization: []Optimization = try allocator.alloc(Optimization, optimization_len_initial);
     defer allocator.free(optimization);
 
-    // $TODO This is so unoptimized and horrible it might worthy of a fix me tag
+    // $TODO This is so unoptimized it might worthy of a fix me tag
 
     var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
     var depth_idx: u32 = 0;

@@ -334,14 +334,14 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                             if (pir.assign[assign_idx].base.out.overlapsPartial(inlined.base[inlined_idx].out)) {
                                 overlap = true;
                             } else if (pir.assign[assign_idx].base.out.overlapsAll(inlined.base[inlined_idx].out)) {
-                                out_found = true;
+                                inlineable = true;
                             }
                         }
                         if (pir.assign[assign_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null) {
                             if (pir.assign[assign_idx].base.out.overlapsPartial(inlined.base[inlined_idx].in)) {
                                 overlap = true;
                             } else if (pir.assign[assign_idx].base.out.overlapsAll(inlined.base[inlined_idx].in)) {
-                                in_found = true;
+                                inlineable = true;
                             }
                         }
                         if (overlap) {
@@ -357,8 +357,13 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                 continue :outer;
             }
             if (pir.assign[assign_idx].base.out.equal(pir.assign[search_idx].base.out)) {
-                inlineable = true;
-                break;
+                if (pir.assign[assign_idx].base.kind.isUnary()) {
+                    inlineable = true;
+                    break;
+                } else {
+                    inlineable = true;
+                    out_found = true;
+                }
             }
             if (pir.assign[assign_idx].base.out.equal(pir.assign[search_idx].base.in)) {
                 if (pir.assign[search_idx].base.in.intermediary) {
@@ -369,9 +374,10 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                     continue :outer;
                 }
             }
+
             if (pir.assign[assign_idx].base.in.equal(pir.assign[search_idx].base.out) and !pir.assign[assign_idx].base.kind.isUnary()) {
                 inlineable = true;
-                in_found = true;
+                in_found = true; // $FIXME WTF is this? Should only be inlineable, no?
             }
             if (out_found and in_found) {
                 break;
@@ -465,6 +471,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
             break;
         } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.in)) {
+            assert(!pir.assign[search_idx].base.kind.isUnary());
             if (!pir.assign[left_idx].base.out.intermediary) {
                 // This should never be the case I think
                 break;
@@ -534,9 +541,10 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
             pir.assign[search_idx].inlined.?.inlined_num = inlined_num_new;
         } else {
+            // $FIXME Need to break in case out's have any overlap
             // Inlining non-intermediaries is only allowed if the target has the same out buffer, which is not the case here
             if (!pir.assign[left_idx].base.out.intermediary) {
-                continue;
+                continue; // Would be nice to assert that this buffer does not occur in the inlined ops of the search_idx but that is really expensive
             }
             if (pir.assign[search_idx].inlined) |*inlined| {
                 const inlined_num_left: u32 = if (pir.assign[left_idx].inlined) |inlined_old|
@@ -549,7 +557,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
                 var inlined_idx: u32 = 0;
                 while (inlined_idx < inlined_num_old) : (inlined_idx += 1) {
-                    if (pir.assign[left_idx].base.out.id == inlined.base[inlined_idx].out.id and
+                    if (pir.assign[left_idx].base.out.equal(inlined.base[inlined_idx].out) and
                         inlined.out[inlined_idx] == null)
                     {
                         written_amount += 1 + inlined_num_left;
@@ -574,8 +582,8 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                             inlined.out[last_idx] = null;
                             inlined.in[last_idx] = null;
                         }
-                    } else if (pir.assign[left_idx].base.out.id == inlined.base[inlined_idx].in.id and
-                        inlined.out[inlined_idx] == null)
+                    } else if (pir.assign[left_idx].base.out.equal(inlined.base[inlined_idx].in) and
+                        inlined.in[inlined_idx] == null and !inlined.base[inlined_idx].kind.isUnary())
                     {
                         written_amount += 1 + inlined_num_left;
 
@@ -585,9 +593,6 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
                         const last_idx: u32 = inlined_num_old + written_amount - 1;
                         inlined.in[inlined_idx] = last_idx;
-                        inlined.out[last_idx] = null;
-                        inlined.in[last_idx] = null;
-                        inlined.base[last_idx] = pir.assign[left_idx].base;
                         if (pir.assign[left_idx].inlined) |*inlined_left| {
                             var inlined_left_idx: u32 = 0;
                             while (inlined_left_idx < inlined_left.inlined_num) : (inlined_left_idx += 1) {
@@ -601,9 +606,15 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                             inlined.out[last_idx] = null;
                             inlined.in[last_idx] = null;
                         }
+                        inlined.base[last_idx] = pir.assign[left_idx].base;
                     }
                 }
                 inlined.inlined_num += written_amount;
+            }
+            if (pir.assign[left_idx].base.out.id == pir.assign[search_idx].base.out.id and
+                pir.assign[left_idx].base.out.overlaps(pir.assign[search_idx].base.out))
+            {
+                break;
             }
         }
     }

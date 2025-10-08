@@ -28,7 +28,7 @@ pub const VGpu = @This();
 detail: Detail,
 features: Features,
 
-/// Data *roughly* based of x86_64 latencies
+/// Data basically made up
 fn costOfOpSimple(kind: Op.Kind) u64 {
     return switch (kind) {
         .unary_add, .binary_add, .expand_add => 1,
