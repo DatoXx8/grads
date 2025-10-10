@@ -402,7 +402,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
     var search_idx: u32 = left_idx + 1;
     while (search_idx < pir.assign_num) : (search_idx += 1) {
-        if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.out)) {
+        if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.out) and
+            if (pir.assign[search_idx].inlined) |inlined| inlined.out_root == null else true)
+        {
             if (pir.assign[search_idx].base.kind.overwrites()) {
                 break;
             }
@@ -422,26 +424,14 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
 
             if (pir.assign[search_idx].inlined) |*inlined| {
-                if (inlined.out_root) |out_root_old_val| {
-                    inlined.* = .{
-                        .inlined_num = inlined_num_new,
-                        .base = try allocator.realloc(inlined.base, inlined_num_new),
-                        .out = try allocator.realloc(inlined.out, inlined_num_new),
-                        .in = try allocator.realloc(inlined.in, inlined_num_new),
-                        .in_root = inlined.in_root,
-                        .out_root = inlined.out_root,
-                    };
-                    inlined.*.out[out_root_old_val] = inlined_num_new - 1;
-                } else {
-                    inlined.* = .{
-                        .inlined_num = inlined_num_new,
-                        .base = try allocator.realloc(inlined.base, inlined_num_new),
-                        .out = try allocator.realloc(inlined.out, inlined_num_new),
-                        .in = try allocator.realloc(inlined.in, inlined_num_new),
-                        .in_root = inlined.in_root,
-                        .out_root = inlined_num_new - 1,
-                    };
-                }
+                inlined.* = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.realloc(inlined.base, inlined_num_new),
+                    .out = try allocator.realloc(inlined.out, inlined_num_new),
+                    .in = try allocator.realloc(inlined.in, inlined_num_new),
+                    .in_root = inlined.in_root,
+                    .out_root = inlined_num_new - 1,
+                };
             } else {
                 assert(inlined_num_old == 0);
                 pir.assign[search_idx].inlined = .{
@@ -470,8 +460,10 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             }
 
             break;
-        } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.in)) {
-            assert(!pir.assign[search_idx].base.kind.isUnary());
+        } else if (pir.assign[left_idx].base.out.equal(pir.assign[search_idx].base.in) and
+            !pir.assign[search_idx].base.kind.isUnary() and
+            if (pir.assign[search_idx].inlined) |inlined| inlined.in_root == null else true)
+        {
             if (!pir.assign[left_idx].base.out.intermediary) {
                 // This should never be the case I think
                 break;
@@ -492,26 +484,14 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             const inlined_num_new: u32 = 1 + inlined_num_start + inlined_num_old;
 
             if (pir.assign[search_idx].inlined) |*inlined| {
-                if (inlined.in_root) |in_root_old_val| {
-                    inlined.* = .{
-                        .inlined_num = inlined_num_new,
-                        .base = try allocator.realloc(inlined.base, inlined_num_new),
-                        .out = try allocator.realloc(inlined.out, inlined_num_new),
-                        .in = try allocator.realloc(inlined.in, inlined_num_new),
-                        .in_root = inlined.in_root,
-                        .out_root = inlined.out_root,
-                    };
-                    inlined.*.in[in_root_old_val] = inlined_num_new - 1;
-                } else {
-                    inlined.* = .{
-                        .inlined_num = inlined_num_new,
-                        .base = try allocator.realloc(inlined.base, inlined_num_new),
-                        .out = try allocator.realloc(inlined.out, inlined_num_new),
-                        .in = try allocator.realloc(inlined.in, inlined_num_new),
-                        .in_root = inlined_num_new - 1,
-                        .out_root = inlined.out_root,
-                    };
-                }
+                inlined.* = .{
+                    .inlined_num = inlined_num_new,
+                    .base = try allocator.realloc(inlined.base, inlined_num_new),
+                    .out = try allocator.realloc(inlined.out, inlined_num_new),
+                    .in = try allocator.realloc(inlined.in, inlined_num_new),
+                    .in_root = inlined_num_new - 1,
+                    .out_root = inlined.out_root,
+                };
             } else {
                 assert(inlined_num_old == 0);
                 pir.assign[search_idx].inlined = .{
@@ -541,11 +521,6 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
 
             pir.assign[search_idx].inlined.?.inlined_num = inlined_num_new;
         } else {
-            // $FIXME Need to break in case out's have any overlap
-            // Inlining non-intermediaries is only allowed if the target has the same out buffer, which is not the case here
-            if (!pir.assign[left_idx].base.out.intermediary) {
-                continue; // Would be nice to assert that this buffer does not occur in the inlined ops of the search_idx but that is really expensive
-            }
             if (pir.assign[search_idx].inlined) |*inlined| {
                 const inlined_num_left: u32 = if (pir.assign[left_idx].inlined) |inlined_old|
                     inlined_old.inlined_num
@@ -616,6 +591,8 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             {
                 break;
             }
+
+            // pir 0, inlined 0 should point to 5 at out, inlined 2 should point at 1
         }
     }
 

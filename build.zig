@@ -42,6 +42,8 @@ pub fn build(b: *std.Build) void {
 
     const grads = b.addModule("grads", .{
         .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
     });
 
     addExe(b, target, optimize, grads, "test", "src/main.zig", "run", //
