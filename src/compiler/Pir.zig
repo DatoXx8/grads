@@ -467,7 +467,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
-                    try opt.inlineOp(a, &pir_temp, inlined.idx);
+                    try opt.inlineOp(a, &pir_temp, inlined.left_idx);
                 },
                 .split => |split| {
                     opt.splitKernel(&pir_temp, split.idx);
@@ -491,7 +491,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
                     try opt.parallelize(allocator, this, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
-                    try opt.inlineOp(allocator, this, inlined.idx);
+                    try opt.inlineOp(allocator, this, inlined.left_idx);
                 },
                 .split => |split| {
                     opt.splitKernel(this, split.idx);
