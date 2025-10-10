@@ -201,7 +201,7 @@ pub fn main() !void {
     if (loop_infinite) {
         var loop_idx: u64 = 0;
         while (true) {
-            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
+            std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
@@ -220,7 +220,7 @@ pub fn main() !void {
         }
     } else {
         for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => simulate-compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
+            std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
                 simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);

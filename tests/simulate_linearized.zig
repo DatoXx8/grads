@@ -72,7 +72,7 @@ fn simulateLinearized(allocator: Allocator, op_included: [op_num]bool, rng: u64)
     }
 
     var pcg = Pcg.init(rng);
-    std.debug.print("simulate-compiler: rng={}...", .{rng});
+    std.debug.print("simulate_compiler: rng={}...", .{rng});
 
     for (0..tensor_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
