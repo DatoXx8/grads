@@ -288,7 +288,7 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
         }
     }
 
-    var out_idx: u32 = undefined;
+    var out_idx: u32 = 0; // Should always be a safe return value even if no op is included
     var search_idx: i32 = @intCast(op_num - 1);
     while (search_idx >= 0) : (search_idx -= 1) {
         if (op_included[@intCast(search_idx)]) {
@@ -296,6 +296,7 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
             break;
         }
     }
+    assert(out_idx < op_num);
 
     return .{ .tensor = tensor, .out_idx = out_idx };
 }
