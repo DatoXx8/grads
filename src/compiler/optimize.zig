@@ -591,8 +591,6 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             {
                 break;
             }
-
-            // pir 0, inlined 0 should point to 5 at out, inlined 2 should point at 1
         }
     }
 

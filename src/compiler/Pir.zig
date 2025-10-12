@@ -430,16 +430,16 @@ fn removeDefault(this: *@This()) void {
 /// Simple greedy search over the field of possible optimizations
 fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
-    var optimization_count: u32 = 0;
     var optimization: []Optimization = try allocator.alloc(Optimization, optimization_len_initial);
     defer allocator.free(optimization);
 
     // $TODO This is so unoptimized it might worthy of a fix me tag
+    //  Would ne nice to only have to compute a diff between two iterations of this loop, but I suspect that would be very complicated
 
     var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
-        optimization_count = 0;
+        var optimization_count = 0;
         try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
         try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*); // $FIXME This doesn't seem to do anything
         try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
