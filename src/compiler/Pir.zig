@@ -338,7 +338,6 @@ pub fn copy(this: Pir, allocator: Allocator) !Pir {
         .assign_num = this.assign_num,
     };
 
-    var count: u32 = 0;
     for (0..this.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
             .base = this.assign[assign_idx].base,
