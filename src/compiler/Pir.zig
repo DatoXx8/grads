@@ -331,13 +331,14 @@ pub fn alloc(
 
     return pir;
 }
-// $TODO This should really not involve any allocator calls when switching to Pool based impl
+// $TODO This should really not involve a hand full of allocator calls when switching to Pool based impl
 pub fn copy(this: Pir, allocator: Allocator) !Pir {
     var result: Pir = .{
         .assign = try allocator.alloc(Assign, this.assign.len),
         .assign_num = this.assign_num,
     };
 
+    var count: u32 = 0;
     for (0..this.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
             .base = this.assign[assign_idx].base,
@@ -353,8 +354,8 @@ pub fn copy(this: Pir, allocator: Allocator) !Pir {
             else
                 null,
             .split = this.assign[assign_idx].split,
-            .simd = null,
-            .block = null,
+            .simd = this.assign[assign_idx].simd,
+            .block = this.assign[assign_idx].block,
         };
         assert(this.assign[assign_idx].simd == null);
         assert(this.assign[assign_idx].block == null);
@@ -427,11 +428,64 @@ fn removeDefault(this: *@This()) void {
         }
     }
 }
+
+// profile_compiler: rng=11714000457094572098...
+// Time:   2.3557ms +-   0.7386ms linearized
+// Gathering :               +0ns
+// Copying   :               +0ns
+// Cost      :               +0ns
+// Optimizing:               +0ns
+//
+// Time: 724.1800us +-  50.0590us d=0
+//
+//
+// Gathering :         +2818019ns
+// Copying   :        +14147167ns
+// Cost      :        +28918162ns
+// Optimizing:         +1537003ns
+//
+// Time: 716.6720us +-  36.8470us d=1
+//
+//
+// Gathering :        +26789020ns
+// Copying   :       +139502661ns
+// Cost      :       +283695473ns
+// Optimizing:        +15072778ns
+//
+// Time: 696.8480us +-  57.9700us d=10
+//
+//
+// Gathering :       +202526986ns
+// Copying   :      +1122446910ns
+// Cost      :      +1822257750ns
+// Optimizing:        +88829460ns
+//
+// Time: 549.7720us +-  38.3900us d=100
+//
+//
+// Gathering :       +299521111ns
+// Copying   :      +1439456366ns
+// Cost      :      +2175965461ns
+// Optimizing:        +96041078ns
+//
+// Time: 312.0550us +-  20.1140us d=1000
+
+// For d=1000 there are 354784 * 3 copies for inline fields alone!
+
 /// Simple greedy search over the field of possible optimizations
 fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
+    var gathering_ns: i128 = 0;
+    var copying_ns: i128 = 0;
+    var cost_ns: i128 = 0;
+    var optimizating_ns: i128 = 0;
+
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
     var optimization: []Optimization = try allocator.alloc(Optimization, optimization_len_initial);
     defer allocator.free(optimization);
+
+    var arena: std.heap.ArenaAllocator = .init(allocator);
+    defer arena.deinit();
+    const a: Allocator = arena.allocator();
 
     // $TODO This is so unoptimized it might worthy of a fix me tag
     //  Would ne nice to only have to compute a diff between two iterations of this loop, but I suspect that would be very complicated
@@ -439,11 +493,16 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
     var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
-        var optimization_count = 0;
+        // $TODO Can this be done incrementally?
+
+        var optimization_count: u32 = 0;
+        const now1: i128 = std.time.nanoTimestamp();
         try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
         try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*); // $FIXME This doesn't seem to do anything
         try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
         try opt.splitKernelGather(allocator, &optimization, &optimization_count, this.*, size_global, size_local);
+        const now2: i128 = std.time.nanoTimestamp();
+        gathering_ns += now2 - now1;
 
         if (optimization_count == 0) {
             break;
@@ -452,16 +511,16 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         var cost_next_best: u64 = cost_curr;
         var cost_next_best_idx: u32 = 0; // Easy filter with cost_next_best == cost_curr
 
-        var arena: std.heap.ArenaAllocator = .init(allocator);
-        defer arena.deinit();
-        const a: Allocator = arena.allocator();
-
         var optimization_idx: u32 = 0;
         while (optimization_idx < optimization_count) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
+            const now3: i128 = std.time.nanoTimestamp();
             var pir_temp: Pir = try this.copy(a);
+            const now4: i128 = std.time.nanoTimestamp();
+            copying_ns += now4 - now3;
 
+            const now7: i128 = std.time.nanoTimestamp();
             switch (optimization[optimization_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
@@ -476,7 +535,14 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
                     opt.mergeOp(&pir_temp, fuse.left_idx, fuse.right_idx);
                 },
             }
+            const now8: i128 = std.time.nanoTimestamp();
+            optimizating_ns += now8 - now7;
+
+            const now5: i128 = std.time.nanoTimestamp();
             const cost_next: u64 = vgpu.costEstimate(pir_temp, size_global, size_local);
+            const now6: i128 = std.time.nanoTimestamp();
+            cost_ns += now6 - now5;
+
             if (cost_next < cost_next_best) {
                 cost_next_best = cost_next;
                 cost_next_best_idx = optimization_idx;
@@ -486,6 +552,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         if (cost_next_best == cost_curr) {
             break; // No better optimization found
         } else {
+            const now9: i128 = std.time.nanoTimestamp();
             switch (optimization[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(allocator, this, parallelize.left_idx, parallelize.right_idx);
@@ -500,9 +567,17 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
                     opt.mergeOp(this, fuse.left_idx, fuse.right_idx);
                 },
             }
+            const now10: i128 = std.time.nanoTimestamp();
+            optimizating_ns += now10 - now9;
             cost_curr = cost_next_best;
         }
     }
+
+    std.debug.print("Gathering : {d:16}ns\n", .{gathering_ns});
+    std.debug.print("Copying   : {d:16}ns\n", .{copying_ns});
+    std.debug.print("Cost      : {d:16}ns\n", .{cost_ns});
+    std.debug.print("Optimizing: {d:16}ns\n", .{optimizating_ns});
+    std.debug.print("\n", .{});
 }
 pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {

@@ -42,6 +42,7 @@ pub const Optimization = union(enum) {
 /// Check if left and right can be merged.
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Assign, right: Assign) bool {
+    // $TODO Allow merging inlined ops within the same assign (for example U add has another U add inlined)
     if (left.inlined != null or right.inlined != null) return false; // $TODO Handle this case. Shouldn't be too hard
 
     if (left.base.repeats != right.base.repeats) return false;
