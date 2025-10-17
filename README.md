@@ -1,7 +1,7 @@
 # Grads
 
 Grads is a deep learning framework written in Zig and it is a recreational project.
-Essentialy this is just an optimizing transpiler to either OpenCL or PTX (maybe more in the future).
+The focus has kinda shifted away from the deep learning part and more so just to writing an optimizing compiler.
 
 Grads is currently licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0/), but I am unsure if it will stay like this forever.
 
