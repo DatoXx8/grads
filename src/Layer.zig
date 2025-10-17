@@ -319,7 +319,7 @@ pub const Convolution = struct {
                 y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 1),
             .temp_grad_padded = try Tensor.alloc(runtime, allocator, 1, z_in, //
                 y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 3 * filters * y_out * x_out),
-            .temp_kernel = try Tensor.alloc(runtime, allocator, 1, z_in, kernel_size, kernel_size, 2),
+            .temp_kernel = try Tensor.alloc(runtime, allocator, 1, z_in, kernel_size, kernel_size, 3),
             .temp_single = try Tensor.alloc(runtime, allocator, 1, 1, 1, 1, 1),
         };
     }
@@ -345,6 +345,7 @@ pub const Convolution = struct {
         const y_out: u32 = out.buffer.y_size;
         const x_out: u32 = out.buffer.x_size;
 
+        out.moveResize(1, 1, 1, 1);
         this.biases.moveResize(1, 1, 1, 1);
         this.weights.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
         this.temp_input_padded.moveResize(1, this.z_in, this.y_in, this.x_in);
@@ -371,11 +372,11 @@ pub const Convolution = struct {
         }
         this.biases.moveResize(this.filters, 1, 1, 1);
         this.biases.moveOffset(0, 0, 0, 0);
-        this.weights.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
+        this.weights.moveResize(this.filters, this.z_in, this.kernel_size, this.kernel_size);
         this.weights.moveOffset(0, 0, 0, 0);
-        out.moveResize(1, this.z_in * this.filters, y_out, x_out);
+        out.moveResize(1, this.filters, y_out, x_out);
         out.moveOffset(0, 0, 0, 0);
-        this.temp_input_padded.moveResize(1, this.z_in * this.filters, //
+        this.temp_input_padded.moveResize(1, this.z_in, //
             y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
         this.temp_input_padded.moveOffset(0, 0, 0, 0);
     }
@@ -402,10 +403,10 @@ pub const Convolution = struct {
             this.temp_single.reduceSum(out_g); // Could do avg here for move numerical stability
             this.biases_g.binaryAdd(&this.temp_single);
         }
-        this.biases_g.moveResize(1, this.filters, 1, 1);
+        this.biases_g.moveResize(this.filters, 1, 1, 1);
         this.biases_g.moveOffset(0, 0, 0, 0);
 
-        out_g.moveResize(1, this.filters, y_out, x_out);
+        out_g.moveResize(1, 1, 1, 1);
         out_g.moveOffset(0, 0, 0, 0);
         this.weights_g.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
         this.temp_input_padded.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
@@ -424,6 +425,8 @@ pub const Convolution = struct {
                 }
             }
         }
+        this.weights_g.moveResize(this.filters, this.z_in, this.kernel_size, this.kernel_size);
+        this.weights_g.moveOffset(0, 0, 0, 0);
 
         out_g.moveResize(1, 1, 1, 1);
         out_g.moveOffset(0, 0, 0, 0);
@@ -635,18 +638,22 @@ pub const Split = struct {
         assert(out.buffer.y_size == this.y_in);
         assert(out.buffer.x_size == this.x_in);
 
-        in.moveResize(1, this.z_in, this.y_in, this.x_in);
+        this.weights.moveResize(1, this.z_in, this.y_in, this.x_in);
+        this.biases.moveResize(1, this.z_in, this.y_in, this.x_in);
         out.moveResize(1, this.z_in, this.y_in, this.x_in);
         var filter_idx: u32 = 0;
         while (filter_idx < this.filters) : (filter_idx += 1) {
-            in.moveOffset(filter_idx, 0, 0, 0);
-            out.moveOffset(0, filter_idx * this.filters, 0, 0);
+            this.weights.moveOffset(filter_idx, 0, 0, 0);
+            this.biases.moveOffset(filter_idx, 0, 0, 0);
+            out.moveOffset(0, filter_idx * this.z_in, 0, 0);
             out.binarySet(in);
             out.binaryMultiply(&this.weights);
             out.binaryAdd(&this.biases);
         }
-        in.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
-        in.moveOffset(0, 0, 0, 0);
+        this.weights.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
+        this.weights.moveOffset(0, 0, 0, 0);
+        this.biases.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
+        this.biases.moveOffset(0, 0, 0, 0);
         out.moveResize(1, this.z_in * this.filters, this.y_in, this.x_in);
         out.moveOffset(0, 0, 0, 0);
     }

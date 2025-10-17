@@ -326,6 +326,7 @@ pub fn alloc(
             .cache_l2_kb = 512,
         },
     };
+
     try pir.optimize(allocator, depth_max, vgpu, size_global, size_local);
     pir.removeDefault();
 

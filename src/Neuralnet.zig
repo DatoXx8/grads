@@ -81,14 +81,14 @@ pub fn alloc(
         };
         const forward_cap: u32 = switch (config[layer_idx]) {
             .dense => |d| d.size_out * 3 + 1,
-            .convolution => |c| 3 * c.filters * y_out * x_out,
-            .reduce => y_out * x_out,
+            .convolution => |c| 4 * c.filters * y_out * x_out + 1,
+            .reduce => z_in * y_out * x_out,
             .split => |s| 3 * s.filters,
             .residual => 1,
         };
         const backward_cap: u32 = switch (config[layer_idx]) {
             .dense => |d| 2 + d.size_out + 4 * size_in,
-            .convolution => |c| 2 * c.filters + 6 * c.filters * y_out * x_out,
+            .convolution => |c| 2 * c.filters + 6 * c.filters * y_out * x_out + 1,
             .reduce => y_out * x_out,
             .split => |s| 1 + 6 * s.filters,
             .residual => 1,
