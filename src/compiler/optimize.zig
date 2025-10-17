@@ -312,6 +312,9 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
 pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var left_idx: u32 = 0;
     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
+        if (pir.assign[left_idx].base.kind.isReduce()) {
+            continue :outer;
+        }
         var inlineable: bool = false;
         var out_found: bool = false;
         var in_found: bool = false;
@@ -358,13 +361,8 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                 continue :outer;
             }
             if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].base.out)) {
-                if (pir.assign[left_idx].base.kind.isUnary()) {
-                    inlineable = true;
-                    break;
-                } else {
-                    inlineable = true;
-                    out_found = true;
-                }
+                inlineable = true;
+                break;
             }
             if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].base.in)) {
                 if (pir.assign[right_idx].base.in.intermediary) {
@@ -378,7 +376,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
 
             if (pir.assign[left_idx].base.in.equal(pir.assign[right_idx].base.out) and !pir.assign[left_idx].base.kind.isUnary()) {
                 inlineable = true;
-                in_found = true; // $FIXME WTF is this? Should only be inlineable, no?
+                in_found = true; // $TODO WTF is this? Should only be inlineable, no?
             }
             if (out_found and in_found) {
                 break;
