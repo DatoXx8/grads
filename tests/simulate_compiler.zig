@@ -50,7 +50,6 @@ fn assertEq(val1: f32, val2: f32) !void {
     }
 }
 
-// $FIXME There is memory leak in here
 fn simulateCompiler(
     runtime: Runtime,
     allocator: Allocator,
@@ -95,7 +94,7 @@ fn simulateCompiler(
 
     for (0..tensor1.tensor[tensor1.out_idx].buffer.values.len) |arg_idx| {
         assertEq(tensor1.tensor[tensor1.out_idx].buffer.values[arg_idx], tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx]) catch |err| {
-            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={}\n", .{
+            std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={} and opt={}\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
                 arg_idx / (y_size_max * x_size_max) % z_size_max,
@@ -107,19 +106,19 @@ fn simulateCompiler(
                 tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx],
                 tensor2.tensor[tensor2.out_idx].buffer.name(),
                 rng,
+                depth_max,
             });
             return err;
         };
     }
 }
 
-// $TODO Also minify the depth
 fn minifyCompiler(
     runtime: Runtime,
     allocator: Allocator,
     rng: u64,
     depth_max: u32,
-    err: anytype,
+    err: anyerror,
 ) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
@@ -127,16 +126,28 @@ fn minifyCompiler(
     for (0..op_num) |op_idx| {
         var failed: bool = false;
         op_included[op_idx] = false;
-        simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch {
+        var erro: anyerror = undefined;
+        simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch |e| {
+            erro = e;
             failed = true;
         };
         if (!failed) {
             op_included[op_idx] = true;
         }
     }
-    std.debug.print("\n\nMinimal: {any}\n", .{op_included});
+    var depth_max_first_fail: u32 = 0;
+    while (depth_max_first_fail < depth_max) : (depth_max_first_fail += 1) {
+        var failed: bool = false;
+        simulateCompiler(runtime, allocator, op_included, rng, depth_max_first_fail) catch {
+            failed = true;
+        };
+        if (failed) {
+            break;
+        }
+    }
+    std.debug.print("\n\nMinimal: {any} with depth: {}\n", .{ op_included, depth_max_first_fail });
     var failed: bool = false;
-    simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch {
+    simulateCompiler(runtime, allocator, op_included, rng, depth_max_first_fail) catch {
         failed = true;
     };
     if (!failed) {
@@ -196,6 +207,7 @@ pub fn main() !void {
     try runtime.init();
     defer runtime.deinit();
 
+    // Not just the max because other optimizations might remove broken states by pure luck
     const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };
 
     if (loop_infinite) {
