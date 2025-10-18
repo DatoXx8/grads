@@ -333,23 +333,19 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                 if (pir.assign[right_idx].inlined) |inlined| {
                     var inlined_idx: u32 = 0;
                     while (inlined_idx < inlined.inlined_num) : (inlined_idx += 1) {
-                        var overlap: bool = false;
                         if (pir.assign[left_idx].base.out.id == inlined.base[inlined_idx].out.id and inlined.out[inlined_idx] == null) {
                             if (pir.assign[left_idx].base.out.overlapsPartial(inlined.base[inlined_idx].out)) {
-                                overlap = true;
+                                break :blk true;
                             } else if (pir.assign[left_idx].base.out.overlapsAll(inlined.base[inlined_idx].out)) {
                                 inlineable = true;
                             }
                         }
                         if (pir.assign[left_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null) {
                             if (pir.assign[left_idx].base.out.overlapsPartial(inlined.base[inlined_idx].in)) {
-                                overlap = true;
+                                break :blk true;
                             } else if (pir.assign[left_idx].base.out.overlapsAll(inlined.base[inlined_idx].in)) {
                                 inlineable = true;
                             }
-                        }
-                        if (overlap) {
-                            break :blk false;
                         }
                     }
                 }
