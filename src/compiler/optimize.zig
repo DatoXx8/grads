@@ -312,7 +312,7 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
 pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var left_idx: u32 = 0;
     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
-        if (pir.assign[left_idx].base.kind.overwrites()) {
+        if (pir.assign[left_idx].base.kind.isReduce()) {
             continue :outer;
         }
         var inlineable: bool = false;
@@ -356,7 +356,30 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
 
                 break :blk false;
             };
-            if (overlap_out_out or overlap_out_in or overlap_in_out or repeat_different or overlap_out_x_inlined) {
+            const overlap_x_out_inlined: bool = blk: {
+                if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].base.out.id or
+                    pir.assign[left_idx].base.in.id == pir.assign[right_idx].base.out.id)
+                {
+                    break :blk false;
+                }
+                if (pir.assign[left_idx].inlined) |inlined| {
+                    var inlined_idx: u32 = 0;
+                    while (inlined_idx < inlined.inlined_num) : (inlined_idx += 1) {
+                        if (pir.assign[right_idx].base.out.id == inlined.base[inlined_idx].out.id and inlined.out[inlined_idx] == null) {
+                            if (pir.assign[right_idx].base.out.overlaps(inlined.base[inlined_idx].out)) {
+                                break :blk true;
+                            }
+                        }
+                        if (pir.assign[right_idx].base.out.id == inlined.base[inlined_idx].in.id and inlined.in[inlined_idx] == null) {
+                            if (pir.assign[right_idx].base.out.overlaps(inlined.base[inlined_idx].in)) {
+                                break :blk true;
+                            }
+                        }
+                    }
+                }
+                break :blk false;
+            };
+            if (overlap_out_out or overlap_out_in or overlap_in_out or repeat_different or overlap_out_x_inlined or overlap_x_out_inlined) {
                 inlineable = false;
                 continue :outer;
             }
