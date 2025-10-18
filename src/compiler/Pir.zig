@@ -347,9 +347,42 @@ pub fn copy(this: Pir, allocator: Allocator) !Pir {
                     .in_root = inlined.in_root,
                     .out_root = inlined.out_root,
                     .inlined_num = inlined.inlined_num,
-                    .base = try allocator.dupe(Base, inlined.base), // $FIXME If this fails memory leaks
-                    .out = try allocator.dupe(?u32, inlined.out), // $FIXME If this fails memory leaks
-                    .in = try allocator.dupe(?u32, inlined.in), // $FIXME If this fails memory leaks
+                    .base = allocator.dupe(Base, inlined.base) catch |err| {
+                        @branchHint(.cold);
+                        for (0..assign_idx) |free_idx| {
+                            if (this.assign[free_idx].inlined) |inlined_free| {
+                                allocator.free(inlined_free.base);
+                                allocator.free(inlined_free.out);
+                                allocator.free(inlined_free.in);
+                            }
+                        }
+                        return err;
+                    },
+                    .out = allocator.dupe(?u32, inlined.out) catch |err| {
+                        @branchHint(.cold);
+                        for (0..assign_idx) |free_idx| {
+                            if (this.assign[free_idx].inlined) |inlined_free| {
+                                allocator.free(inlined_free.base);
+                                allocator.free(inlined_free.out);
+                                allocator.free(inlined_free.in);
+                            }
+                        }
+                        allocator.free(inlined.base);
+                        return err;
+                    },
+                    .in = allocator.dupe(?u32, inlined.in) catch |err| {
+                        @branchHint(.cold);
+                        for (0..assign_idx) |free_idx| {
+                            if (this.assign[free_idx].inlined) |inlined_free| {
+                                allocator.free(inlined_free.base);
+                                allocator.free(inlined_free.out);
+                                allocator.free(inlined_free.in);
+                            }
+                        }
+                        allocator.free(inlined.base);
+                        allocator.free(inlined.out);
+                        return err;
+                    },
                 }
             else
                 null,
@@ -492,7 +525,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
 
         var optimization_count: u32 = 0;
         try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
-        try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*); // $FIXME This doesn't seem to do anything
+        try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*);
         try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
         try opt.splitKernelGather(allocator, &optimization, &optimization_count, this.*, size_global, size_local);
 

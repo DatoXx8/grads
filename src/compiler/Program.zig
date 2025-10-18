@@ -80,10 +80,9 @@ size_local: u32,
 kernel: []Kernel,
 ptr: ProgramPtr,
 
-// $FIXME assert with zig magic that there are no integers with bit width > 64 in any of the relevant structs / values:
-//  DimInfo, Buffer, Args, size_global, size_local
 /// This is enough for u64 integers.
 /// If you try to print larger integers in the codegen then this will break the capacity calculations.
+/// $TODO This is unnecessary. Just remove it.
 pub const length_int_max: u32 = 20;
 pub const kernel_base_name = "kern{}";
 pub fn alloc(
@@ -126,9 +125,15 @@ pub fn alloc(
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
         var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
-        // $FIXME If this errdefer is triggered, then all of the memory in the args leaks.
+        var kernel_num_written: u32 = 0; // Just needed for getting rid of memory leak
         var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
-        errdefer allocator.free(kernel);
+        errdefer {
+            var kernel_idx: u32 = 0;
+            while (kernel_idx < kernel_num_written) : (kernel_idx += 1) {
+                kernel[kernel_idx].args.free(allocator);
+            }
+            allocator.free(kernel);
+        }
 
         const source_len_init: u32 = 16 * 1024; // Arbitrary value
         var source: []u8 = try allocator.alloc(u8, source_len_init);
@@ -136,12 +141,14 @@ pub fn alloc(
         @memset(source, 0);
         var source_idx: usize = 0;
 
-        for (0..pir.assign_num) |assign_idx| {
+        var assign_idx: u32 = 0;
+        while (assign_idx < pir.assign_num) : (assign_idx += 1) {
             @memset(&kernel_name, 0);
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
 
             kernel[assign_idx].args = try Args.alloc(allocator, pir.assign[assign_idx]);
+            kernel_num_written += 1;
             try runtime.assignCompile(allocator, &source, &source_idx, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);
         }

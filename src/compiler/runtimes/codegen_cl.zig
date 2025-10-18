@@ -4,7 +4,6 @@ const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
 const Program = @import("../Program.zig");
-const length_int_max = Program.length_int_max;
 const Args = Program.Args;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;

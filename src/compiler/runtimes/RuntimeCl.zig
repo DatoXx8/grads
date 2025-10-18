@@ -148,6 +148,7 @@ pub fn programAlloc(this: *anyopaque, source: []const u8) Error!ProgramPtr {
         return @ptrCast(program_ptr);
     } else {
         @branchHint(.cold);
+        std.debug.print("{s}\n", .{source});
         return Error.ProgramAlloc;
     }
 }
