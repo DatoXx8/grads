@@ -312,7 +312,7 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
 pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var left_idx: u32 = 0;
     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
-        if (pir.assign[left_idx].base.kind.isReduce()) {
+        if (pir.assign[left_idx].base.kind.overwrites()) {
             continue :outer;
         }
         var inlineable: bool = false;
@@ -1076,8 +1076,6 @@ pub fn parallelizeGather(allocator: Allocator, optimization: *[]Optimization, op
             if (overlap_out_out or overlap_out_in or overlap_in_out or overlap_inline) {
                 continue :outer;
             }
-
-            // $FIXME Need to also search backwards from the search_idx to check that nothing overlaps with that
 
             if (dimInfoMergePossible(pir.assign[start_idx], pir.assign[search_idx])) {
                 var back_idx: u32 = 1;
