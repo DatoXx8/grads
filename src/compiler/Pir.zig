@@ -247,7 +247,7 @@ pub const Simd = struct {
 /// Essentialy this is one unit of work
 pub const Assign = struct {
     base: Base,
-    inlined: ?Inlined,
+    inlined: ?Inlined, // $TODO This should not be optional
     split: Split,
     block: ?Block,
     simd: ?Simd,
