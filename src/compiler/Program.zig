@@ -47,11 +47,11 @@ pub const Args = struct {
         const arg_num: usize = arg_unique.count();
         const arg_id: []u64 = try allocator.alloc(u64, arg_num);
         const arg_mem: []Memory = try allocator.alloc(Memory, arg_num);
-        var arg_id_iterator = arg_unique.keyIterator();
+        var arg_iterator = arg_unique.iterator();
         for (0..arg_num) |arg_idx| {
-            const id: u64 = arg_id_iterator.next().?.*;
-            arg_id[arg_idx] = id;
-            arg_mem[arg_idx] = arg_unique.get(id) orelse @panic("Severe error in argument gathering."); // This should be doable differently
+            const entry = arg_iterator.next().?;
+            arg_id[arg_idx] = entry.key_ptr.*;
+            arg_mem[arg_idx] = entry.value_ptr.*;
         }
 
         return .{
