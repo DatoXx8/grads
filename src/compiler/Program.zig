@@ -2,8 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Tensor = @import("../Tensor.zig");
-const Linearized = Tensor.Linearized;
+const Linearized = @import("../Linearized.zig");
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 const Runtime = @import("runtimes/Runtime.zig");
@@ -28,7 +27,6 @@ pub const Args = struct {
         }
 
         if (assign.inlined) |inlined| {
-            // $TODO If the thing is inlined then don't there is no need to pass it to the kernel
             for (0..inlined.inlined_num) |inlined_idx| {
                 const out_is_not_inlined: bool = inlined.out[inlined_idx] == null;
                 const in_is_not_inlined: bool = inlined.in[inlined_idx] == null;
@@ -46,6 +44,7 @@ pub const Args = struct {
 
         const arg_num: usize = arg_unique.count();
         const arg_id: []u64 = try allocator.alloc(u64, arg_num);
+        errdefer allocator.free(arg_id);
         const arg_mem: []Memory = try allocator.alloc(Memory, arg_num);
         var arg_iterator = arg_unique.iterator();
         for (0..arg_num) |arg_idx| {
@@ -67,10 +66,10 @@ pub const Args = struct {
             .arg_mem = try allocator.alloc(Memory, 1),
         };
     }
-    pub fn free(this: *@This(), allocator: Allocator) void {
-        allocator.free(this.arg_id);
+    pub fn free(args: Args, allocator: Allocator) void {
+        allocator.free(args.arg_id);
         // The runtime specific arg_mem get's freed with the tensors
-        allocator.free(this.arg_mem);
+        allocator.free(args.arg_mem);
     }
 };
 // $TODO Support integer arguments
@@ -90,12 +89,13 @@ ptr: ProgramPtr,
 
 /// This is enough for u64 integers.
 /// If you try to print larger integers in the codegen then this will break the capacity calculations.
-/// $TODO This is unnecessary. Just remove it.
-pub const length_int_max: u32 = 20;
 pub const kernel_base_name = "kern{}";
+// $TODO I am not happy about having to pass in the gpa here for the source alone. Fix it
 pub fn alloc(
     runtime: Runtime,
-    allocator: Allocator,
+    gpa: Allocator,
+    arena: Allocator,
+    arena_temp: Allocator,
     linearized: Linearized,
     depth_max: u32,
     size_global: u32,
@@ -111,10 +111,8 @@ pub fn alloc(
 
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
-        var kernel: []Kernel = try allocator.alloc(Kernel, 1);
-        errdefer allocator.free(kernel);
-        kernel[0].args = try Args.allocEmpty(allocator);
-        errdefer kernel[0].args.free(allocator);
+        var kernel: []Kernel = try arena.alloc(Kernel, 1);
+        kernel[0].args = try Args.allocEmpty(arena);
         kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
             kernel_empty_name ++ "\x00", kernel[0].args);
 
@@ -126,26 +124,18 @@ pub fn alloc(
         };
     } else {
         @branchHint(.likely);
-        var pir: Pir = try Pir.alloc(allocator, linearized, depth_max, size_global, size_local);
-        defer pir.free(allocator);
+        const pir: Pir = try Pir.alloc(arena_temp, linearized, depth_max, size_global, size_local);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
         var kernel_name: [kernel_name_len_max]u8 = @splat(0);
 
         var kernel_num_written: u32 = 0; // Just needed for getting rid of memory leak
-        var kernel: []Kernel = try allocator.alloc(Kernel, pir.assign_num);
-        errdefer {
-            var kernel_idx: u32 = 0;
-            while (kernel_idx < kernel_num_written) : (kernel_idx += 1) {
-                kernel[kernel_idx].args.free(allocator);
-            }
-            allocator.free(kernel);
-        }
+        var kernel: []Kernel = try arena.alloc(Kernel, pir.assign_num);
 
         const source_len_init: u32 = 16 * 1024; // Arbitrary value
-        var source: []u8 = try allocator.alloc(u8, source_len_init);
-        defer allocator.free(source);
+        var source: []u8 = try gpa.alloc(u8, source_len_init);
+        defer gpa.free(source);
         @memset(source, 0);
         var source_idx: usize = 0;
 
@@ -155,9 +145,9 @@ pub fn alloc(
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
 
-            kernel[assign_idx].args = try Args.alloc(allocator, pir.assign[assign_idx]);
+            kernel[assign_idx].args = try Args.alloc(arena, pir.assign[assign_idx]);
             kernel_num_written += 1;
-            try runtime.assignCompile(allocator, &source, &source_idx, pir.assign[assign_idx], //
+            try runtime.assignCompile(gpa, &source, &source_idx, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);
         }
 
@@ -180,13 +170,11 @@ pub fn alloc(
         };
     }
 }
-pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
-    for (this.kernel) |*kernel| {
+pub fn free(program: Program, runtime: Runtime) void {
+    for (program.kernel) |kernel| {
         runtime.kernelFree(kernel.ptr);
-        kernel.args.free(allocator);
     }
-    allocator.free(this.kernel);
 }
-pub fn run(this: @This(), runtime: Runtime) !void {
-    try runtime.programRun(this);
+pub fn run(program: Program, runtime: Runtime) !void {
+    try runtime.programRun(program);
 }

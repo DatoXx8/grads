@@ -6,7 +6,7 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
 const grads = @import("grads");
-const Tensor = grads.Tensor;
+const Buffer = grads.Buffer;
 const Linearized = grads.Linearized;
 const OpKind = grads.Op.Kind;
 const Runtime = grads.Runtime;
@@ -15,20 +15,21 @@ pub const a_size_max: u32 = 7;
 pub const z_size_max: u32 = 6;
 pub const y_size_max: u32 = 5;
 pub const x_size_max: u32 = 4;
-pub const tensor_num: u32 = 10;
+pub const buffer_num: u32 = 10;
 pub const op_num: u32 = 40;
 comptime {
-    assert(tensor_num > 1);
+    assert(buffer_num > 1);
     assert(op_num > 0);
 }
 // $TODO Have chances of changing offsets, sizes, u_var and everything else
 
-// $FIXME If this fails a bunch of memory leaks
-pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op_num]bool, rng: u64) !struct {
-    tensor: [tensor_num]Tensor,
+pub fn randomLinearized(runtime: Runtime, arena: Allocator, op_included: [op_num]bool, rng: u64) !struct {
+    buffer: [buffer_num]Buffer,
+    linearized: Linearized,
     out_idx: u32,
 } {
-    var tensor: [tensor_num]Tensor = undefined;
+    var buffer: [buffer_num]Buffer = undefined;
+    var linearized: Linearized = try .alloc(arena, 3 * op_num * a_size_max * z_size_max * y_size_max * x_size_max); // $TODO Calculate a better lower bound
 
     var pcg = Pcg.init(rng);
 
@@ -40,16 +41,16 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
         op_kind[op_idx] = pcg.random().enumValueWithIndex(OpKind, u32);
 
         if (op_idx == 0) {
-            op_out[0] = pcg.random().uintLessThan(u32, tensor_num);
+            op_out[0] = pcg.random().uintLessThan(u32, buffer_num);
 
-            op_in[0] = pcg.random().uintLessThan(u32, tensor_num - 1);
+            op_in[0] = pcg.random().uintLessThan(u32, buffer_num - 1);
             op_in[0] = if (op_in[0] < op_out[0]) op_in[0] else op_in[0] + 1;
             assert(op_out[0] != op_in[0]);
         } else {
             const switch_likelyhood: u32 = 10;
             if (pcg.random().uintLessThan(u32, switch_likelyhood) == 0) {
                 op_in[op_idx] = op_out[op_idx - 1];
-                op_out[op_idx] = pcg.random().uintLessThan(u32, tensor_num - 1);
+                op_out[op_idx] = pcg.random().uintLessThan(u32, buffer_num - 1);
                 // I think this should get a guaranteed random number different than tensor_in without biasing the result
                 if (op_out[op_idx] >= op_in[op_idx]) {
                     op_out[op_idx] += 1;
@@ -64,24 +65,25 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
 
     // $TODO I should just precompute the op amounts so there are way less allocations
     // $TODO Also make it randomize the out buffer and if it is random then assert that no actual ops are computed
-    for (0..tensor_num) |tensor_idx| {
+    // $FIXME If there is an error here this is memory leak city
+    for (0..buffer_num) |tensor_idx| {
         if (tensor_idx == op_out[op_num - 1]) {
-            tensor[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, //
-                y_size_max, x_size_max, 1);
+            buffer[tensor_idx] = try Buffer.alloc(runtime, arena, a_size_max, z_size_max, //
+                y_size_max, x_size_max, .normal);
         } else {
             if (pcg.random().boolean()) {
-                tensor[tensor_idx] = try Tensor.alloc(runtime, allocator, a_size_max, z_size_max, //
-                    y_size_max, x_size_max, 1);
+                buffer[tensor_idx] = try Buffer.alloc(runtime, arena, a_size_max, z_size_max, //
+                    y_size_max, x_size_max, .normal);
             } else {
-                tensor[tensor_idx] = try Tensor.allocIntermediary(runtime, allocator, a_size_max, //
-                    z_size_max, y_size_max, x_size_max, 1);
+                buffer[tensor_idx] = try Buffer.alloc(runtime, arena, a_size_max, //
+                    z_size_max, y_size_max, x_size_max, .intermediary);
             }
         }
     }
 
-    for (0..tensor_num) |tensor_idx| {
+    for (0..buffer_num) |tensor_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            tensor[tensor_idx].buffer.values[arg_idx] = pcg.random().floatNorm(f32);
+            buffer[tensor_idx].values[arg_idx] = pcg.random().floatNorm(f32);
         }
     }
 
@@ -129,156 +131,152 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
                             const tensor_out: u32 = op_out[op_idx + loop_idx];
                             const tensor_in: u32 = op_in[op_idx + loop_idx];
 
-                            try tensor[tensor_out].linearized.capacityEnsure(allocator, 4 * (loop_len * a_loop * z_loop * y_loop * x_loop) +
-                                tensor[tensor_in].linearized.op_num);
-                            try tensor[tensor_in].linearized.capacityEnsure(allocator, 2);
-
                             if (op_kind[op_idx + loop_idx].isReduce()) {
-                                tensor[tensor_out].moveResize(1, 1, 1, 1);
+                                buffer[tensor_out].moveResize(1, 1, 1, 1);
                             } else {
-                                tensor[tensor_out].moveResize(a_size, z_size, y_size, x_size);
+                                buffer[tensor_out].moveResize(a_size, z_size, y_size, x_size);
                             }
                             if (op_kind[op_idx + loop_idx].isExpand()) {
-                                tensor[tensor_in].moveResize(1, 1, 1, 1);
+                                buffer[tensor_in].moveResize(1, 1, 1, 1);
                             } else {
-                                tensor[tensor_in].moveResize(a_size, z_size, y_size, x_size);
+                                buffer[tensor_in].moveResize(a_size, z_size, y_size, x_size);
                             }
 
-                            tensor[tensor_out].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
-                            tensor[tensor_in].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
+                            buffer[tensor_out].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
+                            buffer[tensor_in].moveOffset(a_off + a_idx, z_off + z_idx, y_off + y_idx, x_off + x_idx);
 
                             switch (op_kind[op_idx + loop_idx]) {
                                 .unary_add => {
-                                    tensor[tensor_out].unaryAdd(u_var);
+                                    linearized.unaryAdd(buffer[tensor_out], u_var);
                                 },
                                 .unary_subtract => {
-                                    tensor[tensor_out].unarySubtract(u_var);
+                                    linearized.unarySubtract(buffer[tensor_out], u_var);
                                 },
                                 .unary_multiply => {
-                                    tensor[tensor_out].unaryMultiply(u_var);
+                                    linearized.unaryMultiply(buffer[tensor_out], u_var);
                                 },
                                 .unary_divide => {
-                                    tensor[tensor_out].unaryDivide(@abs(u_var) + 1);
+                                    linearized.unaryDivide(buffer[tensor_out], @abs(u_var) + 1);
                                 },
                                 .unary_exp => {
                                     // NaN prevention
-                                    tensor[tensor_out].unaryMax(10);
-                                    tensor[tensor_out].unaryMin(-10);
+                                    linearized.unaryMax(buffer[tensor_out], 10);
+                                    linearized.unaryMin(buffer[tensor_out], -10);
 
-                                    tensor[tensor_out].unaryExp();
+                                    linearized.unaryExp(buffer[tensor_out]);
                                 },
                                 .unary_log => {
                                     // NaN prevention
-                                    tensor[tensor_out].unaryAbsolute();
-                                    tensor[tensor_out].unaryAdd(1);
+                                    linearized.unaryAbsolute(buffer[tensor_out]);
+                                    linearized.unaryAdd(buffer[tensor_out], 1);
 
-                                    tensor[tensor_out].unaryLog();
+                                    linearized.unaryLog(buffer[tensor_out]);
                                 },
                                 .unary_square => {
                                     // Inf prevention
-                                    tensor[tensor_out].unaryMax(100);
-                                    tensor[tensor_out].unaryMin(-100);
+                                    linearized.unaryMax(buffer[tensor_out], 100);
+                                    linearized.unaryMin(buffer[tensor_out], -100);
 
-                                    tensor[tensor_out].unarySquare();
+                                    linearized.unarySquare(buffer[tensor_out]);
                                 },
                                 .unary_sqrt => {
                                     // NaN prevention
-                                    tensor[tensor_out].unaryAbsolute();
+                                    linearized.unaryAbsolute(buffer[tensor_out]);
 
-                                    tensor[tensor_out].unarySqrt();
+                                    linearized.unarySqrt(buffer[tensor_out]);
                                 },
                                 .unary_reciprocal => {
                                     // NaN prevention
-                                    tensor[tensor_out].unaryAbsolute();
-                                    tensor[tensor_out].unaryAdd(1);
+                                    linearized.unaryAbsolute(buffer[tensor_out]);
+                                    linearized.unaryAdd(buffer[tensor_out], 1);
 
-                                    tensor[tensor_out].unaryReciprocal();
+                                    linearized.unaryReciprocal(buffer[tensor_out]);
                                 },
                                 .unary_max => {
-                                    tensor[tensor_out].unaryMax(u_var);
+                                    linearized.unaryMax(buffer[tensor_out], u_var);
                                 },
                                 .unary_min => {
-                                    tensor[tensor_out].unaryMin(u_var);
+                                    linearized.unaryMin(buffer[tensor_out], u_var);
                                 },
                                 .unary_set => {
-                                    tensor[tensor_out].unarySet(u_var);
+                                    linearized.unarySet(buffer[tensor_out], u_var);
                                 },
                                 .unary_random => {
                                     // $TODO This
-                                    tensor[tensor_out].unarySet(u_var);
+                                    linearized.unarySet(buffer[tensor_out], u_var);
                                 },
                                 .unary_tanh => {
-                                    tensor[tensor_out].unaryTanh();
+                                    linearized.unaryTanh(buffer[tensor_out]);
                                 },
                                 .unary_absolute => {
-                                    tensor[tensor_out].unaryAbsolute();
+                                    linearized.unaryAbsolute(buffer[tensor_out]);
                                 },
                                 .unary_sign => {
-                                    tensor[tensor_out].unaryAbsolute();
+                                    linearized.unaryAbsolute(buffer[tensor_out]);
                                     // $TODO Reenable this when this is implemented
                                     // tensor1[tensor_out].unarySign();
                                 },
                                 .binary_add => {
-                                    tensor[tensor_out].binaryAdd(&tensor[tensor_in]);
+                                    linearized.binaryAdd(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_subtract => {
-                                    tensor[tensor_out].binarySubtract(&tensor[tensor_in]);
+                                    linearized.binarySubtract(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_multiply => {
-                                    tensor[tensor_out].binaryMultiply(&tensor[tensor_in]);
+                                    linearized.binaryMultiply(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_divide => {
                                     // NaN prevention
-                                    tensor[tensor_in].unaryAbsolute();
-                                    tensor[tensor_in].unaryAdd(1);
+                                    linearized.unaryAbsolute(buffer[tensor_in]);
+                                    linearized.unaryAdd(buffer[tensor_in], 1);
 
-                                    tensor[tensor_out].binaryDivide(&tensor[tensor_in]);
+                                    linearized.binaryDivide(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_max => {
-                                    tensor[tensor_out].binaryMax(&tensor[tensor_in]);
+                                    linearized.binaryMax(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_min => {
-                                    tensor[tensor_out].binaryMin(&tensor[tensor_in]);
+                                    linearized.binaryMin(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .binary_set => {
-                                    tensor[tensor_out].binarySet(&tensor[tensor_in]);
+                                    linearized.binarySet(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_add => {
-                                    tensor[tensor_out].expandAdd(&tensor[tensor_in]);
+                                    linearized.expandAdd(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_subtract => {
-                                    tensor[tensor_out].expandSubtract(&tensor[tensor_in]);
+                                    linearized.expandSubtract(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_multiply => {
-                                    tensor[tensor_out].expandMultiply(&tensor[tensor_in]);
+                                    linearized.expandMultiply(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_divide => {
                                     // NaN prevention
-                                    tensor[tensor_in].unaryAbsolute();
-                                    tensor[tensor_in].unaryAdd(1);
+                                    linearized.unaryAbsolute(buffer[tensor_in]);
+                                    linearized.unaryAdd(buffer[tensor_in], 1);
 
-                                    tensor[tensor_out].expandDivide(&tensor[tensor_in]);
+                                    linearized.expandDivide(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_max => {
-                                    tensor[tensor_out].expandMax(&tensor[tensor_in]);
+                                    linearized.expandMax(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_min => {
-                                    tensor[tensor_out].expandMin(&tensor[tensor_in]);
+                                    linearized.expandMin(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .expand_set => {
-                                    tensor[tensor_out].expandSet(&tensor[tensor_in]);
+                                    linearized.expandSet(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .reduce_sum => {
-                                    tensor[tensor_out].reduceSum(&tensor[tensor_in]);
+                                    linearized.reduceSum(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .reduce_max => {
-                                    tensor[tensor_out].reduceMax(&tensor[tensor_in]);
+                                    linearized.reduceMax(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .reduce_avg => {
-                                    tensor[tensor_out].reduceAvg(&tensor[tensor_in]);
+                                    linearized.reduceAvg(buffer[tensor_out], buffer[tensor_in]);
                                 },
                                 .reduce_min => {
-                                    tensor[tensor_out].reduceMin(&tensor[tensor_in]);
+                                    linearized.reduceMin(buffer[tensor_out], buffer[tensor_in]);
                                 },
                             }
                         }
@@ -298,5 +296,9 @@ pub fn randomLinearized(runtime: Runtime, allocator: Allocator, op_included: [op
     }
     assert(out_idx < op_num);
 
-    return .{ .tensor = tensor, .out_idx = out_idx };
+    return .{
+        .buffer = buffer,
+        .linearized = linearized,
+        .out_idx = out_idx,
+    };
 }

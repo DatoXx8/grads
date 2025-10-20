@@ -4,9 +4,9 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Tensor = @import("../Tensor.zig");
-const Op = Tensor.Op;
-const Buffer = Tensor.Buffer;
+const Linearized = @import("../Linearized.zig");
+const Op = Linearized.Op;
+const Buffer = @import("../Buffer.zig");
 const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
 const Base = Pir.Base;
@@ -384,7 +384,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
                 break;
             }
             if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].base.in)) {
-                if (pir.assign[right_idx].base.in.intermediary) {
+                if (pir.assign[right_idx].base.in.kind == .intermediary) {
                     inlineable = true;
                     out_found = true;
                 } else {
@@ -482,7 +482,7 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             !pir.assign[right_idx].base.kind.isUnary() and
             if (pir.assign[right_idx].inlined) |inlined| inlined.in_root == null else true)
         {
-            if (!pir.assign[left_idx].base.out.intermediary) {
+            if (!(pir.assign[left_idx].base.out.kind == .intermediary)) {
                 // This should never be the case I think
                 break;
             }

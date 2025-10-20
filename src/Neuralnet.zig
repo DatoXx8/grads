@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const DefaultPrng = std.Random.DefaultPrng;
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 const Layer = @import("Layer.zig");
 const Activation = Layer.Activation;
@@ -12,23 +13,23 @@ const Split = Layer.Split;
 const Residual = Layer.Residual;
 const Runtime = @import("compiler/runtimes/Runtime.zig");
 const Program = @import("compiler/Program.zig");
-const Tensor = @import("Tensor.zig");
-const Linearized = Tensor.Linearized;
-const Op = Tensor.Op;
-const Buffer = Tensor.Buffer;
+const Linearized = @import("Linearized.zig");
+const Op = Linearized.Op;
+const Buffer = @import("Buffer.zig");
 const todo = @import("util.zig").todo;
 
 pub const Neuralnet = @This();
+arena: ArenaAllocator,
 layer: []Layer,
-in: Tensor,
-in_g: Tensor,
+in: Buffer,
+in_g: Buffer,
 forward_compiled: Program,
 backward_compiled: Program,
 learn_compiled: Program,
 runtime: Runtime,
 pub fn alloc(
     runtime: Runtime,
-    allocator: Allocator,
+    gpa: Allocator,
     z_size: u32,
     y_size: u32,
     x_size: u32,
@@ -43,8 +44,15 @@ pub fn alloc(
     assert(y_size > 0);
     assert(x_size > 0);
 
-    var layer: []Layer = try allocator.alloc(Layer, config.len);
-    errdefer allocator.free(layer);
+    var arena_nn_allocator: ArenaAllocator = .init(gpa);
+    errdefer arena_nn_allocator.deinit();
+    const arena_nn: Allocator = arena_nn_allocator.allocator();
+
+    var arena_temp_allocator: ArenaAllocator = .init(gpa);
+    defer arena_temp_allocator.deinit();
+    const arena_temp: Allocator = arena_nn_allocator.allocator();
+
+    var layer: []Layer = try arena_nn.alloc(Layer, config.len);
 
     var capacity_forward: u32 = 0;
     var capacity_backward: u32 = 0;
@@ -52,8 +60,10 @@ pub fn alloc(
     var z_in: u32 = z_size;
     var y_in: u32 = y_size;
     var x_in: u32 = x_size;
-    const in: Tensor = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 1);
-    var in_g: Tensor = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 1);
+
+    const in: Buffer = try .alloc(runtime, arena_nn, 1, z_in, y_in, x_in, .normal);
+    const in_g: Buffer = try .alloc(runtime, arena_nn, 1, z_in, y_in, x_in, .normal);
+
     var layer_idx: u32 = 0;
     while (layer_idx < config.len) : (layer_idx += 1) {
         // $TODO Activation and norming
@@ -100,7 +110,7 @@ pub fn alloc(
             .split => 4,
             .residual => 0,
         };
-        layer[layer_idx].activation = try Activation.alloc(runtime, allocator, switch (config[layer_idx]) {
+        layer[layer_idx].activation = try Activation.alloc(runtime, arena_nn, switch (config[layer_idx]) {
             .dense => |d| d.activation_kind,
             .convolution => |c| c.activation_kind,
             .reduce => .none,
@@ -108,104 +118,76 @@ pub fn alloc(
             .residual => .none,
         }, z_out, y_out, x_out);
         layer[layer_idx].tag = switch (config[layer_idx]) {
-            .dense => |d| .{ .dense = try Dense.alloc(runtime, allocator, size_in, d.size_out) },
+            .dense => |d| .{ .dense = try Dense.alloc(runtime, arena_nn, size_in, d.size_out) },
             .convolution => |c| .{
-                .convolution = try Convolution.alloc(runtime, allocator, z_in, y_in, x_in, c.filters, //
+                .convolution = try Convolution.alloc(runtime, arena_nn, z_in, y_in, x_in, c.filters, //
                     c.kernel_size, c.kernel_stride, c.kernel_padding),
             },
             .reduce => |r| .{ .reduce = Reduce.init(z_in, y_in, x_in, r.kernel_size, r.kernel_stride, r.t) },
-            .split => |s| .{ .split = try Split.alloc(runtime, allocator, s.filters, z_in, y_in, x_in) },
+            .split => |s| .{ .split = try Split.alloc(runtime, arena_nn, s.filters, z_in, y_in, x_in) },
             .residual => |r| .{ .residual = .{ .t = .identity, .in_layer = r.in_layer } },
         };
 
-        layer[layer_idx].values = try Tensor.alloc(runtime, allocator, 1, z_out, y_out, x_out, forward_cap);
-        if (layer_idx == 0) {
-            try in_g.linearized.capacityEnsure(allocator, backward_cap);
-        } else {
-            layer[layer_idx - 1].values_g = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, backward_cap);
-        }
-        if (layer_idx == config.len - 1) {
-            layer[layer_idx].values_g = try Tensor.alloc(runtime, allocator, 1, z_out, y_out, x_out, 2);
-        }
+        layer[layer_idx].values = try Buffer.alloc(runtime, arena_nn, 1, z_out, y_out, x_out, .normal);
+        layer[layer_idx].values_g = try Buffer.alloc(runtime, arena_nn, 1, z_out, y_out, x_out, .normal);
         capacity_forward += forward_cap;
         capacity_backward += backward_cap;
         capacity_learn += learn_cap;
-        z_in = layer[layer_idx].values.buffer.z_size;
-        y_in = layer[layer_idx].values.buffer.y_size;
-        x_in = layer[layer_idx].values.buffer.x_size;
+        z_in = layer[layer_idx].values.z_size;
+        y_in = layer[layer_idx].values.y_size;
+        x_in = layer[layer_idx].values.x_size;
     }
 
-    var forward_cpu: Linearized = try Linearized.alloc(allocator, capacity_forward);
-    defer forward_cpu.free(allocator);
-    var backward_cpu: Linearized = try Linearized.alloc(allocator, capacity_backward);
-    defer backward_cpu.free(allocator);
-    var learn_cpu: Linearized = try Linearized.alloc(allocator, capacity_learn);
-    defer learn_cpu.free(allocator);
+    var forward_cpu: Linearized = try Linearized.alloc(arena_temp, capacity_forward);
+    var backward_cpu: Linearized = try Linearized.alloc(arena_temp, capacity_backward);
+    var learn_cpu: Linearized = try Linearized.alloc(arena_temp, capacity_learn);
 
-    var values_prev: Tensor = in;
+    var values_prev: Buffer = in;
     layer_idx = 0;
     while (layer_idx < config.len) : (layer_idx += 1) {
         switch (layer[layer_idx].tag) {
             .dense => |*d| {
-                z_in = values_prev.buffer.z_size;
-                y_in = values_prev.buffer.y_size;
-                x_in = values_prev.buffer.x_size;
+                z_in = values_prev.z_size;
+                y_in = values_prev.y_size;
+                x_in = values_prev.x_size;
                 values_prev.moveReshape(1, 1, z_in * y_in * x_in, 1);
-                d.forward(&values_prev, &layer[layer_idx].values);
+                d.forward(&forward_cpu, values_prev, &layer[layer_idx].values);
                 values_prev.moveReshape(1, z_in, y_in, x_in);
             },
-            .convolution => |*c| c.forward(&values_prev, &layer[layer_idx].values),
-            .reduce => |*r| r.forward(&values_prev, &layer[layer_idx].values),
-            .split => |*s| s.forward(&values_prev, &layer[layer_idx].values),
+            .convolution => |*c| c.forward(&forward_cpu, values_prev, &layer[layer_idx].values),
+            .reduce => |*r| r.forward(&forward_cpu, &values_prev, &layer[layer_idx].values),
+            .split => |*s| s.forward(&forward_cpu, values_prev, &layer[layer_idx].values),
             // .residual => |*r| r.forward(&layer[r.in_layer].values, &layer[layer_idx].values),
             .residual => todo(@src()),
         }
-        layer[layer_idx].activation.forward(&layer[layer_idx].values);
-        forward_cpu.concat(&layer[layer_idx].values.linearized);
+        layer[layer_idx].activation.forward(&forward_cpu, layer[layer_idx].values);
         values_prev = layer[layer_idx].values;
     }
-    var values_g_next: Tensor = if (layer.len > 1) layer[layer.len - 1].values_g else in_g;
-    var values_next: Tensor = if (layer.len > 1) layer[layer.len - 1].values else in;
+
+    var values_g_next: Buffer = if (layer.len > 1) layer[layer.len - 1].values_g else in_g;
+    var values_next: Buffer = if (layer.len > 1) layer[layer.len - 1].values else in;
     var layer_idx_plus_one: u32 = @intCast(config.len);
     while (layer_idx_plus_one > 0) : (layer_idx_plus_one -= 1) {
         layer_idx = layer_idx_plus_one - 1;
+        layer[layer_idx].activation.backward(&backward_cpu, values_next, values_g_next);
         switch (layer[layer_idx].tag) {
             .dense => |*d| {
-                z_in = values_next.buffer.z_size;
-                y_in = values_next.buffer.y_size;
-                x_in = values_next.buffer.x_size;
+                z_in = values_next.z_size;
+                y_in = values_next.y_size;
+                x_in = values_next.x_size;
                 values_next.moveReshape(1, 1, z_in * y_in * x_in, 1);
                 values_g_next.moveReshape(1, 1, z_in * y_in * x_in, 1);
-                d.backward(&values_next, &values_g_next, &layer[layer_idx].values_g);
+                d.backward(&backward_cpu, values_next, &values_g_next, layer[layer_idx].values_g);
                 values_next.moveReshape(1, z_in, y_in, x_in);
                 values_g_next.moveReshape(1, z_in, y_in, x_in);
             },
-            .convolution => |*c| c.backward(&values_next, &values_g_next, //
-                &layer[layer_idx].values, &layer[layer_idx].values_g),
-            .reduce => |*r| r.backward(&values_g_next, &layer[layer_idx].values_g),
-            .split => |*s| s.backward(&values_next, &values_g_next, &layer[layer_idx].values_g),
+            .convolution => |*c| c.backward(&backward_cpu, values_next, &values_g_next, //
+                layer[layer_idx].values, &layer[layer_idx].values_g),
+            .reduce => |*r| r.backward(&backward_cpu, &values_g_next, &layer[layer_idx].values_g),
+            .split => |*s| s.backward(&backward_cpu, values_next, values_g_next, &layer[layer_idx].values_g),
             // .residual => |r| r.backward(&layer[r.in_layer].values_g, &layer[layer_idx].values_g),
             .residual => todo(@src()),
         }
-        // $FIXME I dunno if this should go above or below
-        layer[layer_idx].activation.backward(&values_next, &values_g_next);
-        switch (layer[layer_idx].tag) {
-            .dense => |*d| {
-                backward_cpu.concat(&d.weights_g.linearized);
-                backward_cpu.concat(&d.biases_g.linearized);
-            },
-            .convolution => |*c| {
-                backward_cpu.concat(&c.weights_g.linearized);
-                backward_cpu.concat(&c.biases_g.linearized);
-            },
-            .reduce => {},
-            .split => |*s| {
-                backward_cpu.concat(&s.weights_g.linearized);
-                backward_cpu.concat(&s.biases_g.linearized);
-            },
-            .residual => {},
-        }
-        backward_cpu.concat(&values_g_next.linearized);
         values_g_next = if (layer_idx == 0) in_g else layer[layer_idx - 1].values_g;
         values_next = if (layer_idx == 0) in else layer[layer_idx - 1].values;
     }
@@ -213,43 +195,42 @@ pub fn alloc(
     while (layer_idx < config.len) : (layer_idx += 1) {
         switch (layer[layer_idx].tag) {
             .dense => |*d| {
-                d.weights_g.unaryMultiply(0.01);
-                d.biases_g.unaryMultiply(0.01);
-                d.weights.binarySubtract(&d.weights_g);
-                d.biases.binarySubtract(&d.biases_g);
-                learn_cpu.concat(&d.weights.linearized);
-                learn_cpu.concat(&d.biases.linearized);
+                learn_cpu.unaryMultiply(d.weights_g, 0.01);
+                learn_cpu.unaryMultiply(d.biases_g, 0.01);
+                learn_cpu.binarySubtract(d.weights, d.weights_g);
+                learn_cpu.binarySubtract(d.biases, d.biases_g);
             },
             .convolution => |*c| {
-                c.weights_g.unaryMultiply(0.01);
-                c.biases_g.unaryMultiply(0.01);
-                c.weights.binarySubtract(&c.weights_g);
-                c.biases.binarySubtract(&c.biases_g);
-                learn_cpu.concat(&c.weights.linearized);
-                learn_cpu.concat(&c.biases.linearized);
+                learn_cpu.unaryMultiply(c.weights_g, 0.01);
+                learn_cpu.unaryMultiply(c.biases_g, 0.01);
+                learn_cpu.binarySubtract(c.weights, c.weights_g);
+                learn_cpu.binarySubtract(c.biases, c.biases_g);
             },
             .reduce => {},
             .split => |*s| {
-                s.weights_g.unaryMultiply(0.01);
-                s.biases_g.unaryMultiply(0.01);
-                s.weights.binarySubtract(&s.weights_g);
-                s.biases.binarySubtract(&s.biases_g);
-                learn_cpu.concat(&s.weights.linearized);
-                learn_cpu.concat(&s.biases.linearized);
+                learn_cpu.unaryMultiply(s.weights_g, 0.01);
+                learn_cpu.unaryMultiply(s.biases_g, 0.01);
+                learn_cpu.binarySubtract(s.weights, s.weights_g);
+                learn_cpu.binarySubtract(s.biases, s.biases_g);
             },
             .residual => {},
         }
     }
-    var forward_compiled: Program = try Program.alloc(runtime, allocator, forward_cpu, 1000, //
-        size_global, size_local);
-    errdefer forward_compiled.free(runtime, allocator);
-    var backward_compiled: Program = try Program.alloc(runtime, allocator, backward_cpu, 1000, //
-        size_global, size_local);
-    errdefer backward_compiled.free(runtime, allocator);
-    const learn_compiled: Program = try Program.alloc(runtime, allocator, learn_cpu, 1000, //
-        size_global, size_local);
+
+    const forward_optimization_depth: u32 = 10 * forward_cpu.op_num;
+    const forward_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, forward_cpu, //
+        forward_optimization_depth, size_global, size_local);
+    errdefer forward_compiled.free(runtime);
+    const backward_optimization_depth: u32 = 10 * backward_cpu.op_num;
+    const backward_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, backward_cpu, //
+        backward_optimization_depth, size_global, size_local);
+    errdefer forward_compiled.free(runtime);
+    const learn_optimization_depth: u32 = 10 * learn_cpu.op_num;
+    const learn_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, learn_cpu, //
+        learn_optimization_depth, size_global, size_local);
 
     return .{
+        .arena = arena_nn_allocator,
         .layer = layer,
         .in = in,
         .in_g = in_g,
@@ -259,32 +240,32 @@ pub fn alloc(
         .runtime = runtime,
     };
 }
-pub fn free(this: *@This(), allocator: Allocator) void {
-    this.in.free(this.runtime, allocator);
-    this.in_g.free(this.runtime, allocator);
-    this.forward_compiled.free(this.runtime, allocator);
-    this.backward_compiled.free(this.runtime, allocator);
-    this.learn_compiled.free(this.runtime, allocator);
+pub fn free(this: *@This()) void {
+    this.in.free(this.runtime);
+    this.in_g.free(this.runtime);
+    this.forward_compiled.free(this.runtime);
+    this.backward_compiled.free(this.runtime);
+    this.learn_compiled.free(this.runtime);
     for (this.layer) |*layer| {
-        layer.activation.free(this.runtime, allocator);
-        layer.values.free(this.runtime, allocator);
-        layer.values_g.free(this.runtime, allocator);
+        layer.activation.free(this.runtime);
+        layer.values.free(this.runtime);
+        layer.values_g.free(this.runtime);
         switch (layer.tag) {
-            .dense => |*d| d.free(this.runtime, allocator),
-            .convolution => |*c| c.free(this.runtime, allocator),
+            .dense => |*d| d.free(this.runtime),
+            .convolution => |*c| c.free(this.runtime),
             .reduce => {},
-            .split => |*s| s.free(this.runtime, allocator),
+            .split => |*s| s.free(this.runtime),
             .residual => {},
         }
     }
-    allocator.free(this.layer);
+    this.arena.deinit();
 }
 // $TODO Add forward only pass where some additionaly tensors can be intermediaries
 pub fn forward(this: *@This()) !void {
     try this.forward_compiled.run(this.runtime);
 }
 /// Input and output buffers have the same a_size as eachother and otherwise the same size of the nn in/output
-pub fn backward(this: *@This(), in: *Tensor, out: *Tensor) !void {
+pub fn backward(this: *@This(), in: *Buffer, out: *Buffer) !void {
     assert(in.buffer.a_size == out.buffer.a_size);
     assert(in.buffer.offset == 0);
     assert(out.buffer.offset == 0);
@@ -314,6 +295,9 @@ pub fn learn(this: *@This()) !void {
     try this.learn_compiled.run(this.runtime);
 }
 pub fn init(this: *@This(), rng: u64) !void {
+    const arena_temp = this.arena.allocator();
+    var linearized_temp: Linearized = try .alloc(arena_temp, @intCast(2 * this.layer.len));
+    defer arena_temp.free(linearized_temp.op);
     // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
     // I don't think that would be the end of the world but it just kinda ugly
     var default_prng = DefaultPrng.init(rng);
@@ -321,27 +305,22 @@ pub fn init(this: *@This(), rng: u64) !void {
     for (this.layer) |*layer| {
         switch (layer.tag) {
             .dense => |*d| {
-                d.weights.unaryRandom(prng.int(u32));
-                d.biases.unaryRandom(prng.int(u32));
-                d.weights.realize();
-                d.biases.realize();
+                linearized_temp.unaryRandom(d.weights, prng.int(u32));
+                linearized_temp.unaryRandom(d.biases, prng.int(u32));
             },
             .convolution => |*c| {
-                c.weights.unaryRandom(prng.int(u32));
-                c.biases.unaryRandom(prng.int(u32));
-                c.weights.realize();
-                c.biases.realize();
+                linearized_temp.unaryRandom(c.weights, prng.int(u32));
+                linearized_temp.unaryRandom(c.biases, prng.int(u32));
             },
             .reduce => {},
             .split => |*s| {
-                s.weights.unaryRandom(prng.int(u32));
-                s.biases.unaryRandom(prng.int(u32));
-                s.weights.realize();
-                s.biases.realize();
+                linearized_temp.unaryRandom(s.weights, prng.int(u32));
+                linearized_temp.unaryRandom(s.biases, prng.int(u32));
             },
             .residual => {},
         }
     }
+    linearized_temp.realize();
     try this.sync(true, true, true, true, true, .sync_to_device);
 }
 // $TODO Snyc option for temp buffers
@@ -357,17 +336,17 @@ pub fn sync(
     assert(t != .sync_to_none);
     if (in) {
         if (force) {
-            this.in.buffer.syncUpdate(t);
-            this.in_g.buffer.syncUpdate(t);
+            this.in.syncUpdate(t);
+            this.in_g.syncUpdate(t);
         }
         switch (t) {
             .sync_to_device => {
-                try this.in.buffer.syncToDevice(this.runtime);
-                try this.in_g.buffer.syncToDevice(this.runtime);
+                try this.in.syncToDevice(this.runtime);
+                try this.in_g.syncToDevice(this.runtime);
             },
             .sync_to_host => {
-                try this.in.buffer.syncToHost(this.runtime);
-                try this.in_g.buffer.syncToHost(this.runtime);
+                try this.in.syncToHost(this.runtime);
+                try this.in_g.syncToHost(this.runtime);
             },
             .sync_to_none => unreachable,
         }
@@ -378,28 +357,28 @@ pub fn sync(
             .reduce, .residual => continue,
         }
         if (weights) {
-            const weights_curr: *Tensor = switch (layer.tag) {
+            const weights_curr: *Buffer = switch (layer.tag) {
                 .dense => |*d| &d.weights,
                 .convolution => |*c| &c.weights,
                 .reduce => unreachable,
                 .split => |*s| &s.weights,
                 .residual => unreachable,
             };
-            const biases_curr: *Tensor = switch (layer.tag) {
+            const biases_curr: *Buffer = switch (layer.tag) {
                 .dense => |*d| &d.biases,
                 .convolution => |*c| &c.biases,
                 .reduce => unreachable,
                 .split => |*s| &s.biases,
                 .residual => unreachable,
             };
-            const weights_g_curr: *Tensor = switch (layer.tag) {
+            const weights_g_curr: *Buffer = switch (layer.tag) {
                 .dense => |*d| &d.weights_g,
                 .convolution => |*c| &c.weights_g,
                 .reduce => unreachable,
                 .split => |*s| &s.weights_g,
                 .residual => unreachable,
             };
-            const biases_g_curr: *Tensor = switch (layer.tag) {
+            const biases_g_curr: *Buffer = switch (layer.tag) {
                 .dense => |*d| &d.biases_g,
                 .convolution => |*c| &c.biases_g,
                 .reduce => unreachable,
@@ -407,40 +386,40 @@ pub fn sync(
                 .residual => unreachable,
             };
             if (force) {
-                weights_curr.buffer.syncUpdate(t);
-                biases_curr.buffer.syncUpdate(t);
-                weights_g_curr.buffer.syncUpdate(t);
-                biases_g_curr.buffer.syncUpdate(t);
+                weights_curr.syncUpdate(t);
+                biases_curr.syncUpdate(t);
+                weights_g_curr.syncUpdate(t);
+                biases_g_curr.syncUpdate(t);
             }
             switch (t) {
                 .sync_to_device => {
-                    try weights_curr.buffer.syncToDevice(this.runtime);
-                    try biases_curr.buffer.syncToDevice(this.runtime);
-                    try weights_g_curr.buffer.syncToDevice(this.runtime);
-                    try biases_g_curr.buffer.syncToDevice(this.runtime);
+                    try weights_curr.syncToDevice(this.runtime);
+                    try biases_curr.syncToDevice(this.runtime);
+                    try weights_g_curr.syncToDevice(this.runtime);
+                    try biases_g_curr.syncToDevice(this.runtime);
                 },
                 .sync_to_host => {
-                    try weights_curr.buffer.syncToHost(this.runtime);
-                    try biases_curr.buffer.syncToHost(this.runtime);
-                    try weights_g_curr.buffer.syncToHost(this.runtime);
-                    try biases_g_curr.buffer.syncToHost(this.runtime);
+                    try weights_curr.syncToHost(this.runtime);
+                    try biases_curr.syncToHost(this.runtime);
+                    try weights_g_curr.syncToHost(this.runtime);
+                    try biases_g_curr.syncToHost(this.runtime);
                 },
                 .sync_to_none => unreachable,
             }
         }
         if (values or (out and layer_idx == this.layer.len - 1)) {
             if (force) {
-                layer.values.buffer.syncUpdate(t);
-                layer.values_g.buffer.syncUpdate(t);
+                layer.values.syncUpdate(t);
+                layer.values_g.syncUpdate(t);
             }
             switch (t) {
                 .sync_to_device => {
-                    try layer.values.buffer.syncToDevice(this.runtime);
-                    try layer.values_g.buffer.syncToDevice(this.runtime);
+                    try layer.values.syncToDevice(this.runtime);
+                    try layer.values_g.syncToDevice(this.runtime);
                 },
                 .sync_to_host => {
-                    try layer.values.buffer.syncToHost(this.runtime);
-                    try layer.values_g.buffer.syncToHost(this.runtime);
+                    try layer.values.syncToHost(this.runtime);
+                    try layer.values_g.syncToHost(this.runtime);
                 },
                 .sync_to_none => unreachable,
             }
@@ -531,14 +510,14 @@ pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const
             .dense, .convolution, .split => {},
             .reduce, .residual => continue,
         }
-        const weights: *Tensor = switch (layer.tag) {
+        const weights: *Buffer = switch (layer.tag) {
             .dense => |*d| &d.weights,
             .convolution => |*c| &c.weights,
             .reduce => unreachable,
             .split => |*s| &s.weights,
             .residual => unreachable,
         };
-        const biases: *Tensor = switch (layer.tag) {
+        const biases: *Buffer = switch (layer.tag) {
             .dense => |*d| &d.biases,
             .convolution => |*c| &c.biases,
             .reduce => unreachable,
@@ -560,7 +539,7 @@ const file_param_size_max: usize = 4 * 1000 * 1000 * 1000;
 /// Arbitrary value. Increase if not sufficient.
 const file_arch_size_max: usize = 4 * 1000 * 1000;
 /// Returns the number of bytes read
-fn readParamsV0(weights: *Tensor, biases: *Tensor, bytes: []const u8) u64 {
+fn readParamsV0(weights: *Buffer, biases: *Buffer, bytes: []const u8) u64 {
     const weights_size: u64 = weights.buffer.values.len *
         @sizeOf(@TypeOf(weights.buffer.values[0]));
     const biases_size: u64 = biases.buffer.values.len * @sizeOf(@TypeOf(biases.buffer.values[0]));
@@ -592,14 +571,14 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
             .dense, .convolution, .split => {},
             .reduce, .residual => continue,
         }
-        const weights: *Tensor = switch (layer.tag) {
+        const weights: *Buffer = switch (layer.tag) {
             .dense => |*d| &d.weights,
             .convolution => |*c| &c.weights,
             .reduce => unreachable,
             .split => |*s| &s.weights,
             .residual => unreachable,
         };
-        const biases: *Tensor = switch (layer.tag) {
+        const biases: *Buffer = switch (layer.tag) {
             .dense => |*d| &d.biases,
             .convolution => |*c| &c.biases,
             .reduce => unreachable,

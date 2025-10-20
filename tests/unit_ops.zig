@@ -2,8 +2,12 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
 
+const Allocator = std.mem.Allocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
+
 const grads = @import("grads");
-const Tensor = grads.Tensor;
+const Buffer = grads.Buffer;
+const Linearized = grads.Linearized;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
 
@@ -33,11 +37,15 @@ fn assertEq(val1: f32, val2: f32) !void {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.detectLeaks();
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = general_purpose_allocator.allocator();
+    defer _ = general_purpose_allocator.detectLeaks();
 
-    var args = try std.process.argsWithAllocator(allocator);
+    var arena_allocator: ArenaAllocator = .init(gpa);
+    defer arena_allocator.deinit();
+    const arena: Allocator = arena_allocator.allocator();
+
+    var args = try std.process.argsWithAllocator(gpa);
     defer args.deinit();
 
     var rng_saved: ?u64 = null;
@@ -60,14 +68,14 @@ pub fn main() !void {
     const z_size: u32 = 5;
     const y_size: u32 = 4;
     const x_size: u32 = 3;
-    var tensor1 = try Tensor.alloc(runtime, allocator, a_size, z_size, y_size, x_size, 3);
-    var tensor2 = try Tensor.alloc(runtime, allocator, a_size, z_size, y_size, x_size, 3);
-    const val1 = try allocator.alloc(f32, a_size * z_size * y_size * x_size);
-    const val2 = try allocator.alloc(f32, a_size * z_size * y_size * x_size);
-    defer tensor1.free(runtime, allocator);
-    defer tensor2.free(runtime, allocator);
-    defer allocator.free(val1);
-    defer allocator.free(val2);
+
+    var linearized1: Linearized = try .alloc(arena, 3);
+    var tensor1 = try Buffer.alloc(runtime, arena, a_size, z_size, y_size, x_size, .normal);
+    defer tensor1.free(runtime);
+    var tensor2 = try Buffer.alloc(runtime, arena, a_size, z_size, y_size, x_size, .normal);
+    defer tensor2.free(runtime);
+    const val1 = try arena.alloc(f32, a_size * z_size * y_size * x_size);
+    const val2 = try arena.alloc(f32, a_size * z_size * y_size * x_size);
 
     const rng: u64 = switch (rng_saved == null) {
         true => std.crypto.random.int(u64),
@@ -82,116 +90,116 @@ pub fn main() !void {
         val2[val_idx] = pcg.random().floatNorm(f32);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    std.mem.copyForwards(f32, tensor2.buffer.values, val2);
-    tensor1.unaryAdd(2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    std.mem.copyForwards(f32, tensor2.values, val2);
+    linearized1.unaryAdd(tensor1, 2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] + 2);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] + 2);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unarySubtract(2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unarySubtract(tensor1, 2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] - 2);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] - 2);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryMultiply(2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryMultiply(tensor1, 2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] * 2);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] * 2);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryDivide(2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryDivide(tensor1, 2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] / 2);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] / 2);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryAbsolute();
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryAbsolute(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @abs(val1[arg_idx]));
+        try assertEq(tensor1.values[arg_idx], @abs(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryExp();
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryExp(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], std.math.exp(val1[arg_idx]));
+        try assertEq(tensor1.values[arg_idx], std.math.exp(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
+    std.mem.copyForwards(f32, tensor1.values, val1);
     // This is to avoid NaNs
-    tensor1.unaryAbsolute();
-    tensor1.unaryAdd(1);
-    tensor1.unaryLog();
-    tensor1.realize();
+    linearized1.unaryAbsolute(tensor1);
+    linearized1.unaryAdd(tensor1, 1);
+    linearized1.unaryLog(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], std.math.log(f32, std.math.e, @abs(val1[arg_idx]) + 1));
+        try assertEq(tensor1.values[arg_idx], std.math.log(f32, std.math.e, @abs(val1[arg_idx]) + 1));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unarySquare();
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unarySquare(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] * val1[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] * val1[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
+    std.mem.copyForwards(f32, tensor1.values, val1);
     // This it to avoid NaNs
-    tensor1.unaryAbsolute();
-    tensor1.unarySqrt();
-    tensor1.realize();
+    linearized1.unaryAbsolute(tensor1);
+    linearized1.unarySqrt(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], std.math.sqrt(@abs(val1[arg_idx])));
+        try assertEq(tensor1.values[arg_idx], std.math.sqrt(@abs(val1[arg_idx])));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
+    std.mem.copyForwards(f32, tensor1.values, val1);
     // This is to avoid NaNs
-    tensor1.unaryAbsolute();
-    tensor1.unaryAdd(1);
-    tensor1.unaryReciprocal();
-    tensor1.realize();
+    linearized1.unaryAbsolute(tensor1);
+    linearized1.unaryAdd(tensor1, 1);
+    linearized1.unaryReciprocal(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], 1 / (@abs(val1[arg_idx]) + 1));
+        try assertEq(tensor1.values[arg_idx], 1 / (@abs(val1[arg_idx]) + 1));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryMax(1);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryMax(tensor1, 1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @max(val1[arg_idx], 1));
+        try assertEq(tensor1.values[arg_idx], @max(val1[arg_idx], 1));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryMin(1);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryMin(tensor1, 1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @min(val1[arg_idx], 1));
+        try assertEq(tensor1.values[arg_idx], @min(val1[arg_idx], 1));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unarySet(2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unarySet(tensor1, 2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], 2);
+        try assertEq(tensor1.values[arg_idx], 2);
     }
 
     // Theoretically speaking because this *is* random this could
     // error despite everything working as it should, but doing some
     // back of the envelope calculations that should be rare enough to
     // not really worry about it.
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryRandom(@truncate(rng));
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryRandom(tensor1, @truncate(rng));
+    linearized1.realize();
     var product: f32 = 1;
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        product *= tensor1.buffer.values[arg_idx];
+        product *= tensor1.values[arg_idx];
     }
     if (@abs(product) < 1 / @as(f32, a_size * z_size * y_size * x_size)) {
         // Happy case
@@ -206,160 +214,160 @@ pub fn main() !void {
         return AssertError.difference;
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unaryTanh();
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unaryTanh(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], std.math.tanh(val1[arg_idx]));
+        try assertEq(tensor1.values[arg_idx], std.math.tanh(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.unarySign();
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.unarySign(tensor1);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         if (val1[arg_idx] > 0) {
-            try assertEq(tensor1.buffer.values[arg_idx], 1);
+            try assertEq(tensor1.values[arg_idx], 1);
         } else if (val1[arg_idx] < 0) {
-            try assertEq(tensor1.buffer.values[arg_idx], -1);
+            try assertEq(tensor1.values[arg_idx], -1);
         } else {
-            try assertEq(tensor1.buffer.values[arg_idx], 0);
+            try assertEq(tensor1.values[arg_idx], 0);
         }
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binaryAdd(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binaryAdd(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] + val2[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] + val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binarySubtract(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binarySubtract(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] - val2[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] - val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binaryMultiply(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binaryMultiply(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] * val2[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] * val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binaryDivide(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binaryDivide(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] / val2[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] / val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binaryMax(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binaryMax(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @max(val1[arg_idx], val2[arg_idx]));
+        try assertEq(tensor1.values[arg_idx], @max(val1[arg_idx], val2[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binaryMin(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binaryMin(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @min(val1[arg_idx], val2[arg_idx]));
+        try assertEq(tensor1.values[arg_idx], @min(val1[arg_idx], val2[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.binarySet(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.binarySet(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val2[arg_idx]);
+        try assertEq(tensor1.values[arg_idx], val2[arg_idx]);
     }
 
     tensor2.moveResize(1, 1, 1, 1);
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandAdd(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandAdd(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] + val2[0]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] + val2[0]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandSubtract(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandSubtract(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] - val2[0]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] - val2[0]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandMultiply(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandMultiply(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] * val2[0]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] * val2[0]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandDivide(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandDivide(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val1[arg_idx] / val2[0]);
+        try assertEq(tensor1.values[arg_idx], val1[arg_idx] / val2[0]);
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandMax(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandMax(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @max(val1[arg_idx], val2[0]));
+        try assertEq(tensor1.values[arg_idx], @max(val1[arg_idx], val2[0]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandMin(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandMin(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], @min(val1[arg_idx], val2[0]));
+        try assertEq(tensor1.values[arg_idx], @min(val1[arg_idx], val2[0]));
     }
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.expandSet(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.expandSet(tensor1, tensor2);
+    linearized1.realize();
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(tensor1.buffer.values[arg_idx], val2[0]);
+        try assertEq(tensor1.values[arg_idx], val2[0]);
     }
 
     tensor1.moveResize(1, 1, 1, 1);
     tensor2.moveResize(a_size, z_size, y_size, x_size);
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.reduceSum(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.reduceSum(tensor1, tensor2);
+    linearized1.realize();
     var sum: f32 = 0;
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         sum += val2[arg_idx];
     }
-    try assertEq(tensor1.buffer.values[0], sum);
+    try assertEq(tensor1.values[0], sum);
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.reduceAvg(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.reduceAvg(tensor1, tensor2);
+    linearized1.realize();
     sum = 0;
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         sum += val2[arg_idx];
     }
-    try assertEq(tensor1.buffer.values[0], sum / @as(f32, a_size * z_size * y_size * x_size));
+    try assertEq(tensor1.values[0], sum / @as(f32, a_size * z_size * y_size * x_size));
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.reduceMax(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.reduceMax(tensor1, tensor2);
+    linearized1.realize();
     var max: f32 = -std.math.inf(f32);
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         max = @max(max, val2[arg_idx]);
     }
-    try assertEq(tensor1.buffer.values[0], max);
+    try assertEq(tensor1.values[0], max);
 
-    std.mem.copyForwards(f32, tensor1.buffer.values, val1);
-    tensor1.reduceMin(&tensor2);
-    tensor1.realize();
+    std.mem.copyForwards(f32, tensor1.values, val1);
+    linearized1.reduceMin(tensor1, tensor2);
+    linearized1.realize();
     var min: f32 = std.math.inf(f32);
     for (0..a_size * z_size * y_size * x_size) |arg_idx| {
         min = @min(min, val2[arg_idx]);
     }
-    try assertEq(tensor1.buffer.values[0], min);
+    try assertEq(tensor1.values[0], min);
 }

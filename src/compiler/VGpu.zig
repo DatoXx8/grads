@@ -7,9 +7,9 @@ const std = @import("std");
 
 const util = @import("../util.zig");
 const todo = util.todo;
-const Tensor = @import("../Tensor.zig");
-const Buffer = Tensor.Buffer;
-const Op = Tensor.Op;
+const Buffer = @import("../Buffer.zig");
+const Linearized = @import("../Linearized.zig");
+const Op = Linearized.Op;
 const Pir = @import("Pir.zig");
 
 pub const Detail = enum(u8) {

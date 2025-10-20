@@ -14,6 +14,10 @@ const buffer_name_size = grads.Tensor.buffer_name_size;
 
 // $FIXME This can't handle reshapes right now, only resizes
 pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z: u32, y: u32, x: u32) ![]const u8 {
+    if (true) {
+        @panic("$FIXME");
+    }
+
     const max_chars_per_op: u32 = 500; // Random number
     var text: []u8 = try allocator.alloc(u8, linearized.op_num * max_chars_per_op);
     errdefer allocator.free(text);
@@ -55,7 +59,7 @@ pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z
     while (unique_buffer_idx < unique_buffer_num) : (unique_buffer_idx += 1) {
         const name: [buffer_name_size]u8 = Tensor.Buffer.nameFromId(unique_buffer_ids[unique_buffer_idx]);
         const written = try std.fmt.bufPrint(text[text_idx..], //
-            "var {s}: Tensor = .alloc(runtime, allocator, {}, {}, {}, {}, {});\n" ++
+            "var {s}: Tensor = Tensor.alloc(runtime, allocator, {}, {}, {}, {}, {});\n" ++
                 "defer {s}.free(runtime, allocator);\n", .{ name, a, z, y, x, linearized.op_num, name });
         text_idx += @intCast(written.len);
     }

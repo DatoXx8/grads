@@ -3,10 +3,11 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
 
-const Tensor = @import("../../Tensor.zig");
-const buffer_name_size = Tensor.buffer_name_size;
-const Op = Tensor.Op;
-const nameFromId = Tensor.Buffer.nameFromId;
+const Buffer = @import("../../Buffer.zig");
+const buffer_name_size = Buffer.buffer_name_size;
+const nameFromId = Buffer.nameFromId;
+const Linearized = @import("../../Linearized.zig");
+const Op = Linearized.Op;
 const todo = @import("../../util.zig").todo;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;

@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Pcg = std.Random.Pcg;
 const Allocator = std.mem.Allocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
 const Tensor = grads.Tensor;
@@ -17,7 +18,7 @@ const z_size_max = @import("random_linearized.zig").z_size_max;
 const y_size_max = @import("random_linearized.zig").y_size_max;
 const x_size_max = @import("random_linearized.zig").x_size_max;
 const op_num = @import("random_linearized.zig").op_num;
-const tensor_num = @import("random_linearized.zig").tensor_num;
+const tensor_num = @import("random_linearized.zig").buffer_num;
 
 const AssertError = error{
     nan,
@@ -85,21 +86,29 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
 }
 
 // $WARN This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
-fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
+fn profileCompiler(runtime: Runtime, gpa: Allocator, rng: u64) !void {
     std.debug.print("profile_compiler: rng={}...\n", .{rng});
 
     var pcg = Pcg.init(rng);
 
-    var tensor1 = try randomLinearized(runtime, allocator, @splat(true), rng);
+    var arena_allocator: ArenaAllocator = .init(gpa);
+    defer arena_allocator.deinit();
+    const arena: Allocator = arena_allocator.allocator();
+
+    var arena_temp_allocator: ArenaAllocator = .init(gpa);
+    defer arena_temp_allocator.deinit();
+    const arena_temp: Allocator = arena_temp_allocator.allocator();
+
+    var tensor1 = try randomLinearized(runtime, arena, @splat(true), rng);
     defer {
-        for (&tensor1.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
+        for (&tensor1.buffer) |buffer| {
+            buffer.free(runtime);
         }
     }
-    var tensor2 = try randomLinearized(runtime, allocator, @splat(true), rng);
+    var tensor2 = try randomLinearized(runtime, arena, @splat(true), rng);
     defer {
-        for (&tensor2.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
+        for (&tensor2.buffer) |buffer| {
+            buffer.free(runtime);
         }
     }
     assert(tensor1.out_idx == tensor2.out_idx);
@@ -108,7 +117,7 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
     for (0..iterations) |interation_idx| {
         // Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
-        tensor2.tensor[tensor2.out_idx].linearized.run();
+        tensor2.linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
     analyseTimes(time_linearized, "linearized");
@@ -117,15 +126,16 @@ fn profileCompiler(runtime: Runtime, allocator: Allocator, rng: u64) !void {
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
-        tensor1.tensor[tensor_idx].buffer.syncUpdate(.sync_to_device);
-        try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
+        tensor1.buffer[tensor_idx].syncUpdate(.sync_to_device);
+        try tensor1.buffer[tensor_idx].syncToDevice(runtime);
     }
 
     const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };
     for (depth_max) |depth| {
-        var program: Program = try Program.alloc(runtime, allocator, tensor1.tensor[tensor1.out_idx].linearized, //
+        defer _ = arena_temp_allocator.reset(.retain_capacity);
+
+        var program: Program = try Program.alloc(runtime, gpa, arena_temp, arena_temp, tensor1.linearized, //
             depth, size_global, size_local);
-        defer program.free(runtime, allocator);
 
         var time_program: [iterations]i128 = undefined;
         for (0..iterations) |interation_idx| {

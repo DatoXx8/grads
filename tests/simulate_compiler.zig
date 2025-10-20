@@ -2,6 +2,7 @@ const std = @import("std");
 const Pcg = std.Random.Pcg;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
 const Tensor = grads.Tensor;
@@ -19,7 +20,7 @@ const z_size_max = @import("random_linearized.zig").z_size_max;
 const y_size_max = @import("random_linearized.zig").y_size_max;
 const x_size_max = @import("random_linearized.zig").x_size_max;
 const op_num = @import("random_linearized.zig").op_num;
-const tensor_num = @import("random_linearized.zig").tensor_num;
+const tensor_num = @import("random_linearized.zig").buffer_num;
 
 const AssertError = error{
     nan,
@@ -52,48 +53,55 @@ fn assertEq(val1: f32, val2: f32) !void {
 
 fn simulateCompiler(
     runtime: Runtime,
-    allocator: Allocator,
+    gpa: Allocator,
     op_included: [op_num]bool,
     rng: u64,
     depth_max: u32,
 ) !void {
     var pcg = Pcg.init(rng);
 
-    var tensor1 = try randomLinearized(runtime, allocator, op_included, rng);
-    defer {
-        for (&tensor1.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
-        }
-    }
-    var tensor2 = try randomLinearized(runtime, allocator, op_included, rng);
-    defer {
-        for (&tensor2.tensor) |*tensor| {
-            tensor.free(runtime, allocator);
-        }
-    }
-    assert(tensor1.out_idx == tensor2.out_idx);
+    var arena_allocator: ArenaAllocator = .init(gpa);
+    defer arena_allocator.deinit();
+    const arena: Allocator = arena_allocator.allocator();
 
-    tensor2.tensor[tensor2.out_idx].realize();
+    var arena_temp_allocator: ArenaAllocator = .init(gpa);
+    defer arena_temp_allocator.deinit();
+    const arena_temp: Allocator = arena_temp_allocator.allocator();
+
+    var tensor1 = try randomLinearized(runtime, arena, op_included, rng);
+    defer {
+        for (&tensor1.buffer) |buffer| {
+            buffer.free(runtime);
+        }
+    }
+    var tensor2 = try randomLinearized(runtime, arena, op_included, rng);
+    defer {
+        for (&tensor2.buffer) |buffer| {
+            buffer.free(runtime);
+        }
+    }
+
+    tensor2.linearized.realize();
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
     for (0..tensor_num) |tensor_idx| {
-        tensor1.tensor[tensor_idx].buffer.syncUpdate(.sync_to_device);
-        try tensor1.tensor[tensor_idx].buffer.syncToDevice(runtime);
+        tensor1.buffer[tensor_idx].syncUpdate(.sync_to_device);
+        try tensor1.buffer[tensor_idx].syncToDevice(runtime);
     }
 
-    var program: Program = try Program.alloc(runtime, allocator, //
-        tensor1.tensor[tensor1.out_idx].linearized, depth_max, size_global, size_local);
-    defer program.free(runtime, allocator);
+    var program: Program = try Program.alloc(runtime, gpa, arena, arena_temp, //
+        tensor1.linearized, depth_max, size_global, size_local);
+    defer program.free(runtime);
 
     try program.run(runtime);
 
-    tensor1.tensor[tensor1.out_idx].buffer.syncUpdate(.sync_to_host);
-    try tensor1.tensor[tensor1.out_idx].buffer.syncToHost(runtime);
+    tensor1.buffer[tensor1.out_idx].syncUpdate(.sync_to_host);
+    try tensor1.buffer[tensor1.out_idx].syncToHost(runtime);
 
-    for (0..tensor1.tensor[tensor1.out_idx].buffer.values.len) |arg_idx| {
-        assertEq(tensor1.tensor[tensor1.out_idx].buffer.values[arg_idx], tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx]) catch |err| {
+    for (0..tensor1.buffer[tensor1.out_idx].values.len) |arg_idx| {
+        assertEq(tensor1.buffer[tensor1.out_idx].values[arg_idx], tensor2.buffer[tensor2.out_idx].values[arg_idx]) catch |err| {
             std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={} and opt={}\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
@@ -101,10 +109,10 @@ fn simulateCompiler(
                 arg_idx / x_size_max % y_size_max,
                 arg_idx % x_size_max,
                 op_included,
-                tensor1.tensor[tensor1.out_idx].buffer.values[arg_idx],
-                tensor1.tensor[tensor1.out_idx].buffer.name(),
-                tensor2.tensor[tensor2.out_idx].buffer.values[arg_idx],
-                tensor2.tensor[tensor2.out_idx].buffer.name(),
+                tensor1.buffer[tensor1.out_idx].values[arg_idx],
+                tensor1.buffer[tensor1.out_idx].name(),
+                tensor2.buffer[tensor2.out_idx].values[arg_idx],
+                tensor2.buffer[tensor2.out_idx].name(),
                 rng,
                 depth_max,
             });
@@ -115,7 +123,7 @@ fn simulateCompiler(
 
 fn minifyCompiler(
     runtime: Runtime,
-    allocator: Allocator,
+    gpa: Allocator,
     rng: u64,
     depth_max: u32,
     err: anyerror,
@@ -127,7 +135,7 @@ fn minifyCompiler(
         var failed: bool = false;
         op_included[op_idx] = false;
         var erro: anyerror = undefined;
-        simulateCompiler(runtime, allocator, op_included, rng, depth_max) catch |e| {
+        simulateCompiler(runtime, gpa, op_included, rng, depth_max) catch |e| {
             erro = e;
             failed = true;
         };
@@ -138,7 +146,7 @@ fn minifyCompiler(
     var depth_max_first_fail: u32 = 0;
     while (depth_max_first_fail < depth_max) : (depth_max_first_fail += 1) {
         var failed: bool = false;
-        simulateCompiler(runtime, allocator, op_included, rng, depth_max_first_fail) catch {
+        simulateCompiler(runtime, gpa, op_included, rng, depth_max_first_fail) catch {
             failed = true;
         };
         if (failed) {
@@ -147,7 +155,7 @@ fn minifyCompiler(
     }
     std.debug.print("\n\nMinimal: {any} with depth: {}\n", .{ op_included, depth_max_first_fail });
     var failed: bool = false;
-    simulateCompiler(runtime, allocator, op_included, rng, depth_max_first_fail) catch {
+    simulateCompiler(runtime, gpa, op_included, rng, depth_max_first_fail) catch {
         failed = true;
     };
     if (!failed) {
@@ -157,11 +165,11 @@ fn minifyCompiler(
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.detectLeaks();
+    var geneal_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = geneal_purpose_allocator.allocator();
+    defer _ = geneal_purpose_allocator.detectLeaks();
 
-    var args = try std.process.argsWithAllocator(allocator);
+    var args = try std.process.argsWithAllocator(gpa);
     defer args.deinit();
 
     var rng_saved: ?u64 = null;
@@ -215,14 +223,14 @@ pub fn main() !void {
         while (true) {
             std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
-                    try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
+                simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, opt) catch |err| {
+                    try minifyCompiler(runtime, gpa, rng +% loop_idx, opt, err);
                 };
                 std.debug.print("{d} ", .{opt});
             } else {
                 for (depth_max) |depth| {
-                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, depth) catch |err| {
-                        try minifyCompiler(runtime, allocator, rng +% loop_idx, depth, err);
+                    simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, depth) catch |err| {
+                        try minifyCompiler(runtime, gpa, rng +% loop_idx, depth, err);
                     };
                     std.debug.print("{d} ", .{depth});
                 }
@@ -234,14 +242,14 @@ pub fn main() !void {
         for (0..loop_count) |loop_idx| {
             std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
-                simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, opt) catch |err| {
-                    try minifyCompiler(runtime, allocator, rng +% loop_idx, opt, err);
+                simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, opt) catch |err| {
+                    try minifyCompiler(runtime, gpa, rng +% loop_idx, opt, err);
                 };
                 std.debug.print("{d} ", .{opt});
             } else {
                 for (depth_max) |depth| {
-                    simulateCompiler(runtime, allocator, @splat(true), rng +% loop_idx, depth) catch |err| {
-                        try minifyCompiler(runtime, allocator, rng +% loop_idx, depth, err);
+                    simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, depth) catch |err| {
+                        try minifyCompiler(runtime, gpa, rng +% loop_idx, depth, err);
                     };
                     std.debug.print("{d} ", .{depth});
                 }

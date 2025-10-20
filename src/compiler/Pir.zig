@@ -2,10 +2,9 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const Tensor = @import("../Tensor.zig");
-const Op = Tensor.Op;
-const Linearized = Tensor.Linearized;
-const Buffer = Tensor.Buffer;
+const Linearized = @import("../Linearized.zig");
+const Op = Linearized.Op;
+const Buffer = @import("../Buffer.zig");
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 
@@ -332,7 +331,6 @@ pub fn alloc(
 
     return pir;
 }
-// $TODO This should really not involve a hand full of allocator calls when switching to Pool based impl
 pub fn copy(this: Pir, allocator: Allocator) !Pir {
     var result: Pir = .{
         .assign = try allocator.alloc(Assign, this.assign.len),

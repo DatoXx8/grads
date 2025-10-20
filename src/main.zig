@@ -6,12 +6,15 @@ const Layer = @import("Layer.zig");
 const Neuralnet = @import("Neuralnet.zig");
 const Runtime = @import("compiler/runtimes/Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
-const Tensor = @import("Tensor.zig");
+const Buffer = @import("Buffer.zig");
+const Linearized = @import("Linearized.zig");
 
+// $TODO Get rid of all this, @This() and unspecified allocators
+// $TODO Get rid of all print methods and just make format functions, this allows saner logging for test failures
+// $TODO Expose an ArenaAllocator like interface for the Runtimes. Having to call the individual free function just because of those makes no sense
 // $TODO Refactor all of the assignments to not be optionals. Just have default values that are equivalent to no optimization.
 // $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
 // $TODO Log test fail seeds to regtest file with textify_linarized
-// $TODO Make a way to have a tensor put it's ops in another tensors linearized, maybe call it like external linearized
 // $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)
 // $TODO Make debug flag for compile step that adds debug printing if enabled
 
@@ -42,7 +45,7 @@ pub fn main() !void {
         20,
         4,
     );
-    defer nn.free(allocator);
+    defer nn.free();
     try nn.init(0);
     try nn.sync(true, true, true, true, true, .sync_to_device);
     try nn.forward();

@@ -5,10 +5,9 @@ const Allocator = std.mem.Allocator;
 const Optimization = @import("compiler/optimize.zig").Optimization;
 const Program = @import("compiler/Program.zig");
 const Runtime = @import("compiler/runtimes/Runtime.zig");
-const Tensor = @import("Tensor.zig");
-const Linearized = Tensor.Linearized;
-const Op = Tensor.Op;
-const Buffer = Tensor.Buffer;
+const Linearized = @import("Linearized.zig");
+const Op = Linearized.Op;
+const Buffer = @import("Buffer.zig");
 const todo = @import("util.zig").todo;
 
 pub const Activation = struct {
@@ -28,88 +27,88 @@ pub const Activation = struct {
         assert(relu_leaky_factor > 0);
         assert(relu_clipped_factor > 0);
     }
-    temp: Tensor,
+    temp: Buffer,
     t: Activation.Kind,
-    pub fn alloc(runtime: Runtime, allocator: Allocator, t: Activation.Kind, z_in: u32, y_in: u32, x_in: u32) !Activation {
+    pub fn alloc(runtime: Runtime, arena: Allocator, t: Activation.Kind, z_in: u32, y_in: u32, x_in: u32) !Activation {
         return .{
             .t = t,
             .temp = switch (t) {
-                .none => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .relu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .sigmoid => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .relu_clipped => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .relu_leaky => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .silu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .gelu => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
-                .tanh => try Tensor.allocIntermediary(runtime, allocator, 1, z_in, y_in, x_in, 1),
+                .none => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .relu => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .sigmoid => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .relu_clipped => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .relu_leaky => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .silu => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .gelu => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
+                .tanh => try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
             },
         };
     }
-    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
-        this.temp.free(runtime, allocator);
+    pub fn free(actiavtion: Activation, runtime: Runtime) void {
+        actiavtion.temp.free(runtime);
     }
-    pub fn forward(this: *@This(), values: *Tensor) void {
-        switch (this.t) {
+    pub fn forward(activation: *Activation, linearized: *Linearized, values: Buffer) void {
+        switch (activation.t) {
             .none => {},
             .relu => {
-                values.unaryMax(0);
+                linearized.unaryMax(values, 0);
             },
             .sigmoid => {
-                values.unaryMultiply(-1);
-                values.unaryExp();
-                values.unaryAdd(1);
-                values.unaryReciprocal();
+                linearized.unaryMultiply(values, -1);
+                linearized.unaryExp(values);
+                linearized.unaryAdd(values, 1);
+                linearized.unaryReciprocal(values);
             },
             .relu_clipped => {
-                values.unaryMax(0);
-                values.unaryMin(relu_clipped_factor);
+                linearized.unaryMax(values, 0);
+                linearized.unaryMin(values, relu_clipped_factor);
             },
             .relu_leaky => {
-                this.temp.binarySet(values);
-                this.temp.unaryMultiply(relu_leaky_factor);
-                values.binaryMax(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unaryMultiply(activation.temp, relu_leaky_factor);
+                linearized.binaryMax(values, activation.temp);
             },
             .silu => {
-                this.temp.binarySet(values);
-                this.temp.unaryMultiply(-1);
-                this.temp.unaryExp();
-                this.temp.unaryAdd(1);
-                this.temp.unaryReciprocal();
-                values.binaryMultiply(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unaryMultiply(activation.temp, -1);
+                linearized.unaryExp(activation.temp);
+                linearized.unaryAdd(activation.temp, 1);
+                linearized.unaryReciprocal(activation.temp);
+                linearized.binaryMultiply(values, activation.temp);
             },
             .gelu => {
-                this.temp.binarySet(values);
-                this.temp.unaryMultiply(-1.702);
-                this.temp.unaryExp();
-                this.temp.unaryAdd(1);
-                this.temp.unaryReciprocal();
-                values.binaryMultiply(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unaryMultiply(activation.temp, -1.702);
+                linearized.unaryExp(activation.temp);
+                linearized.unaryAdd(activation.temp, 1);
+                linearized.unaryReciprocal(activation.temp);
+                linearized.binaryMultiply(values, activation.temp);
             },
             .tanh => {
-                values.unaryTanh();
+                linearized.unaryTanh(values);
             },
         }
     }
-    pub fn backward(this: *@This(), values: *Tensor, values_g: *Tensor) void {
-        switch (this.t) {
+    pub fn backward(activation: Activation, linearized: *Linearized, values: Buffer, values_g: Buffer) void {
+        switch (activation.t) {
             .none => {},
             .relu => {
-                this.temp.binarySet(values);
-                this.temp.unarySign();
-                values_g.binaryMultiply(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unarySign(activation.temp);
+                linearized.binaryMultiply(values_g, activation.temp);
             },
             .sigmoid => {
-                this.temp.unarySet(1);
-                this.temp.binarySubtract(values);
-                this.temp.binaryMultiply(values);
-                values_g.binaryMultiply(&this.temp);
+                linearized.unarySet(activation.temp, 1);
+                linearized.binarySubtract(activation.temp, values);
+                linearized.binaryMultiply(activation.temp, values);
+                linearized.binaryMultiply(values_g, activation.temp);
             },
             .relu_clipped => {
-                this.temp.binarySet(values);
-                this.temp.unarySubtract(relu_clipped_factor);
-                this.temp.unaryAbsolute();
-                this.temp.unarySign();
-                values_g.binaryMultiply(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unarySubtract(activation.temp, relu_clipped_factor);
+                linearized.unaryAbsolute(activation.temp);
+                linearized.unarySign(activation.temp);
+                linearized.binaryMultiply(values_g, activation.temp);
             },
             .relu_leaky => {
                 todo(@src());
@@ -121,11 +120,11 @@ pub const Activation = struct {
                 todo(@src());
             },
             .tanh => {
-                this.temp.binarySet(values);
-                this.temp.unarySquare();
-                this.temp.unaryMultiply(-1);
-                this.temp.unaryAdd(1);
-                values_g.binaryMultiply(&this.temp);
+                linearized.binarySet(activation.temp, values);
+                linearized.unarySquare(activation.temp);
+                linearized.unaryMultiply(activation.temp, -1);
+                linearized.unaryAdd(activation.temp, 1);
+                linearized.binaryMultiply(values_g, activation.temp);
             },
         }
     }
@@ -134,111 +133,109 @@ pub const Dense = struct {
     size_in: u32,
     size_out: u32,
 
-    weights: Tensor,
-    weights_g: Tensor,
-    biases: Tensor,
-    biases_g: Tensor,
+    weights: Buffer,
+    weights_g: Buffer,
+    biases: Buffer,
+    biases_g: Buffer,
 
-    temp_in: Tensor,
-    temp_out: Tensor,
-    temp_full: Tensor,
-    pub fn alloc(runtime: Runtime, allocator: Allocator, size_in: u32, size_out: u32) !Dense {
+    temp_in: Buffer,
+    temp_out: Buffer,
+    temp_full: Buffer,
+    pub fn alloc(runtime: Runtime, arena: Allocator, size_in: u32, size_out: u32) !Dense {
         assert(size_in > 0);
         assert(size_out > 0);
         return .{
             .size_in = size_in,
             .size_out = size_out,
-            .weights = try Tensor.alloc(runtime, allocator, 1, 1, size_in, size_out, 2),
-            .weights_g = try Tensor.alloc(runtime, allocator, 1, 1, size_in, size_out, //
-                size_in + size_out + 1),
-            .biases = try Tensor.alloc(runtime, allocator, 1, 1, 1, size_out, 2),
-            .biases_g = try Tensor.alloc(runtime, allocator, 1, 1, 1, size_out, 2),
-            .temp_in = try Tensor.allocIntermediary(runtime, allocator, 1, 1, size_in, 1, 2),
-            .temp_out = try Tensor.allocIntermediary(runtime, allocator, 1, 1, 1, size_out, 2),
-            .temp_full = try Tensor.allocIntermediary(runtime, allocator, 1, 1, size_in, //
-                size_out, size_in + size_out),
+            .weights = try Buffer.alloc(runtime, arena, 1, 1, size_in, size_out, .normal),
+            .weights_g = try Buffer.alloc(runtime, arena, 1, 1, size_in, size_out, .normal),
+            .biases = try Buffer.alloc(runtime, arena, 1, 1, 1, size_out, .normal),
+            .biases_g = try Buffer.alloc(runtime, arena, 1, 1, 1, size_out, .normal),
+            .temp_in = try Buffer.alloc(runtime, arena, 1, 1, size_in, 1, .intermediary),
+            .temp_out = try Buffer.alloc(runtime, arena, 1, 1, 1, size_out, .intermediary),
+            .temp_full = try Buffer.alloc(runtime, arena, 1, 1, size_in, size_out, .intermediary),
         };
     }
-    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
-        this.weights.free(runtime, allocator);
-        this.weights_g.free(runtime, allocator);
-        this.biases.free(runtime, allocator);
-        this.biases_g.free(runtime, allocator);
-        this.temp_in.free(runtime, allocator);
-        this.temp_out.free(runtime, allocator);
-        this.temp_full.free(runtime, allocator);
+    pub fn free(dense: Dense, runtime: Runtime) void {
+        dense.weights.free(runtime);
+        dense.weights_g.free(runtime);
+        dense.biases.free(runtime);
+        dense.biases_g.free(runtime);
+        dense.temp_in.free(runtime);
+        dense.temp_out.free(runtime);
+        dense.temp_full.free(runtime);
     }
-    pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
-        assert(in.buffer.a_size == 1);
-        assert(in.buffer.z_size == 1);
-        assert(in.buffer.y_size == this.size_in);
-        assert(in.buffer.x_size == 1);
-        assert(out.buffer.a_size == 1);
-        assert(out.buffer.z_size == 1);
-        assert(out.buffer.y_size == 1);
-        assert(out.buffer.x_size == this.size_out);
+    pub fn forward(dense: *Dense, linearized: *Linearized, in: Buffer, out: *Buffer) void {
+        assert(in.a_size == 1);
+        assert(in.z_size == 1);
+        assert(in.y_size == dense.size_in);
+        assert(in.x_size == 1);
+        assert(out.a_size == 1);
+        assert(out.z_size == 1);
+        assert(out.y_size == 1);
+        assert(out.x_size == dense.size_out);
 
-        this.weights.moveResize(1, 1, this.size_in, 1);
+        dense.weights.moveResize(1, 1, dense.size_in, 1);
         out.moveResize(1, 1, 1, 1);
 
         var row_idx: u32 = 0;
-        while (row_idx < this.size_out) : (row_idx += 1) {
-            this.weights.moveOffset(0, 0, 0, row_idx);
+        while (row_idx < dense.size_out) : (row_idx += 1) {
+            dense.weights.moveOffset(0, 0, 0, row_idx);
             out.moveOffset(0, 0, 0, row_idx);
-            this.temp_in.binarySet(&this.weights);
-            this.temp_in.binaryMultiply(in);
-            out.reduceSum(&this.temp_in);
+            linearized.binarySet(dense.temp_in, dense.weights);
+            linearized.binaryMultiply(dense.temp_in, in);
+            linearized.reduceSum(out.*, dense.temp_in);
         }
 
-        this.weights.moveResize(1, 1, this.size_in, this.size_out);
-        this.weights.moveOffset(0, 0, 0, 0);
-        out.moveResize(1, 1, 1, this.size_out);
+        dense.weights.moveResize(1, 1, dense.size_in, dense.size_out);
+        dense.weights.moveOffset(0, 0, 0, 0);
+        out.moveResize(1, 1, 1, dense.size_out);
         out.moveOffset(0, 0, 0, 0);
-        out.binaryAdd(&this.biases);
+        linearized.binaryAdd(out.*, dense.biases);
     }
-    pub fn backward(this: *@This(), in: *Tensor, in_g: *Tensor, out_g: *Tensor) void {
-        assert(in.buffer.a_size == 1);
-        assert(in.buffer.z_size == 1);
-        assert(in.buffer.y_size == this.size_in);
-        assert(in.buffer.x_size == 1);
-        assert(in_g.buffer.overlapsAll(in.buffer));
-        assert(out_g.buffer.a_size == 1);
-        assert(out_g.buffer.z_size == 1);
-        assert(out_g.buffer.y_size == 1);
-        assert(out_g.buffer.x_size == this.size_out);
+    pub fn backward(dense: *Dense, linearized: *Linearized, in: Buffer, in_g: *Buffer, out_g: Buffer) void {
+        assert(in.a_size == 1);
+        assert(in.z_size == 1);
+        assert(in.y_size == dense.size_in);
+        assert(in.x_size == 1);
+        assert(in_g.overlapsAll(in));
+        assert(out_g.a_size == 1);
+        assert(out_g.z_size == 1);
+        assert(out_g.y_size == 1);
+        assert(out_g.x_size == dense.size_out);
 
-        this.biases_g.binaryAdd(out_g);
+        linearized.binaryAdd(dense.biases_g, out_g);
 
-        this.temp_full.moveResize(1, 1, 1, this.size_out);
+        dense.temp_full.moveResize(1, 1, 1, dense.size_out);
         var column_idx: u32 = 0;
-        while (column_idx < this.size_in) : (column_idx += 1) {
-            this.temp_full.moveOffset(0, 0, column_idx, 0);
-            this.temp_full.binarySet(out_g);
+        while (column_idx < dense.size_in) : (column_idx += 1) {
+            dense.temp_full.moveOffset(0, 0, column_idx, 0);
+            linearized.binarySet(dense.temp_full, out_g);
         }
-        this.temp_full.moveResize(1, 1, this.size_in, 1);
+        dense.temp_full.moveResize(1, 1, dense.size_in, 1);
         var row_idx: u32 = 0;
-        while (row_idx < this.size_out) : (row_idx += 1) {
-            this.temp_full.moveOffset(0, 0, 0, row_idx);
-            this.temp_full.binaryMultiply(in);
+        while (row_idx < dense.size_out) : (row_idx += 1) {
+            dense.temp_full.moveOffset(0, 0, 0, row_idx);
+            linearized.binaryMultiply(dense.temp_full, in);
         }
-        this.temp_full.moveResize(1, 1, this.size_in, this.size_out);
-        this.temp_full.moveOffset(0, 0, 0, 0);
-        this.weights_g.binaryAdd(&this.temp_full);
+        dense.temp_full.moveResize(1, 1, dense.size_in, dense.size_out);
+        dense.temp_full.moveOffset(0, 0, 0, 0);
+        linearized.binaryAdd(dense.weights_g, dense.temp_full);
 
         in_g.moveResize(1, 1, 1, 1);
-        this.weights.moveResize(1, 1, 1, this.size_out);
+        dense.weights.moveResize(1, 1, 1, dense.size_out);
         column_idx = 0;
-        while (column_idx < this.size_in) : (column_idx += 1) {
+        while (column_idx < dense.size_in) : (column_idx += 1) {
             in_g.moveOffset(0, 0, column_idx, 0);
-            this.weights.moveOffset(0, 0, column_idx, 0);
-            this.temp_out.binarySet(&this.weights);
-            this.temp_out.binaryMultiply(out_g);
-            in_g.reduceSum(&this.temp_out); // Could do avg here for move numerical stability
+            dense.weights.moveOffset(0, 0, column_idx, 0);
+            linearized.binarySet(dense.temp_out, dense.weights);
+            linearized.binaryMultiply(dense.temp_out, out_g);
+            linearized.reduceSum(in_g.*, dense.temp_out); // Could do avg here for move numerical stability
         }
-        in_g.moveResize(1, 1, this.size_in, 1);
+        in_g.moveResize(1, 1, dense.size_in, 1);
         in_g.moveOffset(0, 0, 0, 0);
-        this.weights.moveResize(1, 1, this.size_in, this.size_out);
-        this.weights.moveOffset(0, 0, 0, 0);
+        dense.weights.moveResize(1, 1, dense.size_in, dense.size_out);
+        dense.weights.moveOffset(0, 0, 0, 0);
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
@@ -269,15 +266,15 @@ pub const Convolution = struct {
     kernel_stride: u32,
     kernel_padding: u32,
 
-    weights: Tensor,
-    weights_g: Tensor,
-    biases: Tensor,
-    biases_g: Tensor,
+    weights: Buffer,
+    weights_g: Buffer,
+    biases: Buffer,
+    biases_g: Buffer,
 
-    temp_input_padded: Tensor,
-    temp_grad_padded: Tensor,
-    temp_kernel: Tensor,
-    temp_single: Tensor,
+    temp_input_padded: Buffer,
+    temp_grad_padded: Buffer,
+    temp_kernel: Buffer,
+    temp_single: Buffer,
     /// Size is the per dimension size **`without`** padding
     pub inline fn sizeNew(dim_size: u32, size: u32, stride: u32, padding: u32) u32 {
         assert(dim_size >= size);
@@ -285,7 +282,7 @@ pub const Convolution = struct {
     }
     pub fn alloc(
         runtime: Runtime,
-        allocator: Allocator,
+        arena: Allocator,
         z_in: u32,
         y_in: u32,
         x_in: u32,
@@ -300,8 +297,6 @@ pub const Convolution = struct {
         assert(z_in > 0);
         assert(y_in >= kernel_size);
         assert(x_in >= kernel_size);
-        const y_out: u32 = sizeNew(y_in, kernel_size, kernel_stride, kernel_padding);
-        const x_out: u32 = sizeNew(x_in, kernel_size, kernel_stride, kernel_padding);
         return .{
             .z_in = z_in,
             .y_in = y_in,
@@ -310,156 +305,155 @@ pub const Convolution = struct {
             .kernel_size = kernel_size,
             .kernel_stride = kernel_stride,
             .kernel_padding = kernel_padding,
-            .weights = try Tensor.alloc(runtime, allocator, filters, z_in, kernel_size, kernel_size, 2),
-            .weights_g = try Tensor.alloc(runtime, allocator, filters, z_in, kernel_size, //
-                kernel_size, 3 * filters * y_out * x_out),
-            .biases = try Tensor.alloc(runtime, allocator, filters, 1, 1, 1, 2),
-            .biases_g = try Tensor.alloc(runtime, allocator, filters, 1, 1, 1, 2 * filters),
-            .temp_input_padded = try Tensor.alloc(runtime, allocator, 1, z_in, //
-                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 1),
-            .temp_grad_padded = try Tensor.alloc(runtime, allocator, 1, z_in, //
-                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, 3 * filters * y_out * x_out),
-            .temp_kernel = try Tensor.alloc(runtime, allocator, 1, z_in, kernel_size, kernel_size, 3),
-            .temp_single = try Tensor.alloc(runtime, allocator, 1, 1, 1, 1, 1),
+            .weights = try Buffer.alloc(runtime, arena, filters, z_in, kernel_size, kernel_size, .normal),
+            .weights_g = try Buffer.alloc(runtime, arena, filters, z_in, kernel_size, kernel_size, .normal),
+            .biases = try Buffer.alloc(runtime, arena, filters, 1, 1, 1, .normal),
+            .biases_g = try Buffer.alloc(runtime, arena, filters, 1, 1, 1, .normal),
+            .temp_input_padded = try Buffer.alloc(runtime, arena, 1, z_in, //
+                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, .intermediary),
+            .temp_grad_padded = try Buffer.alloc(runtime, arena, 1, z_in, //
+                y_in + 2 * kernel_padding, x_in + 2 * kernel_padding, .intermediary),
+            .temp_kernel = try Buffer.alloc(runtime, arena, 1, z_in, kernel_size, kernel_size, .intermediary),
+            .temp_single = try Buffer.alloc(runtime, arena, 1, 1, 1, 1, .intermediary),
         };
     }
-    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
-        this.weights.free(runtime, allocator);
-        this.weights_g.free(runtime, allocator);
-        this.biases.free(runtime, allocator);
-        this.biases_g.free(runtime, allocator);
-        this.temp_input_padded.free(runtime, allocator);
-        this.temp_grad_padded.free(runtime, allocator);
-        this.temp_kernel.free(runtime, allocator);
-        this.temp_single.free(runtime, allocator);
+    pub fn free(convolution: *Convolution, runtime: Runtime) void {
+        convolution.weights.free(runtime);
+        convolution.weights_g.free(runtime);
+        convolution.biases.free(runtime);
+        convolution.biases_g.free(runtime);
+        convolution.temp_input_padded.free(runtime);
+        convolution.temp_grad_padded.free(runtime);
+        convolution.temp_kernel.free(runtime);
+        convolution.temp_single.free(runtime);
     }
-    pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
-        assert(1 == in.buffer.a_size);
-        assert(this.z_in == in.buffer.z_size);
-        assert(this.y_in == in.buffer.y_size);
-        assert(this.x_in == in.buffer.x_size);
-        assert(this.filters == out.buffer.z_size);
-        assert(out.buffer.y_size == sizeNew(this.y_in, this.kernel_size, this.kernel_stride, this.kernel_padding));
-        assert(out.buffer.x_size == sizeNew(this.x_in, this.kernel_size, this.kernel_stride, this.kernel_padding));
+    pub fn forward(convolution: *@This(), linearized: *Linearized, in: Buffer, out: *Buffer) void {
+        assert(1 == in.a_size);
+        assert(convolution.z_in == in.z_size);
+        assert(convolution.y_in == in.y_size);
+        assert(convolution.x_in == in.x_size);
+        assert(convolution.filters == out.z_size);
+        assert(out.y_size == sizeNew(convolution.y_in, convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding));
+        assert(out.x_size == sizeNew(convolution.x_in, convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding));
 
-        const y_out: u32 = out.buffer.y_size;
-        const x_out: u32 = out.buffer.x_size;
+        const y_out: u32 = out.y_size;
+        const x_out: u32 = out.x_size;
 
         out.moveResize(1, 1, 1, 1);
-        this.biases.moveResize(1, 1, 1, 1);
-        this.weights.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
-        this.temp_input_padded.moveResize(1, this.z_in, this.y_in, this.x_in);
-        this.temp_input_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
-        this.temp_input_padded.binarySet(in);
-        this.temp_input_padded.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
+        convolution.biases.moveResize(1, 1, 1, 1);
+        convolution.weights.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.temp_input_padded.moveResize(1, convolution.z_in, convolution.y_in, convolution.x_in);
+        convolution.temp_input_padded.moveOffset(0, 0, convolution.kernel_padding, convolution.kernel_padding);
+        linearized.binarySet(convolution.temp_input_padded, in);
+        convolution.temp_input_padded.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
         var filter_idx: u32 = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.biases.moveOffset(filter_idx, 0, 0, 0);
-            this.weights.moveOffset(filter_idx, 0, 0, 0);
+        while (filter_idx < convolution.filters) : (filter_idx += 1) {
+            convolution.biases.moveOffset(filter_idx, 0, 0, 0);
+            convolution.weights.moveOffset(filter_idx, 0, 0, 0);
             var y_out_idx: u32 = 0;
             while (y_out_idx < y_out) : (y_out_idx += 1) {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     out.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_input_padded.moveOffset(0, 0, y_out_idx * this.kernel_stride, //
-                        x_out_idx * this.kernel_stride);
-                    this.temp_kernel.binarySet(&this.temp_input_padded);
-                    this.temp_kernel.binaryMultiply(&this.weights);
-                    out.reduceSum(&this.temp_kernel);
-                    out.binaryAdd(&this.biases);
+                    convolution.temp_input_padded.moveOffset(0, 0, y_out_idx * convolution.kernel_stride, //
+                        x_out_idx * convolution.kernel_stride);
+                    linearized.binarySet(convolution.temp_kernel, convolution.temp_input_padded);
+                    linearized.binaryMultiply(convolution.temp_kernel, convolution.weights);
+                    linearized.reduceSum(out.*, convolution.temp_kernel);
+                    linearized.binaryAdd(out.*, convolution.biases);
                 }
             }
         }
-        this.biases.moveResize(this.filters, 1, 1, 1);
-        this.biases.moveOffset(0, 0, 0, 0);
-        this.weights.moveResize(this.filters, this.z_in, this.kernel_size, this.kernel_size);
-        this.weights.moveOffset(0, 0, 0, 0);
-        out.moveResize(1, this.filters, y_out, x_out);
+        convolution.biases.moveResize(convolution.filters, 1, 1, 1);
+        convolution.biases.moveOffset(0, 0, 0, 0);
+        convolution.weights.moveResize(convolution.filters, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.weights.moveOffset(0, 0, 0, 0);
+        out.moveResize(1, convolution.filters, y_out, x_out);
         out.moveOffset(0, 0, 0, 0);
-        this.temp_input_padded.moveResize(1, this.z_in, //
-            y_out + 2 * this.kernel_padding, x_out + 2 * this.kernel_padding);
-        this.temp_input_padded.moveOffset(0, 0, 0, 0);
+        convolution.temp_input_padded.moveResize(1, convolution.z_in, //
+            y_out + 2 * convolution.kernel_padding, x_out + 2 * convolution.kernel_padding);
+        convolution.temp_input_padded.moveOffset(0, 0, 0, 0);
     }
-    pub fn backward(this: *@This(), in: *Tensor, in_g: *Tensor, out: *Tensor, out_g: *Tensor) void {
-        assert(1 == in.buffer.a_size);
-        assert(this.z_in == in.buffer.z_size);
-        assert(this.y_in == in.buffer.y_size);
-        assert(this.x_in == in.buffer.x_size);
-        assert(in.buffer.overlapsAll(in_g.buffer));
-        assert(this.filters == out.buffer.z_size);
-        assert(out.buffer.y_size == sizeNew(this.y_in, this.kernel_size, this.kernel_stride, this.kernel_padding));
-        assert(out.buffer.x_size == sizeNew(this.x_in, this.kernel_size, this.kernel_stride, this.kernel_padding));
-        assert(out.buffer.overlapsAll(out_g.buffer));
+    pub fn backward(convolution: *Convolution, linearized: *Linearized, in: Buffer, in_g: *Buffer, out: Buffer, out_g: *Buffer) void {
+        assert(1 == in.a_size);
+        assert(convolution.z_in == in.z_size);
+        assert(convolution.y_in == in.y_size);
+        assert(convolution.x_in == in.x_size);
+        assert(in.overlapsAll(in_g.*));
+        assert(convolution.filters == out.z_size);
+        assert(out.y_size == sizeNew(convolution.y_in, convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding));
+        assert(out.x_size == sizeNew(convolution.x_in, convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding));
+        assert(out.overlapsAll(out_g.*));
 
-        const y_out: u32 = out.buffer.y_size;
-        const x_out: u32 = out.buffer.x_size;
+        const y_out: u32 = out.y_size;
+        const x_out: u32 = out.x_size;
 
-        this.biases_g.moveResize(1, 1, 1, 1);
+        convolution.biases_g.moveResize(1, 1, 1, 1);
         out_g.moveResize(1, 1, y_out, x_out);
         var filter_idx: u32 = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.biases_g.moveOffset(filter_idx, 0, 0, 0);
+        while (filter_idx < convolution.filters) : (filter_idx += 1) {
+            convolution.biases_g.moveOffset(filter_idx, 0, 0, 0);
             out_g.moveOffset(0, filter_idx, 0, 0);
-            this.temp_single.reduceSum(out_g); // Could do avg here for move numerical stability
-            this.biases_g.binaryAdd(&this.temp_single);
+            linearized.reduceSum(convolution.temp_single, out_g.*); // Could do avg here for move numerical stability
+            linearized.binaryAdd(convolution.biases_g, convolution.temp_single);
         }
-        this.biases_g.moveResize(this.filters, 1, 1, 1);
-        this.biases_g.moveOffset(0, 0, 0, 0);
+        convolution.biases_g.moveResize(convolution.filters, 1, 1, 1);
+        convolution.biases_g.moveOffset(0, 0, 0, 0);
 
         out_g.moveResize(1, 1, 1, 1);
         out_g.moveOffset(0, 0, 0, 0);
-        this.weights_g.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
-        this.temp_input_padded.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
+        convolution.weights_g.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.temp_input_padded.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
         filter_idx = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.weights_g.moveOffset(filter_idx, 0, 0, 0);
+        while (filter_idx < convolution.filters) : (filter_idx += 1) {
+            convolution.weights_g.moveOffset(filter_idx, 0, 0, 0);
             var y_out_idx: u32 = 0;
             while (y_out_idx < y_out) : (y_out_idx += 1) {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     out_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_input_padded.moveOffset(0, 0, y_out_idx * this.kernel_stride, x_out_idx * this.kernel_stride);
-                    this.temp_kernel.binarySet(&this.temp_input_padded);
-                    this.temp_kernel.expandMultiply(out_g);
-                    this.weights_g.binaryAdd(&this.temp_kernel);
+                    convolution.temp_input_padded.moveOffset(0, 0, y_out_idx * convolution.kernel_stride, x_out_idx * convolution.kernel_stride);
+                    linearized.binarySet(convolution.temp_kernel, convolution.temp_input_padded);
+                    linearized.expandMultiply(convolution.temp_kernel, out_g.*);
+                    linearized.binaryAdd(convolution.weights_g, convolution.temp_kernel);
                 }
             }
         }
-        this.weights_g.moveResize(this.filters, this.z_in, this.kernel_size, this.kernel_size);
-        this.weights_g.moveOffset(0, 0, 0, 0);
+        convolution.weights_g.moveResize(convolution.filters, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.weights_g.moveOffset(0, 0, 0, 0);
 
         out_g.moveResize(1, 1, 1, 1);
         out_g.moveOffset(0, 0, 0, 0);
-        this.weights.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
-        this.weights.moveOffset(0, 0, 0, 0);
-        this.temp_grad_padded.moveResize(1, this.z_in, this.kernel_size, this.kernel_size);
-        this.temp_grad_padded.moveOffset(0, 0, 0, 0);
+        convolution.weights.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.weights.moveOffset(0, 0, 0, 0);
+        convolution.temp_grad_padded.moveResize(1, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.temp_grad_padded.moveOffset(0, 0, 0, 0);
         filter_idx = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.weights.moveOffset(filter_idx, 0, 0, 0);
+        while (filter_idx < convolution.filters) : (filter_idx += 1) {
+            convolution.weights.moveOffset(filter_idx, 0, 0, 0);
             var y_out_idx: u32 = 0;
             while (y_out_idx < y_out) : (y_out_idx += 1) {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
                     out_g.moveOffset(0, filter_idx, y_out_idx, x_out_idx);
-                    this.temp_grad_padded.moveOffset(0, 0, y_out_idx * this.kernel_padding, //
-                        x_out_idx * this.kernel_padding);
-                    this.temp_kernel.binarySet(&this.weights);
-                    this.temp_kernel.expandMultiply(out_g);
-                    this.temp_grad_padded.binaryAdd(&this.temp_kernel);
+                    convolution.temp_grad_padded.moveOffset(0, 0, y_out_idx * convolution.kernel_padding, //
+                        x_out_idx * convolution.kernel_padding);
+                    linearized.binarySet(convolution.temp_kernel, convolution.weights);
+                    linearized.expandMultiply(convolution.temp_kernel, out_g.*);
+                    linearized.binaryAdd(convolution.temp_grad_padded, convolution.temp_kernel);
                 }
             }
         }
-        out_g.moveResize(1, this.filters, y_out, x_out);
+        out_g.moveResize(1, convolution.filters, y_out, x_out);
         out_g.moveOffset(0, 0, 0, 0);
-        this.weights.moveResize(this.filters, this.z_in, this.kernel_size, this.kernel_size);
-        this.weights.moveOffset(0, 0, 0, 0);
-        this.temp_grad_padded.moveResize(1, this.z_in, this.y_in, this.x_in);
-        this.temp_grad_padded.moveOffset(0, 0, this.kernel_padding, this.kernel_padding);
-        in_g.binaryAdd(&this.temp_grad_padded);
-        this.temp_grad_padded.moveResize(1, this.z_in, this.y_in + 2 * this.kernel_padding, //
-            this.x_in + 2 * this.kernel_padding);
-        this.temp_grad_padded.moveOffset(0, 0, 0, 0);
+        convolution.weights.moveResize(convolution.filters, convolution.z_in, convolution.kernel_size, convolution.kernel_size);
+        convolution.weights.moveOffset(0, 0, 0, 0);
+        convolution.temp_grad_padded.moveResize(1, convolution.z_in, convolution.y_in, convolution.x_in);
+        convolution.temp_grad_padded.moveOffset(0, 0, convolution.kernel_padding, convolution.kernel_padding);
+        linearized.binaryAdd(in_g.*, convolution.temp_grad_padded);
+        convolution.temp_grad_padded.moveResize(1, convolution.z_in, convolution.y_in + 2 * convolution.kernel_padding, //
+            convolution.x_in + 2 * convolution.kernel_padding);
+        convolution.temp_grad_padded.moveOffset(0, 0, 0, 0);
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
@@ -514,33 +508,33 @@ pub const Reduce = struct {
             .t = t,
         };
     }
-    pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
-        assert(in.buffer.a_size == 1);
-        assert(in.buffer.z_size == this.z_in);
-        assert(in.buffer.y_size == this.x_in);
-        assert(in.buffer.x_size == this.y_in);
-        assert(out.buffer.a_size == 1);
-        assert(out.buffer.z_size == in.buffer.z_size);
-        assert(out.buffer.y_size == sizeNew(in.buffer.y_size, this.kernel_size, this.kernel_stride));
-        assert(out.buffer.x_size == sizeNew(in.buffer.x_size, this.kernel_size, this.kernel_stride));
+    pub fn forward(reduce: *Reduce, linearized: *Linearized, in: *Buffer, out: *Buffer) void {
+        assert(in.a_size == 1);
+        assert(in.z_size == reduce.z_in);
+        assert(in.y_size == reduce.x_in);
+        assert(in.x_size == reduce.y_in);
+        assert(out.a_size == 1);
+        assert(out.z_size == in.z_size);
+        assert(out.y_size == sizeNew(in.y_size, reduce.kernel_size, reduce.kernel_stride));
+        assert(out.x_size == sizeNew(in.x_size, reduce.kernel_size, reduce.kernel_stride));
 
-        const y_out: u32 = out.buffer.y_size;
-        const x_out: u32 = out.buffer.x_size;
-        in.moveResize(1, 1, this.kernel_size, this.kernel_size);
+        const y_out: u32 = out.y_size;
+        const x_out: u32 = out.x_size;
+        in.moveResize(1, 1, reduce.kernel_size, reduce.kernel_size);
         out.moveResize(1, 1, 1, 1);
         var z_idx: u32 = 0;
-        while (z_idx < this.z_in) : (z_idx += 1) {
+        while (z_idx < reduce.z_in) : (z_idx += 1) {
             var y_out_idx: u32 = 0;
             while (y_out_idx < y_out) : (y_out_idx += 1) {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
-                    in.moveOffset(0, z_idx, y_out_idx * this.kernel_stride, x_out_idx * this.kernel_stride);
+                    in.moveOffset(0, z_idx, y_out_idx * reduce.kernel_stride, x_out_idx * reduce.kernel_stride);
                     out.moveOffset(0, z_idx, y_out_idx, x_out_idx);
-                    switch (this.t) { // The branch predictor should do this ezpz
-                        .sum => out.reduceSum(in),
-                        .avg => out.reduceAvg(in),
-                        .max => out.reduceMax(in),
-                        .min => out.reduceMin(in),
+                    switch (reduce.t) { // The branch predictor should do this ezpz
+                        .sum => linearized.reduceSum(out.*, in.*),
+                        .avg => linearized.reduceAvg(out.*, in.*),
+                        .max => linearized.reduceMax(out.*, in.*),
+                        .min => linearized.reduceMin(out.*, in.*),
                     }
                 }
             }
@@ -548,36 +542,40 @@ pub const Reduce = struct {
     }
     /// $FIXME This backprop is just straight up wrong
     ///     but it at least **somewhat** approximates the correct solution.
-    pub fn backward(this: *@This(), in_g: *Tensor, out_g: *Tensor) void {
-        assert(in_g.buffer.a_size == 1);
-        assert(in_g.buffer.z_size == this.z_in);
-        assert(in_g.buffer.y_size == this.x_in);
-        assert(in_g.buffer.x_size == this.y_in);
-        assert(out_g.buffer.a_size == 1);
-        assert(out_g.buffer.z_size == in_g.buffer.z_size);
-        assert(out_g.buffer.y_size == sizeNew(in_g.buffer.y_size, this.kernel_size, this.kernel_stride));
-        assert(out_g.buffer.x_size == sizeNew(in_g.buffer.x_size, this.kernel_size, this.kernel_stride));
-        if (this.t != .sum) todo(@src());
+    pub fn backward(reduce: *Reduce, linearized: *Linearized, in_g: *Buffer, out_g: *Buffer) void {
+        assert(in_g.a_size == 1);
+        assert(in_g.z_size == reduce.z_in);
+        assert(in_g.y_size == reduce.x_in);
+        assert(in_g.x_size == reduce.y_in);
+        assert(out_g.a_size == 1);
+        assert(out_g.z_size == in_g.z_size);
+        assert(out_g.y_size == sizeNew(in_g.y_size, reduce.kernel_size, reduce.kernel_stride));
+        assert(out_g.x_size == sizeNew(in_g.x_size, reduce.kernel_size, reduce.kernel_stride));
+        if (reduce.t != .sum) todo(@src());
 
-        in_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
+        in_g.moveResize(1, 1, reduce.kernel_size, reduce.kernel_size);
         out_g.moveResize(1, 1, 1, 1);
 
-        const y_out: u32 = out_g.buffer.y_size;
-        const x_out: u32 = out_g.buffer.x_size;
-        in_g.moveResize(1, 1, this.kernel_size, this.kernel_size);
+        const y_out: u32 = out_g.y_size;
+        const x_out: u32 = out_g.x_size;
+        in_g.moveResize(1, 1, reduce.kernel_size, reduce.kernel_size);
         out_g.moveResize(1, 1, 1, 1);
         var z_idx: u32 = 0;
-        while (z_idx < this.z_in) : (z_idx += 1) {
+        while (z_idx < reduce.z_in) : (z_idx += 1) {
             var y_out_idx: u32 = 0;
             while (y_out_idx < y_out) : (y_out_idx += 1) {
                 var x_out_idx: u32 = 0;
                 while (x_out_idx < x_out) : (x_out_idx += 1) {
-                    in_g.moveOffset(0, z_idx, y_out_idx * this.kernel_stride, x_out_idx * this.kernel_stride);
+                    in_g.moveOffset(0, z_idx, y_out_idx * reduce.kernel_stride, x_out_idx * reduce.kernel_stride);
                     out_g.moveOffset(0, z_idx, y_out_idx, x_out_idx);
-                    in_g.expandAdd(out_g);
+                    linearized.expandAdd(in_g.*, out_g.*);
                 }
             }
         }
+        in_g.moveResize(1, reduce.z_in, reduce.y_in, reduce.x_in);
+        in_g.moveOffset(0, 0, 0, 0);
+        out_g.moveResize(1, reduce.z_in, y_out, x_out);
+        out_g.moveOffset(0, 0, 0, 0);
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
@@ -598,13 +596,13 @@ pub const Split = struct {
     y_in: u32,
     x_in: u32,
 
-    weights: Tensor,
-    weights_g: Tensor,
-    biases: Tensor,
-    biases_g: Tensor,
+    weights: Buffer,
+    weights_g: Buffer,
+    biases: Buffer,
+    biases_g: Buffer,
 
-    temp_in: Tensor,
-    pub fn alloc(runtime: Runtime, allocator: Allocator, filters: u32, z_in: u32, y_in: u32, x_in: u32) !Split {
+    temp_in: Buffer,
+    pub fn alloc(runtime: Runtime, arena: Allocator, filters: u32, z_in: u32, y_in: u32, x_in: u32) !Split {
         assert(filters > 0);
         assert(z_in > 0);
         assert(y_in > 0);
@@ -614,89 +612,89 @@ pub const Split = struct {
             .z_in = z_in,
             .y_in = y_in,
             .x_in = x_in,
-            .weights = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
-            .weights_g = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 3 * filters),
-            .biases = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
-            .biases_g = try Tensor.alloc(runtime, allocator, filters, z_in, y_in, x_in, 2),
-            .temp_in = try Tensor.alloc(runtime, allocator, 1, z_in, y_in, x_in, 2),
+            .weights = try Buffer.alloc(runtime, arena, filters, z_in, y_in, x_in, .normal),
+            .weights_g = try Buffer.alloc(runtime, arena, filters, z_in, y_in, x_in, .normal),
+            .biases = try Buffer.alloc(runtime, arena, filters, z_in, y_in, x_in, .normal),
+            .biases_g = try Buffer.alloc(runtime, arena, filters, z_in, y_in, x_in, .normal),
+            .temp_in = try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
         };
     }
-    pub fn free(this: *@This(), runtime: Runtime, allocator: Allocator) void {
-        this.weights.free(runtime, allocator);
-        this.weights_g.free(runtime, allocator);
-        this.biases.free(runtime, allocator);
-        this.biases_g.free(runtime, allocator);
-        this.temp_in.free(runtime, allocator);
+    pub fn free(split: *Split, runtime: Runtime) void {
+        split.weights.free(runtime);
+        split.weights_g.free(runtime);
+        split.biases.free(runtime);
+        split.biases_g.free(runtime);
+        split.temp_in.free(runtime);
     }
-    pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
-        assert(in.buffer.a_size == 1);
-        assert(in.buffer.z_size == this.z_in);
-        assert(in.buffer.y_size == this.y_in);
-        assert(in.buffer.x_size == this.x_in);
-        assert(out.buffer.a_size == 1);
-        assert(out.buffer.z_size == this.z_in * this.filters);
-        assert(out.buffer.y_size == this.y_in);
-        assert(out.buffer.x_size == this.x_in);
+    pub fn forward(split: *Split, linearized: *Linearized, in: Buffer, out: *Buffer) void {
+        assert(in.a_size == 1);
+        assert(in.z_size == split.z_in);
+        assert(in.y_size == split.y_in);
+        assert(in.x_size == split.x_in);
+        assert(out.a_size == 1);
+        assert(out.z_size == split.z_in * split.filters);
+        assert(out.y_size == split.y_in);
+        assert(out.x_size == split.x_in);
 
-        this.weights.moveResize(1, this.z_in, this.y_in, this.x_in);
-        this.biases.moveResize(1, this.z_in, this.y_in, this.x_in);
-        out.moveResize(1, this.z_in, this.y_in, this.x_in);
+        split.weights.moveResize(1, split.z_in, split.y_in, split.x_in);
+        split.biases.moveResize(1, split.z_in, split.y_in, split.x_in);
+        out.moveResize(1, split.z_in, split.y_in, split.x_in);
         var filter_idx: u32 = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.weights.moveOffset(filter_idx, 0, 0, 0);
-            this.biases.moveOffset(filter_idx, 0, 0, 0);
-            out.moveOffset(0, filter_idx * this.z_in, 0, 0);
-            out.binarySet(in);
-            out.binaryMultiply(&this.weights);
-            out.binaryAdd(&this.biases);
+        while (filter_idx < split.filters) : (filter_idx += 1) {
+            split.weights.moveOffset(filter_idx, 0, 0, 0);
+            split.biases.moveOffset(filter_idx, 0, 0, 0);
+            out.moveOffset(0, filter_idx * split.z_in, 0, 0);
+            linearized.binarySet(out.*, in);
+            linearized.binaryMultiply(out.*, split.weights);
+            linearized.binaryAdd(out.*, split.biases);
         }
-        this.weights.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
-        this.weights.moveOffset(0, 0, 0, 0);
-        this.biases.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
-        this.biases.moveOffset(0, 0, 0, 0);
-        out.moveResize(1, this.z_in * this.filters, this.y_in, this.x_in);
+        split.weights.moveResize(split.filters, split.z_in, split.y_in, split.x_in);
+        split.weights.moveOffset(0, 0, 0, 0);
+        split.biases.moveResize(split.filters, split.z_in, split.y_in, split.x_in);
+        split.biases.moveOffset(0, 0, 0, 0);
+        out.moveResize(1, split.z_in * split.filters, split.y_in, split.x_in);
         out.moveOffset(0, 0, 0, 0);
     }
-    pub fn backward(this: *@This(), in: *Tensor, in_g: *Tensor, out_g: *Tensor) void {
-        assert(in.buffer.a_size == 1);
-        assert(in.buffer.z_size == this.z_in);
-        assert(in.buffer.y_size == this.y_in);
-        assert(in.buffer.x_size == this.x_in);
-        assert(in.buffer.overlapsAll(in_g.buffer));
-        assert(out_g.buffer.a_size == 1);
-        assert(out_g.buffer.z_size == this.z_in * this.filters);
-        assert(out_g.buffer.y_size == this.y_in);
-        assert(out_g.buffer.x_size == this.x_in);
+    pub fn backward(split: *Split, linearized: *Linearized, in: Buffer, in_g: Buffer, out_g: *Buffer) void {
+        assert(in.a_size == 1);
+        assert(in.z_size == split.z_in);
+        assert(in.y_size == split.y_in);
+        assert(in.x_size == split.x_in);
+        assert(in.overlapsAll(in_g));
+        assert(out_g.a_size == 1);
+        assert(out_g.z_size == split.z_in * split.filters);
+        assert(out_g.y_size == split.y_in);
+        assert(out_g.x_size == split.x_in);
 
-        this.biases_g.moveResize(1, this.z_in * this.filters, this.y_in, this.x_in);
-        this.biases_g.binarySet(out_g);
-        this.biases_g.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
+        split.biases_g.moveResize(1, split.z_in * split.filters, split.y_in, split.x_in);
+        linearized.binarySet(split.biases_g, out_g.*);
+        split.biases_g.moveResize(split.filters, split.z_in, split.y_in, split.x_in);
 
-        this.weights_g.moveResize(1, this.z_in, this.y_in, this.x_in);
-        out_g.moveResize(1, this.z_in, this.y_in, this.x_in);
+        split.weights_g.moveResize(1, split.z_in, split.y_in, split.x_in);
+        out_g.moveResize(1, split.z_in, split.y_in, split.x_in);
         var filter_idx: u32 = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.weights_g.moveOffset(filter_idx, 0, 0, 0);
-            out_g.moveOffset(0, filter_idx * this.filters, 0, 0);
-            this.temp_in.binarySet(out_g);
-            this.temp_in.binaryMultiply(in);
-            this.weights_g.binaryAdd(&this.temp_in);
+        while (filter_idx < split.filters) : (filter_idx += 1) {
+            split.weights_g.moveOffset(filter_idx, 0, 0, 0);
+            out_g.moveOffset(0, filter_idx * split.filters, 0, 0);
+            linearized.binarySet(split.temp_in, out_g.*);
+            linearized.binaryMultiply(split.temp_in, in);
+            linearized.binaryAdd(split.weights_g, split.temp_in);
         }
-        this.weights_g.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
-        this.weights_g.moveOffset(0, 0, 0, 0);
+        split.weights_g.moveResize(split.filters, split.z_in, split.y_in, split.x_in);
+        split.weights_g.moveOffset(0, 0, 0, 0);
 
-        this.weights.moveResize(1, this.z_in, this.y_in, this.x_in);
+        split.weights.moveResize(1, split.z_in, split.y_in, split.x_in);
         filter_idx = 0;
-        while (filter_idx < this.filters) : (filter_idx += 1) {
-            this.weights.moveOffset(filter_idx, 0, 0, 0);
-            out_g.moveOffset(0, filter_idx * this.filters, 0, 0);
-            this.temp_in.binarySet(out_g);
-            this.temp_in.binaryMultiply(&this.weights);
-            in_g.binaryAdd(&this.temp_in);
+        while (filter_idx < split.filters) : (filter_idx += 1) {
+            split.weights.moveOffset(filter_idx, 0, 0, 0);
+            out_g.moveOffset(0, filter_idx * split.filters, 0, 0);
+            linearized.binarySet(split.temp_in, out_g.*);
+            linearized.binaryMultiply(split.temp_in, split.weights);
+            linearized.binaryAdd(in_g, split.temp_in);
         }
-        this.weights.moveResize(this.filters, this.z_in, this.y_in, this.x_in);
-        this.weights.moveOffset(0, 0, 0, 0);
-        out_g.moveResize(1, this.z_in * this.filters, this.y_in, this.x_in);
+        split.weights.moveResize(split.filters, split.z_in, split.y_in, split.x_in);
+        split.weights.moveOffset(0, 0, 0, 0);
+        out_g.moveResize(1, split.z_in * split.filters, split.y_in, split.x_in);
         out_g.moveOffset(0, 0, 0, 0);
     }
     pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -728,19 +726,19 @@ pub const Residual = struct {
     };
     t: Residual.Kind,
     in_layer: u32,
-    pub fn forward(this: *@This(), in: *Tensor, out: *Tensor) void {
+    pub fn forward(residual: *Residual, in: *Buffer, out: *Buffer) void {
         assert(in.buffer.overlapsAll(out.buffer));
         assert(in.buffer.id != out.buffer.id);
-        switch (this.t) {
+        switch (residual.t) {
             .identity => {
                 out.binaryAdd(&in);
             },
         }
     }
-    pub fn backward(this: *@This(), in_g: *Tensor, out_g: *Tensor) void {
+    pub fn backward(residual: *Residual, in_g: *Buffer, out_g: *Buffer) void {
         assert(in_g.buffer.overlapsAll(out_g));
         assert(in_g.buffer.id != out_g.buffer.id);
-        switch (this.t) {
+        switch (residual.t) {
             .identity => {
                 in_g.binaryAdd(&out_g);
             },
@@ -775,8 +773,8 @@ tag: union(Kind) {
     split: Split,
     residual: Residual,
 },
-values: Tensor,
-values_g: Tensor,
+values: Buffer,
+values_g: Buffer,
 activation: Activation,
 pub const Config = union(Kind) {
     dense: struct {
