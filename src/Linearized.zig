@@ -46,8 +46,8 @@ pub const Op = struct {
         reduce_max,
         reduce_avg,
         reduce_min,
-        pub inline fn isUnary(this: @This()) bool {
-            return switch (this) {
+        pub inline fn isUnary(kind: Kind) bool {
+            return switch (kind) {
                 .unary_add, .unary_subtract, .unary_multiply, .unary_divide => true,
                 .unary_exp, .unary_log, .unary_square, .unary_sqrt, .unary_reciprocal => true,
                 .unary_max, .unary_min, .unary_set, .unary_random => true,
@@ -59,8 +59,8 @@ pub const Op = struct {
                 .reduce_sum, .reduce_max, .reduce_avg, .reduce_min => false,
             };
         }
-        pub inline fn isBinary(this: @This()) bool {
-            return switch (this) {
+        pub inline fn isBinary(kind: Kind) bool {
+            return switch (kind) {
                 .unary_add, .unary_subtract, .unary_multiply, .unary_divide => false,
                 .unary_exp, .unary_log, .unary_square, .unary_sqrt, .unary_reciprocal => false,
                 .unary_max, .unary_min, .unary_set, .unary_random => false,
@@ -72,8 +72,8 @@ pub const Op = struct {
                 .reduce_sum, .reduce_max, .reduce_avg, .reduce_min => false,
             };
         }
-        pub inline fn isExpand(this: @This()) bool {
-            return switch (this) {
+        pub inline fn isExpand(kind: Kind) bool {
+            return switch (kind) {
                 .unary_add, .unary_subtract, .unary_multiply, .unary_divide => false,
                 .unary_exp, .unary_log, .unary_square, .unary_sqrt, .unary_reciprocal => false,
                 .unary_max, .unary_min, .unary_set, .unary_random => false,
@@ -85,8 +85,8 @@ pub const Op = struct {
                 .reduce_sum, .reduce_max, .reduce_avg, .reduce_min => false,
             };
         }
-        pub inline fn isReduce(this: @This()) bool {
-            return switch (this) {
+        pub inline fn isReduce(kind: Kind) bool {
+            return switch (kind) {
                 .unary_add, .unary_subtract, .unary_multiply, .unary_divide => false,
                 .unary_exp, .unary_log, .unary_square, .unary_sqrt, .unary_reciprocal => false,
                 .unary_max, .unary_min, .unary_set, .unary_random => false,
@@ -99,8 +99,8 @@ pub const Op = struct {
             };
         }
         /// Not a great name. Essentially this returns wether the result is independant of what was in `this.out` before
-        pub fn overwrites(this: @This()) bool {
-            return switch (this) {
+        pub fn overwrites(kind: Kind) bool {
+            return switch (kind) {
                 .unary_add, .unary_subtract, .unary_multiply, .unary_divide => false,
                 .unary_exp, .unary_log, .unary_square, .unary_sqrt => false,
                 .unary_reciprocal, .unary_max, .unary_min => false,
@@ -123,50 +123,50 @@ pub const Op = struct {
     out: Buffer,
     in: Buffer,
     // $TODO Make this sucker SIMD-able
-    pub fn realize(this: @This()) void {
-        if (this.kind.isUnary()) {
+    pub fn realize(op: Op) void {
+        if (op.kind.isUnary()) {
             // In buffer is just a copy of out buffer, basically just a sanity check.
-            assert(this.out.a_size == this.in.a_size);
-            assert(this.out.z_size == this.in.z_size);
-            assert(this.out.y_size == this.in.y_size);
-            assert(this.out.x_size == this.in.x_size);
-        } else if (this.kind.isBinary()) {
-            assert(this.out.a_size == this.in.a_size);
-            assert(this.out.z_size == this.in.z_size);
-            assert(this.out.y_size == this.in.y_size);
-            assert(this.out.x_size == this.in.x_size);
-        } else if (this.kind.isExpand()) {
-            assert(this.in.a_size == 1);
-            assert(this.in.z_size == 1);
-            assert(this.in.y_size == 1);
-            assert(this.in.x_size == 1);
-        } else if (this.kind.isReduce()) {
-            assert(this.out.a_size == 1);
-            assert(this.out.z_size == 1);
-            assert(this.out.y_size == 1);
-            assert(this.out.x_size == 1);
+            assert(op.out.a_size == op.in.a_size);
+            assert(op.out.z_size == op.in.z_size);
+            assert(op.out.y_size == op.in.y_size);
+            assert(op.out.x_size == op.in.x_size);
+        } else if (op.kind.isBinary()) {
+            assert(op.out.a_size == op.in.a_size);
+            assert(op.out.z_size == op.in.z_size);
+            assert(op.out.y_size == op.in.y_size);
+            assert(op.out.x_size == op.in.x_size);
+        } else if (op.kind.isExpand()) {
+            assert(op.in.a_size == 1);
+            assert(op.in.z_size == 1);
+            assert(op.in.y_size == 1);
+            assert(op.in.x_size == 1);
+        } else if (op.kind.isReduce()) {
+            assert(op.out.a_size == 1);
+            assert(op.out.z_size == 1);
+            assert(op.out.y_size == 1);
+            assert(op.out.x_size == 1);
         } else {
             unreachable;
         }
 
-        switch (this.kind) {
+        switch (op.kind) {
             .reduce_sum => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
+                op.out.values[op.out.at(0, 0, 0, 0)] = 0;
             },
             .reduce_max => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = -std.math.inf(f32);
+                op.out.values[op.out.at(0, 0, 0, 0)] = -std.math.inf(f32);
             },
             .reduce_min => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = std.math.inf(f32);
+                op.out.values[op.out.at(0, 0, 0, 0)] = std.math.inf(f32);
             },
             .reduce_avg => {
-                this.out.values[this.out.at(0, 0, 0, 0)] = 0;
+                op.out.values[op.out.at(0, 0, 0, 0)] = 0;
             },
             else => {},
         }
 
-        var rng: ?std.Random.Pcg = if (this.kind == .unary_random)
-            std.Random.Pcg.init(@as(u32, @bitCast(this.u_var)))
+        var rng: ?std.Random.Pcg = if (op.kind == .unary_random)
+            std.Random.Pcg.init(@as(u32, @bitCast(op.u_var)))
         else
             null;
 
@@ -174,10 +174,10 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        const a_size: u32 = if (this.kind.isReduce()) this.in.a_size else this.out.a_size;
-        const z_size: u32 = if (this.kind.isReduce()) this.in.z_size else this.out.z_size;
-        const y_size: u32 = if (this.kind.isReduce()) this.in.y_size else this.out.y_size;
-        const x_size: u32 = if (this.kind.isReduce()) this.in.x_size else this.out.x_size;
+        const a_size: u32 = if (op.kind.isReduce()) op.in.a_size else op.out.a_size;
+        const z_size: u32 = if (op.kind.isReduce()) op.in.z_size else op.out.z_size;
+        const y_size: u32 = if (op.kind.isReduce()) op.in.y_size else op.out.y_size;
+        const x_size: u32 = if (op.kind.isReduce()) op.in.x_size else op.out.x_size;
         var a: u32 = 0;
         while (a < a_size) : (a += 1) {
             var z: u32 = 0;
@@ -186,70 +186,70 @@ pub const Op = struct {
                 while (y < y_size) : (y += 1) {
                     var x: u32 = 0;
                     while (x < x_size) : (x += 1) {
-                        switch (this.kind) {
+                        switch (op.kind) {
                             .unary_add => {
-                                this.out.values[this.out.at(a, z, y, x)] += this.u_var;
+                                op.out.values[op.out.at(a, z, y, x)] += op.u_var;
                             },
                             .unary_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -= this.u_var;
+                                op.out.values[op.out.at(a, z, y, x)] -= op.u_var;
                             },
                             .unary_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *= this.u_var;
+                                op.out.values[op.out.at(a, z, y, x)] *= op.u_var;
                             },
                             .unary_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /= this.u_var;
+                                op.out.values[op.out.at(a, z, y, x)] /= op.u_var;
                             },
                             .unary_exp => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @exp(this.out.values[this.out.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @exp(op.out.values[op.out.at(a, z, y, x)]);
                             },
                             .unary_log => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @log(this.out.values[this.out.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @log(op.out.values[op.out.at(a, z, y, x)]);
                             },
                             .unary_square => {
-                                this.out.values[this.out.at(a, z, y, x)] *=
-                                    this.out.values[this.out.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] *=
+                                    op.out.values[op.out.at(a, z, y, x)];
                             },
                             .unary_sqrt => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @sqrt(this.out.values[this.out.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @sqrt(op.out.values[op.out.at(a, z, y, x)]);
                             },
                             .unary_reciprocal => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    1 / this.out.values[this.out.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    1 / op.out.values[op.out.at(a, z, y, x)];
                             },
                             .unary_max => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @max(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @max(op.out.values[op.out.at(a, z, y, x)], op.u_var);
                             },
                             .unary_min => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @min(this.out.values[this.out.at(a, z, y, x)], this.u_var);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @min(op.out.values[op.out.at(a, z, y, x)], op.u_var);
                             },
                             .unary_set => {
-                                this.out.values[this.out.at(a, z, y, x)] = this.u_var;
+                                op.out.values[op.out.at(a, z, y, x)] = op.u_var;
                             },
                             .unary_random => {
                                 // $TODO Make my own PCG implementation that can do SIMD
-                                this.out.values[this.out.at(a, z, y, x)] =
+                                op.out.values[op.out.at(a, z, y, x)] =
                                     rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    std.math.tanh(this.out.values[this.out.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    std.math.tanh(op.out.values[op.out.at(a, z, y, x)]);
                             },
                             .unary_absolute => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @abs(this.out.values[this.out.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @abs(op.out.values[op.out.at(a, z, y, x)]);
                             },
                             .unary_sign => {
-                                if (this.out.values[this.out.at(a, z, y, x)] > 0) {
-                                    this.out.values[this.out.at(a, z, y, x)] = 1;
-                                } else if (this.out.values[this.out.at(a, z, y, x)] < 0) {
-                                    this.out.values[this.out.at(a, z, y, x)] = -1;
+                                if (op.out.values[op.out.at(a, z, y, x)] > 0) {
+                                    op.out.values[op.out.at(a, z, y, x)] = 1;
+                                } else if (op.out.values[op.out.at(a, z, y, x)] < 0) {
+                                    op.out.values[op.out.at(a, z, y, x)] = -1;
                                 } else {
-                                    this.out.values[this.out.at(a, z, y, x)] = 0;
+                                    op.out.values[op.out.at(a, z, y, x)] = 0;
                                 }
                                 // $fn signVector(comptime T: kind, vector @Vector(4, T)) @Vector(4, i32) {
                                 //     const zero = @splat(4, @as(T, 0));
@@ -263,102 +263,102 @@ pub const Op = struct {
                                 // }
                             },
                             .binary_add => {
-                                this.out.values[this.out.at(a, z, y, x)] +=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] +=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .binary_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] -=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .binary_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] *=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .binary_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] /=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .binary_max => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @max(this.out.values[this.out.at(a, z, y, x)], //
-                                    this.in.values[this.in.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @max(op.out.values[op.out.at(a, z, y, x)], //
+                                    op.in.values[op.in.at(a, z, y, x)]);
                             },
                             .binary_min => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @min(this.out.values[this.out.at(a, z, y, x)], //
-                                    this.in.values[this.in.at(a, z, y, x)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @min(op.out.values[op.out.at(a, z, y, x)], //
+                                    op.in.values[op.in.at(a, z, y, x)]);
                             },
                             .binary_set => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .expand_add => {
-                                this.out.values[this.out.at(a, z, y, x)] +=
-                                    this.in.values[this.in.at(0, 0, 0, 0)];
+                                op.out.values[op.out.at(a, z, y, x)] +=
+                                    op.in.values[op.in.at(0, 0, 0, 0)];
                             },
                             .expand_subtract => {
-                                this.out.values[this.out.at(a, z, y, x)] -=
-                                    this.in.values[this.in.at(0, 0, 0, 0)];
+                                op.out.values[op.out.at(a, z, y, x)] -=
+                                    op.in.values[op.in.at(0, 0, 0, 0)];
                             },
                             .expand_multiply => {
-                                this.out.values[this.out.at(a, z, y, x)] *=
-                                    this.in.values[this.in.at(0, 0, 0, 0)];
+                                op.out.values[op.out.at(a, z, y, x)] *=
+                                    op.in.values[op.in.at(0, 0, 0, 0)];
                             },
                             .expand_divide => {
-                                this.out.values[this.out.at(a, z, y, x)] /=
-                                    this.in.values[this.in.at(0, 0, 0, 0)];
+                                op.out.values[op.out.at(a, z, y, x)] /=
+                                    op.in.values[op.in.at(0, 0, 0, 0)];
                             },
                             .expand_max => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @max(this.out.values[this.out.at(a, z, y, x)], //
-                                    this.in.values[this.in.at(0, 0, 0, 0)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @max(op.out.values[op.out.at(a, z, y, x)], //
+                                    op.in.values[op.in.at(0, 0, 0, 0)]);
                             },
                             .expand_min => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    @min(this.out.values[this.out.at(a, z, y, x)], //
-                                    this.in.values[this.in.at(0, 0, 0, 0)]);
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    @min(op.out.values[op.out.at(a, z, y, x)], //
+                                    op.in.values[op.in.at(0, 0, 0, 0)]);
                             },
                             .expand_set => {
-                                this.out.values[this.out.at(a, z, y, x)] =
-                                    this.in.values[this.in.at(0, 0, 0, 0)];
+                                op.out.values[op.out.at(a, z, y, x)] =
+                                    op.in.values[op.in.at(0, 0, 0, 0)];
                             },
                             .reduce_sum => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] +=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(0, 0, 0, 0)] +=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                             .reduce_max => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] =
-                                    @max(this.out.values[this.out.at(0, 0, 0, 0)], //
-                                    this.in.values[this.in.at(a, z, y, x)]);
+                                op.out.values[op.out.at(0, 0, 0, 0)] =
+                                    @max(op.out.values[op.out.at(0, 0, 0, 0)], //
+                                    op.in.values[op.in.at(a, z, y, x)]);
                             },
                             .reduce_min => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] =
-                                    @min(this.out.values[this.out.at(0, 0, 0, 0)], //
-                                    this.in.values[this.in.at(a, z, y, x)]);
+                                op.out.values[op.out.at(0, 0, 0, 0)] =
+                                    @min(op.out.values[op.out.at(0, 0, 0, 0)], //
+                                    op.in.values[op.in.at(a, z, y, x)]);
                             },
                             .reduce_avg => {
-                                this.out.values[this.out.at(0, 0, 0, 0)] +=
-                                    this.in.values[this.in.at(a, z, y, x)];
+                                op.out.values[op.out.at(0, 0, 0, 0)] +=
+                                    op.in.values[op.in.at(a, z, y, x)];
                             },
                         }
                     }
                 }
             }
         }
-        if (this.kind == .reduce_avg) {
-            this.out.values[this.out.at(0, 0, 0, 0)] /=
-                @as(f32, @floatFromInt(this.in.a_size * this.in.z_size * this.in.y_size * this.in.x_size));
+        if (op.kind == .reduce_avg) {
+            op.out.values[op.out.at(0, 0, 0, 0)] /=
+                @as(f32, @floatFromInt(op.in.a_size * op.in.z_size * op.in.y_size * op.in.x_size));
         }
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(op: Op, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
             std.debug.print("{s}", .{" " ** (padding + offset)});
         }
-        if (this.kind.isUnary()) {
+        if (op.kind.isUnary()) {
             std.debug.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
-                switch (this.kind) {
+                switch (op.kind) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
                     .unary_multiply => "mul",
@@ -377,29 +377,29 @@ pub const Op = struct {
                     .unary_sign => "sgn",
                     else => unreachable,
                 },
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.aOffset(),
-                this.out.zOffset(),
-                this.out.yOffset(),
-                this.out.xOffset(),
-                this.out.offset,
-                this.out.name(),
-                this.u_var,
+                op.out.a_size,
+                op.out.z_size,
+                op.out.y_size,
+                op.out.x_size,
+                op.out.aOffset(),
+                op.out.zOffset(),
+                op.out.yOffset(),
+                op.out.xOffset(),
+                op.out.offset,
+                op.out.name(),
+                op.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.kind.isBinary())
+            const op_kind: u8 = if (op.kind.isBinary())
                 'B'
             else
-                (if (this.kind.isExpand())
+                (if (op.kind.isExpand())
                     'E'
                 else
                     'R');
             std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
-                switch (this.kind) {
+                switch (op.kind) {
                     .binary_add => "add",
                     .binary_subtract => "sub",
                     .binary_multiply => "mul",
@@ -420,26 +420,26 @@ pub const Op = struct {
                     .reduce_avg => "avg",
                     else => unreachable,
                 },
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.aOffset(),
-                this.out.zOffset(),
-                this.out.yOffset(),
-                this.out.xOffset(),
-                this.out.offset,
-                this.out.name(),
-                this.in.a_size,
-                this.in.z_size,
-                this.in.y_size,
-                this.in.x_size,
-                this.in.aOffset(),
-                this.in.zOffset(),
-                this.in.yOffset(),
-                this.in.xOffset(),
-                this.in.offset,
-                this.in.name(),
+                op.out.a_size,
+                op.out.z_size,
+                op.out.y_size,
+                op.out.x_size,
+                op.out.aOffset(),
+                op.out.zOffset(),
+                op.out.yOffset(),
+                op.out.xOffset(),
+                op.out.offset,
+                op.out.name(),
+                op.in.a_size,
+                op.in.z_size,
+                op.in.y_size,
+                op.in.x_size,
+                op.in.aOffset(),
+                op.in.zOffset(),
+                op.in.yOffset(),
+                op.in.xOffset(),
+                op.in.offset,
+                op.in.name(),
             });
         }
     }

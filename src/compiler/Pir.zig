@@ -46,30 +46,30 @@ pub const DimInfo = struct {
             .x_wait = value_none,
         };
     }
-    pub fn equal(this: DimInfo, target: DimInfo) bool {
-        return this.off == target.off and
-            this.a_stride == target.a_stride and this.z_stride == target.z_stride and
-            this.y_stride == target.y_stride and this.x_stride == target.x_stride and
-            this.a_wait == target.a_wait and this.z_wait == target.z_wait and
-            this.y_wait == target.y_wait and this.x_wait == target.x_wait and
-            this.a_reset == target.a_reset and this.z_reset == target.z_reset and
-            this.y_reset == target.y_reset and this.x_reset == target.x_reset;
+    pub fn equal(dim_info: DimInfo, target: DimInfo) bool {
+        return dim_info.off == target.off and
+            dim_info.a_stride == target.a_stride and dim_info.z_stride == target.z_stride and
+            dim_info.y_stride == target.y_stride and dim_info.x_stride == target.x_stride and
+            dim_info.a_wait == target.a_wait and dim_info.z_wait == target.z_wait and
+            dim_info.y_wait == target.y_wait and dim_info.x_wait == target.x_wait and
+            dim_info.a_reset == target.a_reset and dim_info.z_reset == target.z_reset and
+            dim_info.y_reset == target.y_reset and dim_info.x_reset == target.x_reset;
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(dim_info: DimInfo, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
         }
         std.debug.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            this.a_stride, this.z_stride, this.y_stride, this.x_stride, //
+            dim_info.a_stride, dim_info.z_stride, dim_info.y_stride, dim_info.x_stride, //
         });
         std.debug.print("{s}res => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            this.a_reset, this.z_reset, this.y_reset, this.x_reset, //
+            dim_info.a_reset, dim_info.z_reset, dim_info.y_reset, dim_info.x_reset, //
         });
         std.debug.print("{s}wai => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            this.a_wait, this.z_wait, this.y_wait, this.x_wait, //
+            dim_info.a_wait, dim_info.z_wait, dim_info.y_wait, dim_info.x_wait, //
         });
     }
 };
@@ -83,22 +83,22 @@ pub const Base = struct {
     repeats: u32,
     out_dim: DimInfo,
     in_dim: DimInfo,
-    pub inline fn equal(this: @This(), target: @This()) bool {
-        return this.out.equal(target.out) and this.in.equal(target.in) and
-            this.kind == target.kind and this.u_var == target.u_var;
+    pub inline fn equal(base: Base, target: Base) bool {
+        return base.out.equal(target.out) and base.in.equal(target.in) and
+            base.kind == target.kind and base.u_var == target.u_var;
     }
-    pub inline fn equalNoOffset(this: @This(), target: @This()) bool {
-        return this.out.equalNoOffset(target.out) and this.in.equalNoOffset(target.in) and
-            this.kind == target.kind and this.u_var == target.u_var;
+    pub inline fn equalNoOffset(base: Base, target: Base) bool {
+        return base.out.equalNoOffset(target.out) and base.in.equalNoOffset(target.in) and
+            base.kind == target.kind and base.u_var == target.u_var;
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(base: Base, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
-        if (this.kind.isUnary()) {
+        if (base.kind.isUnary()) {
             std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {d}\n", .{
                 " " ** (offset + padding),
-                switch (this.kind) {
+                switch (base.kind) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
                     .unary_multiply => "mul",
@@ -117,25 +117,25 @@ pub const Base = struct {
                     .unary_sign => "sgn",
                     else => unreachable,
                 },
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.aOffset(),
-                this.out.zOffset(),
-                this.out.yOffset(),
-                this.out.xOffset(),
-                this.out.offset,
-                this.out.intermediary,
-                this.out.name(),
-                this.u_var,
+                base.out.a_size,
+                base.out.z_size,
+                base.out.y_size,
+                base.out.x_size,
+                base.out.aOffset(),
+                base.out.zOffset(),
+                base.out.yOffset(),
+                base.out.xOffset(),
+                base.out.offset,
+                base.out.intermediary,
+                base.out.name(),
+                base.u_var,
             });
         } else {
-            const op_kind: u8 = if (this.kind.isBinary()) 'B' else (if (this.kind.isExpand()) 'E' else (if (this.kind.isReduce()) 'R' else unreachable));
+            const op_kind: u8 = if (base.kind.isBinary()) 'B' else (if (base.kind.isExpand()) 'E' else (if (base.kind.isReduce()) 'R' else unreachable));
             std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\"\n", .{
                 " " ** (offset + padding),
                 op_kind,
-                switch (this.kind) {
+                switch (base.kind) {
                     .binary_add => "add",
                     .binary_subtract => "sub",
                     .binary_multiply => "mul",
@@ -156,33 +156,33 @@ pub const Base = struct {
                     .reduce_avg => "avg",
                     else => unreachable,
                 },
-                this.out.a_size,
-                this.out.z_size,
-                this.out.y_size,
-                this.out.x_size,
-                this.out.aOffset(),
-                this.out.zOffset(),
-                this.out.yOffset(),
-                this.out.xOffset(),
-                this.out.offset,
-                this.out.intermediary,
-                this.out.name(),
-                this.in.a_size,
-                this.in.z_size,
-                this.in.y_size,
-                this.in.x_size,
-                this.in.aOffset(),
-                this.in.zOffset(),
-                this.in.yOffset(),
-                this.in.xOffset(),
-                this.in.offset,
-                this.in.intermediary,
-                this.in.name(),
+                base.out.a_size,
+                base.out.z_size,
+                base.out.y_size,
+                base.out.x_size,
+                base.out.aOffset(),
+                base.out.zOffset(),
+                base.out.yOffset(),
+                base.out.xOffset(),
+                base.out.offset,
+                base.out.intermediary,
+                base.out.name(),
+                base.in.a_size,
+                base.in.z_size,
+                base.in.y_size,
+                base.in.x_size,
+                base.in.aOffset(),
+                base.in.zOffset(),
+                base.in.yOffset(),
+                base.in.xOffset(),
+                base.in.offset,
+                base.in.intermediary,
+                base.in.name(),
             });
         }
-        std.debug.print("{s}Repeats {}\n", .{ " " ** (offset + padding), this.repeats });
-        this.out_dim.print(padding, padding + offset, "out_dim");
-        this.in_dim.print(padding, padding + offset, "in_dim");
+        std.debug.print("{s}Repeats {}\n", .{ " " ** (offset + padding), base.repeats });
+        base.out_dim.print(padding, padding + offset, "out_dim");
+        base.in_dim.print(padding, padding + offset, "in_dim");
     }
 };
 // $TODO Maybe make all these slices from a global / per ssa buffer
@@ -194,38 +194,38 @@ pub const Inlined = struct {
     out_root: ?u32,
     in_root: ?u32,
     inlined_num: u32,
-    pub inline fn inlinedEqual(this: @This(), target: Inlined) bool {
-        assert(this.base.len == this.out.len);
-        assert(this.base.len == this.in.len);
+    pub inline fn inlinedEqual(inlined: Inlined, target: Inlined) bool {
+        assert(inlined.base.len == inlined.out.len);
+        assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (this.base.len != target.base.len) {
+        if (inlined.base.len != target.base.len) {
             return false;
         }
-        for (0..this.base.len) |inlined_idx| {
-            if (!this.base[inlined_idx].out.equal(target.base[inlined_idx].out) or
-                !this.base[inlined_idx].in.equal(target.base[inlined_idx].in) or
-                this.out[inlined_idx] != target.out[inlined_idx] or
-                this.in[inlined_idx] != target.in[inlined_idx])
+        for (0..inlined.base.len) |inlined_idx| {
+            if (!inlined.base[inlined_idx].out.equal(target.base[inlined_idx].out) or
+                !inlined.base[inlined_idx].in.equal(target.base[inlined_idx].in) or
+                inlined.out[inlined_idx] != target.out[inlined_idx] or
+                inlined.in[inlined_idx] != target.in[inlined_idx])
             {
                 return false;
             }
         }
         return true;
     }
-    pub inline fn inlinedEqualNoOffset(this: @This(), target: Inlined) bool {
-        assert(this.base.len == this.out.len);
-        assert(this.base.len == this.in.len);
+    pub inline fn inlinedEqualNoOffset(inlined: Inlined, target: Inlined) bool {
+        assert(inlined.base.len == inlined.out.len);
+        assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (this.base.len != target.base.len) {
+        if (inlined.base.len != target.base.len) {
             return false;
         }
-        for (0..this.base.len) |inlined_idx| {
-            if (!this.base[inlined_idx].out.equalNoOffset(target.base[inlined_idx].out) or
-                !this.base[inlined_idx].in.equalNoOffset(target.base[inlined_idx].in) or
-                this.out[inlined_idx] != target.out[inlined_idx] or
-                this.in[inlined_idx] != target.in[inlined_idx])
+        for (0..inlined.base.len) |inlined_idx| {
+            if (!inlined.base[inlined_idx].out.equalNoOffset(target.base[inlined_idx].out) or
+                !inlined.base[inlined_idx].in.equalNoOffset(target.base[inlined_idx].in) or
+                inlined.out[inlined_idx] != target.out[inlined_idx] or
+                inlined.in[inlined_idx] != target.in[inlined_idx])
             {
                 return false;
             }
@@ -250,12 +250,12 @@ pub const Assign = struct {
     split: Split,
     block: ?Block,
     simd: ?Simd,
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(assign: Assign, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Assign {s}\n", .{ " " ** offset, text });
         }
-        this.base.print(padding, offset, null);
-        if (this.inlined) |inlined| {
+        assign.base.print(padding, offset, null);
+        if (assign.inlined) |inlined| {
             std.debug.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
                 .{ " " ** (offset + padding), inlined.out_root, inlined.in_root, inlined.inlined_num });
             for (0..inlined.inlined_num) |inlined_idx| {
@@ -263,14 +263,14 @@ pub const Assign = struct {
                 inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
-        if (this.split) {
+        if (assign.split) {
             std.debug.print("{s}Splitting\n", .{" " ** (offset + padding)});
         }
-        if (this.block) |block| {
+        if (assign.block) |block| {
             _ = block;
             unreachable;
         }
-        if (this.simd) |simd| {
+        if (assign.simd) |simd| {
             _ = simd;
             unreachable;
         }
@@ -280,7 +280,7 @@ pub const Pir = @This();
 assign: []Assign,
 assign_num: u32,
 pub fn alloc(
-    allocator: Allocator,
+    gpa: Allocator,
     linearized: Linearized,
     depth_max: u32,
     size_global: u32,
@@ -288,8 +288,8 @@ pub fn alloc(
 ) !Pir {
     assert(linearized.op_num > 0);
 
-    const assign: []Assign = try allocator.alloc(Assign, linearized.op_num);
-    errdefer allocator.free(assign);
+    const assign: []Assign = try gpa.alloc(Assign, linearized.op_num);
+    errdefer gpa.free(assign);
 
     for (0..linearized.op_num) |op_idx| {
         assign[op_idx] = .{
@@ -326,100 +326,100 @@ pub fn alloc(
         },
     };
 
-    try pir.optimize(allocator, depth_max, vgpu, size_global, size_local);
+    try pir.optimize(gpa, depth_max, vgpu, size_global, size_local);
     pir.removeDefault();
 
     return pir;
 }
-pub fn copy(this: Pir, allocator: Allocator) !Pir {
+pub fn copy(pir: Pir, gpa: Allocator) !Pir {
     var result: Pir = .{
-        .assign = try allocator.alloc(Assign, this.assign.len),
-        .assign_num = this.assign_num,
+        .assign = try gpa.alloc(Assign, pir.assign.len),
+        .assign_num = pir.assign_num,
     };
 
-    for (0..this.assign_num) |assign_idx| {
+    for (0..pir.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
-            .base = this.assign[assign_idx].base,
-            .inlined = if (this.assign[assign_idx].inlined) |inlined|
+            .base = pir.assign[assign_idx].base,
+            .inlined = if (pir.assign[assign_idx].inlined) |inlined|
                 .{
                     .in_root = inlined.in_root,
                     .out_root = inlined.out_root,
                     .inlined_num = inlined.inlined_num,
-                    .base = allocator.dupe(Base, inlined.base) catch |err| {
+                    .base = gpa.dupe(Base, inlined.base) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (this.assign[free_idx].inlined) |inlined_free| {
-                                allocator.free(inlined_free.base);
-                                allocator.free(inlined_free.out);
-                                allocator.free(inlined_free.in);
+                            if (pir.assign[free_idx].inlined) |inlined_free| {
+                                gpa.free(inlined_free.base);
+                                gpa.free(inlined_free.out);
+                                gpa.free(inlined_free.in);
                             }
                         }
                         return err;
                     },
-                    .out = allocator.dupe(?u32, inlined.out) catch |err| {
+                    .out = gpa.dupe(?u32, inlined.out) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (this.assign[free_idx].inlined) |inlined_free| {
-                                allocator.free(inlined_free.base);
-                                allocator.free(inlined_free.out);
-                                allocator.free(inlined_free.in);
+                            if (pir.assign[free_idx].inlined) |inlined_free| {
+                                gpa.free(inlined_free.base);
+                                gpa.free(inlined_free.out);
+                                gpa.free(inlined_free.in);
                             }
                         }
-                        allocator.free(inlined.base);
+                        gpa.free(inlined.base);
                         return err;
                     },
-                    .in = allocator.dupe(?u32, inlined.in) catch |err| {
+                    .in = gpa.dupe(?u32, inlined.in) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (this.assign[free_idx].inlined) |inlined_free| {
-                                allocator.free(inlined_free.base);
-                                allocator.free(inlined_free.out);
-                                allocator.free(inlined_free.in);
+                            if (pir.assign[free_idx].inlined) |inlined_free| {
+                                gpa.free(inlined_free.base);
+                                gpa.free(inlined_free.out);
+                                gpa.free(inlined_free.in);
                             }
                         }
-                        allocator.free(inlined.base);
-                        allocator.free(inlined.out);
+                        gpa.free(inlined.base);
+                        gpa.free(inlined.out);
                         return err;
                     },
                 }
             else
                 null,
-            .split = this.assign[assign_idx].split,
-            .simd = this.assign[assign_idx].simd,
-            .block = this.assign[assign_idx].block,
+            .split = pir.assign[assign_idx].split,
+            .simd = pir.assign[assign_idx].simd,
+            .block = pir.assign[assign_idx].block,
         };
-        assert(this.assign[assign_idx].simd == null);
-        assert(this.assign[assign_idx].block == null);
+        assert(pir.assign[assign_idx].simd == null);
+        assert(pir.assign[assign_idx].block == null);
     }
 
     return result;
 }
-pub fn free(this: *@This(), allocator: Allocator) void {
-    for (0..this.assign_num) |assign_idx| {
-        if (this.assign[assign_idx].inlined) |*inlined| {
-            allocator.free(inlined.base);
-            allocator.free(inlined.out);
-            allocator.free(inlined.in);
+pub fn free(pir: Pir, gpa: Allocator) void {
+    for (0..pir.assign_num) |assign_idx| {
+        if (pir.assign[assign_idx].inlined) |*inlined| {
+            gpa.free(inlined.base);
+            gpa.free(inlined.out);
+            gpa.free(inlined.in);
         }
         // Split has nothing to free rn
-        if (this.assign[assign_idx].block) |block| {
+        if (pir.assign[assign_idx].block) |block| {
             _ = block;
             unreachable;
         }
-        if (this.assign[assign_idx].simd) |simd| {
+        if (pir.assign[assign_idx].simd) |simd| {
             _ = simd;
             unreachable;
         }
     }
-    allocator.free(this.assign);
+    gpa.free(pir.assign);
 }
-fn removeDefault(this: *@This()) void {
-    for (0..this.assign_num) |assign_idx| {
+fn removeDefault(pir: *Pir) void {
+    for (0..pir.assign_num) |assign_idx| {
         inline for (0..2) |dim_idx| {
             const dim_info: *DimInfo = if (dim_idx == 0)
-                &this.assign[assign_idx].base.out_dim
+                &pir.assign[assign_idx].base.out_dim
             else
-                &this.assign[assign_idx].base.in_dim;
+                &pir.assign[assign_idx].base.in_dim;
             if (dim_info.a_wait == DimInfo.value_none) dim_info.a_wait = DimInfo.wait_default;
             if (dim_info.z_wait == DimInfo.value_none) dim_info.z_wait = DimInfo.wait_default;
             if (dim_info.y_wait == DimInfo.value_none) dim_info.y_wait = DimInfo.wait_default;
@@ -434,7 +434,7 @@ fn removeDefault(this: *@This()) void {
             if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
             if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
             if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
-            if (this.assign[assign_idx].inlined) |inlined| {
+            if (pir.assign[assign_idx].inlined) |inlined| {
                 for (0..inlined.inlined_num) |inlined_idx| {
                     const inlined_info: *DimInfo = if (dim_idx == 0)
                         &inlined.base[inlined_idx].out_dim
@@ -504,28 +504,28 @@ fn removeDefault(this: *@This()) void {
 // For d=1000 there are 354784 * 3 copies for inline fields alone!
 
 /// Simple greedy search over the field of possible optimizations
-fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
+fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
-    var optimization: []Optimization = try allocator.alloc(Optimization, optimization_len_initial);
-    defer allocator.free(optimization);
+    var optimization: []Optimization = try gpa.alloc(Optimization, optimization_len_initial);
+    defer gpa.free(optimization);
 
-    var arena: std.heap.ArenaAllocator = .init(allocator);
+    var arena: std.heap.ArenaAllocator = .init(gpa);
     defer arena.deinit();
     const a: Allocator = arena.allocator();
 
     // $TODO This is so unoptimized it might worthy of a fix me tag
     //  Would ne nice to only have to compute a diff between two iterations of this loop, but I suspect that would be very complicated
 
-    var cost_curr: u64 = vgpu.costEstimate(this.*, size_global, size_local);
+    var cost_curr: u64 = vgpu.costEstimate(pir.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
         // $TODO Can this be done incrementally?
 
         var optimization_count: u32 = 0;
-        try opt.parallelizeGather(allocator, &optimization, &optimization_count, this.*);
-        try opt.inlineOpGather(allocator, &optimization, &optimization_count, this.*);
-        try opt.mergeOpGather(allocator, &optimization, &optimization_count, this.*);
-        try opt.splitKernelGather(allocator, &optimization, &optimization_count, this.*, size_global, size_local);
+        try opt.parallelizeGather(gpa, &optimization, &optimization_count, pir.*);
+        try opt.inlineOpGather(gpa, &optimization, &optimization_count, pir.*);
+        try opt.mergeOpGather(gpa, &optimization, &optimization_count, pir.*);
+        try opt.splitKernelGather(gpa, &optimization, &optimization_count, pir.*, size_global, size_local);
 
         if (optimization_count == 0) {
             break;
@@ -538,7 +538,7 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         while (optimization_idx < optimization_count) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
-            var pir_temp: Pir = try this.copy(a);
+            var pir_temp: Pir = try pir.copy(a);
 
             switch (optimization[optimization_idx]) {
                 .parallelize => |parallelize| {
@@ -568,31 +568,31 @@ fn optimize(this: *Pir, allocator: Allocator, depth_max: u32, vgpu: VGpu, size_g
         } else {
             switch (optimization[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
-                    try opt.parallelize(allocator, this, parallelize.left_idx, parallelize.right_idx);
+                    try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
-                    try opt.inlineOp(allocator, this, inlined.left_idx);
+                    try opt.inlineOp(gpa, pir, inlined.left_idx);
                 },
                 .split => |split| {
-                    opt.splitKernel(this, split.idx);
+                    opt.splitKernel(pir, split.idx);
                 },
                 .fuse => |fuse| {
-                    opt.mergeOp(this, fuse.left_idx, fuse.right_idx);
+                    opt.mergeOp(pir, fuse.left_idx, fuse.right_idx);
                 },
             }
             cost_curr = cost_next_best;
         }
     }
 }
-pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
         std.debug.print("{s}PIR {s}\n", .{ " " ** offset, text });
     } else {
         std.debug.print("{s}PIR\n", .{" " ** offset});
     }
-    for (0..this.assign_num) |assign_idx| {
+    for (0..pir.assign_num) |assign_idx| {
         std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
-        this.assign[assign_idx].print(padding, offset + padding, null);
+        pir.assign[assign_idx].print(padding, offset + padding, null);
     }
 }
 

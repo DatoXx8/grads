@@ -29,7 +29,7 @@ pub fn randomLinearized(runtime: Runtime, arena: Allocator, op_included: [op_num
     out_idx: u32,
 } {
     var buffer: [buffer_num]Buffer = undefined;
-    var linearized: Linearized = try .alloc(arena, 3 * op_num * a_size_max * z_size_max * y_size_max * x_size_max); // $TODO Calculate a better lower bound
+    var linearized: Linearized = try .alloc(arena, 3 * op_num * a_size_max * z_size_max * y_size_max * x_size_max);
 
     var pcg = Pcg.init(rng);
 

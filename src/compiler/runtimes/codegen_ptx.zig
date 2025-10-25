@@ -242,7 +242,7 @@ pub fn assignCompileBytes(_: *anyopaque, assign: Assign, name_len_max: u32, args
     return length_register_id_calculation + length_header;
 }
 pub fn assignCompile(
-    this: *anyopaque,
+    runtime_ptx: *anyopaque,
     source: *[]u8,
     offset: *usize,
     assign: Assign,
@@ -257,7 +257,7 @@ pub fn assignCompile(
     assert(size_global % size_local == 0);
     assert(std.mem.startsWith(u8, name, kernel_base_name));
 
-    const state: *RuntimePtx = @ptrCast(@alignCast(this));
+    const state: *RuntimePtx = @ptrCast(@alignCast(runtime_ptx));
     std.debug.print("offset {} + bytes {} < len {}", .{ offset.*, assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local), source.len });
     assert(offset.* + assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local) < source.len);
 

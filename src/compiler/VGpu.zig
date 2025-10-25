@@ -51,9 +51,9 @@ fn costOfOpSimple(kind: Op.Kind) u64 {
         .reduce_max, .reduce_min => 2,
     };
 }
-pub fn costEstimate(this: VGpu, pir: Pir, size_global: u32, size_local: u32) u64 {
+pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u64 {
     _ = size_local;
-    switch (this.detail) {
+    switch (v_gpu.detail) {
         .simple => {
             var cost: u64 = 0;
             var assign_idx: u32 = 0;

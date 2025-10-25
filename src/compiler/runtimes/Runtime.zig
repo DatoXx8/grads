@@ -17,7 +17,7 @@ pub const RuntimePtx = @import("RuntimePtx.zig");
 pub const RuntimeNoop = @import("RuntimeNoop.zig");
 
 // This one is gonna take a while
-// $TODO Add a single and multithread CPU runtime for x86_64 avx2 & bmi2 and no extension
+// $TODO Add a multithread CPU runtime for x86_64 avx2
 
 pub const Runtime = @This();
 
@@ -58,7 +58,7 @@ pub const VTable = struct {
     queueWait: *const fn (state: *anyopaque) Error!void,
     assignCompile: *const fn (
         state: *anyopaque,
-        allocator: Allocator,
+        gpa: Allocator,
         source: *[]u8,
         offset: *usize,
         assign: Assign,
@@ -114,7 +114,7 @@ pub fn queueWait(runtime: Runtime) !void {
 /// Crashes if source doesn't have enough space
 pub fn assignCompile(
     runtime: Runtime,
-    allocator: Allocator,
+    gpa: Allocator,
     source: *[]u8,
     offset: *usize,
     assign: Assign,
@@ -123,6 +123,6 @@ pub fn assignCompile(
     size_global: u32,
     size_local: u32,
 ) !void {
-    try runtime.vtable.assignCompile(runtime.state, allocator, source, offset, assign, name, args, //
+    try runtime.vtable.assignCompile(runtime.state, gpa, source, offset, assign, name, args, //
         size_global, size_local);
 }

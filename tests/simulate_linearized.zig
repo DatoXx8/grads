@@ -397,14 +397,14 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     std.debug.print(" passed!\n", .{});
 }
 
-fn minifyLinearized(allocator: Allocator, rng: u64, err: anytype) !void {
+fn minifyLinearized(gpa: Allocator, rng: u64, err: anytype) !void {
     assert(tensor_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);
     for (0..op_num) |op_idx| {
         var failed: bool = false;
         op_included[op_idx] = false;
-        simulateLinearized(allocator, op_included, rng) catch {
+        simulateLinearized(gpa, op_included, rng) catch {
             failed = true;
         };
         if (failed) {

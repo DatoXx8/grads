@@ -20,9 +20,9 @@ const Assign = Pir.Assign;
 
 // const opencl_version = @import("opencl_config").opencl_version;
 
-pub const RuntimeNop = @This();
+pub const RuntimeNoop = @This();
 
-pub fn runtime(_: *@This()) Runtime {
+pub fn runtime(_: RuntimeNoop) Runtime {
     return Runtime{
         .state = undefined,
         .vtable = .{

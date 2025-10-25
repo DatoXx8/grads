@@ -13,19 +13,19 @@ const OpKind = grads.Op.Kind;
 const buffer_name_size = grads.Tensor.buffer_name_size;
 
 // $FIXME This can't handle reshapes right now, only resizes
-pub fn textifyLinearized(allocator: Allocator, linearized: Linearized, a: u32, z: u32, y: u32, x: u32) ![]const u8 {
+pub fn textifyLinearized(gpa: Allocator, linearized: Linearized, a: u32, z: u32, y: u32, x: u32) ![]const u8 {
     if (true) {
         @panic("$FIXME");
     }
 
     const max_chars_per_op: u32 = 500; // Random number
-    var text: []u8 = try allocator.alloc(u8, linearized.op_num * max_chars_per_op);
-    errdefer allocator.free(text);
+    var text: []u8 = try gpa.alloc(u8, linearized.op_num * max_chars_per_op);
+    errdefer gpa.free(text);
     var text_idx: u32 = 0;
 
     var unique_buffer_num: u32 = 0;
-    var unique_buffer_ids: []u64 = try allocator.alloc(u64, linearized.op_num * 2);
-    defer allocator.free(unique_buffer_ids);
+    var unique_buffer_ids: []u64 = try gpa.alloc(u64, linearized.op_num * 2);
+    defer gpa.free(unique_buffer_ids);
 
     var op_idx: u32 = 0;
     while (op_idx < linearized.op_num) : (op_idx += 1) {

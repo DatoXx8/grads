@@ -15,8 +15,8 @@ pub const Args = struct {
     arg_num: u64,
     arg_id: []u64,
     arg_mem: []Memory,
-    pub fn alloc(allocator: Allocator, assign: Assign) !Args {
-        var arg_unique = std.AutoHashMap(u64, Memory).init(allocator);
+    pub fn alloc(gpa: Allocator, arena: Allocator, assign: Assign) !Args {
+        var arg_unique = std.AutoHashMap(u64, Memory).init(gpa);
         defer arg_unique.deinit();
 
         const in_root_is_null: bool = if (assign.inlined) |inlined| inlined.in_root == null else true;
@@ -43,9 +43,8 @@ pub const Args = struct {
         }
 
         const arg_num: usize = arg_unique.count();
-        const arg_id: []u64 = try allocator.alloc(u64, arg_num);
-        errdefer allocator.free(arg_id);
-        const arg_mem: []Memory = try allocator.alloc(Memory, arg_num);
+        const arg_id: []u64 = try arena.alloc(u64, arg_num);
+        const arg_mem: []Memory = try arena.alloc(Memory, arg_num);
         var arg_iterator = arg_unique.iterator();
         for (0..arg_num) |arg_idx| {
             const entry = arg_iterator.next().?;
@@ -59,17 +58,12 @@ pub const Args = struct {
             .arg_mem = arg_mem,
         };
     }
-    pub fn allocEmpty(allocator: Allocator) !Args {
+    pub fn allocEmpty(arena: Allocator) !Args {
         return .{
             .arg_num = 0,
-            .arg_id = try allocator.alloc(u64, 1),
-            .arg_mem = try allocator.alloc(Memory, 1),
+            .arg_id = try arena.alloc(u64, 1),
+            .arg_mem = try arena.alloc(Memory, 1),
         };
-    }
-    pub fn free(args: Args, allocator: Allocator) void {
-        allocator.free(args.arg_id);
-        // The runtime specific arg_mem get's freed with the tensors
-        allocator.free(args.arg_mem);
     }
 };
 // $TODO Support integer arguments
@@ -145,7 +139,7 @@ pub fn alloc(
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name, .{assign_idx});
 
-            kernel[assign_idx].args = try Args.alloc(arena, pir.assign[assign_idx]);
+            kernel[assign_idx].args = try Args.alloc(gpa, arena, pir.assign[assign_idx]);
             kernel_num_written += 1;
             try runtime.assignCompile(gpa, &source, &source_idx, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);

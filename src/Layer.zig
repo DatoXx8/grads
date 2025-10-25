@@ -237,24 +237,24 @@ pub const Dense = struct {
         dense.weights.moveResize(1, 1, dense.size_in, dense.size_out);
         dense.weights.moveOffset(0, 0, 0, 0);
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(dense: Dense, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Dense {s}\n", .{ " " ** offset, text });
         } else {
             std.debug.print("{s}Dense\n", .{" " ** offset});
         }
         std.debug.print("{s}In {}, Out {}\n", //
-            .{ " " ** (offset + padding), this.size_in, this.size_out });
+            .{ " " ** (offset + padding), dense.size_in, dense.size_out });
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        this.print(padding, offset, name);
-        this.weights.print(padding, padding + offset, "weights");
-        this.weights_g.print(padding, padding + offset, "weights_g");
-        this.biases.print(padding, padding + offset, "biases");
-        this.biases_g.print(padding, padding + offset, "biases_g");
-        this.temp_in.print(padding, padding + offset, "temp_in");
-        this.temp_out.print(padding, padding + offset, "temp_out");
-        this.temp_full.print(padding, padding + offset, "temp_full");
+    pub fn debug(dense: Dense, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        dense.print(padding, offset, name);
+        dense.weights.print(padding, padding + offset, "weights");
+        dense.weights_g.print(padding, padding + offset, "weights_g");
+        dense.biases.print(padding, padding + offset, "biases");
+        dense.biases_g.print(padding, padding + offset, "biases_g");
+        dense.temp_in.print(padding, padding + offset, "temp_in");
+        dense.temp_out.print(padding, padding + offset, "temp_out");
+        dense.temp_full.print(padding, padding + offset, "temp_full");
     }
 };
 pub const Convolution = struct {
@@ -317,7 +317,7 @@ pub const Convolution = struct {
             .temp_single = try Buffer.alloc(runtime, arena, 1, 1, 1, 1, .intermediary),
         };
     }
-    pub fn free(convolution: *Convolution, runtime: Runtime) void {
+    pub fn free(convolution: Convolution, runtime: Runtime) void {
         convolution.weights.free(runtime);
         convolution.weights_g.free(runtime);
         convolution.biases.free(runtime);
@@ -327,7 +327,7 @@ pub const Convolution = struct {
         convolution.temp_kernel.free(runtime);
         convolution.temp_single.free(runtime);
     }
-    pub fn forward(convolution: *@This(), linearized: *Linearized, in: Buffer, out: *Buffer) void {
+    pub fn forward(convolution: *Convolution, linearized: *Linearized, in: Buffer, out: *Buffer) void {
         assert(1 == in.a_size);
         assert(convolution.z_in == in.z_size);
         assert(convolution.y_in == in.y_size);
@@ -455,7 +455,7 @@ pub const Convolution = struct {
             convolution.x_in + 2 * convolution.kernel_padding);
         convolution.temp_grad_padded.moveOffset(0, 0, 0, 0);
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(convolution: Convolution, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Convolution {s}\n", .{ " " ** offset, text });
         } else {
@@ -463,20 +463,20 @@ pub const Convolution = struct {
         }
         std.debug.print("{s}In (1, {}, {}, {}), Size {}, Stride {}, Padding {}\n", .{
             " " ** (offset + padding), //
-            this.z_in,        this.y_in,          this.x_in, //
-            this.kernel_size, this.kernel_stride, this.kernel_padding,
+            convolution.z_in,        convolution.y_in,          convolution.x_in, //
+            convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding,
         });
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        this.print(padding, offset, name);
-        this.weights.print(padding, padding + offset, "weights");
-        this.weights_g.print(padding, padding + offset, "weights_g");
-        this.biases.print(padding, padding + offset, "biases");
-        this.biases_g.print(padding, padding + offset, "biases_g");
-        this.temp_input_padded.print(padding, padding + offset, "temp_input_padded");
-        this.temp_grad_padded.print(padding, padding + offset, "temp_grad_padded");
-        this.temp_kernel.print(padding, padding + offset, "temp_kernel");
-        this.temp_single.print(padding, padding + offset, "temp_single");
+    pub fn debug(convolution: Convolution, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        convolution.print(padding, offset, name);
+        convolution.weights.print(padding, padding + offset, "weights");
+        convolution.weights_g.print(padding, padding + offset, "weights_g");
+        convolution.biases.print(padding, padding + offset, "biases");
+        convolution.biases_g.print(padding, padding + offset, "biases_g");
+        convolution.temp_input_padded.print(padding, padding + offset, "temp_input_padded");
+        convolution.temp_grad_padded.print(padding, padding + offset, "temp_grad_padded");
+        convolution.temp_kernel.print(padding, padding + offset, "temp_kernel");
+        convolution.temp_single.print(padding, padding + offset, "temp_single");
     }
 };
 pub const Reduce = struct {
@@ -577,7 +577,7 @@ pub const Reduce = struct {
         out_g.moveResize(1, reduce.z_in, y_out, x_out);
         out_g.moveOffset(0, 0, 0, 0);
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(reduce: Reduce, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
@@ -585,8 +585,8 @@ pub const Reduce = struct {
         }
         std.debug.print("{s}In (1, {}, {}, {}), Size {}, Stride {}\n", .{
             " " ** (offset + padding), //
-            this.z_in,        this.y_in,          this.x_in, //
-            this.kernel_size, this.kernel_stride,
+            reduce.z_in,        reduce.y_in,          reduce.x_in, //
+            reduce.kernel_size, reduce.kernel_stride,
         });
     }
 };
@@ -619,7 +619,7 @@ pub const Split = struct {
             .temp_in = try Buffer.alloc(runtime, arena, 1, z_in, y_in, x_in, .intermediary),
         };
     }
-    pub fn free(split: *Split, runtime: Runtime) void {
+    pub fn free(split: Split, runtime: Runtime) void {
         split.weights.free(runtime);
         split.weights_g.free(runtime);
         split.biases.free(runtime);
@@ -697,7 +697,7 @@ pub const Split = struct {
         out_g.moveResize(1, split.z_in * split.filters, split.y_in, split.x_in);
         out_g.moveOffset(0, 0, 0, 0);
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(split: Split, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
@@ -705,19 +705,19 @@ pub const Split = struct {
         }
         std.debug.print("{s}In (1, {}, {}, {}), filters {}\n", .{
             " " ** (offset + padding),
-            this.z_in,
-            this.y_in,
-            this.x_in,
-            this.filters,
+            split.z_in,
+            split.y_in,
+            split.x_in,
+            split.filters,
         });
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        this.print(padding, offset, name);
-        this.weights.print(padding, offset + padding, "weights");
-        this.weights_g.print(padding, offset + padding, "weights_g");
-        this.biases.print(padding, offset + padding, "biases");
-        this.biases_g.print(padding, offset + padding, "biases_g");
-        this.temp_in.print(padding, offset + padding, "temp_in");
+    pub fn debug(split: Split, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        split.print(padding, offset, name);
+        split.weights.print(padding, offset + padding, "weights");
+        split.weights_g.print(padding, offset + padding, "weights_g");
+        split.biases.print(padding, offset + padding, "biases");
+        split.biases_g.print(padding, offset + padding, "biases_g");
+        split.temp_in.print(padding, offset + padding, "temp_in");
     }
 };
 pub const Residual = struct {
@@ -744,7 +744,7 @@ pub const Residual = struct {
             },
         }
     }
-    pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+    pub fn print(residual: Residual, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
@@ -752,13 +752,13 @@ pub const Residual = struct {
         }
         std.debug.print("{s}In \"{s}\", Out \"{s}\"\n", .{
             " " ** (offset + padding), //
-            this.in.buffer.name(), this.out.buffer.name(), //
+            residual.in.buffer.name(), residual.out.buffer.name(), //
         });
     }
-    pub fn debug(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        this.print(padding, offset, name);
-        this.in.print(padding, offset + padding, "in");
-        this.out.print(padding, offset + padding, "out");
+    pub fn debug(residual: Residual, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        residual.print(padding, offset, name);
+        residual.in.print(padding, offset + padding, "in");
+        residual.out.print(padding, offset + padding, "out");
     }
 };
 

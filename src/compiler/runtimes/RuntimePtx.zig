@@ -35,9 +35,9 @@ registers_max: u32,
 
 pub const RuntimePtx = @This();
 
-pub fn runtime(this: *@This()) Runtime {
+pub fn runtime(runtime_ptx: *RuntimePtx) Runtime {
     return .{
-        .state = this,
+        .state = runtime_ptx,
         .vtable = .{
             .init = init,
             .deinit = deinit,
@@ -57,8 +57,8 @@ pub fn runtime(this: *@This()) Runtime {
     };
 }
 
-pub fn init(this: *anyopaque) ?void {
-    var state: *RuntimePtx = @alignCast(@ptrCast(this));
+pub fn init(runtime_ptx: *anyopaque) ?void {
+    var state: *RuntimePtx = @ptrCast(@alignCast(runtime_ptx));
 
     if (cuda.cuDeviceGet(&state.device, 0) != cuda.CUDA_SUCCESS) {
         @branchHint(.cold);
@@ -78,8 +78,8 @@ pub fn init(this: *anyopaque) ?void {
         return null;
     }
 }
-pub fn deinit(this: *anyopaque) ?void {
-    const state: *RuntimePtx = @alignCast(@ptrCast(this));
+pub fn deinit(runtime_ptx: *anyopaque) ?void {
+    const state: *RuntimePtx = @ptrCast(@alignCast(runtime_ptx));
 
     var failed: bool = false;
     if (cuda.cudaFree(state.device) != cuda.CUDA_SUCCESS) {

@@ -33,7 +33,7 @@ const todo = @import("util.zig").todo;
 /// For unary ops `d_out` should be equal to `d_in`
 /// Assumes d_out is zeroed appropriatly and the values in `out` where the ones in the forward pass and weren't changed from then.
 /// Otherwise the gradients will be wrong.
-pub fn differentiateOp(allocator: Allocator, op_kind: Op.Kind, op_u_var: f32, out: Tensor, d_out: Tensor, in: Tensor, d_in: Tensor) !void {
+pub fn differentiateOp(op_kind: Op.Kind, op_u_var: f32, out: Tensor, d_out: Tensor, in: Tensor, d_in: Tensor) !void {
     if (op_kind.isUnary()) {
         assert(d_out.buffer.equal(d_in.buffer));
         assert(out.buffer.equal(in.buffer));

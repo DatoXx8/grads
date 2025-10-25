@@ -240,36 +240,36 @@ pub fn alloc(
         .runtime = runtime,
     };
 }
-pub fn free(this: *@This()) void {
-    this.in.free(this.runtime);
-    this.in_g.free(this.runtime);
-    this.forward_compiled.free(this.runtime);
-    this.backward_compiled.free(this.runtime);
-    this.learn_compiled.free(this.runtime);
-    for (this.layer) |*layer| {
-        layer.activation.free(this.runtime);
-        layer.values.free(this.runtime);
-        layer.values_g.free(this.runtime);
+pub fn free(neuralnet: Neuralnet) void {
+    neuralnet.in.free(neuralnet.runtime);
+    neuralnet.in_g.free(neuralnet.runtime);
+    neuralnet.forward_compiled.free(neuralnet.runtime);
+    neuralnet.backward_compiled.free(neuralnet.runtime);
+    neuralnet.learn_compiled.free(neuralnet.runtime);
+    for (neuralnet.layer) |layer| {
+        layer.activation.free(neuralnet.runtime);
+        layer.values.free(neuralnet.runtime);
+        layer.values_g.free(neuralnet.runtime);
         switch (layer.tag) {
-            .dense => |*d| d.free(this.runtime),
-            .convolution => |*c| c.free(this.runtime),
+            .dense => |*d| d.free(neuralnet.runtime),
+            .convolution => |*c| c.free(neuralnet.runtime),
             .reduce => {},
-            .split => |*s| s.free(this.runtime),
+            .split => |*s| s.free(neuralnet.runtime),
             .residual => {},
         }
     }
-    this.arena.deinit();
+    neuralnet.arena.deinit();
 }
 // $TODO Add forward only pass where some additionaly tensors can be intermediaries
-pub fn forward(this: *@This()) !void {
-    try this.forward_compiled.run(this.runtime);
+pub fn forward(neuralnet: Neuralnet) !void {
+    try neuralnet.forward_compiled.run(neuralnet.runtime);
 }
 /// Input and output buffers have the same a_size as eachother and otherwise the same size of the nn in/output
-pub fn backward(this: *@This(), in: *Buffer, out: *Buffer) !void {
+pub fn backward(neuralnet: *Neuralnet, in: *Buffer, out: *Buffer) !void {
     assert(in.buffer.a_size == out.buffer.a_size);
     assert(in.buffer.offset == 0);
     assert(out.buffer.offset == 0);
-    const layers: u32 = @intCast(this.layer.len);
+    const layers: u32 = @intCast(neuralnet.layer.len);
     const a_size = in.buffer.a_size;
     in.moveReshape(1, in.buffer.z_size, in.buffer.y_size, in.buffer.x_size);
     out.moveReshape(1, out.buffer.z_size, out.buffer.y_size, out.buffer.x_size);
@@ -278,31 +278,31 @@ pub fn backward(this: *@This(), in: *Buffer, out: *Buffer) !void {
     while (a_idx < a_size) : (a_idx += 1) {
         in.moveOffset(a_idx, 0, 0, 0);
         out.moveOffset(a_idx, 0, 0, 0);
-        this.in.binarySet(in);
-        this.in.realize();
-        try this.sync(true, true, true, false, false, .sync_to_device);
-        try this.forward();
-        try this.sync(true, true, true, false, false, .sync_to_host);
-        this.layer[layers - 1].values_g.binarySet(&this.layer[layers - 1].values);
-        this.layer[layers - 1].values_g.binarySubtract(out);
+        neuralnet.in.binarySet(in);
+        neuralnet.in.realize();
+        try neuralnet.sync(true, true, true, false, false, .sync_to_device);
+        try neuralnet.forward();
+        try neuralnet.sync(true, true, true, false, false, .sync_to_host);
+        neuralnet.layer[layers - 1].values_g.binarySet(&neuralnet.layer[layers - 1].values);
+        neuralnet.layer[layers - 1].values_g.binarySubtract(out);
         // Technically there is a ` * 2` here because it's mean square error but that's just a constant factor so it doesn't really matter
-        this.layer[layers - 1].values_g.realize();
-        try this.sync(true, true, true, false, false, .sync_to_device);
-        this.backward_compiled.run(this.runtime);
+        neuralnet.layer[layers - 1].values_g.realize();
+        try neuralnet.sync(true, true, true, false, false, .sync_to_device);
+        neuralnet.backward_compiled.run(neuralnet.runtime);
     }
 }
-pub fn learn(this: *@This()) !void {
-    try this.learn_compiled.run(this.runtime);
+pub fn learn(neuralnet: Neuralnet) !void {
+    try neuralnet.learn_compiled.run(neuralnet.runtime);
 }
-pub fn init(this: *@This(), rng: u64) !void {
-    const arena_temp = this.arena.allocator();
-    var linearized_temp: Linearized = try .alloc(arena_temp, @intCast(2 * this.layer.len));
+pub fn init(neuralnet: *Neuralnet, rng: u64) !void {
+    const arena_temp = neuralnet.arena.allocator();
+    var linearized_temp: Linearized = try .alloc(arena_temp, @intCast(2 * neuralnet.layer.len));
     defer arena_temp.free(linearized_temp.op);
     // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
     // I don't think that would be the end of the world but it just kinda ugly
     var default_prng = DefaultPrng.init(rng);
     var prng: std.Random = default_prng.random();
-    for (this.layer) |*layer| {
+    for (neuralnet.layer) |*layer| {
         switch (layer.tag) {
             .dense => |*d| {
                 linearized_temp.unaryRandom(d.weights, prng.int(u32));
@@ -321,11 +321,11 @@ pub fn init(this: *@This(), rng: u64) !void {
         }
     }
     linearized_temp.realize();
-    try this.sync(true, true, true, true, true, .sync_to_device);
+    try neuralnet.sync(true, true, true, true, true, .sync_to_device);
 }
 // $TODO Snyc option for temp buffers
 pub fn sync(
-    this: *@This(),
+    neuralnet: *Neuralnet,
     comptime force: bool,
     comptime in: bool,
     comptime out: bool,
@@ -336,22 +336,22 @@ pub fn sync(
     assert(t != .sync_to_none);
     if (in) {
         if (force) {
-            this.in.syncUpdate(t);
-            this.in_g.syncUpdate(t);
+            neuralnet.in.syncUpdate(t);
+            neuralnet.in_g.syncUpdate(t);
         }
         switch (t) {
             .sync_to_device => {
-                try this.in.syncToDevice(this.runtime);
-                try this.in_g.syncToDevice(this.runtime);
+                try neuralnet.in.syncToDevice(neuralnet.runtime);
+                try neuralnet.in_g.syncToDevice(neuralnet.runtime);
             },
             .sync_to_host => {
-                try this.in.syncToHost(this.runtime);
-                try this.in_g.syncToHost(this.runtime);
+                try neuralnet.in.syncToHost(neuralnet.runtime);
+                try neuralnet.in_g.syncToHost(neuralnet.runtime);
             },
             .sync_to_none => unreachable,
         }
     }
-    for (this.layer, 0..) |*layer, layer_idx| {
+    for (neuralnet.layer, 0..) |*layer, layer_idx| {
         switch (layer.tag) {
             .dense, .convolution, .split => {},
             .reduce, .residual => continue,
@@ -393,40 +393,40 @@ pub fn sync(
             }
             switch (t) {
                 .sync_to_device => {
-                    try weights_curr.syncToDevice(this.runtime);
-                    try biases_curr.syncToDevice(this.runtime);
-                    try weights_g_curr.syncToDevice(this.runtime);
-                    try biases_g_curr.syncToDevice(this.runtime);
+                    try weights_curr.syncToDevice(neuralnet.runtime);
+                    try biases_curr.syncToDevice(neuralnet.runtime);
+                    try weights_g_curr.syncToDevice(neuralnet.runtime);
+                    try biases_g_curr.syncToDevice(neuralnet.runtime);
                 },
                 .sync_to_host => {
-                    try weights_curr.syncToHost(this.runtime);
-                    try biases_curr.syncToHost(this.runtime);
-                    try weights_g_curr.syncToHost(this.runtime);
-                    try biases_g_curr.syncToHost(this.runtime);
+                    try weights_curr.syncToHost(neuralnet.runtime);
+                    try biases_curr.syncToHost(neuralnet.runtime);
+                    try weights_g_curr.syncToHost(neuralnet.runtime);
+                    try biases_g_curr.syncToHost(neuralnet.runtime);
                 },
                 .sync_to_none => unreachable,
             }
         }
-        if (values or (out and layer_idx == this.layer.len - 1)) {
+        if (values or (out and layer_idx == neuralnet.layer.len - 1)) {
             if (force) {
                 layer.values.syncUpdate(t);
                 layer.values_g.syncUpdate(t);
             }
             switch (t) {
                 .sync_to_device => {
-                    try layer.values.syncToDevice(this.runtime);
-                    try layer.values_g.syncToDevice(this.runtime);
+                    try layer.values.syncToDevice(neuralnet.runtime);
+                    try layer.values_g.syncToDevice(neuralnet.runtime);
                 },
                 .sync_to_host => {
-                    try layer.values.syncToHost(this.runtime);
-                    try layer.values_g.syncToHost(this.runtime);
+                    try layer.values.syncToHost(neuralnet.runtime);
+                    try layer.values_g.syncToHost(neuralnet.runtime);
                 },
                 .sync_to_none => unreachable,
             }
         }
     }
 
-    try this.runtime.queueWait();
+    try neuralnet.runtime.queueWait();
 }
 /// File format v0:
 /// Every field is u32
@@ -442,7 +442,7 @@ pub fn sync(
 /// Param:
 /// 8 version bytes ++ layer 0 [weights][biases] ... ++ layer n [weights][biases] ++ 8 bytes XxHash64 hash init with version number
 const format_version: u64 = 0;
-pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const u8, force: bool) !void {
+pub fn save(neuralnet: *Neuralnet, file_param_name: []const u8, file_arch_name: []const u8, force: bool) !void {
     const file_param = try std.fs.cwd().createFile(file_param_name, .{ .exclusive = !force, .truncate = true });
     defer file_param.close();
     const file_arch = try std.fs.cwd().createFile(file_arch_name, .{ .exclusive = !force, .truncate = true });
@@ -452,14 +452,14 @@ pub fn save(this: *@This(), file_param_name: []const u8, file_arch_name: []const
     try file_param.writeAll(&std.mem.toBytes(format_version));
     var hash_arch = std.hash.XxHash64.init(format_version);
     buffer[0] = 'i';
-    @memcpy(buffer[1..5], &std.mem.toBytes(this.in.buffer.z_size));
-    @memcpy(buffer[5..9], &std.mem.toBytes(this.in.buffer.y_size));
-    @memcpy(buffer[9..13], &std.mem.toBytes(this.in.buffer.x_size));
+    @memcpy(buffer[1..5], &std.mem.toBytes(neuralnet.in.buffer.z_size));
+    @memcpy(buffer[5..9], &std.mem.toBytes(neuralnet.in.buffer.y_size));
+    @memcpy(buffer[9..13], &std.mem.toBytes(neuralnet.in.buffer.x_size));
     buffer[13] = '\n';
     try file_arch.writeAll(buffer[0..14]);
     hash_arch.update(buffer[0..14]);
     var hash_param = std.hash.XxHash64.init(format_version);
-    for (this.layer) |*layer| {
+    for (neuralnet.layer) |*layer| {
         switch (layer.tag) {
             .dense => |d| {
                 buffer[0] = 'd';
@@ -552,10 +552,10 @@ fn readParamsV0(weights: *Buffer, biases: *Buffer, bytes: []const u8) u64 {
     return weights_size + biases_size;
 }
 // Allocator is used to read the entire file at once
-pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const u8) !void {
+pub fn readParams(neuralnet: *Neuralnet, gpa: Allocator, file_param_name: []const u8) !void {
     const file_param = try std.fs.cwd().openFile(file_param_name, .{ .mode = .read_only });
     var idx: u64 = 8;
-    const file_param_bytes: []const u8 = file_param.readToEndAlloc(allocator, file_param_size_max) catch |err| switch (err) {
+    const file_param_bytes: []const u8 = file_param.readToEndAlloc(gpa, file_param_size_max) catch |err| switch (err) {
         error.FileTooBig => {
             std.log.err("File {s} exceeds max size of {} bytes. Increase `file_param_size_max` if this is intentional.\n", //
                 .{ file_param_name, file_param_size_max });
@@ -563,10 +563,10 @@ pub fn readParams(this: *@This(), allocator: Allocator, file_param_name: []const
         },
         else => return err,
     };
-    defer allocator.free(file_param_bytes);
+    defer gpa.free(file_param_bytes);
     const format_version_read: u64 = std.mem.bytesToValue(u64, file_param_bytes[0..8]);
     var hash = std.hash.XxHash64.init(format_version_read);
-    for (this.layer) |*layer| {
+    for (neuralnet.layer) |*layer| {
         switch (layer.tag) {
             .dense, .convolution, .split => {},
             .reduce, .residual => continue,
@@ -638,7 +638,7 @@ fn readArchV0(bytes: []const u8) Layer.Config {
         else => unreachable,
     };
 }
-pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
+pub fn readArch(gpa: Allocator, file_arch_name: []const u8) !struct {
     config: []const Layer.Config,
     z_in: u32,
     y_in: u32,
@@ -654,8 +654,8 @@ pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
     };
     defer file_arch.close();
     var idx: u64 = 0;
-    const file_arch_bytes: []const u8 = try file_arch.readToEndAlloc(allocator, file_arch_size_max);
-    defer allocator.free(file_arch_bytes);
+    const file_arch_bytes: []const u8 = try file_arch.readToEndAlloc(gpa, file_arch_size_max);
+    defer gpa.free(file_arch_bytes);
     assert(file_arch_bytes.len > 16); // The version and hash already take up 16 bytes and there has to be other info on top of that
     const newlines: u64 = std.mem.count(u8, file_arch_bytes, "\n");
     assert(newlines >= 2);
@@ -671,7 +671,7 @@ pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
         else => unreachable,
     };
     idx += 14;
-    const config: []Layer.Config = try allocator.alloc(Layer.Config, layers);
+    const config: []Layer.Config = try gpa.alloc(Layer.Config, layers);
     var layer_idx: u64 = 0;
     while (layer_idx < layers) : (layer_idx += 1) {
         const idx_newline: u64 = std.mem.indexOfScalar(u8, file_arch_bytes[idx..], '\n') orelse unreachable;
@@ -695,14 +695,14 @@ pub fn readArch(allocator: Allocator, file_arch_name: []const u8) !struct {
         .x_in = size_in.x,
     };
 }
-pub fn print(this: @This(), padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+pub fn print(neuralnet: Neuralnet, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
         std.debug.print("{s}Neuralnet {s}\n", .{ " " ** offset, text });
     } else {
         std.debug.print("{s}Neuralnet\n", .{" " ** offset});
     }
     std.debug.print("{s}Layers:\n", .{" " ** (offset + padding)});
-    for (this.layer, 0..) |*layer, layer_idx| {
+    for (neuralnet.layer, 0..) |*layer, layer_idx| {
         std.debug.print("{s}[{}] ->\n", .{ " " ** (offset + 2 * padding), layer_idx });
         switch (layer.tag) {
             .dense => |d| d.print(padding, offset + 2 * padding, null),

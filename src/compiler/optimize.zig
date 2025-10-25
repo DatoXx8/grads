@@ -1,5 +1,3 @@
-// $TODO Expressive numerical representation of an optimization such that a casey type optimizer is possible
-
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
@@ -260,7 +258,7 @@ fn mergeOpCombine(left: Assign, right: *Assign) bool {
     }
     return delete_first;
 }
-pub fn mergeOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn mergeOpGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var left_idx: u32 = 0;
     while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
         var right_idx: u32 = left_idx + 1;
@@ -268,7 +266,7 @@ pub fn mergeOpGather(allocator: Allocator, optimization: *[]Optimization, optimi
             if (mergeOpPossible(pir.assign[left_idx], pir.assign[right_idx])) {
                 defer optimization_count.* += 1;
                 if (optimization_count.* == optimization.*.len) {
-                    optimization.* = try allocator.realloc(optimization.*, optimization.*.len * 2);
+                    optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
                 }
                 optimization.*[optimization_count.*] = .{
                     .fuse = .{
@@ -309,7 +307,7 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
     pir.assign_num = assign_num_new;
 }
 
-pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn inlineOpGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var left_idx: u32 = 0;
     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
         if (pir.assign[left_idx].base.kind.isReduce()) {
@@ -405,7 +403,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
         if (inlineable) {
             defer optimization_count.* += 1;
             if (optimization_count.* == optimization.*.len) {
-                optimization.* = try allocator.realloc(optimization.*, optimization.*.len * 2);
+                optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
             }
             optimization.*[optimization_count.*] = .{
                 .inlined = .{
@@ -415,7 +413,7 @@ pub fn inlineOpGather(allocator: Allocator, optimization: *[]Optimization, optim
         }
     }
 }
-pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
+pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
     assert(left_idx + 1 < pir.assign_num);
 
     var right_idx: u32 = left_idx + 1;
@@ -444,9 +442,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             if (pir.assign[right_idx].inlined) |*inlined| {
                 inlined.* = .{
                     .inlined_num = inlined_num_right_new,
-                    .base = try allocator.realloc(inlined.base, inlined_num_right_new),
-                    .out = try allocator.realloc(inlined.out, inlined_num_right_new),
-                    .in = try allocator.realloc(inlined.in, inlined_num_right_new),
+                    .base = try gpa.realloc(inlined.base, inlined_num_right_new),
+                    .out = try gpa.realloc(inlined.out, inlined_num_right_new),
+                    .in = try gpa.realloc(inlined.in, inlined_num_right_new),
                     .in_root = inlined.in_root,
                     .out_root = inlined_num_right_new - 1,
                 };
@@ -454,9 +452,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                 assert(inlined_num_right_old == 0);
                 pir.assign[right_idx].inlined = .{
                     .inlined_num = inlined_num_right_new,
-                    .base = try allocator.alloc(Base, inlined_num_right_new),
-                    .out = try allocator.alloc(?u32, inlined_num_right_new),
-                    .in = try allocator.alloc(?u32, inlined_num_right_new),
+                    .base = try gpa.alloc(Base, inlined_num_right_new),
+                    .out = try gpa.alloc(?u32, inlined_num_right_new),
+                    .in = try gpa.alloc(?u32, inlined_num_right_new),
                     .in_root = null,
                     .out_root = inlined_num_right_new - 1,
                 };
@@ -504,9 +502,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
             if (pir.assign[right_idx].inlined) |*inlined| {
                 inlined.* = .{
                     .inlined_num = inlined_num_right_new,
-                    .base = try allocator.realloc(inlined.base, inlined_num_right_new),
-                    .out = try allocator.realloc(inlined.out, inlined_num_right_new),
-                    .in = try allocator.realloc(inlined.in, inlined_num_right_new),
+                    .base = try gpa.realloc(inlined.base, inlined_num_right_new),
+                    .out = try gpa.realloc(inlined.out, inlined_num_right_new),
+                    .in = try gpa.realloc(inlined.in, inlined_num_right_new),
                     .in_root = inlined_num_right_new - 1,
                     .out_root = inlined.out_root,
                 };
@@ -514,9 +512,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                 assert(inlined_num_right_old == 0);
                 pir.assign[right_idx].inlined = .{
                     .inlined_num = inlined_num_right_new,
-                    .base = try allocator.alloc(Base, inlined_num_right_new),
-                    .out = try allocator.alloc(?u32, inlined_num_right_new),
-                    .in = try allocator.alloc(?u32, inlined_num_right_new),
+                    .base = try gpa.alloc(Base, inlined_num_right_new),
+                    .out = try gpa.alloc(?u32, inlined_num_right_new),
+                    .in = try gpa.alloc(?u32, inlined_num_right_new),
                     .in_root = inlined_num_right_new - 1,
                     .out_root = null,
                 };
@@ -555,9 +553,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                     {
                         written_amount += 1 + inlined_num_left;
 
-                        inlined.base = try allocator.realloc(inlined.base, inlined_num_right_old + written_amount);
-                        inlined.out = try allocator.realloc(inlined.out, inlined_num_right_old + written_amount);
-                        inlined.in = try allocator.realloc(inlined.in, inlined_num_right_old + written_amount);
+                        inlined.base = try gpa.realloc(inlined.base, inlined_num_right_old + written_amount);
+                        inlined.out = try gpa.realloc(inlined.out, inlined_num_right_old + written_amount);
+                        inlined.in = try gpa.realloc(inlined.in, inlined_num_right_old + written_amount);
 
                         const last_idx: u32 = inlined_num_right_old + written_amount - 1;
                         inlined.out[inlined_idx] = last_idx;
@@ -580,9 +578,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
                     {
                         written_amount += 1 + inlined_num_left;
 
-                        inlined.base = try allocator.realloc(inlined.base, inlined_num_right_old + written_amount);
-                        inlined.out = try allocator.realloc(inlined.out, inlined_num_right_old + written_amount);
-                        inlined.in = try allocator.realloc(inlined.in, inlined_num_right_old + written_amount);
+                        inlined.base = try gpa.realloc(inlined.base, inlined_num_right_old + written_amount);
+                        inlined.out = try gpa.realloc(inlined.out, inlined_num_right_old + written_amount);
+                        inlined.in = try gpa.realloc(inlined.in, inlined_num_right_old + written_amount);
 
                         const last_idx: u32 = inlined_num_right_old + written_amount - 1;
                         inlined.in[inlined_idx] = last_idx;
@@ -617,9 +615,9 @@ pub fn inlineOp(allocator: Allocator, pir: *Pir, left_idx: u32) !void {
     while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (assign_idx == left_idx) {
             if (pir.assign[assign_idx].inlined) |*inlined| {
-                allocator.free(inlined.base);
-                allocator.free(inlined.out);
-                allocator.free(inlined.in);
+                gpa.free(inlined.base);
+                gpa.free(inlined.out);
+                gpa.free(inlined.in);
             }
         } else {
             pir.assign[assign_num_new] = pir.assign[assign_idx];
@@ -1062,7 +1060,7 @@ fn dimInfoOverlap(left: Buffer, left_dim: DimInfo, left_repeats: u32, right: Buf
     }
     return false;
 }
-pub fn parallelizeGather(allocator: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn parallelizeGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
     var start_idx: u32 = 0;
     outer: while (start_idx < pir.assign_num - 1) : (start_idx += 1) {
         var search_idx: u32 = start_idx + 1;
@@ -1131,7 +1129,7 @@ pub fn parallelizeGather(allocator: Allocator, optimization: *[]Optimization, op
 
                 defer optimization_count.* += 1;
                 if (optimization_count.* == optimization.*.len) {
-                    optimization.* = try allocator.realloc(optimization.*, optimization.*.len * 2);
+                    optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
                 }
                 optimization.*[optimization_count.*] = .{
                     .parallelize = .{
@@ -1145,7 +1143,7 @@ pub fn parallelizeGather(allocator: Allocator, optimization: *[]Optimization, op
     }
 }
 // I don't think there is way to make this faster than O(n^2) unless I make a max loop size, which sucks for large PIRs
-pub fn parallelize(allocator: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) !void {
+pub fn parallelize(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) !void {
     assert(left_idx < right_idx);
     assert(right_idx <= pir.assign_num);
     assert(dimInfoMergePossible(pir.assign[left_idx], pir.assign[right_idx]));
@@ -1157,9 +1155,9 @@ pub fn parallelize(allocator: Allocator, pir: *Pir, left_idx: u32, right_idx: u3
     while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (assign_idx == right_idx) {
             if (pir.assign[assign_idx].inlined) |*inlined| {
-                allocator.free(inlined.base);
-                allocator.free(inlined.out);
-                allocator.free(inlined.in);
+                gpa.free(inlined.base);
+                gpa.free(inlined.out);
+                gpa.free(inlined.in);
             }
         } else {
             pir.assign[assign_num_new] = pir.assign[assign_idx];
@@ -1171,7 +1169,7 @@ pub fn parallelize(allocator: Allocator, pir: *Pir, left_idx: u32, right_idx: u3
 
 // $TODO Add in local size as a factor because those are also likely to have some cache coherency
 pub fn splitKernelGather(
-    allocator: Allocator,
+    gpa: Allocator,
     optimization: *[]Optimization,
     optimization_count: *u32,
     pir: Pir,
@@ -1187,7 +1185,7 @@ pub fn splitKernelGather(
         {
             defer optimization_count.* += 1;
             if (optimization_count.* == optimization.*.len) {
-                optimization.* = try allocator.realloc(optimization.*, optimization.*.len * 2);
+                optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
             }
             optimization.*[optimization_count.*] = .{
                 .split = .{
@@ -1202,12 +1200,10 @@ pub fn splitKernel(pir: *Pir, idx: u32) void {
     pir.assign[idx].split = true;
 }
 
-pub fn simd(allocator: Allocator, pir: *Pir) !void {
-    _ = allocator;
+pub fn simd(_: Allocator, pir: *Pir) !void {
     _ = pir;
 }
 
-pub fn memoryLayout(allocator: Allocator, pir: *Pir) !void {
-    _ = allocator;
+pub fn memoryLayout(_: Allocator, pir: *Pir) !void {
     _ = pir;
 }

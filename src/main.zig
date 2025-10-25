@@ -9,8 +9,9 @@ const RuntimeCl = Runtime.RuntimeCl;
 const Buffer = @import("Buffer.zig");
 const Linearized = @import("Linearized.zig");
 
-// $TODO Get rid of all this, @This() and unspecified allocators
 // $TODO Get rid of all print methods and just make format functions, this allows saner logging for test failures
+// $TODO Try making every kernel it's own source so that compilation is faster in the OpenCl implementation
+// $TODO Rework the memory management in PIRs to be more arena style. Maybe make it like the dedit free list style
 // $TODO Expose an ArenaAllocator like interface for the Runtimes. Having to call the individual free function just because of those makes no sense
 // $TODO Refactor all of the assignments to not be optionals. Just have default values that are equivalent to no optimization.
 // $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
