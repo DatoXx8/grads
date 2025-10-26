@@ -15,7 +15,6 @@ const Linearized = @import("Linearized.zig");
 // $TODO Expose an ArenaAllocator like interface for the Runtimes. Having to call the individual free function just because of those makes no sense
 // $TODO Refactor all of the assignments to not be optionals. Just have default values that are equivalent to no optimization.
 // $TODO Randomly pertubate the random linearized ops (Change sizes, offsets, op types, unary values etc.)
-// $TODO Log test fail seeds to regtest file with textify_linarized
 // $TODO Make unit tests for Neuralnets (forward, backward, learn verifiably with learn cycles putting loss to 0)
 // $TODO Make debug flag for compile step that adds debug printing if enabled
 

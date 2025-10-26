@@ -18,7 +18,6 @@ fn addExe(
     const exe = b.addExecutable(.{
         .name = name,
         .root_module = mod,
-        .use_llvm = false,
     });
     exe.addIncludePath(.{
         .cwd_relative = "/usr/include/",
@@ -56,4 +55,27 @@ pub fn build(b: *std.Build) void {
         "Run simulation tests for compiler vs linearized ops.");
     addExe(b, target, optimize, grads, "profile_compiler", "tests/profile_compiler.zig", "profile_compiler", //
         "Run the simulator for the compiler optimisations and overall speed.");
+
+    const regression_compiler_mod = b.createModule(.{
+        .root_source_file = b.path("tests/regression_compiler.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const regression_compiler = b.addTest(.{
+        .root_module = regression_compiler_mod,
+    });
+    regression_compiler.addIncludePath(.{
+        .cwd_relative = "/usr/include/",
+    });
+    regression_compiler.linkLibC();
+    regression_compiler.linkSystemLibrary("OpenCL");
+    regression_compiler.root_module.addImport("grads", grads);
+    b.installArtifact(regression_compiler);
+    const regression_compiler_run = b.addRunArtifact(regression_compiler);
+    regression_compiler_run.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        regression_compiler_run.addArgs(args);
+    }
+    const exe_run_step = b.step("regression_compiler", "Run the regression tests from previous simulator failures");
+    exe_run_step.dependOn(&regression_compiler_run.step);
 }
