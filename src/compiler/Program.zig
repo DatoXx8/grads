@@ -156,9 +156,9 @@ pub fn alloc(
 
         return .{
             .kernel = kernel,
+            .ptr = program_ptr,
             .size_global = size_global,
             .size_local = size_local,
-            .ptr = program_ptr,
         };
     }
 }

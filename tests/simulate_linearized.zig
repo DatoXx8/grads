@@ -396,7 +396,7 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     std.debug.print(" passed!\n", .{});
 }
 
-fn minifyLinearized(gpa: Allocator, rng: u64, err: anytype) !void {
+fn minifyLinearized(gpa: Allocator, rng: u64, err: anyerror) !void {
     assert(buffer_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);

@@ -22,12 +22,7 @@ const RuntimeCl = Runtime.RuntimeCl;
 
 const source_padding: u32 = 4 * 1024;
 /// Write format string to buffer and ensure there is at least `padding` bytes left
-fn writeSource(
-    gpa: Allocator,
-    source: *ArrayList(u8),
-    comptime fmt: []const u8,
-    args: anytype,
-) Allocator.Error!void {
+fn writeSource(gpa: Allocator, source: *ArrayList(u8), comptime fmt: []const u8, args: anytype) Allocator.Error!void {
     source.printBounded(fmt, args) catch {
         try source.ensureUnusedCapacity(gpa, source_padding);
         try source.printBounded(fmt, args);
