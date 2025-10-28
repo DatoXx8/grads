@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
@@ -41,7 +42,7 @@ pub const Optimization = union(enum) {
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Assign, right: Assign) bool {
     // $TODO Allow merging inlined ops within the same assign (for example U add has another U add inlined)
-    if (left.inlined.inlined_num > 0 or right.inlined.inlined_num > 0) return false; // $TODO Handle this case. Shouldn't be too hard
+    if (left.inlined.num > 0 or right.inlined.num > 0) return false; // $TODO Handle this case. Shouldn't be too hard
 
     if (left.base.repeats != right.base.repeats) return false;
     if (!left.base.out_dim.equal(right.base.out_dim)) return false;
@@ -258,30 +259,31 @@ fn mergeOpCombine(left: Assign, right: *Assign) bool {
     }
     return delete_first;
 }
-pub fn mergeOpGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
     var left_idx: u32 = 0;
     while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
         var right_idx: u32 = left_idx + 1;
         while (right_idx < pir.assign_num) : (right_idx += 1) {
             if (mergeOpPossible(pir.assign[left_idx], pir.assign[right_idx])) {
-                defer optimization_count.* += 1;
-                if (optimization_count.* == optimization.*.len) {
-                    optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
-                }
-                optimization.*[optimization_count.*] = .{
+                const fuse: Optimization = .{
                     .fuse = .{
                         .left_idx = left_idx,
                         .right_idx = right_idx,
                     },
                 };
+                optimization.appendBounded(fuse) catch {
+                    try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                    try optimization.appendBounded(fuse);
+                };
                 break;
             } else {
                 const left: Base = pir.assign[left_idx].base;
                 const right: Base = pir.assign[right_idx].base;
-                // If there is a simulator failure try removing the overlap condition here
-                const out_out_conflict = left.out.id == right.out.id and left.out.overlaps(right.out);
-                const out_in_conflict = left.out.id == right.in.id and left.out.overlaps(right.in);
-                const in_out_conflict = left.in.id == right.out.id and left.out.overlaps(right.in);
+
+                const out_out_conflict: bool = left.out.id == right.out.id and left.out.overlaps(right.out);
+                const out_in_conflict: bool = left.out.id == right.in.id and left.out.overlaps(right.in);
+                const in_out_conflict: bool = left.in.id == right.out.id and left.in.overlaps(right.out);
+
                 if (out_out_conflict or out_in_conflict or in_out_conflict) {
                     break;
                 }
@@ -307,7 +309,7 @@ pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
     pir.assign_num = assign_num_new;
 }
 
-pub fn inlineOpGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
     var left_idx: u32 = 0;
     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
         if (pir.assign[left_idx].base.kind.isReduce()) {
@@ -329,7 +331,7 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *[]Optimization, optimizatio
             const repeat_different: bool = pir.assign[left_idx].base.repeats != pir.assign[right_idx].base.repeats;
             const overlap_out_x_inlined: bool = blk: {
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[right_idx].inlined.inlined_num) : (inlined_idx += 1) {
+                while (inlined_idx < pir.assign[right_idx].inlined.num) : (inlined_idx += 1) {
                     if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].inlined.base[inlined_idx].out.id and pir.assign[right_idx].inlined.out[inlined_idx] == null) {
                         if (pir.assign[left_idx].base.out.overlapsPartial(pir.assign[right_idx].inlined.base[inlined_idx].out)) {
                             break :blk true;
@@ -355,7 +357,7 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *[]Optimization, optimizatio
                     break :blk false;
                 }
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[left_idx].inlined.inlined_num) : (inlined_idx += 1) {
+                while (inlined_idx < pir.assign[left_idx].inlined.num) : (inlined_idx += 1) {
                     if (pir.assign[right_idx].base.out.id == pir.assign[left_idx].inlined.base[inlined_idx].out.id and pir.assign[left_idx].inlined.out[inlined_idx] == null) {
                         if (pir.assign[right_idx].base.out.overlaps(pir.assign[left_idx].inlined.base[inlined_idx].out)) {
                             break :blk true;
@@ -397,14 +399,14 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *[]Optimization, optimizatio
         }
 
         if (inlineable) {
-            defer optimization_count.* += 1;
-            if (optimization_count.* == optimization.*.len) {
-                optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
-            }
-            optimization.*[optimization_count.*] = .{
+            const inlined: Optimization = .{
                 .inlined = .{
                     .left_idx = left_idx,
                 },
+            };
+            optimization.appendBounded(inlined) catch {
+                try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                try optimization.appendBounded(inlined);
             };
         }
     }
@@ -422,12 +424,12 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
             }
 
             const out_root_left: ?u32 = pir.assign[left_idx].inlined.out_root;
-            const inlined_num_left: u32 = pir.assign[left_idx].inlined.inlined_num;
-            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.inlined_num;
+            const inlined_num_left: u32 = pir.assign[left_idx].inlined.num;
+            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.num;
             const inlined_num_right_new: u32 = 1 + inlined_num_left + inlined_num_right_old;
 
             pir.assign[right_idx].inlined = .{
-                .inlined_num = inlined_num_right_new,
+                .num = inlined_num_right_new,
                 .base = try gpa.realloc(pir.assign[right_idx].inlined.base, inlined_num_right_new),
                 .out = try gpa.realloc(pir.assign[right_idx].inlined.out, inlined_num_right_new),
                 .in = try gpa.realloc(pir.assign[right_idx].inlined.in, inlined_num_right_new),
@@ -435,13 +437,13 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
                 .out_root = inlined_num_right_new - 1,
             };
 
-            assert(pir.assign[right_idx].inlined.inlined_num > 0);
+            assert(pir.assign[right_idx].inlined.num > 0);
             pir.assign[right_idx].inlined.in[inlined_num_right_new - 1] = if (pir.assign[left_idx].inlined.in_root) |in| in + inlined_num_right_old else null;
             pir.assign[right_idx].inlined.out[inlined_num_right_new - 1] = if (out_root_left) |out| out + inlined_num_right_old else null;
             pir.assign[right_idx].inlined.base[inlined_num_right_new - 1] = pir.assign[left_idx].base;
 
             var inlined_idx: u32 = 0;
-            while (inlined_idx < pir.assign[left_idx].inlined.inlined_num) : (inlined_idx += 1) {
+            while (inlined_idx < pir.assign[left_idx].inlined.num) : (inlined_idx += 1) {
                 pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_idx] = if (pir.assign[left_idx].inlined.in[inlined_idx]) |in| in + inlined_num_right_old else null;
                 pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_idx] = if (pir.assign[left_idx].inlined.out[inlined_idx]) |out| out + inlined_num_right_old else null;
                 pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_idx] = pir.assign[left_idx].inlined.base[inlined_idx];
@@ -458,12 +460,12 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
             }
 
             const in_root_right: ?u32 = pir.assign[left_idx].inlined.in_root;
-            const inlined_num_left: u32 = pir.assign[left_idx].inlined.inlined_num;
-            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.inlined_num;
+            const inlined_num_left: u32 = pir.assign[left_idx].inlined.num;
+            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.num;
             const inlined_num_right_new: u32 = 1 + inlined_num_left + inlined_num_right_old;
 
             pir.assign[right_idx].inlined = .{
-                .inlined_num = inlined_num_right_new,
+                .num = inlined_num_right_new,
                 .base = try gpa.realloc(pir.assign[right_idx].inlined.base, inlined_num_right_new),
                 .out = try gpa.realloc(pir.assign[right_idx].inlined.out, inlined_num_right_new),
                 .in = try gpa.realloc(pir.assign[right_idx].inlined.in, inlined_num_right_new),
@@ -471,22 +473,22 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
                 .out_root = pir.assign[right_idx].inlined.out_root,
             };
 
-            assert(pir.assign[right_idx].inlined.inlined_num > 0);
+            assert(pir.assign[right_idx].inlined.num > 0);
             pir.assign[right_idx].inlined.in[inlined_num_right_new - 1] = if (in_root_right) |in| in + inlined_num_right_old else null;
             pir.assign[right_idx].inlined.out[inlined_num_right_new - 1] = if (pir.assign[left_idx].inlined.out_root) |out| out + inlined_num_right_old else null;
             pir.assign[right_idx].inlined.base[inlined_num_right_new - 1] = pir.assign[left_idx].base;
 
             var inlined_idx: u32 = 0;
-            while (inlined_idx < pir.assign[left_idx].inlined.inlined_num) : (inlined_idx += 1) {
+            while (inlined_idx < pir.assign[left_idx].inlined.num) : (inlined_idx += 1) {
                 pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_idx] = if (pir.assign[left_idx].inlined.in[inlined_idx]) |in| in + inlined_num_right_old else null;
                 pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_idx] = if (pir.assign[left_idx].inlined.out[inlined_idx]) |out| out + inlined_num_right_old else null;
                 pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_idx] = pir.assign[left_idx].inlined.base[inlined_idx];
             }
 
-            pir.assign[right_idx].inlined.inlined_num = inlined_num_right_new;
+            pir.assign[right_idx].inlined.num = inlined_num_right_new;
         } else {
-            const inlined_num_left: u32 = pir.assign[left_idx].inlined.inlined_num;
-            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.inlined_num;
+            const inlined_num_left: u32 = pir.assign[left_idx].inlined.num;
+            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.num;
 
             var written_amount: u32 = 0;
 
@@ -505,7 +507,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
                     pir.assign[right_idx].inlined.out[inlined_idx] = last_idx;
                     pir.assign[right_idx].inlined.base[last_idx] = pir.assign[left_idx].base;
                     var inlined_left_idx: u32 = 0;
-                    while (inlined_left_idx < pir.assign[left_idx].inlined.inlined_num) : (inlined_left_idx += 1) {
+                    while (inlined_left_idx < pir.assign[left_idx].inlined.num) : (inlined_left_idx += 1) {
                         pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
                         pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_num_right_old else null;
                         pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_num_right_old else null;
@@ -524,7 +526,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
                     const last_idx: u32 = inlined_num_right_old + written_amount - 1;
                     pir.assign[right_idx].inlined.in[inlined_idx] = last_idx;
                     var inlined_left_idx: u32 = 0;
-                    while (inlined_left_idx < pir.assign[left_idx].inlined.inlined_num) : (inlined_left_idx += 1) {
+                    while (inlined_left_idx < pir.assign[left_idx].inlined.num) : (inlined_left_idx += 1) {
                         pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
                         pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_num_right_old else null;
                         pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_num_right_old else null;
@@ -534,7 +536,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
                     pir.assign[right_idx].inlined.base[last_idx] = pir.assign[left_idx].base;
                 }
             }
-            pir.assign[right_idx].inlined.inlined_num += written_amount;
+            pir.assign[right_idx].inlined.num += written_amount;
 
             if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].base.out.id and
                 pir.assign[left_idx].base.out.overlaps(pir.assign[right_idx].base.out))
@@ -560,11 +562,11 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
 }
 
 fn dimInfoMergePossible(left: Assign, right: Assign) bool {
-    if (left.inlined.inlined_num != right.inlined.inlined_num) {
+    if (left.inlined.num != right.inlined.num) {
         return false;
     }
 
-    const base_num: u32 = 1 + left.inlined.inlined_num;
+    const base_num: u32 = 1 + left.inlined.num;
 
     for (0..base_num) |base_idx| {
         const left_base: Base = if (base_idx == 0) left.base else left.inlined.base[base_idx - 1];
@@ -735,7 +737,7 @@ fn dimInfoMergePossible(left: Assign, right: Assign) bool {
 fn dimInfoMerge(left: *Assign, right: Assign) void {
     assert(dimInfoMergePossible(left.*, right)); // This is slow and duplicate but just to be sure
 
-    const base_num: u32 = 1 + left.inlined.inlined_num;
+    const base_num: u32 = 1 + left.inlined.num;
 
     for (0..base_num) |base_idx| {
         const left_base: *Base = if (base_idx == 0) &left.base else &left.inlined.base[base_idx - 1];
@@ -990,7 +992,7 @@ fn dimInfoOverlap(left: Buffer, left_dim: DimInfo, left_repeats: u32, right: Buf
     }
     return false;
 }
-pub fn parallelizeGather(gpa: Allocator, optimization: *[]Optimization, optimization_count: *u32, pir: Pir) !void {
+pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
     var start_idx: u32 = 0;
     outer: while (start_idx < pir.assign_num - 1) : (start_idx += 1) {
         var search_idx: u32 = start_idx + 1;
@@ -1008,7 +1010,7 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *[]Optimization, optimiza
                     pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
             const overlap_inline: bool = blk: {
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[search_idx].inlined.inlined_num) : (inlined_idx += 1) {
+                while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
                     if (pir.assign[start_idx].base.out.id == pir.assign[search_idx].inlined.base[inlined_idx].in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
                         dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
                             pir.assign[search_idx].inlined.base[inlined_idx].in, pir.assign[search_idx].inlined.base[inlined_idx].in_dim, pir.assign[search_idx].inlined.base[inlined_idx].repeats))
@@ -1038,7 +1040,7 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *[]Optimization, optimiza
                             pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
                     const overlap_inline_back: bool = blk: {
                         var inlined_idx: u32 = 0;
-                        while (inlined_idx < pir.assign[search_idx].inlined.inlined_num) : (inlined_idx += 1) {
+                        while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
                             if (pir.assign[search_back_idx].base.out.id == pir.assign[search_idx].inlined.base[inlined_idx].in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
                                 dimInfoOverlap(pir.assign[search_back_idx].base.out, pir.assign[search_back_idx].base.out_dim, pir.assign[search_back_idx].base.repeats, //
                                     pir.assign[search_idx].inlined.base[inlined_idx].in, pir.assign[search_idx].inlined.base[inlined_idx].in_dim, pir.assign[search_idx].inlined.base[inlined_idx].repeats))
@@ -1053,15 +1055,15 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *[]Optimization, optimiza
                     }
                 }
 
-                defer optimization_count.* += 1;
-                if (optimization_count.* == optimization.*.len) {
-                    optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
-                }
-                optimization.*[optimization_count.*] = .{
+                const parallelized: Optimization = .{
                     .parallelize = .{
                         .left_idx = start_idx,
                         .right_idx = search_idx,
                     },
+                };
+                optimization.appendBounded(parallelized) catch {
+                    try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                    try optimization.appendBounded(parallelized);
                 };
                 continue :outer;
             }
@@ -1094,8 +1096,7 @@ pub fn parallelize(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) !vo
 // $TODO Add in local size as a factor because those are also likely to have some cache coherency
 pub fn splitKernelGather(
     gpa: Allocator,
-    optimization: *[]Optimization,
-    optimization_count: *u32,
+    optimization: *ArrayList(Optimization),
     pir: Pir,
     size_global: u32,
     size_local: u32,
@@ -1107,14 +1108,14 @@ pub fn splitKernelGather(
             pir.assign[assign_idx].base.repeats < size_global and
             !pir.assign[assign_idx].split)
         {
-            defer optimization_count.* += 1;
-            if (optimization_count.* == optimization.*.len) {
-                optimization.* = try gpa.realloc(optimization.*, optimization.*.len * 2);
-            }
-            optimization.*[optimization_count.*] = .{
+            const split: Optimization = .{
                 .split = .{
                     .idx = assign_idx,
                 },
+            };
+            optimization.appendBounded(split) catch {
+                try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                try optimization.appendBounded(split);
             };
         }
     }

@@ -4,6 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const builtin = @import("builtin");
+const ArrayList = std.ArrayList;
 
 const codegen_cl = @import("codegen_cl.zig");
 const Runtime = @import("Runtime.zig");
@@ -64,8 +65,7 @@ pub fn queueWait(_: *anyopaque) Error!void {}
 pub fn assignCompile(
     _: *anyopaque,
     _: Allocator,
-    _: *[]u8,
-    _: *usize,
+    _: *ArrayList(u8),
     _: Assign,
     _: []const u8,
     _: Args,

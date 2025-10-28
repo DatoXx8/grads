@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
+const ArrayList = std.ArrayList;
 
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
@@ -193,13 +194,13 @@ pub const Inlined = struct {
     in: []?u32,
     out_root: ?u32,
     in_root: ?u32,
-    inlined_num: u32,
+    num: u32,
     pub inline fn inlinedEqual(inlined: Inlined, target: Inlined) bool {
         assert(inlined.base.len == inlined.out.len);
         assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (inlined.base.len != target.base.len or inlined.inlined_num != target.inlined_num) {
+        if (inlined.base.len != target.base.len or inlined.num != target.num) {
             return false;
         }
         for (0..inlined.base.len) |inlined_idx| {
@@ -218,7 +219,7 @@ pub const Inlined = struct {
         assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (inlined.base.len != target.base.len or inlined.inlined_num != target.inlined_num) {
+        if (inlined.base.len != target.base.len or inlined.num != target.num) {
             return false;
         }
         for (0..inlined.base.len) |inlined_idx| {
@@ -256,10 +257,10 @@ pub const Assign = struct {
         }
         assign.base.print(padding, offset, null);
 
-        if (assign.inlined.inlined_num > 0) {
+        if (assign.inlined.num > 0) {
             std.debug.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
-                .{ " " ** (offset + padding), assign.inlined.out_root, assign.inlined.in_root, assign.inlined.inlined_num });
-            for (0..assign.inlined.inlined_num) |inlined_idx| {
+                .{ " " ** (offset + padding), assign.inlined.out_root, assign.inlined.in_root, assign.inlined.num });
+            for (0..assign.inlined.num) |inlined_idx| {
                 std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, assign.inlined.out[inlined_idx], assign.inlined.in[inlined_idx] });
                 assign.inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
@@ -287,12 +288,12 @@ pub fn alloc(
     size_global: u32,
     size_local: u32,
 ) !Pir {
-    assert(linearized.op_num > 0);
+    assert(linearized.num > 0);
 
-    const assign: []Assign = try gpa.alloc(Assign, linearized.op_num);
+    const assign: []Assign = try gpa.alloc(Assign, linearized.num);
     errdefer gpa.free(assign);
 
-    for (0..linearized.op_num) |op_idx| {
+    for (0..linearized.num) |op_idx| {
         assign[op_idx] = .{
             .base = .{
                 .kind = linearized.op[op_idx].kind,
@@ -309,7 +310,7 @@ pub fn alloc(
                 .in = &.{},
                 .out_root = null,
                 .in_root = null,
-                .inlined_num = 0,
+                .num = 0,
             },
             .split = false,
             .simd = null,
@@ -348,11 +349,11 @@ pub fn copy(pir: Pir, gpa: Allocator) !Pir {
     for (0..pir.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
             .base = pir.assign[assign_idx].base,
-            .inlined = if (pir.assign[assign_idx].inlined.inlined_num > 0)
+            .inlined = if (pir.assign[assign_idx].inlined.num > 0)
                 .{
                     .in_root = pir.assign[assign_idx].inlined.in_root,
                     .out_root = pir.assign[assign_idx].inlined.out_root,
-                    .inlined_num = pir.assign[assign_idx].inlined.inlined_num,
+                    .num = pir.assign[assign_idx].inlined.num,
                     .base = gpa.dupe(Base, pir.assign[assign_idx].inlined.base) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
@@ -391,7 +392,7 @@ pub fn copy(pir: Pir, gpa: Allocator) !Pir {
                     .in = &.{},
                     .out_root = null,
                     .in_root = null,
-                    .inlined_num = 0,
+                    .num = 0,
                 },
             .split = pir.assign[assign_idx].split,
             .simd = pir.assign[assign_idx].simd,
@@ -444,7 +445,7 @@ fn removeDefault(pir: *Pir) void {
             if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
             if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
 
-            for (0..pir.assign[assign_idx].inlined.inlined_num) |inlined_idx| {
+            for (0..pir.assign[assign_idx].inlined.num) |inlined_idx| {
                 const inlined_info: *DimInfo = if (dim_idx == 0)
                     &pir.assign[assign_idx].inlined.base[inlined_idx].out_dim
                 else
@@ -514,8 +515,8 @@ fn removeDefault(pir: *Pir) void {
 /// Simple greedy search over the field of possible optimizations
 fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
-    var optimization: []Optimization = try gpa.alloc(Optimization, optimization_len_initial);
-    defer gpa.free(optimization);
+    var optimization: ArrayList(Optimization) = try .initCapacity(gpa, optimization_len_initial);
+    defer optimization.deinit(gpa);
 
     var arena: std.heap.ArenaAllocator = .init(gpa);
     defer arena.deinit();
@@ -527,15 +528,15 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
     var cost_curr: u64 = vgpu.costEstimate(pir.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
+        optimization.clearRetainingCapacity();
+
         // $TODO Can this be done incrementally?
+        try opt.parallelizeGather(gpa, &optimization, pir.*);
+        try opt.inlineOpGather(gpa, &optimization, pir.*);
+        try opt.mergeOpGather(gpa, &optimization, pir.*);
+        try opt.splitKernelGather(gpa, &optimization, pir.*, size_global, size_local);
 
-        var optimization_count: u32 = 0;
-        try opt.parallelizeGather(gpa, &optimization, &optimization_count, pir.*);
-        try opt.inlineOpGather(gpa, &optimization, &optimization_count, pir.*);
-        try opt.mergeOpGather(gpa, &optimization, &optimization_count, pir.*);
-        try opt.splitKernelGather(gpa, &optimization, &optimization_count, pir.*, size_global, size_local);
-
-        if (optimization_count == 0) {
+        if (optimization.items.len == 0) {
             break;
         }
 
@@ -543,12 +544,12 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         var cost_next_best_idx: u32 = 0; // Easy filter with cost_next_best == cost_curr
 
         var optimization_idx: u32 = 0;
-        while (optimization_idx < optimization_count) : (optimization_idx += 1) {
+        while (optimization_idx < optimization.items.len) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
             var pir_temp: Pir = try pir.copy(a);
 
-            switch (optimization[optimization_idx]) {
+            switch (optimization.items[optimization_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
                 },
@@ -574,7 +575,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         if (cost_next_best == cost_curr) {
             break; // No better optimization found
         } else {
-            switch (optimization[cost_next_best_idx]) {
+            switch (optimization.items[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
                 },

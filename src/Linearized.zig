@@ -446,16 +446,16 @@ pub const Op = struct {
 };
 
 op: []Op,
-op_num: u32,
+num: u32,
 pub fn alloc(gpa: Allocator, capacity: u32) !Linearized {
     return .{
-        .op_num = 0,
+        .num = 0,
         .op = try gpa.alloc(Op, capacity),
     };
 }
 pub fn capacityEnsure(linearized: *Linearized, gpa: Allocator, capacity: u32) !void {
-    if (linearized.op.len < linearized.op_num + capacity) {
-        linearized.op = try gpa.realloc(linearized.op, linearized.op_num + capacity);
+    if (linearized.op.len < linearized.num + capacity) {
+        linearized.op = try gpa.realloc(linearized.op, linearized.num + capacity);
     }
 }
 pub fn free(linearized: *Linearized(), gpa: Allocator) void {
@@ -463,11 +463,11 @@ pub fn free(linearized: *Linearized(), gpa: Allocator) void {
     gpa.free(linearized.op);
 }
 pub fn clear(linearized: *Linearized) void {
-    linearized.op_num = 0;
+    linearized.num = 0;
 }
 pub fn run(linearized: *Linearized) void {
     var op_idx: u32 = 0;
-    while (op_idx < linearized.op_num) : (op_idx += 1) {
+    while (op_idx < linearized.num) : (op_idx += 1) {
         linearized.op[op_idx].realize();
     }
 }
@@ -476,17 +476,17 @@ pub fn realize(linearized: *Linearized) void {
     linearized.clear();
 }
 pub fn append(linearized: *Linearized, op: Op) void {
-    assert(linearized.op_num < linearized.op.len);
-    linearized.op[linearized.op_num] = op;
-    linearized.op_num += 1;
+    assert(linearized.num < linearized.op.len);
+    linearized.op[linearized.num] = op;
+    linearized.num += 1;
 }
 pub fn concat(linearized: *Linearized, source: *Linearized) void {
-    assert(linearized.op_num + source.op_num <= linearized.op.len);
+    assert(linearized.num + source.num <= linearized.op.len);
     var op_idx: u32 = 0;
-    while (op_idx < source.op_num) : (op_idx += 1) {
-        linearized.op[linearized.op_num + op_idx] = source.op[op_idx];
+    while (op_idx < source.num) : (op_idx += 1) {
+        linearized.op[linearized.num + op_idx] = source.op[op_idx];
     }
-    linearized.op_num += source.op_num;
+    linearized.num += source.num;
     source.clear();
 }
 pub fn print(linearized: Linearized, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -495,10 +495,10 @@ pub fn print(linearized: Linearized, padding: comptime_int, offset: comptime_int
     } else {
         std.debug.print("{s}Linearized\n", .{" " ** offset});
     }
-    if (linearized.op_num == 0) {
+    if (linearized.num == 0) {
         std.debug.print("{s}[] => empty\n", .{" " ** (offset + padding)});
     } else {
-        for (0..linearized.op_num) |op_idx| {
+        for (0..linearized.num) |op_idx| {
             std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
             linearized.op[op_idx].print(0, 0, null);
         }

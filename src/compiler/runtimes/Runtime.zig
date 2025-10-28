@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
+const ArrayList = std.ArrayList;
 
 const Program = @import("../Program.zig");
 const Memory = Program.Memory;
@@ -59,8 +60,7 @@ pub const VTable = struct {
     assignCompile: *const fn (
         state: *anyopaque,
         gpa: Allocator,
-        source: *[]u8,
-        offset: *usize,
+        source: *ArrayList(u8),
         assign: Assign,
         name: []const u8,
         args: Args,
@@ -115,14 +115,13 @@ pub fn queueWait(runtime: Runtime) !void {
 pub fn assignCompile(
     runtime: Runtime,
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     assign: Assign,
     name: []const u8,
     args: Args,
     size_global: u32,
     size_local: u32,
 ) !void {
-    try runtime.vtable.assignCompile(runtime.state, gpa, source, offset, assign, name, args, //
+    try runtime.vtable.assignCompile(runtime.state, gpa, source, assign, name, args, //
         size_global, size_local);
 }

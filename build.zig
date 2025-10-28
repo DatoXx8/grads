@@ -76,6 +76,6 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         regression_compiler_run.addArgs(args);
     }
-    const exe_run_step = b.step("regression_compiler", "Run the regression tests from previous simulator failures");
-    exe_run_step.dependOn(&regression_compiler_run.step);
+    const regression_compiler_run_step = b.step("regression_compiler", "Run the regression tests from previous simulator failures");
+    regression_compiler_run_step.dependOn(&regression_compiler_run.step);
 }

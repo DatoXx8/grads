@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Linearized = @import("../Linearized.zig");
 const opt = @import("optimize.zig");
@@ -26,7 +27,7 @@ pub const Args = struct {
             try arg_unique.put(assign.base.in.id, assign.base.in.values_runtime);
         }
 
-        for (0..assign.inlined.inlined_num) |inlined_idx| {
+        for (0..assign.inlined.num) |inlined_idx| {
             const out_is_not_inlined: bool = assign.inlined.out[inlined_idx] == null;
             const in_is_not_inlined: bool = assign.inlined.in[inlined_idx] == null;
 
@@ -54,13 +55,6 @@ pub const Args = struct {
             .arg_num = arg_num,
             .arg_id = arg_id,
             .arg_mem = arg_mem,
-        };
-    }
-    pub fn allocEmpty(arena: Allocator) !Args {
-        return .{
-            .arg_num = 0,
-            .arg_id = try arena.alloc(u64, 1),
-            .arg_mem = try arena.alloc(Memory, 1),
         };
     }
 };
@@ -96,7 +90,7 @@ pub fn alloc(
     assert(size_global >= size_local);
     assert(size_global % size_local == 0);
 
-    if (linearized.op_num == 0) {
+    if (linearized.num == 0) {
         @branchHint(.unlikely);
         const kernel_empty_name = "empty";
         const source: []const u8 = "kernel void " ++ kernel_empty_name ++ "() {}\n\x00";
@@ -104,7 +98,11 @@ pub fn alloc(
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
         var kernel: []Kernel = try arena.alloc(Kernel, 1);
-        kernel[0].args = try Args.allocEmpty(arena);
+        kernel[0].args = .{
+            .arg_num = 0,
+            .arg_id = &.{},
+            .arg_mem = &.{},
+        };
         kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
             kernel_empty_name ++ "\x00", kernel[0].args);
 
@@ -126,10 +124,10 @@ pub fn alloc(
         var kernel: []Kernel = try arena.alloc(Kernel, pir.assign_num);
 
         const source_len_init: u32 = 16 * 1024; // Arbitrary value
-        var source: []u8 = try gpa.alloc(u8, source_len_init);
-        defer gpa.free(source);
-        @memset(source, 0);
-        var source_idx: usize = 0;
+        var source: ArrayList(u8) = try .initCapacity(gpa, source_len_init);
+        defer source.deinit(gpa);
+
+        @memset(source.items, 0);
 
         var assign_idx: u32 = 0;
         while (assign_idx < pir.assign_num) : (assign_idx += 1) {
@@ -139,14 +137,16 @@ pub fn alloc(
 
             kernel[assign_idx].args = try Args.alloc(gpa, arena, pir.assign[assign_idx]);
             kernel_num_written += 1;
-            try runtime.assignCompile(gpa, &source, &source_idx, pir.assign[assign_idx], //
+            try runtime.assignCompile(gpa, &source, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);
         }
+        try source.printBounded("\x00", .{});
 
-        const program_ptr: ProgramPtr = try runtime.programAlloc(source);
+        const program_ptr: ProgramPtr = try runtime.programAlloc(source.items[0..]);
         errdefer runtime.programFree(program_ptr);
 
-        for (0..pir.assign_num) |kernel_idx| {
+        var kernel_idx: u32 = 0;
+        while (kernel_idx < pir.assign_num) : (kernel_idx += 1) {
             @memset(&kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
                 kernel_base_name ++ "\x00", .{kernel_idx})).len;

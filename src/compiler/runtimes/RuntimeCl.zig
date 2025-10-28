@@ -160,6 +160,7 @@ pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args
     const kernel: opencl.cl_kernel = opencl.clCreateKernel(@ptrCast(program), name, &err);
     if (err != 0) {
         @branchHint(.cold);
+        std.debug.print("{}\n", .{err});
         return Error.KernelAlloc;
     }
     for (0..args.arg_num) |arg_idx| {

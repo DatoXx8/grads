@@ -5,7 +5,6 @@ const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
-const Tensor = grads.Tensor;
 const OpKind = grads.Op.Kind;
 const Program = grads.Program;
 const Runtime = grads.Runtime;
@@ -18,7 +17,7 @@ const z_size_max = @import("random_linearized.zig").z_size_max;
 const y_size_max = @import("random_linearized.zig").y_size_max;
 const x_size_max = @import("random_linearized.zig").x_size_max;
 const op_num = @import("random_linearized.zig").op_num;
-const tensor_num = @import("random_linearized.zig").buffer_num;
+const buffer_num = @import("random_linearized.zig").buffer_num;
 
 const AssertError = error{
     nan,
@@ -99,25 +98,25 @@ fn profileCompiler(runtime: Runtime, gpa: Allocator, rng: u64) !void {
     defer arena_temp_allocator.deinit();
     const arena_temp: Allocator = arena_temp_allocator.allocator();
 
-    var tensor1 = try randomLinearized(runtime, arena, @splat(true), rng);
+    var buffer1 = try randomLinearized(runtime, arena, @splat(true), rng);
     defer {
-        for (&tensor1.buffer) |buffer| {
+        for (&buffer1.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
-    var tensor2 = try randomLinearized(runtime, arena, @splat(true), rng);
+    var buffer2 = try randomLinearized(runtime, arena, @splat(true), rng);
     defer {
-        for (&tensor2.buffer) |buffer| {
+        for (&buffer2.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
-    assert(tensor1.out_idx == tensor2.out_idx);
+    assert(buffer1.out_idx == buffer2.out_idx);
 
     var time_linearized: [iterations]i128 = undefined;
     for (0..iterations) |interation_idx| {
         // Not using realize here because that clears the linearized
         const time_start: i128 = std.time.nanoTimestamp();
-        tensor2.linearized.run();
+        buffer2.linearized.run();
         time_linearized[interation_idx] = std.time.nanoTimestamp() - time_start;
     }
     analyseTimes(time_linearized, "linearized");
@@ -125,16 +124,16 @@ fn profileCompiler(runtime: Runtime, gpa: Allocator, rng: u64) !void {
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1.buffer[tensor_idx].syncUpdate(.sync_to_device);
-        try tensor1.buffer[tensor_idx].syncToDevice(runtime);
+    for (0..buffer_num) |buffer_idx| {
+        buffer1.buffer[buffer_idx].syncUpdate(.sync_to_device);
+        try buffer1.buffer[buffer_idx].syncToDevice(runtime);
     }
 
     const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };
     for (depth_max) |depth| {
         defer _ = arena_temp_allocator.reset(.retain_capacity);
 
-        var program: Program = try Program.alloc(runtime, gpa, arena_temp, arena_temp, tensor1.linearized, //
+        var program: Program = try Program.alloc(runtime, gpa, arena_temp, arena_temp, buffer1.linearized, //
             depth, size_global, size_local);
 
         var time_program: [iterations]i128 = undefined;

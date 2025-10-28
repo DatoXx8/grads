@@ -217,15 +217,15 @@ pub fn alloc(
         }
     }
 
-    const forward_optimization_depth: u32 = 10 * forward_cpu.op_num;
+    const forward_optimization_depth: u32 = 10 * forward_cpu.num;
     const forward_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, forward_cpu, //
         forward_optimization_depth, size_global, size_local);
     errdefer forward_compiled.free(runtime);
-    const backward_optimization_depth: u32 = 10 * backward_cpu.op_num;
+    const backward_optimization_depth: u32 = 10 * backward_cpu.num;
     const backward_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, backward_cpu, //
         backward_optimization_depth, size_global, size_local);
     errdefer forward_compiled.free(runtime);
-    const learn_optimization_depth: u32 = 10 * learn_cpu.op_num;
+    const learn_optimization_depth: u32 = 10 * learn_cpu.num;
     const learn_compiled: Program = try Program.alloc(runtime, gpa, arena_nn, arena_temp, learn_cpu, //
         learn_optimization_depth, size_global, size_local);
 
@@ -260,7 +260,7 @@ pub fn free(neuralnet: Neuralnet) void {
     }
     neuralnet.arena.deinit();
 }
-// $TODO Add forward only pass where some additionaly tensors can be intermediaries
+// $TODO Add forward only pass where some additionaly buffer can be intermediaries
 pub fn forward(neuralnet: Neuralnet) !void {
     try neuralnet.forward_compiled.run(neuralnet.runtime);
 }
@@ -298,7 +298,7 @@ pub fn init(neuralnet: *Neuralnet, rng: u64) !void {
     const arena_temp = neuralnet.arena.allocator();
     var linearized_temp: Linearized = try .alloc(arena_temp, @intCast(2 * neuralnet.layer.len));
     defer arena_temp.free(linearized_temp.op);
-    // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the tensors
+    // Normally I would use PCG here but as I already use PCG in unaryRandom there could be cases with duplicate values in the buffers
     // I don't think that would be the end of the world but it just kinda ugly
     var default_prng = DefaultPrng.init(rng);
     var prng: std.Random = default_prng.random();

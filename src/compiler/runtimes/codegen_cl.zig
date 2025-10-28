@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const bufPrint = std.fmt.bufPrint;
+const ArrayList = std.ArrayList;
 
 const Program = @import("../Program.zig");
 const Args = Program.Args;
@@ -23,25 +24,23 @@ const source_padding: u32 = 4 * 1024;
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeSource(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     comptime fmt: []const u8,
     args: anytype,
 ) Allocator.Error!void {
-    const written = bufPrint(source.*[offset.*..], fmt, args) catch unreachable;
-    offset.* += written.len;
-    if (source.len - offset.* <= source_padding) {
-        source.* = try gpa.realloc(source.*, source.len * 2);
-    }
+    source.printBounded(fmt, args) catch {
+        try source.ensureUnusedCapacity(gpa, source_padding);
+        try source.printBounded(fmt, args);
+    };
+    try source.ensureUnusedCapacity(gpa, source_padding);
 }
 fn writeIndices(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     assign: Assign,
     kernel_loop_idx: usize,
 ) Allocator.Error!void {
-    const inlined_num: u32 = 1 + assign.inlined.inlined_num;
+    const inlined_num: u32 = 1 + assign.inlined.num;
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
@@ -50,7 +49,6 @@ fn writeIndices(
         try writeSource(
             gpa,
             source,
-            offset,
             "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
             .{
                 base.out.name(), kernel_loop_idx, inlined_idx, //
@@ -65,7 +63,6 @@ fn writeIndices(
             try writeSource(
                 gpa,
                 source,
-                offset,
                 "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, inlined_idx, //
@@ -79,7 +76,7 @@ fn writeIndices(
         }
     }
 }
-fn writeAssignPrefix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
+fn writeAssignPrefix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocator.Error!void {
     switch (base.kind) {
         .unary_add,
         .unary_subtract,
@@ -99,52 +96,52 @@ fn writeAssignPrefix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) 
         .reduce_sum,
         .reduce_avg,
         => {
-            try writeSource(gpa, source, offset, "(", .{});
+            try writeSource(gpa, source, "(", .{});
         },
         .unary_exp => {
-            try writeSource(gpa, source, offset, "exp(", .{});
+            try writeSource(gpa, source, "exp(", .{});
         },
         .unary_log => {
-            try writeSource(gpa, source, offset, "log(", .{});
+            try writeSource(gpa, source, "log(", .{});
         },
         .unary_square => {
-            try writeSource(gpa, source, offset, "pow(", .{});
+            try writeSource(gpa, source, "pow(", .{});
         },
         .unary_sqrt => {
-            try writeSource(gpa, source, offset, "sqrt(", .{});
+            try writeSource(gpa, source, "sqrt(", .{});
         },
         .unary_reciprocal => {
-            try writeSource(gpa, source, offset, "(1/", .{});
+            try writeSource(gpa, source, "(1/", .{});
         },
         .unary_max,
         .binary_max,
         .expand_max,
         .reduce_max,
         => {
-            try writeSource(gpa, source, offset, "fmax(", .{});
+            try writeSource(gpa, source, "fmax(", .{});
         },
         .unary_min,
         .binary_min,
         .expand_min,
         .reduce_min,
         => {
-            try writeSource(gpa, source, offset, "fmin(", .{});
+            try writeSource(gpa, source, "fmin(", .{});
         },
         .unary_random => {
             todo(@src());
         },
         .unary_tanh => {
-            try writeSource(gpa, source, offset, "tanh(", .{});
+            try writeSource(gpa, source, "tanh(", .{});
         },
         .unary_absolute => {
-            try writeSource(gpa, source, offset, "fabs(", .{});
+            try writeSource(gpa, source, "fabs(", .{});
         },
         .unary_sign => {
             todo(@src());
         },
     }
 }
-fn writeAssignMidfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
+fn writeAssignMidfix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocator.Error!void {
     switch (base.kind) {
         .unary_add,
         .binary_add,
@@ -152,25 +149,25 @@ fn writeAssignMidfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) 
         .reduce_sum,
         .reduce_avg,
         => {
-            try writeSource(gpa, source, offset, "+", .{});
+            try writeSource(gpa, source, "+", .{});
         },
         .unary_subtract,
         .binary_subtract,
         .expand_subtract,
         => {
-            try writeSource(gpa, source, offset, "-", .{});
+            try writeSource(gpa, source, "-", .{});
         },
         .unary_multiply,
         .binary_multiply,
         .expand_multiply,
         => {
-            try writeSource(gpa, source, offset, "*", .{});
+            try writeSource(gpa, source, "*", .{});
         },
         .unary_divide,
         .binary_divide,
         .expand_divide,
         => {
-            try writeSource(gpa, source, offset, "/", .{});
+            try writeSource(gpa, source, "/", .{});
         },
         .unary_reciprocal,
         .unary_exp,
@@ -192,7 +189,7 @@ fn writeAssignMidfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) 
         .expand_min,
         .reduce_min,
         => {
-            try writeSource(gpa, source, offset, ",", .{});
+            try writeSource(gpa, source, ",", .{});
         },
         .unary_random => {
             todo(@src());
@@ -202,7 +199,7 @@ fn writeAssignMidfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) 
         },
     }
 }
-fn writeAssignPostfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base) Allocator.Error!void {
+fn writeAssignPostfix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocator.Error!void {
     switch (base.kind) {
         .unary_add,
         .unary_subtract,
@@ -211,11 +208,11 @@ fn writeAssignPostfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base)
         .unary_max,
         .unary_min,
         => {
-            try writeSource(gpa, source, offset, "((float){d}))", .{base.u_var});
+            try writeSource(gpa, source, "((float){d}))", .{base.u_var});
         },
         .unary_square,
         => {
-            try writeSource(gpa, source, offset, ",2)", .{});
+            try writeSource(gpa, source, ",2)", .{});
         },
         .unary_set,
         .unary_exp,
@@ -245,14 +242,13 @@ fn writeAssignPostfix(gpa: Allocator, source: *[]u8, offset: *usize, base: Base)
         .reduce_avg,
         .reduce_min,
         => {
-            try writeSource(gpa, source, offset, ")", .{});
+            try writeSource(gpa, source, ")", .{});
         },
     }
 }
 fn writeAssignOutBase(
     ga: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -295,7 +291,7 @@ fn writeAssignOutBase(
         .reduce_avg,
         .reduce_min,
         => {
-            try writeSource(ga, source, offset, "{s}[{s}_{}_{}+{}]", .{
+            try writeSource(ga, source, "{s}[{s}_{}_{}+{}]", .{
                 base.out.name(),
                 base.out.name(),
                 kernel_loop_idx,
@@ -304,7 +300,7 @@ fn writeAssignOutBase(
             });
         },
         .unary_set => {
-            try writeSource(ga, source, offset, "((float){d})", .{base.u_var});
+            try writeSource(ga, source, "((float){d})", .{base.u_var});
         },
         .binary_set,
         .expand_set,
@@ -313,8 +309,7 @@ fn writeAssignOutBase(
 }
 fn writeAssignInBase(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -343,7 +338,7 @@ fn writeAssignInBase(
         .binary_set,
         .expand_set,
         => {
-            try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{}]", .{
+            try writeSource(gpa, source, "{s}[{s}_{}_{}+{}]", .{
                 base.in.name(),
                 base.in.name(),
                 kernel_loop_idx,
@@ -373,8 +368,7 @@ fn writeAssignInBase(
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignOut(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -385,7 +379,7 @@ fn writeAssignOut(
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
-    try writeAssignPrefix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
     const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
@@ -393,34 +387,33 @@ fn writeAssignOut(
     const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
     const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, offset, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
     } else {
         const offset_out: u32 = base_relevant.out.at(a_out, z_out, y_out, x_out) - base_relevant.out.offset;
-        try writeAssignOutBase(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
+        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
     }
 
-    try writeAssignMidfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
     const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
     const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
     const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, offset, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
     } else {
         if (!base_relevant.kind.isUnary()) {
             const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
-            try writeAssignInBase(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
+            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
         }
     }
 
-    try writeAssignPostfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPostfix(gpa, source, inlined.base[inlined_idx_actual]);
 }
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignIn(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -431,7 +424,7 @@ fn writeAssignIn(
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
-    try writeAssignPrefix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
     const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
@@ -439,32 +432,32 @@ fn writeAssignIn(
     const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
     const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, offset, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
     } else {
         const offset_out: u32 = base_relevant.out.at(a_out, z_out, y_out, x_out) - base_relevant.out.offset;
-        try writeAssignOutBase(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
+        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
     }
 
-    try writeAssignMidfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
     const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
     const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
     const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, offset, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
     } else {
         if (!base_relevant.kind.isUnary()) {
             const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
-            try writeAssignInBase(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
+            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
         }
     }
 
-    try writeAssignPostfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPostfix(gpa, source, inlined.base[inlined_idx_actual]);
 }
-fn writeAssign(gpa: Allocator, source: *[]u8, offset: *usize, assign: Assign, kernel_loop_idx: u32) Allocator.Error!void {
+fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_loop_idx: u32) Allocator.Error!void {
     if (assign.base.kind.isReduce()) {
-        try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{}]={s};\n", .{
+        try writeSource(gpa, source, "{s}[{s}_{}_{}+{}]={s};\n", .{
             assign.base.out.name(),
             assign.base.out.name(),
             kernel_loop_idx,
@@ -500,7 +493,7 @@ fn writeAssign(gpa: Allocator, source: *[]u8, offset: *usize, assign: Assign, ke
 
                     const offset_out: u32 = assign.base.out.at(a_out, z_out, y_out, x_out) - assign.base.out.offset;
 
-                    try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{}] = ", .{
+                    try writeSource(gpa, source, "{s}[{s}_{}_{}+{}] = ", .{
                         assign.base.out.name(),
                         assign.base.out.name(),
                         kernel_loop_idx,
@@ -508,15 +501,15 @@ fn writeAssign(gpa: Allocator, source: *[]u8, offset: *usize, assign: Assign, ke
                         offset_out,
                     });
 
-                    try writeAssignPrefix(gpa, source, offset, assign.base);
+                    try writeAssignPrefix(gpa, source, assign.base);
 
                     if (assign.inlined.out_root) |inlined_out| {
-                        try writeAssignOut(gpa, source, offset, assign.inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+                        try writeAssignOut(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
                     } else {
-                        try writeAssignOutBase(gpa, source, offset, assign.base, kernel_loop_idx, 0, offset_out);
+                        try writeAssignOutBase(gpa, source, assign.base, kernel_loop_idx, 0, offset_out);
                     }
 
-                    try writeAssignMidfix(gpa, source, offset, assign.base);
+                    try writeAssignMidfix(gpa, source, assign.base);
 
                     const a_in: u32 = if (assign.base.kind.isExpand()) 0 else a;
                     const z_in: u32 = if (assign.base.kind.isExpand()) 0 else z;
@@ -524,24 +517,24 @@ fn writeAssign(gpa: Allocator, source: *[]u8, offset: *usize, assign: Assign, ke
                     const x_in: u32 = if (assign.base.kind.isExpand()) 0 else x;
 
                     if (assign.inlined.in_root) |inlined_in| {
-                        try writeAssignIn(gpa, source, offset, assign.inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+                        try writeAssignIn(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
                     } else {
                         if (!assign.base.kind.isUnary()) {
                             const offset_in: u32 = if (assign.base.kind.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
-                            try writeAssignInBase(gpa, source, offset, assign.base, kernel_loop_idx, 0, offset_in);
+                            try writeAssignInBase(gpa, source, assign.base, kernel_loop_idx, 0, offset_in);
                         }
                     }
 
-                    try writeAssignPostfix(gpa, source, offset, assign.base);
+                    try writeAssignPostfix(gpa, source, assign.base);
 
-                    try writeSource(gpa, source, offset, ";\n", .{});
+                    try writeSource(gpa, source, ";\n", .{});
                 }
             }
         }
     }
 
     if (assign.base.kind == .reduce_avg) {
-        try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{}]/={d};\n", .{
+        try writeSource(gpa, source, "{s}[{s}_{}_{}+{}]/={d};\n", .{
             assign.base.out.name(),
             assign.base.out.name(),
             kernel_loop_idx,
@@ -553,8 +546,7 @@ fn writeAssign(gpa: Allocator, source: *[]u8, offset: *usize, assign: Assign, ke
 }
 fn writeAssignOutBaseBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -597,7 +589,7 @@ fn writeAssignOutBaseBlock(
         .reduce_avg,
         .reduce_min,
         => {
-            try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
+            try writeSource(gpa, source, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
                 base.out.name(),
                 base.out.name(),
                 kernel_loop_idx,
@@ -609,7 +601,7 @@ fn writeAssignOutBaseBlock(
             });
         },
         .unary_set => {
-            try writeSource(gpa, source, offset, "((float){d})", .{base.u_var});
+            try writeSource(gpa, source, "((float){d})", .{base.u_var});
         },
         .binary_set,
         .expand_set,
@@ -618,8 +610,7 @@ fn writeAssignOutBaseBlock(
 }
 fn writeAssignInBaseBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -645,7 +636,7 @@ fn writeAssignInBaseBlock(
         .binary_set,
         .expand_set,
         => {
-            try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
+            try writeSource(gpa, source, "{s}[{s}_{}_{}+{s}_{}_{}_{}]", .{
                 base.in.name(),
                 base.in.name(),
                 kernel_loop_idx,
@@ -678,13 +669,12 @@ fn writeAssignInBaseBlock(
 // $TODO Refactor this horrible shit
 fn writeIndicesBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     assign: Assign,
     kernel_loop_idx: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
-    const inlined_num: u32 = 1 + assign.inlined.inlined_num;
+    const inlined_num: u32 = 1 + assign.inlined.num;
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
@@ -692,7 +682,6 @@ fn writeIndicesBlock(
             try writeSource(
                 gpa,
                 source,
-                offset,
                 "int {s}_{}_{}_{} = {};\n",
                 .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, 0 },
             );
@@ -700,7 +689,6 @@ fn writeIndicesBlock(
             try writeSource(
                 gpa,
                 source,
-                offset,
                 "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                 .{
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
@@ -716,7 +704,6 @@ fn writeIndicesBlock(
                 try writeSource(
                     gpa,
                     source,
-                    offset,
                     "int {s}_{}_{}_{} = 0;\n",
                     .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
                 );
@@ -724,7 +711,6 @@ fn writeIndicesBlock(
                 try writeSource(
                     gpa,
                     source,
-                    offset,
                     "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                     .{
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
@@ -741,8 +727,7 @@ fn writeIndicesBlock(
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignOutBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -750,32 +735,31 @@ fn writeAssignOutBlock(
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
-    try writeAssignPrefix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOutBlock(gpa, source, offset, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+        try writeAssignOutBlock(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
     } else {
-        try writeAssignOutBaseBlock(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+        try writeAssignOutBaseBlock(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
     }
 
-    try writeAssignMidfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignInBlock(gpa, source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+        try writeAssignInBlock(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
     } else {
         if (!base_relevant.kind.isUnary()) {
-            try writeAssignInBaseBlock(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+            try writeAssignInBaseBlock(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
         }
     }
 
-    try writeAssignPostfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPostfix(gpa, source, inlined.base[inlined_idx_actual]);
 }
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
 fn writeAssignInBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
@@ -783,38 +767,37 @@ fn writeAssignInBlock(
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
-    try writeAssignPrefix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOutBlock(gpa, source, offset, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+        try writeAssignOutBlock(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
     } else {
-        try writeAssignOutBaseBlock(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+        try writeAssignOutBaseBlock(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
     }
 
-    try writeAssignMidfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignInBlock(gpa, source, offset, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+        try writeAssignInBlock(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
     } else {
         if (!base_relevant.kind.isUnary()) {
-            try writeAssignInBaseBlock(gpa, source, offset, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+            try writeAssignInBaseBlock(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
         }
     }
 
-    try writeAssignPostfix(gpa, source, offset, inlined.base[inlined_idx_actual]);
+    try writeAssignPostfix(gpa, source, inlined.base[inlined_idx_actual]);
 }
 fn writeAssignBlock(
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     assign: Assign,
     kernel_loop_idx: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
     assert(!assign.base.kind.isReduce());
 
-    try writeSource(gpa, source, offset, "{s}[{s}_{}_{}+{s}_{}_{}_{}] = ", .{
+    try writeSource(gpa, source, "{s}[{s}_{}_{}+{s}_{}_{}_{}] = ", .{
         assign.base.out.name(),
         assign.base.out.name(),
         kernel_loop_idx,
@@ -825,34 +808,33 @@ fn writeAssignBlock(
         kernel_block_idx,
     });
 
-    try writeAssignPrefix(gpa, source, offset, assign.base);
+    try writeAssignPrefix(gpa, source, assign.base);
 
     if (assign.inlined.out_root) |inlined_out| {
-        try writeAssignOutBlock(gpa, source, offset, assign.inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+        try writeAssignOutBlock(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
     } else {
-        try writeAssignOutBaseBlock(gpa, source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+        try writeAssignOutBaseBlock(gpa, source, assign.base, kernel_loop_idx, 0, kernel_block_idx);
     }
 
-    try writeAssignMidfix(gpa, source, offset, assign.base);
+    try writeAssignMidfix(gpa, source, assign.base);
 
     if (assign.inlined.in_root) |inlined_in| {
-        try writeAssignInBlock(gpa, source, offset, assign.inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+        try writeAssignInBlock(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
     } else {
         if (!assign.base.kind.isUnary()) {
-            try writeAssignInBaseBlock(gpa, source, offset, assign.base, kernel_loop_idx, 0, kernel_block_idx);
+            try writeAssignInBaseBlock(gpa, source, assign.base, kernel_loop_idx, 0, kernel_block_idx);
         }
     }
 
-    try writeAssignPostfix(gpa, source, offset, assign.base);
+    try writeAssignPostfix(gpa, source, assign.base);
 
-    try writeSource(gpa, source, offset, ";\n", .{});
+    try writeSource(gpa, source, ";\n", .{});
 }
 
 pub fn assignCompile(
     _: *anyopaque,
     gpa: Allocator,
-    source: *[]u8,
-    offset: *usize,
+    source: *ArrayList(u8),
     assign: Assign,
     name: []const u8,
     args: Args,
@@ -864,18 +846,18 @@ pub fn assignCompile(
     assert(size_local > 0);
     assert(size_global % size_local == 0);
 
-    try writeSource(gpa, source, offset, "__kernel void {s}(", .{name});
+    try writeSource(gpa, source, "__kernel void {s}(", .{name});
     assert(args.arg_mem.len == args.arg_id.len);
     for (0..args.arg_num) |arg_idx| {
         const arg_name: [buffer_name_size]u8 = nameFromId(args.arg_id[arg_idx]);
         if (arg_idx == 0) {
-            try writeSource(gpa, source, offset, "__global float *{s}", .{arg_name});
+            try writeSource(gpa, source, "__global float *{s}", .{arg_name});
         } else {
-            try writeSource(gpa, source, offset, ", __global float *{s}", .{arg_name});
+            try writeSource(gpa, source, ", __global float *{s}", .{arg_name});
         }
     }
 
-    try writeSource(gpa, source, offset, ") {{\n" ++
+    try writeSource(gpa, source, ") {{\n" ++
         "const int gid = get_global_id(0);\n" ++
         "int id;\n", .{});
 
@@ -896,17 +878,17 @@ pub fn assignCompile(
         var kernel_block_idx: u32 = 0;
         while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
             if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
-                try writeSource(gpa, source, offset, "if(gid<{}) {{\n", .{kernel_block_leftover});
+                try writeSource(gpa, source, "if(gid<{}) {{\n", .{kernel_block_leftover});
             }
 
-            try writeSource(gpa, source, offset, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, size });
-            try writeIndices(gpa, source, offset, assign, kernel_block_idx);
-            try writeSource(gpa, source, offset, "id = gid+{};\n", .{size_global * kernel_block_idx});
-            try writeIndicesBlock(gpa, source, offset, assign, kernel_block_idx, kernel_block_idx);
-            try writeAssignBlock(gpa, source, offset, assign, kernel_block_idx, kernel_block_idx);
+            try writeSource(gpa, source, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, size });
+            try writeIndices(gpa, source, assign, kernel_block_idx);
+            try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_block_idx});
+            try writeIndicesBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
+            try writeAssignBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
 
             if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
-                try writeSource(gpa, source, offset, "}}\n", .{});
+                try writeSource(gpa, source, "}}\n", .{});
             }
         }
     } else {
@@ -915,20 +897,20 @@ pub fn assignCompile(
 
         var kernel_loop_idx: u32 = 0;
         while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
-            try writeSource(gpa, source, offset, "id = gid+{};\n", .{size_global * kernel_loop_idx});
+            try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_loop_idx});
 
             if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
-                try writeSource(gpa, source, offset, "if(gid < {}) {{\n", .{kernel_loop_leftover});
+                try writeSource(gpa, source, "if(gid < {}) {{\n", .{kernel_loop_leftover});
             }
 
-            try writeIndices(gpa, source, offset, assign, kernel_loop_idx);
-            try writeAssign(gpa, source, offset, assign, kernel_loop_idx);
+            try writeIndices(gpa, source, assign, kernel_loop_idx);
+            try writeAssign(gpa, source, assign, kernel_loop_idx);
 
             if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
-                try writeSource(gpa, source, offset, "}}\n", .{});
+                try writeSource(gpa, source, "}}\n", .{});
             }
         }
     }
 
-    try writeSource(gpa, source, offset, "}}\n", .{});
+    try writeSource(gpa, source, "}}\n", .{});
 }

@@ -70,7 +70,7 @@ pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u6
                     (std.math.divCeil(u32, pir.assign[assign_idx].base.repeats, size_global) catch unreachable) * a_size * z_size * y_size * x_size;
                 cost += costOfOpSimple(pir.assign[assign_idx].base.kind) * kernel_assign_ops + cost_flat;
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[assign_idx].inlined.inlined_num) : (inlined_idx += 1) {
+                while (inlined_idx < pir.assign[assign_idx].inlined.num) : (inlined_idx += 1) {
                     cost += costOfOpSimple(pir.assign[assign_idx].inlined.base[inlined_idx].kind) * kernel_assign_ops;
                 }
             }

@@ -46,7 +46,7 @@ values_runtime: Memory,
 sync: SyncStatus,
 id: u64,
 kind: Kind,
-/// Intermediary buffers and tensors are *not* expected to hold the same values after the compilers optimizations
+/// Intermediary buffers are *not* expected to hold the same values after the compilers optimizations
 pub fn alloc(runtime: Runtime, arena: Allocator, a: u32, z: u32, y: u32, x: u32, kind: Kind) !Buffer {
     assert(a > 0);
     assert(z > 0);
@@ -85,7 +85,7 @@ pub inline fn nameFromId(id: u64) [buffer_name_size]u8 {
         name_result[char_idx] += @intCast(left % divisor);
         left /= divisor;
     }
-    assert(left == 0); // Enforce that you don't generate new tensors beyond 'zzzz...zzz'
+    assert(left == 0); // Enforce that you don't generate new buffers beyond 'zzzz...zzz'
 
     return name_result;
 }
@@ -219,9 +219,9 @@ pub fn moveOffset(buffer: *Buffer, a: u32, z: u32, y: u32, x: u32) void {
 }
 pub fn print(buffer: Buffer, padding: comptime_int, offset: comptime_int, desc: ?[]const u8) void {
     if (desc) |text| {
-        std.debug.print("{s}Tensor {s} = {s}\n", .{ " " ** offset, buffer.name(), text });
+        std.debug.print("{s}Buffer {s} = {s}\n", .{ " " ** offset, buffer.name(), text });
     } else {
-        std.debug.print("{s}Tensor {s}\n", .{ " " ** offset, buffer.name() });
+        std.debug.print("{s}Buffer {s}\n", .{ " " ** offset, buffer.name() });
     }
     var a: u32 = 0;
     while (a < buffer.a_size) : (a += 1) {

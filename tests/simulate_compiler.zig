@@ -5,7 +5,6 @@ const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
-const Tensor = grads.Tensor;
 const Linearized = grads.Linearized;
 const OpKind = grads.Op.Kind;
 const Program = grads.Program;
@@ -20,7 +19,7 @@ const z_size_max = @import("random_linearized.zig").z_size_max;
 const y_size_max = @import("random_linearized.zig").y_size_max;
 const x_size_max = @import("random_linearized.zig").x_size_max;
 const op_num = @import("random_linearized.zig").op_num;
-const tensor_num = @import("random_linearized.zig").buffer_num;
+const buffer_num = @import("random_linearized.zig").buffer_num;
 
 const AssertError = error{
     nan,
@@ -68,40 +67,40 @@ fn simulateCompiler(
     defer arena_temp_allocator.deinit();
     const arena_temp: Allocator = arena_temp_allocator.allocator();
 
-    var tensor1 = try randomLinearized(runtime, arena, op_included, rng);
+    var buffer1 = try randomLinearized(runtime, arena, op_included, rng);
     defer {
-        for (&tensor1.buffer) |buffer| {
+        for (&buffer1.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
-    var tensor2 = try randomLinearized(runtime, arena, op_included, rng);
+    var buffer2 = try randomLinearized(runtime, arena, op_included, rng);
     defer {
-        for (&tensor2.buffer) |buffer| {
+        for (&buffer2.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
 
-    tensor2.linearized.realize();
+    buffer2.linearized.realize();
 
     const size_local: u32 = pcg.random().uintLessThan(u32, 10) + 1;
     const size_global: u32 = size_local * (pcg.random().uintLessThan(u32, 10) + 1);
 
-    for (0..tensor_num) |tensor_idx| {
-        tensor1.buffer[tensor_idx].syncUpdate(.sync_to_device);
-        try tensor1.buffer[tensor_idx].syncToDevice(runtime);
+    for (0..buffer_num) |buffer_idx| {
+        buffer1.buffer[buffer_idx].syncUpdate(.sync_to_device);
+        try buffer1.buffer[buffer_idx].syncToDevice(runtime);
     }
 
     var program: Program = try Program.alloc(runtime, gpa, arena, arena_temp, //
-        tensor1.linearized, depth_max, size_global, size_local);
+        buffer1.linearized, depth_max, size_global, size_local);
     defer program.free(runtime);
 
     try program.run(runtime);
 
-    tensor1.buffer[tensor1.out_idx].syncUpdate(.sync_to_host);
-    try tensor1.buffer[tensor1.out_idx].syncToHost(runtime);
+    buffer1.buffer[buffer1.out_idx].syncUpdate(.sync_to_host);
+    try buffer1.buffer[buffer1.out_idx].syncToHost(runtime);
 
-    for (0..tensor1.buffer[tensor1.out_idx].values.len) |arg_idx| {
-        assertEq(tensor1.buffer[tensor1.out_idx].values[arg_idx], tensor2.buffer[tensor2.out_idx].values[arg_idx]) catch |err| {
+    for (0..buffer1.buffer[buffer1.out_idx].values.len) |arg_idx| {
+        assertEq(buffer1.buffer[buffer1.out_idx].values[arg_idx], buffer2.buffer[buffer2.out_idx].values[arg_idx]) catch |err| {
             std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={} and opt={}\n", .{
                 arg_idx,
                 arg_idx / (z_size_max * y_size_max * x_size_max),
@@ -109,10 +108,10 @@ fn simulateCompiler(
                 arg_idx / x_size_max % y_size_max,
                 arg_idx % x_size_max,
                 op_included,
-                tensor1.buffer[tensor1.out_idx].values[arg_idx],
-                tensor1.buffer[tensor1.out_idx].name(),
-                tensor2.buffer[tensor2.out_idx].values[arg_idx],
-                tensor2.buffer[tensor2.out_idx].name(),
+                buffer1.buffer[buffer1.out_idx].values[arg_idx],
+                buffer1.buffer[buffer1.out_idx].name(),
+                buffer2.buffer[buffer2.out_idx].values[arg_idx],
+                buffer2.buffer[buffer2.out_idx].name(),
                 rng,
                 depth_max,
             });
@@ -128,7 +127,7 @@ fn minifyCompiler(
     depth_max: u32,
     err: anyerror,
 ) !void {
-    assert(tensor_num > 1);
+    assert(buffer_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);
     for (0..op_num) |op_idx| {
