@@ -199,7 +199,7 @@ pub const Inlined = struct {
         assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (inlined.base.len != target.base.len) {
+        if (inlined.base.len != target.base.len or inlined.inlined_num != target.inlined_num) {
             return false;
         }
         for (0..inlined.base.len) |inlined_idx| {
@@ -218,7 +218,7 @@ pub const Inlined = struct {
         assert(inlined.base.len == inlined.in.len);
         assert(target.base.len == target.out.len);
         assert(target.base.len == target.in.len);
-        if (inlined.base.len != target.base.len) {
+        if (inlined.base.len != target.base.len or inlined.inlined_num != target.inlined_num) {
             return false;
         }
         for (0..inlined.base.len) |inlined_idx| {
@@ -246,7 +246,7 @@ pub const Simd = struct {
 /// Essentialy this is one unit of work
 pub const Assign = struct {
     base: Base,
-    inlined: ?Inlined, // $TODO This should not be optional
+    inlined: Inlined,
     split: Split,
     block: ?Block,
     simd: ?Simd,
@@ -255,12 +255,13 @@ pub const Assign = struct {
             std.debug.print("{s}Assign {s}\n", .{ " " ** offset, text });
         }
         assign.base.print(padding, offset, null);
-        if (assign.inlined) |inlined| {
+
+        if (assign.inlined.inlined_num > 0) {
             std.debug.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
-                .{ " " ** (offset + padding), inlined.out_root, inlined.in_root, inlined.inlined_num });
-            for (0..inlined.inlined_num) |inlined_idx| {
-                std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, inlined.out[inlined_idx], inlined.in[inlined_idx] });
-                inlined.base[inlined_idx].print(padding, padding + offset, null);
+                .{ " " ** (offset + padding), assign.inlined.out_root, assign.inlined.in_root, assign.inlined.inlined_num });
+            for (0..assign.inlined.inlined_num) |inlined_idx| {
+                std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, assign.inlined.out[inlined_idx], assign.inlined.in[inlined_idx] });
+                assign.inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
         if (assign.split) {
@@ -302,7 +303,14 @@ pub fn alloc(
                 .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
                 .repeats = 1,
             },
-            .inlined = null,
+            .inlined = .{
+                .base = &.{},
+                .out = &.{},
+                .in = &.{},
+                .out_root = null,
+                .in_root = null,
+                .inlined_num = 0,
+            },
             .split = false,
             .simd = null,
             .block = null,
@@ -340,50 +348,51 @@ pub fn copy(pir: Pir, gpa: Allocator) !Pir {
     for (0..pir.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
             .base = pir.assign[assign_idx].base,
-            .inlined = if (pir.assign[assign_idx].inlined) |inlined|
+            .inlined = if (pir.assign[assign_idx].inlined.inlined_num > 0)
                 .{
-                    .in_root = inlined.in_root,
-                    .out_root = inlined.out_root,
-                    .inlined_num = inlined.inlined_num,
-                    .base = gpa.dupe(Base, inlined.base) catch |err| {
+                    .in_root = pir.assign[assign_idx].inlined.in_root,
+                    .out_root = pir.assign[assign_idx].inlined.out_root,
+                    .inlined_num = pir.assign[assign_idx].inlined.inlined_num,
+                    .base = gpa.dupe(Base, pir.assign[assign_idx].inlined.base) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (pir.assign[free_idx].inlined) |inlined_free| {
-                                gpa.free(inlined_free.base);
-                                gpa.free(inlined_free.out);
-                                gpa.free(inlined_free.in);
-                            }
+                            gpa.free(pir.assign[free_idx].inlined.base);
+                            gpa.free(pir.assign[free_idx].inlined.out);
+                            gpa.free(pir.assign[free_idx].inlined.in);
                         }
                         return err;
                     },
-                    .out = gpa.dupe(?u32, inlined.out) catch |err| {
+                    .out = gpa.dupe(?u32, pir.assign[assign_idx].inlined.out) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (pir.assign[free_idx].inlined) |inlined_free| {
-                                gpa.free(inlined_free.base);
-                                gpa.free(inlined_free.out);
-                                gpa.free(inlined_free.in);
-                            }
+                            gpa.free(pir.assign[free_idx].inlined.base);
+                            gpa.free(pir.assign[free_idx].inlined.out);
+                            gpa.free(pir.assign[free_idx].inlined.in);
                         }
-                        gpa.free(inlined.base);
+                        gpa.free(pir.assign[assign_idx].inlined.base);
                         return err;
                     },
-                    .in = gpa.dupe(?u32, inlined.in) catch |err| {
+                    .in = gpa.dupe(?u32, pir.assign[assign_idx].inlined.in) catch |err| {
                         @branchHint(.cold);
                         for (0..assign_idx) |free_idx| {
-                            if (pir.assign[free_idx].inlined) |inlined_free| {
-                                gpa.free(inlined_free.base);
-                                gpa.free(inlined_free.out);
-                                gpa.free(inlined_free.in);
-                            }
+                            gpa.free(pir.assign[free_idx].inlined.base);
+                            gpa.free(pir.assign[free_idx].inlined.out);
+                            gpa.free(pir.assign[free_idx].inlined.in);
                         }
-                        gpa.free(inlined.base);
-                        gpa.free(inlined.out);
+                        gpa.free(pir.assign[assign_idx].inlined.base);
+                        gpa.free(pir.assign[assign_idx].inlined.out);
                         return err;
                     },
                 }
             else
-                null,
+                .{
+                    .base = &.{},
+                    .out = &.{},
+                    .in = &.{},
+                    .out_root = null,
+                    .in_root = null,
+                    .inlined_num = 0,
+                },
             .split = pir.assign[assign_idx].split,
             .simd = pir.assign[assign_idx].simd,
             .block = pir.assign[assign_idx].block,
@@ -434,27 +443,26 @@ fn removeDefault(pir: *Pir) void {
             if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
             if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
             if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
-            if (pir.assign[assign_idx].inlined) |inlined| {
-                for (0..inlined.inlined_num) |inlined_idx| {
-                    const inlined_info: *DimInfo = if (dim_idx == 0)
-                        &inlined.base[inlined_idx].out_dim
-                    else
-                        &inlined.base[inlined_idx].in_dim;
-                    if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
-                    if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
-                    if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
-                    if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
 
-                    if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
-                    if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
-                    if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
-                    if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
+            for (0..pir.assign[assign_idx].inlined.inlined_num) |inlined_idx| {
+                const inlined_info: *DimInfo = if (dim_idx == 0)
+                    &pir.assign[assign_idx].inlined.base[inlined_idx].out_dim
+                else
+                    &pir.assign[assign_idx].inlined.base[inlined_idx].in_dim;
+                if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
+                if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
+                if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
+                if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
 
-                    if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
-                    if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
-                    if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
-                    if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
-                }
+                if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
+                if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
+                if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
+                if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
+
+                if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
+                if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
+                if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
+                if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
             }
         }
     }

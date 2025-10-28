@@ -19,26 +19,24 @@ pub const Args = struct {
         var arg_unique = std.AutoHashMap(u64, Memory).init(gpa);
         defer arg_unique.deinit();
 
-        const in_root_is_null: bool = if (assign.inlined) |inlined| inlined.in_root == null else true;
+        const in_root_is_null: bool = assign.inlined.in_root == null;
 
         try arg_unique.put(assign.base.out.id, assign.base.out.values_runtime);
         if (!assign.base.kind.isUnary() and in_root_is_null) {
             try arg_unique.put(assign.base.in.id, assign.base.in.values_runtime);
         }
 
-        if (assign.inlined) |inlined| {
-            for (0..inlined.inlined_num) |inlined_idx| {
-                const out_is_not_inlined: bool = inlined.out[inlined_idx] == null;
-                const in_is_not_inlined: bool = inlined.in[inlined_idx] == null;
+        for (0..assign.inlined.inlined_num) |inlined_idx| {
+            const out_is_not_inlined: bool = assign.inlined.out[inlined_idx] == null;
+            const in_is_not_inlined: bool = assign.inlined.in[inlined_idx] == null;
 
-                if (out_is_not_inlined) {
-                    try arg_unique.put(inlined.base[inlined_idx].out.id, //
-                        inlined.base[inlined_idx].out.values_runtime);
-                }
-                if (!inlined.base[inlined_idx].kind.isUnary() and in_is_not_inlined) {
-                    try arg_unique.put(inlined.base[inlined_idx].in.id, //
-                        inlined.base[inlined_idx].in.values_runtime);
-                }
+            if (out_is_not_inlined) {
+                try arg_unique.put(assign.inlined.base[inlined_idx].out.id, //
+                    assign.inlined.base[inlined_idx].out.values_runtime);
+            }
+            if (!assign.inlined.base[inlined_idx].kind.isUnary() and in_is_not_inlined) {
+                try arg_unique.put(assign.inlined.base[inlined_idx].in.id, //
+                    assign.inlined.base[inlined_idx].in.values_runtime);
             }
         }
 
