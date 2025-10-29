@@ -510,8 +510,6 @@ fn removeDefault(pir: *Pir) void {
 //
 // Time: 312.0550us +-  20.1140us d=1000
 
-// For d=1000 there are 354784 * 3 copies for inline fields alone!
-
 /// Simple greedy search over the field of possible optimizations
 fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
