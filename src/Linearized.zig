@@ -458,7 +458,7 @@ pub fn capacityEnsure(linearized: *Linearized, gpa: Allocator, capacity: u32) !v
         linearized.op = try gpa.realloc(linearized.op, linearized.num + capacity);
     }
 }
-pub fn free(linearized: *Linearized(), gpa: Allocator) void {
+pub fn free(linearized: *Linearized, gpa: Allocator) void {
     linearized.op_num = 0;
     gpa.free(linearized.op);
 }
