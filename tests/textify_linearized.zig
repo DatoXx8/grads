@@ -139,17 +139,3 @@ pub fn textifyLinearized(
 
     return .{ .slice = text, .len = text_idx };
 }
-
-pub fn buildNewRegtest(
-    gpa: Allocator,
-    linearized: Linearized,
-    depth_max: u32,
-    a: u32,
-    z: u32,
-    y: u32,
-    x: u32,
-    size_global: u32,
-    size_local: u32,
-) ![]const u8 {
-    //
-}

@@ -37,9 +37,9 @@ fn checkEq(val1: f32, val2: f32) bool {
     }
 }
 
-pub const SimpleLinearized = struct {
+const SimpleLinearized = struct {
     pub const SimpleBuffer = struct {
-        id: u32,
+        id: u64,
         kind: Buffer.Kind,
         a_size: u32,
         z_size: u32,
@@ -80,7 +80,7 @@ pub const SimpleLinearized = struct {
             };
         }
     };
-    simple_op: []SimpleOp,
+    simple_op: []const SimpleOp,
     num: u32,
     pub fn populate(
         simple_linearized: SimpleLinearized,
@@ -90,13 +90,14 @@ pub const SimpleLinearized = struct {
         z: u32,
         y: u32,
         x: u32,
+        rng_value: u64,
     ) !struct {
         buffer: []Buffer,
         linearized: Linearized,
     } {
         var unique_buffer_num: u32 = 0;
-        var unique_buffer_id: []u64 = try arena.alloc(u64, simple_linearized.op_num * 2);
-        var unique_buffer_kind: []Buffer.Kind = try arena.alloc(Buffer.Kind, simple_linearized.op_num * 2);
+        var unique_buffer_id: []u64 = try arena.alloc(u64, simple_linearized.num * 2);
+        var unique_buffer_kind: []Buffer.Kind = try arena.alloc(Buffer.Kind, simple_linearized.num * 2);
 
         var op_idx: u32 = 0;
         while (op_idx < simple_linearized.num) : (op_idx += 1) {
@@ -146,7 +147,17 @@ pub const SimpleLinearized = struct {
             }
         }
 
+        // $TODO This should be the same values as in the simulator, but that is tricky to achieve
+        var pcg: Pcg = .init(rng_value);
+        const random: std.Random = pcg.random();
+        for (buffer) |*buf| {
+            for (buf.values) |*value| {
+                value.* = random.floatNorm(f32);
+            }
+        }
+
         var linearized: Linearized = try .alloc(arena, simple_linearized.num);
+        linearized.num = simple_linearized.num;
         op_idx = 0;
         while (op_idx < simple_linearized.num) : (op_idx += 1) {
             const out_id: u64 = simple_linearized.simple_op[op_idx].out.id;
@@ -209,7 +220,7 @@ pub const SimpleLinearized = struct {
     }
 };
 
-const RegressionTest = struct {
+pub const RegressionTest = struct {
     simple_linearized: SimpleLinearized,
     depth_max: u32,
     a: u32,
@@ -218,21 +229,52 @@ const RegressionTest = struct {
     x: u32,
     size_global: u32,
     size_local: u32,
-    pub fn run(reg_test: RegressionTest, runtime: Runtime, gpa: Allocator) bool {
-        if (true) {
-            @panic("Need to init the values in the tensors somehow."); // <-- $FIXME
+    rng_value: u64,
+    pub fn alloc(
+        arena: Allocator,
+        linearized: Linearized,
+        depth_max: u32,
+        a: u32,
+        z: u32,
+        y: u32,
+        x: u32,
+        size_global: u32,
+        size_local: u32,
+        rng_value: u64,
+    ) !RegressionTest {
+        const simple_op: []SimpleLinearized.SimpleOp = try arena.alloc(SimpleLinearized.SimpleOp, linearized.num);
+        var op_idx: u32 = 0;
+        while (op_idx < linearized.num) : (op_idx += 1) {
+            simple_op[op_idx] = .fromOp(linearized.op[op_idx]);
         }
-        const arena_allocator: ArenaAllocator = .init(gpa);
+
+        return .{
+            .simple_linearized = .{
+                .num = linearized.num,
+                .simple_op = simple_op,
+            },
+            .a = a,
+            .z = z,
+            .y = y,
+            .x = x,
+            .depth_max = depth_max,
+            .size_global = size_global,
+            .size_local = size_local,
+            .rng_value = rng_value,
+        };
+    }
+    pub fn run(reg_test: RegressionTest, runtime: Runtime, gpa: Allocator) !bool {
+        var arena_allocator: ArenaAllocator = .init(gpa);
         defer arena_allocator.deinit();
         const arena: Allocator = arena_allocator.allocator();
 
-        const arena_temp_allocator: ArenaAllocator = .init(gpa);
+        var arena_temp_allocator: ArenaAllocator = .init(gpa);
         defer arena_temp_allocator.deinit();
         const arena_temp: Allocator = arena_temp_allocator.allocator();
 
         const result1 = try reg_test.simple_linearized.populate(runtime, arena, //
-            reg_test.a, reg_test.z, reg_test.y, reg_test.x);
-        const linearized1: Linearized = result1.linearized;
+            reg_test.a, reg_test.z, reg_test.y, reg_test.x, reg_test.rng_value);
+        var linearized1: Linearized = result1.linearized;
         const buffer1: []Buffer = result1.buffer;
         defer {
             for (buffer1) |buffer| {
@@ -241,8 +283,8 @@ const RegressionTest = struct {
         }
 
         const result2 = try reg_test.simple_linearized.populate(runtime, arena, //
-            reg_test.a, reg_test.z, reg_test.y, reg_test.x);
-        const linearized2: Linearized = result2.linearized;
+            reg_test.a, reg_test.z, reg_test.y, reg_test.x, reg_test.rng_value);
+        var linearized2: Linearized = result2.linearized;
         const buffer2: []Buffer = result2.buffer;
         defer {
             for (buffer2) |buffer| {
@@ -267,11 +309,40 @@ const RegressionTest = struct {
 
         var arg_idx: u32 = 0;
         while (arg_idx < reg_test.a * reg_test.z * reg_test.y * reg_test.x) : (arg_idx += 1) {
-            if (!checkEq(buffer1.buffer[buffer1.out_idx].values[arg_idx], //
-                buffer2.buffer[buffer2.out_idx].values[arg_idx]))
+            if (!checkEq(linearized1.op[linearized1.num - 1].out.values[arg_idx], //
+                linearized1.op[linearized1.num - 1].out.values[arg_idx]))
             {
                 return false;
             }
         }
+        return true;
+    }
+    pub fn print(reg_test: RegressionTest) void {
+        const tab: []const u8 = "    ";
+        std.debug.print("const reg_test: RegressionTest = .{{\n", .{});
+        std.debug.print(tab ++ ".depth_max = {},\n", .{reg_test.depth_max});
+        std.debug.print(tab ++ ".a = {},\n", .{reg_test.a});
+        std.debug.print(tab ++ ".z = {},\n", .{reg_test.z});
+        std.debug.print(tab ++ ".y = {},\n", .{reg_test.y});
+        std.debug.print(tab ++ ".x = {},\n", .{reg_test.x});
+        std.debug.print(tab ++ ".size_global = {},\n", .{reg_test.size_global});
+        std.debug.print(tab ++ ".size_local = {},\n", .{reg_test.size_local});
+        std.debug.print(tab ++ ".rng_value = {},\n", .{reg_test.rng_value});
+        std.debug.print(tab ++ ".simple_linearized = .{{\n", .{});
+        std.debug.print(tab ++ tab ++ ".num = {},\n", .{reg_test.simple_linearized.num});
+        std.debug.print(tab ++ tab ++ ".simple_op = &.{{\n", .{});
+        var op_idx: u32 = 0;
+        while (op_idx < reg_test.simple_linearized.num) : (op_idx += 1) {
+            const simple_op: SimpleLinearized.SimpleOp = reg_test.simple_linearized.simple_op[op_idx];
+            std.debug.print(tab ++ tab ++ tab ++ ".{{\n", .{});
+            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".kind = .{s},\n", .{@tagName(simple_op.kind)});
+            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".u_var = {d},\n", .{simple_op.u_var});
+            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".out = {any},\n", .{simple_op.out});
+            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".in = {any},\n", .{simple_op.in});
+            std.debug.print(tab ++ tab ++ tab ++ "}},\n", .{});
+        }
+        std.debug.print(tab ++ tab ++ "}},\n", .{});
+        std.debug.print(tab ++ "}},\n", .{});
+        std.debug.print("}};\n", .{});
     }
 };
