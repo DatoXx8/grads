@@ -258,8 +258,6 @@ pub fn assignCompile(
     assert(std.mem.startsWith(u8, name, kernel_base_name));
 
     const state: *RuntimePtx = @ptrCast(@alignCast(runtime_ptx));
-    std.debug.print("offset {} + bytes {} < len {}", .{ offset.*, assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local), source.len });
-    assert(offset.* + assignCompileBytes(state, assign, @intCast(name.len), args, size_global, size_local) < source.len);
 
     const registers_max: u32 = state.registers_max;
     // No support for cards with less than this many registers planned.

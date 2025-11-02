@@ -8,6 +8,7 @@ const Op = Linearized.Op;
 const Buffer = @import("../Buffer.zig");
 const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
+const Inlined = Pir.Inlined;
 const Base = Pir.Base;
 const DimInfo = Pir.DimInfo;
 
@@ -487,56 +488,58 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
 
             pir.assign[right_idx].inlined.num = inlined_num_right_new;
         } else {
-            const inlined_num_left: u32 = pir.assign[left_idx].inlined.num;
-            const inlined_num_right_old: u32 = pir.assign[right_idx].inlined.num;
+            const inlined_right: *Inlined = pir.assign[right_idx].inlined;
+
+            const inlined_left_num: u32 = pir.assign[left_idx].inlined.num;
+            const inlined_right_num_old: u32 = inlined_right.num;
 
             var written_amount: u32 = 0;
 
             var inlined_idx: u32 = 0;
-            while (inlined_idx < inlined_num_right_old) : (inlined_idx += 1) {
-                if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].inlined.base[inlined_idx].out) and
-                    pir.assign[right_idx].inlined.out[inlined_idx] == null)
+            while (inlined_idx < inlined_right_num_old) : (inlined_idx += 1) {
+                if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].out) and
+                    inlined_right.out[inlined_idx] == null)
                 {
-                    written_amount += 1 + inlined_num_left;
+                    written_amount += 1 + inlined_left_num;
 
-                    pir.assign[right_idx].inlined.base = try gpa.realloc(pir.assign[right_idx].inlined.base, inlined_num_right_old + written_amount);
-                    pir.assign[right_idx].inlined.out = try gpa.realloc(pir.assign[right_idx].inlined.out, inlined_num_right_old + written_amount);
-                    pir.assign[right_idx].inlined.in = try gpa.realloc(pir.assign[right_idx].inlined.in, inlined_num_right_old + written_amount);
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right_num_old + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right_num_old + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right_num_old + written_amount);
 
-                    const last_idx: u32 = inlined_num_right_old + written_amount - 1;
-                    pir.assign[right_idx].inlined.out[inlined_idx] = last_idx;
-                    pir.assign[right_idx].inlined.base[last_idx] = pir.assign[left_idx].base;
+                    const last_idx: u32 = inlined_right_num_old + written_amount - 1;
+                    inlined_right.out[inlined_idx] = last_idx;
+                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
                     var inlined_left_idx: u32 = 0;
                     while (inlined_left_idx < pir.assign[left_idx].inlined.num) : (inlined_left_idx += 1) {
-                        pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
-                        pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_num_right_old else null;
-                        pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_num_right_old else null;
+                        inlined_right.base[inlined_right_num_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
+                        inlined_right.out[inlined_right_num_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_right_num_old else null;
+                        inlined_right.in[inlined_right_num_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_right_num_old else null;
                     }
-                    pir.assign[right_idx].inlined.out[last_idx] = if (pir.assign[left_idx].inlined.out_root) |out| out + inlined_num_right_old else null;
-                    pir.assign[right_idx].inlined.in[last_idx] = if (pir.assign[left_idx].inlined.in_root) |in| in + inlined_num_right_old else null;
-                } else if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].inlined.base[inlined_idx].in) and
-                    pir.assign[right_idx].inlined.in[inlined_idx] == null and !pir.assign[right_idx].inlined.base[inlined_idx].kind.isUnary())
+                    inlined_right.out[last_idx] = if (pir.assign[left_idx].inlined.out_root) |out| out + inlined_right_num_old else null;
+                    inlined_right.in[last_idx] = if (pir.assign[left_idx].inlined.in_root) |in| in + inlined_right_num_old else null;
+                } else if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].in) and
+                    inlined_right.in[inlined_idx] == null and !inlined_right.base[inlined_idx].kind.isUnary())
                 {
-                    written_amount += 1 + inlined_num_left;
+                    written_amount += 1 + inlined_left_num;
 
-                    pir.assign[right_idx].inlined.base = try gpa.realloc(pir.assign[right_idx].inlined.base, inlined_num_right_old + written_amount);
-                    pir.assign[right_idx].inlined.out = try gpa.realloc(pir.assign[right_idx].inlined.out, inlined_num_right_old + written_amount);
-                    pir.assign[right_idx].inlined.in = try gpa.realloc(pir.assign[right_idx].inlined.in, inlined_num_right_old + written_amount);
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right_num_old + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right_num_old + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right_num_old + written_amount);
 
-                    const last_idx: u32 = inlined_num_right_old + written_amount - 1;
-                    pir.assign[right_idx].inlined.in[inlined_idx] = last_idx;
+                    const last_idx: u32 = inlined_right_num_old + written_amount - 1;
+                    inlined_right.in[inlined_idx] = last_idx;
                     var inlined_left_idx: u32 = 0;
                     while (inlined_left_idx < pir.assign[left_idx].inlined.num) : (inlined_left_idx += 1) {
-                        pir.assign[right_idx].inlined.base[inlined_num_right_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
-                        pir.assign[right_idx].inlined.out[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_num_right_old else null;
-                        pir.assign[right_idx].inlined.in[inlined_num_right_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_num_right_old else null;
+                        inlined_right.base[inlined_right_num_old + inlined_left_idx] = pir.assign[left_idx].inlined.base[inlined_left_idx];
+                        inlined_right.out[inlined_right_num_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.out[inlined_left_idx]) |out| out + inlined_right_num_old else null;
+                        inlined_right.in[inlined_right_num_old + inlined_left_idx] = if (pir.assign[left_idx].inlined.in[inlined_left_idx]) |in| in + inlined_right_num_old else null;
                     }
-                    pir.assign[right_idx].inlined.out[last_idx] = if (pir.assign[left_idx].inlined.out_root) |out| out + inlined_num_right_old else null;
-                    pir.assign[right_idx].inlined.in[last_idx] = if (pir.assign[left_idx].inlined.in_root) |in| in + inlined_num_right_old else null;
-                    pir.assign[right_idx].inlined.base[last_idx] = pir.assign[left_idx].base;
+                    inlined_right.out[last_idx] = if (pir.assign[left_idx].inlined.out_root) |out| out + inlined_right_num_old else null;
+                    inlined_right.in[last_idx] = if (pir.assign[left_idx].inlined.in_root) |in| in + inlined_right_num_old else null;
+                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
                 }
             }
-            pir.assign[right_idx].inlined.num += written_amount;
+            inlined_right.num += written_amount;
 
             if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].base.out.id and
                 pir.assign[left_idx].base.out.overlaps(pir.assign[right_idx].base.out))
@@ -872,7 +875,14 @@ fn dimInfoMerge(left: *Assign, right: Assign) void {
         left_base.repeats += right_base.repeats;
     }
 }
-fn dimInfoOverlap(left: Buffer, left_dim: DimInfo, left_repeats: u32, right: Buffer, right_dim: DimInfo, right_repeats: u32) bool {
+fn dimInfoOverlap(
+    left: Buffer,
+    left_dim: DimInfo,
+    left_repeats: u32,
+    right: Buffer,
+    right_dim: DimInfo,
+    right_repeats: u32,
+) bool {
     var left_idx: u32 = 0;
     while (left_idx < left_repeats) : (left_idx += 1) {
         const a_1: u32 = left.aOffset() + blk: {
@@ -999,21 +1009,26 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
         while (search_idx < pir.assign_num) : (search_idx += 1) {
             // I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
             // At the very least it is not obvious to me how to loosen them.
-            const overlap_out_out: bool = pir.assign[start_idx].base.out.id == pir.assign[search_idx].base.out.id and
-                dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
-                    pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
-            const overlap_out_in: bool = pir.assign[start_idx].base.out.id == pir.assign[search_idx].base.in.id and
-                dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
-                    pir.assign[search_idx].base.in, pir.assign[search_idx].base.in_dim, pir.assign[search_idx].base.repeats);
-            const overlap_in_out: bool = pir.assign[start_idx].base.in.id == pir.assign[search_idx].base.out.id and
-                dimInfoOverlap(pir.assign[start_idx].base.in, pir.assign[start_idx].base.in_dim, pir.assign[start_idx].base.repeats, //
-                    pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
+
+            const base_search: Base = pir.assign[search_idx].base;
+            const base_start: Base = pir.assign[start_idx].base;
+
+            const overlap_out_out: bool = base_start.out.id == base_search.out.id and
+                dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
+                    base_search.out, base_search.out_dim, base_search.repeats);
+            const overlap_out_in: bool = base_start.out.id == base_search.in.id and
+                dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
+                    base_search.in, base_search.in_dim, base_search.repeats);
+            const overlap_in_out: bool = base_start.in.id == base_search.out.id and
+                dimInfoOverlap(base_start.in, base_start.in_dim, base_start.repeats, //
+                    base_search.out, base_search.out_dim, base_search.repeats);
             const overlap_inline: bool = blk: {
                 var inlined_idx: u32 = 0;
                 while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
-                    if (pir.assign[start_idx].base.out.id == pir.assign[search_idx].inlined.base[inlined_idx].in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
-                        dimInfoOverlap(pir.assign[start_idx].base.out, pir.assign[start_idx].base.out_dim, pir.assign[start_idx].base.repeats, //
-                            pir.assign[search_idx].inlined.base[inlined_idx].in, pir.assign[search_idx].inlined.base[inlined_idx].in_dim, pir.assign[search_idx].inlined.base[inlined_idx].repeats))
+                    const base_inlined: Base = pir.assign[search_idx].inlined.base[inlined_idx];
+                    if (base_start.out.id == base_inlined.in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
+                        dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
+                            base_inlined.in, base_inlined.in_dim, base_inlined.repeats))
                     {
                         break :blk true;
                     }
@@ -1029,28 +1044,33 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
                 while (back_idx < search_idx - start_idx) : (back_idx += 1) {
                     const search_back_idx: u32 = search_idx - back_idx;
 
-                    const overlap_out_out_back: bool = pir.assign[search_back_idx].base.out.id == pir.assign[search_idx].base.out.id and
-                        dimInfoOverlap(pir.assign[search_back_idx].base.out, pir.assign[search_back_idx].base.out_dim, pir.assign[search_back_idx].base.repeats, //
-                            pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
-                    const overlap_out_in_back: bool = pir.assign[search_back_idx].base.out.id == pir.assign[search_idx].base.in.id and
-                        dimInfoOverlap(pir.assign[search_back_idx].base.out, pir.assign[search_back_idx].base.out_dim, pir.assign[search_back_idx].base.repeats, //
-                            pir.assign[search_idx].base.in, pir.assign[search_idx].base.in_dim, pir.assign[search_idx].base.repeats);
-                    const overlap_in_out_back: bool = pir.assign[search_back_idx].base.in.id == pir.assign[search_idx].base.out.id and
-                        dimInfoOverlap(pir.assign[search_back_idx].base.in, pir.assign[search_back_idx].base.in_dim, pir.assign[search_back_idx].base.repeats, //
-                            pir.assign[search_idx].base.out, pir.assign[search_idx].base.out_dim, pir.assign[search_idx].base.repeats);
+                    const base_search_back: Base = pir.assign[search_back_idx].base;
+
+                    const overlap_out_out_back: bool = base_search_back.out.id == base_search.out.id and
+                        dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
+                            base_search.out, base_search.out_dim, base_search.repeats);
+                    const overlap_out_in_back: bool = base_search_back.out.id == base_search.in.id and
+                        dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
+                            base_search.in, base_search.in_dim, base_search.repeats);
+                    const overlap_in_out_back: bool = base_search_back.in.id == base_search.out.id and
+                        dimInfoOverlap(base_search_back.in, base_search_back.in_dim, base_search_back.repeats, //
+                            base_search.out, base_search.out_dim, base_search.repeats);
                     const overlap_inline_back: bool = blk: {
                         var inlined_idx: u32 = 0;
                         while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
-                            if (pir.assign[search_back_idx].base.out.id == pir.assign[search_idx].inlined.base[inlined_idx].in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
-                                dimInfoOverlap(pir.assign[search_back_idx].base.out, pir.assign[search_back_idx].base.out_dim, pir.assign[search_back_idx].base.repeats, //
-                                    pir.assign[search_idx].inlined.base[inlined_idx].in, pir.assign[search_idx].inlined.base[inlined_idx].in_dim, pir.assign[search_idx].inlined.base[inlined_idx].repeats))
+                            const base_inlined: Base = pir.assign[search_idx].inlined.base[inlined_idx];
+                            if (base_search_back.out.id == base_inlined.in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
+                                dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
+                                    base_inlined.in, base_inlined.in_dim, base_inlined.repeats))
                             {
                                 break :blk true;
                             }
                         }
                         break :blk false;
                     };
-                    if (overlap_out_out_back or overlap_out_in_back or overlap_in_out_back or overlap_inline_back) {
+                    if (overlap_out_out_back or overlap_out_in_back or
+                        overlap_in_out_back or overlap_inline_back)
+                    {
                         continue :outer;
                     }
                 }
