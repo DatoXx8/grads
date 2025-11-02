@@ -395,12 +395,15 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 break;
             }
             if (base_left.out.equal(base_right.in)) {
-                if (base_right.in.kind == .intermediary) {
-                    inlineable = true;
-                    out_found = true;
-                } else {
-                    inlineable = false;
-                    continue :outer;
+                switch (base_right.in.kind) {
+                    .intermediary => {
+                        inlineable = true;
+                        out_found = true;
+                    },
+                    .normal => {
+                        inlineable = false;
+                        continue :outer;
+                    },
                 }
             }
 
@@ -479,7 +482,11 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
             !pir.assign[right_idx].base.kind.isUnary() and
             pir.assign[right_idx].inlined.in_root == null)
         {
-            if (!(pir.assign[left_idx].base.out.kind == .intermediary)) {
+            const inlined_valid: bool = switch (pir.assign[left_idx].base.out.kind) {
+                .normal => false,
+                .intermediary => true,
+            };
+            if (!inlined_valid) {
                 // This should never be the case I think
                 break;
             }
