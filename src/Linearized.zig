@@ -146,7 +146,7 @@ pub const Op = struct {
             assert(op.out.y_size == 1);
             assert(op.out.x_size == 1);
         } else {
-            unreachable;
+            @panic("");
         }
 
         switch (op.kind) {
