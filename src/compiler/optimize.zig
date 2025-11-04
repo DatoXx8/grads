@@ -11,6 +11,7 @@ const Assign = Pir.Assign;
 const Inlined = Pir.Inlined;
 const Base = Pir.Base;
 const DimInfo = Pir.DimInfo;
+const util = @import("../util.zig");
 
 /// Planned optimization steps
 ///  none
@@ -527,70 +528,129 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
             }
 
             inlined_right.num = inlined_num_right_new;
+
+            const inlined_left_num: u32 = pir.assign[left_idx].inlined.num;
+            const inlined_right_num_start: u32 = inlined_right.num;
+
+            inlined_idx = 0;
+            while (inlined_idx < inlined_right_num_start) : (inlined_idx += 1) {
+                if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].out) and
+                    inlined_right.out[inlined_idx] == null)
+                {
+                    const written_amount = 1 + inlined_left_num;
+
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
+
+                    const last_idx: u32 = inlined_right.num + written_amount - 1;
+                    inlined_right.out[inlined_idx] = last_idx;
+                    var inlined_left_idx: u32 = 0;
+                    while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                        inlined_right.base[inlined_right.num + inlined_left_idx] =
+                            inlined_left.base[inlined_left_idx];
+                        inlined_right.out[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
+                        inlined_right.in[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
+                    }
+                    inlined_right.out[last_idx] =
+                        if (inlined_left.out_root) |out| out + inlined_right.num else null;
+                    inlined_right.in[last_idx] =
+                        if (inlined_left.in_root) |in| in + inlined_right.num else null;
+                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
+                    inlined_right.num += written_amount;
+                } else if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].in) and
+                    inlined_right.in[inlined_idx] == null and !inlined_right.base[inlined_idx].kind.isUnary())
+                {
+                    const written_amount = 1 + inlined_left_num;
+
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
+
+                    const last_idx: u32 = inlined_right.num + written_amount - 1;
+                    inlined_right.in[inlined_idx] = last_idx;
+                    var inlined_left_idx: u32 = 0;
+                    while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                        inlined_right.base[inlined_right.num + inlined_left_idx] =
+                            inlined_left.base[inlined_left_idx];
+                        inlined_right.out[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
+                        inlined_right.in[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
+                    }
+                    inlined_right.out[last_idx] =
+                        if (inlined_left.out_root) |out| out + inlined_right.num else null;
+                    inlined_right.in[last_idx] =
+                        if (inlined_left.in_root) |in| in + inlined_right.num else null;
+                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
+                    inlined_right.num += written_amount;
+                }
+            }
         } else {
             const inlined_left: *Inlined = &pir.assign[left_idx].inlined;
             const inlined_right: *Inlined = &pir.assign[right_idx].inlined;
 
             const inlined_left_num: u32 = pir.assign[left_idx].inlined.num;
-            const inlined_right_num_old: u32 = inlined_right.num;
-
-            var written_amount: u32 = 0;
+            const inlined_right_num_start: u32 = inlined_right.num;
 
             var inlined_idx: u32 = 0;
-            while (inlined_idx < inlined_right_num_old) : (inlined_idx += 1) {
+            while (inlined_idx < inlined_right_num_start) : (inlined_idx += 1) {
                 if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].out) and
                     inlined_right.out[inlined_idx] == null)
                 {
-                    written_amount += 1 + inlined_left_num;
+                    const written_amount = 1 + inlined_left_num;
 
-                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right_num_old + written_amount);
-                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right_num_old + written_amount);
-                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right_num_old + written_amount);
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
 
-                    const last_idx: u32 = inlined_right_num_old + written_amount - 1;
+                    const last_idx: u32 = inlined_right.num + written_amount - 1;
                     inlined_right.out[inlined_idx] = last_idx;
-                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
                     var inlined_left_idx: u32 = 0;
                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-                        inlined_right.base[inlined_right_num_old + inlined_left_idx] =
+                        inlined_right.base[inlined_right.num + inlined_left_idx] =
                             inlined_left.base[inlined_left_idx];
-                        inlined_right.out[inlined_right_num_old + inlined_left_idx] =
-                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right_num_old else null;
-                        inlined_right.in[inlined_right_num_old + inlined_left_idx] =
-                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right_num_old else null;
+                        inlined_right.out[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
+                        inlined_right.in[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
                     }
                     inlined_right.out[last_idx] =
-                        if (inlined_left.out_root) |out| out + inlined_right_num_old else null;
+                        if (inlined_left.out_root) |out| out + inlined_right.num else null;
                     inlined_right.in[last_idx] =
-                        if (inlined_left.in_root) |in| in + inlined_right_num_old else null;
+                        if (inlined_left.in_root) |in| in + inlined_right.num else null;
+                    inlined_right.base[last_idx] = pir.assign[left_idx].base;
+                    inlined_right.num += written_amount;
                 } else if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].in) and
                     inlined_right.in[inlined_idx] == null and !inlined_right.base[inlined_idx].kind.isUnary())
                 {
-                    written_amount += 1 + inlined_left_num;
+                    const written_amount = 1 + inlined_left_num;
 
-                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right_num_old + written_amount);
-                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right_num_old + written_amount);
-                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right_num_old + written_amount);
+                    inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
+                    inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
+                    inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
 
-                    const last_idx: u32 = inlined_right_num_old + written_amount - 1;
+                    const last_idx: u32 = inlined_right.num + written_amount - 1;
                     inlined_right.in[inlined_idx] = last_idx;
                     var inlined_left_idx: u32 = 0;
                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-                        inlined_right.base[inlined_right_num_old + inlined_left_idx] =
+                        inlined_right.base[inlined_right.num + inlined_left_idx] =
                             inlined_left.base[inlined_left_idx];
-                        inlined_right.out[inlined_right_num_old + inlined_left_idx] =
-                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right_num_old else null;
-                        inlined_right.in[inlined_right_num_old + inlined_left_idx] =
-                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right_num_old else null;
+                        inlined_right.out[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
+                        inlined_right.in[inlined_right.num + inlined_left_idx] =
+                            if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
                     }
                     inlined_right.out[last_idx] =
-                        if (inlined_left.out_root) |out| out + inlined_right_num_old else null;
+                        if (inlined_left.out_root) |out| out + inlined_right.num else null;
                     inlined_right.in[last_idx] =
-                        if (inlined_left.in_root) |in| in + inlined_right_num_old else null;
+                        if (inlined_left.in_root) |in| in + inlined_right.num else null;
                     inlined_right.base[last_idx] = pir.assign[left_idx].base;
+                    inlined_right.num += written_amount;
                 }
             }
-            inlined_right.num += written_amount;
 
             if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].base.out.id and
                 pir.assign[left_idx].base.out.overlaps(pir.assign[right_idx].base.out))
