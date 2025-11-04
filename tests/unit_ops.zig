@@ -10,6 +10,7 @@ const Buffer = grads.Buffer;
 const Linearized = grads.Linearized;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
+const util = grads.util;
 
 const AssertError = error{
     nan,
@@ -24,12 +25,12 @@ fn assertEq(val1: f32, val2: f32) !void {
     } else {
         if (std.math.isNan(val1) or std.math.isNan(val2)) {
             // For nicer output formatting
-            std.debug.print("\n", .{});
+            util.log.print("\n", .{});
             std.log.err("Found NaN in equality comparison.\n", .{});
             return AssertError.nan;
         } else {
             // For nicer output formatting
-            std.debug.print("\n", .{});
+            util.log.print("\n", .{});
             std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
             return AssertError.difference;
         }
@@ -81,8 +82,8 @@ pub fn main() !void {
         true => std.crypto.random.int(u64),
         false => rng_saved.?,
     };
-    std.debug.print("unit-ops: rng={}...", .{rng});
-    defer std.debug.print(" passed!\n", .{});
+    util.log.print("unit-ops: rng={}...", .{rng});
+    defer util.log.print(" passed!\n", .{});
     var pcg = Pcg.init(rng);
 
     for (0..a_size * z_size * y_size * x_size) |val_idx| {
@@ -205,7 +206,7 @@ pub fn main() !void {
         // Happy case
     } else {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err(
             \\ Difference in unary_random too large. 
             \\ Because of the randomnes of unary_random this error could happen despite everything working correctly and should only be investigated if it happens when running this test again.

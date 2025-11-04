@@ -11,6 +11,7 @@ const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
+const util = grads.util;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
 const RegressionTest = @import("regression_compiler.zig").RegressionTest;
@@ -33,18 +34,18 @@ const epsilon_relative: f32 = 1e-4;
 fn assertEq(val1: f32, val2: f32) !void {
     if (std.math.isNan(val1) or std.math.isNan(val2)) {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found NaN in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found Inf in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
         return;
     } else {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
         return AssertError.difference;
     }
@@ -127,6 +128,7 @@ fn minifyCompiler(
     depth_max: u32,
     err: anyerror,
 ) !void {
+    util.log.disable();
     assert(buffer_num > 1);
     assert(op_num > 0);
     var op_included: [op_num]bool = @splat(true);
@@ -152,7 +154,8 @@ fn minifyCompiler(
             break;
         }
     }
-    std.debug.print("\n\nMinimal: {any} with depth: {}\n", .{ op_included, depth_max_first_fail });
+    util.log.enable();
+    util.log.print("\n\nMinimal: {any} with depth: {}\n", .{ op_included, depth_max_first_fail });
     var failed: bool = false;
     simulateCompiler(runtime, gpa, op_included, rng, depth_max_first_fail) catch {
         failed = true;
@@ -195,11 +198,11 @@ pub fn main() !void {
             opt_saved = std.fmt.parseInt(u32, arg[offset..], 10) catch null;
 
             if (opt_saved == null) {
-                std.debug.print("Found unrecognized optimization {s}, expected opt=[number]\n", .{parse});
+                util.log.print("Found unrecognized optimization {s}, expected opt=[number]\n", .{parse});
                 @panic("See above error message");
             }
         } else {
-            std.debug.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[number]\n", .{arg});
+            util.log.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[number]\n", .{arg});
             @panic("See above error message");
         }
     }
@@ -220,40 +223,40 @@ pub fn main() !void {
     if (loop_infinite) {
         var loop_idx: u64 = 0;
         while (true) {
-            std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
+            util.log.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
                 simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, gpa, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{d} ", .{opt});
+                util.log.print("{d} ", .{opt});
             } else {
                 for (depth_max) |depth| {
                     simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, depth) catch |err| {
                         try minifyCompiler(runtime, gpa, rng +% loop_idx, depth, err);
                     };
-                    std.debug.print("{d} ", .{depth});
+                    util.log.print("{d} ", .{depth});
                 }
             }
             loop_idx += 1;
-            std.debug.print("passed!\n", .{});
+            util.log.print("passed!\n", .{});
         }
     } else {
         for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
+            util.log.print("{} => simulate_compiler: rng={}... ", .{ loop_idx, rng +% loop_idx });
             if (opt_saved) |opt| {
                 simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, opt) catch |err| {
                     try minifyCompiler(runtime, gpa, rng +% loop_idx, opt, err);
                 };
-                std.debug.print("{d} ", .{opt});
+                util.log.print("{d} ", .{opt});
             } else {
                 for (depth_max) |depth| {
                     simulateCompiler(runtime, gpa, @splat(true), rng +% loop_idx, depth) catch |err| {
                         try minifyCompiler(runtime, gpa, rng +% loop_idx, depth, err);
                     };
-                    std.debug.print("{d} ", .{depth});
+                    util.log.print("{d} ", .{depth});
                 }
             }
-            std.debug.print("passed!\n", .{});
+            util.log.print("passed!\n", .{});
         }
     }
 }

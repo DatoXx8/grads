@@ -8,3 +8,4 @@ pub const RuntimeNoop = Runtime.RuntimeNoop;
 pub const Buffer = @import("Buffer.zig");
 pub const Linearized = @import("Linearized.zig");
 pub const Op = Linearized.Op;
+pub const util = @import("util.zig");

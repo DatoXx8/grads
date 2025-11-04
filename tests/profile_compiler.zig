@@ -10,6 +10,7 @@ const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
+const util = grads.util;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
 const a_size_max = @import("random_linearized.zig").a_size_max;
@@ -31,18 +32,18 @@ const epsilon_relative: f32 = 1e-4;
 fn assertEq(val1: f32, val2: f32) !void {
     if (std.math.isNan(val1) or std.math.isNan(val2)) {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found NaN in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found Inf in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
         return;
     } else {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
         return AssertError.difference;
     }
@@ -67,26 +68,26 @@ fn analyseTimes(ns_times: [iterations]i128, name: []const u8) void {
     const ns_variance: u128 = std.math.sqrt(@as(u128, @intCast(@divFloor(ns_square_sum, iterations))));
 
     if (ns_mean < 1_000) {
-        std.debug.print("Time: {d:8.4}ns +- {d:8.4}ns", .{ ns_mean, ns_variance });
+        util.log.print("Time: {d:8.4}ns +- {d:8.4}ns", .{ ns_mean, ns_variance });
     } else if (ns_mean < 1_000_000) {
         const us_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000;
         const us_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000;
-        std.debug.print("Time: {d:8.4}us +- {d:8.4}us", .{ us_mean, us_variance });
+        util.log.print("Time: {d:8.4}us +- {d:8.4}us", .{ us_mean, us_variance });
     } else if (ns_mean < 1_000_000_000) {
         const ms_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000;
         const ms_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000;
-        std.debug.print("Time: {d:8.4}ms +- {d:8.4}ms", .{ ms_mean, ms_variance });
+        util.log.print("Time: {d:8.4}ms +- {d:8.4}ms", .{ ms_mean, ms_variance });
     } else {
         const s_mean: f64 = @as(f64, @floatFromInt(ns_mean)) / 1_000_000_000;
         const s_variance: f64 = @as(f64, @floatFromInt(ns_variance)) / 1_000_000_000;
-        std.debug.print("Time: {d:8.4} s +- {d:8.4} s", .{ s_mean, s_variance });
+        util.log.print("Time: {d:8.4} s +- {d:8.4} s", .{ s_mean, s_variance });
     }
-    std.debug.print(" {s}\n", .{name});
+    util.log.print(" {s}\n", .{name});
 }
 
 // $WARN This does **not** check for correctness, for that use `zig build test-compiler`. I know that sucks, and I plan to change that, but for now that is how it is.
 fn profileCompiler(runtime: Runtime, gpa: Allocator, rng: u64) !void {
-    std.debug.print("profile_compiler: rng={}...\n", .{rng});
+    util.log.print("profile_compiler: rng={}...\n", .{rng});
 
     var pcg = Pcg.init(rng);
 

@@ -5,6 +5,7 @@ const Allocator = std.mem.Allocator;
 const Program = @import("compiler/Program.zig");
 const Memory = Program.Memory;
 const Runtime = @import("compiler/runtimes/Runtime.zig");
+const util = @import("util.zig");
 
 /// 4 is probably already enough. 26 ^ 4 = 456.976
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
@@ -219,9 +220,9 @@ pub fn moveOffset(buffer: *Buffer, a: u32, z: u32, y: u32, x: u32) void {
 }
 pub fn print(buffer: Buffer, padding: comptime_int, offset: comptime_int, desc: ?[]const u8) void {
     if (desc) |text| {
-        std.debug.print("{s}Buffer {s} = {s}\n", .{ " " ** offset, buffer.name(), text });
+        util.log.print("{s}Buffer {s} = {s}\n", .{ " " ** offset, buffer.name(), text });
     } else {
-        std.debug.print("{s}Buffer {s}\n", .{ " " ** offset, buffer.name() });
+        util.log.print("{s}Buffer {s}\n", .{ " " ** offset, buffer.name() });
     }
     var a: u32 = 0;
     while (a < buffer.a_size) : (a += 1) {
@@ -229,19 +230,19 @@ pub fn print(buffer: Buffer, padding: comptime_int, offset: comptime_int, desc: 
         while (z < buffer.z_size) : (z += 1) {
             var y: u32 = 0;
             while (y < buffer.y_size) : (y += 1) {
-                std.debug.print("{s}[", .{" " ** (offset + padding)});
+                util.log.print("{s}[", .{" " ** (offset + padding)});
                 var x: u32 = 0;
                 while (x < buffer.x_size) : (x += 1) {
-                    std.debug.print(" {d:8.4}", .{buffer.values[buffer.at(a, z, y, x)]});
+                    util.log.print(" {d:8.4}", .{buffer.values[buffer.at(a, z, y, x)]});
                 }
-                std.debug.print("]\n", .{});
+                util.log.print("]\n", .{});
             }
             if (z != buffer.z_size - 1) {
-                std.debug.print("\n", .{});
+                util.log.print("\n", .{});
             }
         }
         if (a != buffer.a_size - 1) {
-            std.debug.print("\n", .{});
+            util.log.print("\n", .{});
         }
     }
 }

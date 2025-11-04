@@ -12,6 +12,7 @@ const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
+const util = grads.util;
 
 /// Margin of error
 const epsilon: f32 = 1e-6;
@@ -20,18 +21,18 @@ const epsilon_relative: f32 = 1e-4;
 fn checkEq(val1: f32, val2: f32) bool {
     if (std.math.isNan(val1) or std.math.isNan(val2)) {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found NaN in equality comparison.\n", .{});
         return false;
     } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found Inf in equality comparison.\n", .{});
         return false;
     } else if (std.math.approxEqAbs(f32, val1, val2, epsilon) or std.math.approxEqRel(f32, val1, val2, epsilon_relative)) {
         return true;
     } else {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
         return false;
     }
@@ -319,30 +320,30 @@ pub const RegressionTest = struct {
     }
     pub fn print(reg_test: RegressionTest) void {
         const tab: []const u8 = "    ";
-        std.debug.print("const reg_test: RegressionTest = .{{\n", .{});
-        std.debug.print(tab ++ ".depth_max = {},\n", .{reg_test.depth_max});
-        std.debug.print(tab ++ ".a = {},\n", .{reg_test.a});
-        std.debug.print(tab ++ ".z = {},\n", .{reg_test.z});
-        std.debug.print(tab ++ ".y = {},\n", .{reg_test.y});
-        std.debug.print(tab ++ ".x = {},\n", .{reg_test.x});
-        std.debug.print(tab ++ ".size_global = {},\n", .{reg_test.size_global});
-        std.debug.print(tab ++ ".size_local = {},\n", .{reg_test.size_local});
-        std.debug.print(tab ++ ".rng_value = {},\n", .{reg_test.rng_value});
-        std.debug.print(tab ++ ".simple_linearized = .{{\n", .{});
-        std.debug.print(tab ++ tab ++ ".num = {},\n", .{reg_test.simple_linearized.num});
-        std.debug.print(tab ++ tab ++ ".simple_op = &.{{\n", .{});
+        util.log.print("const reg_test: RegressionTest = .{{\n", .{});
+        util.log.print(tab ++ ".depth_max = {},\n", .{reg_test.depth_max});
+        util.log.print(tab ++ ".a = {},\n", .{reg_test.a});
+        util.log.print(tab ++ ".z = {},\n", .{reg_test.z});
+        util.log.print(tab ++ ".y = {},\n", .{reg_test.y});
+        util.log.print(tab ++ ".x = {},\n", .{reg_test.x});
+        util.log.print(tab ++ ".size_global = {},\n", .{reg_test.size_global});
+        util.log.print(tab ++ ".size_local = {},\n", .{reg_test.size_local});
+        util.log.print(tab ++ ".rng_value = {},\n", .{reg_test.rng_value});
+        util.log.print(tab ++ ".simple_linearized = .{{\n", .{});
+        util.log.print(tab ++ tab ++ ".num = {},\n", .{reg_test.simple_linearized.num});
+        util.log.print(tab ++ tab ++ ".simple_op = &.{{\n", .{});
         var op_idx: u32 = 0;
         while (op_idx < reg_test.simple_linearized.num) : (op_idx += 1) {
             const simple_op: SimpleLinearized.SimpleOp = reg_test.simple_linearized.simple_op[op_idx];
-            std.debug.print(tab ++ tab ++ tab ++ ".{{\n", .{});
-            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".kind = .{s},\n", .{@tagName(simple_op.kind)});
-            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".u_var = {d},\n", .{simple_op.u_var});
-            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".out = {any},\n", .{simple_op.out});
-            std.debug.print(tab ++ tab ++ tab ++ tab ++ ".in = {any},\n", .{simple_op.in});
-            std.debug.print(tab ++ tab ++ tab ++ "}},\n", .{});
+            util.log.print(tab ++ tab ++ tab ++ ".{{\n", .{});
+            util.log.print(tab ++ tab ++ tab ++ tab ++ ".kind = .{s},\n", .{@tagName(simple_op.kind)});
+            util.log.print(tab ++ tab ++ tab ++ tab ++ ".u_var = {d},\n", .{simple_op.u_var});
+            util.log.print(tab ++ tab ++ tab ++ tab ++ ".out = {any},\n", .{simple_op.out});
+            util.log.print(tab ++ tab ++ tab ++ tab ++ ".in = {any},\n", .{simple_op.in});
+            util.log.print(tab ++ tab ++ tab ++ "}},\n", .{});
         }
-        std.debug.print(tab ++ tab ++ "}},\n", .{});
-        std.debug.print(tab ++ "}},\n", .{});
-        std.debug.print("}};\n", .{});
+        util.log.print(tab ++ tab ++ "}},\n", .{});
+        util.log.print(tab ++ "}},\n", .{});
+        util.log.print("}};\n", .{});
     }
 };

@@ -8,7 +8,7 @@ const Runtime = @import("compiler/runtimes/Runtime.zig");
 const Linearized = @import("Linearized.zig");
 const Op = Linearized.Op;
 const Buffer = @import("Buffer.zig");
-const todo = @import("util.zig").todo;
+const util = @import("util.zig");
 
 pub const Activation = struct {
     pub const Kind = enum(u8) {
@@ -111,13 +111,13 @@ pub const Activation = struct {
                 linearized.binaryMultiply(values_g, activation.temp);
             },
             .relu_leaky => {
-                todo(@src());
+                util.todo(@src());
             },
             .silu => {
-                todo(@src());
+                util.todo(@src());
             },
             .gelu => {
-                todo(@src());
+                util.todo(@src());
             },
             .tanh => {
                 linearized.binarySet(activation.temp, values);
@@ -239,11 +239,11 @@ pub const Dense = struct {
     }
     pub fn print(dense: Dense, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Dense {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Dense {s}\n", .{ " " ** offset, text });
         } else {
-            std.debug.print("{s}Dense\n", .{" " ** offset});
+            util.log.print("{s}Dense\n", .{" " ** offset});
         }
-        std.debug.print("{s}In {}, Out {}\n", //
+        util.log.print("{s}In {}, Out {}\n", //
             .{ " " ** (offset + padding), dense.size_in, dense.size_out });
     }
     pub fn debug(dense: Dense, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -457,11 +457,11 @@ pub const Convolution = struct {
     }
     pub fn print(convolution: Convolution, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Convolution {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Convolution {s}\n", .{ " " ** offset, text });
         } else {
-            std.debug.print("{s}Convolution\n", .{" " ** offset});
+            util.log.print("{s}Convolution\n", .{" " ** offset});
         }
-        std.debug.print("{s}In (1, {}, {}, {}), Size {}, Stride {}, Padding {}\n", .{
+        util.log.print("{s}In (1, {}, {}, {}), Size {}, Stride {}, Padding {}\n", .{
             " " ** (offset + padding), //
             convolution.z_in,        convolution.y_in,          convolution.x_in, //
             convolution.kernel_size, convolution.kernel_stride, convolution.kernel_padding,
@@ -551,7 +551,7 @@ pub const Reduce = struct {
         assert(out_g.z_size == in_g.z_size);
         assert(out_g.y_size == sizeNew(in_g.y_size, reduce.kernel_size, reduce.kernel_stride));
         assert(out_g.x_size == sizeNew(in_g.x_size, reduce.kernel_size, reduce.kernel_stride));
-        if (reduce.t != .sum) todo(@src());
+        if (reduce.t != .sum) util.todo(@src());
 
         in_g.moveResize(1, 1, reduce.kernel_size, reduce.kernel_size);
         out_g.moveResize(1, 1, 1, 1);
@@ -579,11 +579,11 @@ pub const Reduce = struct {
     }
     pub fn print(reduce: Reduce, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
-            std.debug.print("{s}Reduce\n", .{" " ** offset});
+            util.log.print("{s}Reduce\n", .{" " ** offset});
         }
-        std.debug.print("{s}In (1, {}, {}, {}), Size {}, Stride {}\n", .{
+        util.log.print("{s}In (1, {}, {}, {}), Size {}, Stride {}\n", .{
             " " ** (offset + padding), //
             reduce.z_in,        reduce.y_in,          reduce.x_in, //
             reduce.kernel_size, reduce.kernel_stride,
@@ -699,11 +699,11 @@ pub const Split = struct {
     }
     pub fn print(split: Split, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
-            std.debug.print("{s}Reduce\n", .{" " ** offset});
+            util.log.print("{s}Reduce\n", .{" " ** offset});
         }
-        std.debug.print("{s}In (1, {}, {}, {}), filters {}\n", .{
+        util.log.print("{s}In (1, {}, {}, {}), filters {}\n", .{
             " " ** (offset + padding),
             split.z_in,
             split.y_in,
@@ -746,11 +746,11 @@ pub const Residual = struct {
     }
     pub fn print(residual: Residual, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Reduce {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Reduce {s}\n", .{ " " ** offset, text });
         } else {
-            std.debug.print("{s}Reduce\n", .{" " ** offset});
+            util.log.print("{s}Reduce\n", .{" " ** offset});
         }
-        std.debug.print("{s}In \"{s}\", Out \"{s}\"\n", .{
+        util.log.print("{s}In \"{s}\", Out \"{s}\"\n", .{
             " " ** (offset + padding), //
             residual.in.buffer.name(), residual.out.buffer.name(), //
         });

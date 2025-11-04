@@ -10,6 +10,7 @@ const Buffer = grads.Buffer;
 const OpKind = grads.Op.Kind;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
+const util = grads.util;
 
 const AssertError = error{
     nan,
@@ -22,18 +23,18 @@ const epsilon: f32 = 1e-9;
 fn assertEq(val1: f32, val2: f32) !void {
     if (std.math.isNan(val1) or std.math.isNan(val2)) {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found NaN in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.isInf(val1) or std.math.isInf(val2)) {
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Found Inf in equality comparison.\n", .{});
         return AssertError.nan;
     } else if (std.math.approxEqAbs(f32, val1, val2, epsilon)) {
         return;
     } else {
         // For nicer output formatting
-        std.debug.print("\n", .{});
+        util.log.print("\n", .{});
         std.log.err("Difference between {d} and {d} is too large.\n", .{ val1, val2 });
         return AssertError.difference;
     }
@@ -80,7 +81,7 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     }
 
     var pcg = Pcg.init(rng);
-    std.debug.print("simulate_compiler: rng={}...", .{rng});
+    util.log.print("simulate_compiler: rng={}...", .{rng});
 
     for (0..buffer_num) |buffer_idx| {
         for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
@@ -393,7 +394,7 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
             try assertEq(buffer1[buffer_idx].values[arg_idx], buffer2[buffer_idx].values[arg_idx]);
         }
     }
-    std.debug.print(" passed!\n", .{});
+    util.log.print(" passed!\n", .{});
 }
 
 fn minifyLinearized(gpa: Allocator, rng: u64, err: anyerror) !void {
@@ -452,7 +453,7 @@ pub fn main() !void {
     if (loop_infinite) {
         var loop_idx: u64 = 0;
         while (true) {
-            std.debug.print("{} => ", .{loop_idx});
+            util.log.print("{} => ", .{loop_idx});
             simulateLinearized(gpa, @splat(true), rng +% loop_idx) catch |err| {
                 try minifyLinearized(gpa, rng +% loop_idx, err);
             };
@@ -460,7 +461,7 @@ pub fn main() !void {
         }
     } else {
         for (0..loop_count) |loop_idx| {
-            std.debug.print("{} => ", .{loop_idx});
+            util.log.print("{} => ", .{loop_idx});
             simulateLinearized(gpa, @splat(true), rng +% loop_idx) catch |err| {
                 try minifyLinearized(gpa, rng +% loop_idx, err);
             };

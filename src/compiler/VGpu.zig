@@ -6,7 +6,6 @@
 const std = @import("std");
 
 const util = @import("../util.zig");
-const todo = util.todo;
 const Buffer = @import("../Buffer.zig");
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
@@ -77,10 +76,10 @@ pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u6
             return cost;
         },
         .medium => {
-            todo(@src());
+            util.todo(@src());
         },
         .complex => {
-            todo(@src());
+            util.todo(@src());
         },
     }
 }

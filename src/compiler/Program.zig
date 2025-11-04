@@ -9,6 +9,7 @@ const Optimization = opt.Optimization;
 const Runtime = @import("runtimes/Runtime.zig");
 const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
+const util = @import("../util.zig");
 
 pub const Memory = *anyopaque;
 pub const Args = struct {
@@ -115,6 +116,7 @@ pub fn alloc(
     } else {
         @branchHint(.likely);
         const pir: Pir = try Pir.alloc(arena_temp, linearized, depth_max, size_global, size_local);
+        pir.print(4, 0, null);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));
@@ -153,6 +155,8 @@ pub fn alloc(
             kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
                 kernel_name[0..kernel_name_len], kernel[kernel_idx].args);
         }
+
+        util.log.print("{s}\n", .{source.items});
 
         return .{
             .kernel = kernel,

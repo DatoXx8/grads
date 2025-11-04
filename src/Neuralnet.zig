@@ -16,7 +16,7 @@ const Program = @import("compiler/Program.zig");
 const Linearized = @import("Linearized.zig");
 const Op = Linearized.Op;
 const Buffer = @import("Buffer.zig");
-const todo = @import("util.zig").todo;
+const util = @import("util.zig");
 
 pub const Neuralnet = @This();
 arena: ArenaAllocator,
@@ -158,7 +158,7 @@ pub fn alloc(
             .reduce => |*r| r.forward(&forward_cpu, &values_prev, &layer[layer_idx].values),
             .split => |*s| s.forward(&forward_cpu, values_prev, &layer[layer_idx].values),
             // .residual => |*r| r.forward(&layer[r.in_layer].values, &layer[layer_idx].values),
-            .residual => todo(@src()),
+            .residual => util.todo(@src()),
         }
         layer[layer_idx].activation.forward(&forward_cpu, layer[layer_idx].values);
         values_prev = layer[layer_idx].values;
@@ -186,7 +186,7 @@ pub fn alloc(
             .reduce => |*r| r.backward(&backward_cpu, &values_g_next, &layer[layer_idx].values_g),
             .split => |*s| s.backward(&backward_cpu, values_next, values_g_next, &layer[layer_idx].values_g),
             // .residual => |r| r.backward(&layer[r.in_layer].values_g, &layer[layer_idx].values_g),
-            .residual => todo(@src()),
+            .residual => util.todo(@src()),
         }
         values_g_next = if (layer_idx == 0) in_g else layer[layer_idx - 1].values_g;
         values_next = if (layer_idx == 0) in else layer[layer_idx - 1].values;
@@ -697,13 +697,13 @@ pub fn readArch(gpa: Allocator, file_arch_name: []const u8) !struct {
 }
 pub fn print(neuralnet: Neuralnet, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
-        std.debug.print("{s}Neuralnet {s}\n", .{ " " ** offset, text });
+        util.log.print("{s}Neuralnet {s}\n", .{ " " ** offset, text });
     } else {
-        std.debug.print("{s}Neuralnet\n", .{" " ** offset});
+        util.log.print("{s}Neuralnet\n", .{" " ** offset});
     }
-    std.debug.print("{s}Layers:\n", .{" " ** (offset + padding)});
+    util.log.print("{s}Layers:\n", .{" " ** (offset + padding)});
     for (neuralnet.layer, 0..) |*layer, layer_idx| {
-        std.debug.print("{s}[{}] ->\n", .{ " " ** (offset + 2 * padding), layer_idx });
+        util.log.print("{s}[{}] ->\n", .{ " " ** (offset + 2 * padding), layer_idx });
         switch (layer.tag) {
             .dense => |d| d.print(padding, offset + 2 * padding, null),
             .convolution => |c| c.print(padding, offset + 2 * padding, null),

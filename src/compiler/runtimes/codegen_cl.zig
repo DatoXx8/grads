@@ -16,7 +16,7 @@ const buffer_name_size = Buffer.buffer_name_size;
 const nameFromId = Buffer.nameFromId;
 const Linearized = @import("../../Linearized.zig");
 const Op = Linearized.Op;
-const todo = @import("../../util.zig").todo;
+const util = @import("../../util.zig");
 const Runtime = @import("Runtime.zig");
 const RuntimeCl = Runtime.RuntimeCl;
 
@@ -123,7 +123,7 @@ fn writeAssignPrefix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocat
             try writeSource(gpa, source, "fmin(", .{});
         },
         .unary_random => {
-            todo(@src());
+            util.todo(@src());
         },
         .unary_tanh => {
             try writeSource(gpa, source, "tanh(", .{});
@@ -132,7 +132,7 @@ fn writeAssignPrefix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocat
             try writeSource(gpa, source, "fabs(", .{});
         },
         .unary_sign => {
-            todo(@src());
+            util.todo(@src());
         },
     }
 }
@@ -187,10 +187,10 @@ fn writeAssignMidfix(gpa: Allocator, source: *ArrayList(u8), base: Base) Allocat
             try writeSource(gpa, source, ",", .{});
         },
         .unary_random => {
-            todo(@src());
+            util.todo(@src());
         },
         .unary_sign => {
-            todo(@src());
+            util.todo(@src());
         },
     }
 }

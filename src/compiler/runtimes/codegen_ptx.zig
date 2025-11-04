@@ -8,7 +8,7 @@ const buffer_name_size = Buffer.buffer_name_size;
 const nameFromId = Buffer.nameFromId;
 const Linearized = @import("../../Linearized.zig");
 const Op = Linearized.Op;
-const todo = @import("../../util.zig").todo;
+const util = @import("../../util.zig");
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;
 const Base = Pir.Base;
@@ -294,7 +294,7 @@ pub fn assignCompile(
     writeSource(source, offset, ")\n{{\n", .{});
 
     // $FIXME reserve registers
-    todo(@src());
+    util.todo(@src());
 
     writeSource(source, offset, register_global_id_calculation, .{});
 

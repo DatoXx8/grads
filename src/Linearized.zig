@@ -7,6 +7,7 @@ const Buffer = @import("Buffer.zig");
 const Program = @import("compiler/Program.zig");
 const Memory = Program.Memory;
 const Runtime = @import("compiler/runtimes/Runtime.zig");
+const util = @import("util.zig");
 
 pub const Linearized = @This();
 
@@ -352,12 +353,12 @@ pub const Op = struct {
     }
     pub fn print(op: Op, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}{s} ", .{ " " ** (padding + offset), text });
+            util.log.print("{s}{s} ", .{ " " ** (padding + offset), text });
         } else {
-            std.debug.print("{s}", .{" " ** (padding + offset)});
+            util.log.print("{s}", .{" " ** (padding + offset)});
         }
         if (op.kind.isUnary()) {
-            std.debug.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
+            util.log.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
                 switch (op.kind) {
                     .unary_add => "add",
                     .unary_subtract => "sub",
@@ -397,7 +398,7 @@ pub const Op = struct {
                     'E'
                 else
                     'R');
-            std.debug.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
+            util.log.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
                 op_kind,
                 switch (op.kind) {
                     .binary_add => "add",
@@ -491,15 +492,15 @@ pub fn concat(linearized: *Linearized, source: *Linearized) void {
 }
 pub fn print(linearized: Linearized, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
-        std.debug.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
+        util.log.print("{s}Linearized = {s}\n", .{ " " ** offset, text });
     } else {
-        std.debug.print("{s}Linearized\n", .{" " ** offset});
+        util.log.print("{s}Linearized\n", .{" " ** offset});
     }
     if (linearized.num == 0) {
-        std.debug.print("{s}[] => empty\n", .{" " ** (offset + padding)});
+        util.log.print("{s}[] => empty\n", .{" " ** (offset + padding)});
     } else {
         for (0..linearized.num) |op_idx| {
-            std.debug.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
+            util.log.print("{s}[{}] => ", .{ " " ** (offset + padding), op_idx });
             linearized.op[op_idx].print(0, 0, null);
         }
     }

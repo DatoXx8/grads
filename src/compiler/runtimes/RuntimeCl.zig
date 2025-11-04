@@ -15,6 +15,7 @@ const ProgramPtr = Program.ProgramPtr;
 const Memory = Program.Memory;
 const Args = Program.Args;
 const Sync = Program.Sync;
+const util = @import("../../util.zig");
 
 // const opencl_version = @import("opencl_config").opencl_version;
 
@@ -148,7 +149,7 @@ pub fn programAlloc(runtime_cl: *anyopaque, source: []const u8) Error!ProgramPtr
         return @ptrCast(program_ptr);
     } else {
         @branchHint(.cold);
-        std.debug.print("{s}\n", .{source});
+        util.log.print("{s}\n", .{source});
         return Error.ProgramAlloc;
     }
 }
@@ -160,7 +161,7 @@ pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args
     const kernel: opencl.cl_kernel = opencl.clCreateKernel(@ptrCast(program), name, &err);
     if (err != 0) {
         @branchHint(.cold);
-        std.debug.print("{}\n", .{err});
+        util.log.print("{}\n", .{err});
         return Error.KernelAlloc;
     }
     for (0..args.arg_num) |arg_idx| {

@@ -11,3 +11,19 @@ pub fn todo(src: std.builtin.SourceLocation) noreturn {
     std.log.err("Reached `todo` in {s}:{}:{} in function {s}\n", .{ src.file, src.line, src.column, src.fn_name });
     @panic("");
 }
+
+/// Only supports single threaded mode
+pub const log = struct {
+    var enabled: bool = true;
+    pub fn enable() void {
+        enabled = true;
+    }
+    pub fn disable() void {
+        enabled = false;
+    }
+    pub fn print(comptime fmt: []const u8, args: anytype) void {
+        if (enabled) {
+            std.debug.print(fmt, args);
+        }
+    }
+};

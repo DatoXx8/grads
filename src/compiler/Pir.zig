@@ -8,6 +8,7 @@ const Op = Linearized.Op;
 const Buffer = @import("../Buffer.zig");
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
+const util = @import("../util.zig");
 
 const VGpu = @import("VGpu.zig");
 
@@ -58,17 +59,17 @@ pub const DimInfo = struct {
     }
     pub fn print(dim_info: DimInfo, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
+            util.log.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
         }
-        std.debug.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
+        util.log.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             dim_info.a_stride, dim_info.z_stride, dim_info.y_stride, dim_info.x_stride, //
         });
-        std.debug.print("{s}res => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
+        util.log.print("{s}res => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             dim_info.a_reset, dim_info.z_reset, dim_info.y_reset, dim_info.x_reset, //
         });
-        std.debug.print("{s}wai => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
+        util.log.print("{s}wai => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
             dim_info.a_wait, dim_info.z_wait, dim_info.y_wait, dim_info.x_wait, //
         });
@@ -94,10 +95,10 @@ pub const Base = struct {
     }
     pub fn print(base: Base, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Base {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
         if (base.kind.isUnary()) {
-            std.debug.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" {d}\n", .{
+            util.log.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\" {d}\n", .{
                 " " ** (offset + padding),
                 switch (base.kind) {
                     .unary_add => "add",
@@ -127,13 +128,13 @@ pub const Base = struct {
                 base.out.yOffset(),
                 base.out.xOffset(),
                 base.out.offset,
-                base.out.intermediary,
+                @tagName(base.out.kind),
                 base.out.name(),
                 base.u_var,
             });
         } else {
             const op_kind: u8 = if (base.kind.isBinary()) 'B' else (if (base.kind.isExpand()) 'E' else (if (base.kind.isReduce()) 'R' else unreachable));
-            std.debug.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] {} \"{s}\"\n", .{
+            util.log.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\"\n", .{
                 " " ** (offset + padding),
                 op_kind,
                 switch (base.kind) {
@@ -166,7 +167,7 @@ pub const Base = struct {
                 base.out.yOffset(),
                 base.out.xOffset(),
                 base.out.offset,
-                base.out.intermediary,
+                @tagName(base.out.kind),
                 base.out.name(),
                 base.in.a_size,
                 base.in.z_size,
@@ -177,11 +178,11 @@ pub const Base = struct {
                 base.in.yOffset(),
                 base.in.xOffset(),
                 base.in.offset,
-                base.in.intermediary,
+                @tagName(base.in.kind),
                 base.in.name(),
             });
         }
-        std.debug.print("{s}Repeats {}\n", .{ " " ** (offset + padding), base.repeats });
+        util.log.print("{s}Repeats {}\n", .{ " " ** (offset + padding), base.repeats });
         base.out_dim.print(padding, padding + offset, "out_dim");
         base.in_dim.print(padding, padding + offset, "in_dim");
     }
@@ -253,20 +254,20 @@ pub const Assign = struct {
     simd: ?Simd,
     pub fn print(assign: Assign, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
-            std.debug.print("{s}Assign {s}\n", .{ " " ** offset, text });
+            util.log.print("{s}Assign {s}\n", .{ " " ** offset, text });
         }
         assign.base.print(padding, offset, null);
 
         if (assign.inlined.num > 0) {
-            std.debug.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
+            util.log.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
                 .{ " " ** (offset + padding), assign.inlined.out_root, assign.inlined.in_root, assign.inlined.num });
             for (0..assign.inlined.num) |inlined_idx| {
-                std.debug.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, assign.inlined.out[inlined_idx], assign.inlined.in[inlined_idx] });
+                util.log.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, assign.inlined.out[inlined_idx], assign.inlined.in[inlined_idx] });
                 assign.inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
         if (assign.split) {
-            std.debug.print("{s}Splitting\n", .{" " ** (offset + padding)});
+            util.log.print("{s}Splitting\n", .{" " ** (offset + padding)});
         }
         if (assign.block) |block| {
             _ = block;
@@ -593,12 +594,12 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
 }
 pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
-        std.debug.print("{s}PIR {s}\n", .{ " " ** offset, text });
+        util.log.print("{s}PIR {s}\n", .{ " " ** offset, text });
     } else {
-        std.debug.print("{s}PIR\n", .{" " ** offset});
+        util.log.print("{s}PIR\n", .{" " ** offset});
     }
     for (0..pir.assign_num) |assign_idx| {
-        std.debug.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
+        util.log.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
         pir.assign[assign_idx].print(padding, offset + padding, null);
     }
 }
