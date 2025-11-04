@@ -116,6 +116,7 @@ pub fn alloc(
     } else {
         @branchHint(.likely);
         const pir: Pir = try Pir.alloc(arena_temp, linearized, depth_max, size_global, size_local);
+        pir.print(4, 0, null);
 
         const kernel_name_len_max = (kernel_base_name.len - "{}"[0..].len) +
             comptime std.math.log10_int(@as(u64, std.math.maxInt(@TypeOf(pir.assign_num))));

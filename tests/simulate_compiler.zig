@@ -91,6 +91,7 @@ fn simulateCompiler(
         try buffer1.buffer[buffer_idx].syncToDevice(runtime);
     }
 
+    buffer1.linearized.print(4, 0, null);
     var program: Program = try Program.alloc(runtime, gpa, arena, arena_temp, //
         buffer1.linearized, depth_max, size_global, size_local);
     defer program.free(runtime);

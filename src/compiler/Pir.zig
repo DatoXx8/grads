@@ -527,6 +527,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
     var cost_curr: u64 = vgpu.costEstimate(pir.*, size_global, size_local);
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
+        util.log.print("{} => ", .{depth_idx});
         optimization.clearRetainingCapacity();
 
         // $TODO Can this be done incrementally?
@@ -553,7 +554,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
-                    try opt.inlineOp(a, &pir_temp, inlined.left_idx);
+                    try opt.inlineOp(a, &pir_temp, inlined.left_idx, inlined.right_idx_max_written);
                 },
                 .split => |split| {
                     opt.splitKernel(&pir_temp, split.idx);
@@ -571,15 +572,18 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
             }
         }
 
+        pir.print(4, 4, null);
         if (cost_next_best == cost_curr) {
+            util.log.print("breaking\n", .{});
             break; // No better optimization found
         } else {
+            util.log.print("choosing {}\n", .{optimization.items[cost_next_best_idx]});
             switch (optimization.items[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
-                    try opt.inlineOp(gpa, pir, inlined.left_idx);
+                    try opt.inlineOp(gpa, pir, inlined.left_idx, inlined.right_idx_max_written);
                 },
                 .split => |split| {
                     opt.splitKernel(pir, split.idx);
@@ -591,6 +595,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
             cost_curr = cost_next_best;
         }
     }
+    util.log.print("\n\n\n\n", .{});
 }
 pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
