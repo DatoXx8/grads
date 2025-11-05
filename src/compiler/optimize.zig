@@ -40,8 +40,8 @@ pub const Optimization = union(enum) {
     },
 };
 
-/// $WARN Things like `sqrt(x)^2` for `x < 0` are undefined behaviour and will just be optimized to `id(x)`
-/// Check if left and right can be merged.
+/// $WARN Inputs are assumed valid, i.e `sqrt(x)^2` for `x < 0` is assumed to never occur and will be optimized to `id(x)`
+/// /// Check if left and right can be merged.
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Assign, right: Assign) bool {
     // $TODO Allow merging inlined ops within the same assign (for example U add has another U add inlined)
@@ -286,6 +286,7 @@ pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir
                 const out_out_conflict: bool = left.out.id == right.out.id and left.out.overlaps(right.out);
                 const out_in_conflict: bool = left.out.id == right.in.id and left.out.overlaps(right.in);
                 const in_out_conflict: bool = left.in.id == right.out.id and left.in.overlaps(right.out);
+                // $FIXME This needs to check inlined ops as well
 
                 if (out_out_conflict or out_in_conflict or in_out_conflict) {
                     break;

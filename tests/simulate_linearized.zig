@@ -440,8 +440,7 @@ pub fn main() !void {
             // Iff the loop is infinite then the loop count has to be 0
             assert(loop_infinite == (loop_count == 0));
         } else {
-            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
-            @panic("");
+            std.debug.panic("Found unrecognised option `{s}`, expected `rng=<number>` or `loop=[number].\n", .{arg});
         }
     }
 

@@ -8,8 +8,7 @@ pub fn maybe(ok: bool) void {
 
 /// Just to make intent clearer instead of saying unreachable or assert(false)
 pub fn todo(src: std.builtin.SourceLocation) noreturn {
-    std.log.err("Reached `todo` in {s}:{}:{} in function {s}\n", .{ src.file, src.line, src.column, src.fn_name });
-    @panic("");
+    std.debug.panic("Reached `todo` in {s}:{}:{} in function {s}\n", .{ src.file, src.line, src.column, src.fn_name });
 }
 
 /// Only supports single threaded mode

@@ -198,12 +198,10 @@ pub fn main() !void {
             opt_saved = std.fmt.parseInt(u32, arg[offset..], 10) catch null;
 
             if (opt_saved == null) {
-                util.log.print("Found unrecognized optimization {s}, expected opt=[number]\n", .{parse});
-                @panic("See above error message");
+                std.debug.panic("Found unrecognized optimization {s}, expected opt=[number]\n", .{parse});
             }
         } else {
-            util.log.print("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[number]\n", .{arg});
-            @panic("See above error message");
+            std.debug.panic("error: Found unrecognised option `{s}`, expected `rng=<number>`, `loop=[number] or opt=[number]\n", .{arg});
         }
     }
 

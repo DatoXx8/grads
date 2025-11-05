@@ -57,8 +57,7 @@ pub fn main() !void {
             const offset = "rng="[0..].len;
             rng_saved = try std.fmt.parseInt(u64, arg[offset..], 10);
         } else {
-            std.log.err("Found unrecognised option `{s}`, expected `rng=<number>` or nothing.\n", .{arg});
-            @panic("");
+            std.debug.panic("Found unrecognised option `{s}`, expected `rng=<number>` or nothing.\n", .{arg});
         }
     }
 

@@ -147,7 +147,7 @@ pub const Op = struct {
             assert(op.out.y_size == 1);
             assert(op.out.x_size == 1);
         } else {
-            @panic("");
+            std.debug.panic("op.kind == .{s} is not unary, binary, expand or reduce!\n", .{@tagName(op.kind)});
         }
 
         switch (op.kind) {
