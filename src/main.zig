@@ -9,6 +9,7 @@ const RuntimeCl = Runtime.RuntimeCl;
 const Buffer = @import("Buffer.zig");
 const Linearized = @import("Linearized.zig");
 
+// $TODO Try to make the buffers just an index into a global array that contains the current states of the buffers. Store the strides, sizes and offsets in the op instance
 // $TODO Make overkill queue based thread safe logger that gets comptimed out optionally
 // $TODO Get rid of all print methods and just make format functions, this allows saner logging for test failures
 // $TODO Try making every kernel it's own source so that compilation is faster in the OpenCl implementation

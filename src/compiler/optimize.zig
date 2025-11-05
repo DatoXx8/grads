@@ -322,112 +322,155 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             continue :left_loop;
         }
 
-        var inlined_left_out_write_found: bool = false;
-        var inlined_left_in_write_found: bool = false;
+        var inlined_valid: bool = true;
+        var right_idx_max_written: u32 = left_idx;
 
         var right_idx: u32 = left_idx + 1;
-        var right_idx_max_written: u32 = left_idx;
         right_loop: while (right_idx < pir.assign_num) : (right_idx += 1) {
+            assert(inlined_valid);
+
             const base_right: Base = pir.assign[right_idx].base;
             const inlined_right: Inlined = pir.assign[right_idx].inlined;
 
+            // $TODO This should be more optimized
             const repeats_different: bool = base_left.repeats != base_right.repeats;
             const split_different: bool = pir.assign[left_idx].split != pir.assign[right_idx].split;
-            const invalid_out_x: bool = blk: {
-                if (base_left.out.id == base_right.out.id) {
-                    if (base_left.out.overlapsAll(base_right.out)) {
-                        if (base_right.kind.overwrites()) {
-                            break :blk true;
-                        } else {
-                            right_idx_max_written = right_idx;
-                            inlined_left_out_write_found = true;
-                        }
-                    } else if (base_left.out.overlapsPartial(base_right.out)) {
-                        break :blk true;
-                    }
-                }
-                if (base_left.out.id == base_right.in.id and inlined_right.in_root == null and
-                    !base_right.kind.isUnary())
+            const left_out_overwritten: bool = blk: {
+                if (base_left.out.id == base_right.out.id and
+                    base_left.out.overlapsAll(base_right.out) and
+                    base_right.kind.overwrites())
                 {
-                    if (base_left.out.overlapsAll(base_right.in)) {
-                        switch (base_left.out.kind) {
-                            .intermediary => {
-                                right_idx_max_written = right_idx;
-                            },
-                            .normal => {
-                                break :blk true;
-                            },
-                        }
-                    } else if (base_left.out.overlapsPartial(base_right.in)) {
-                        break :blk true;
-                    }
+                    break :blk true;
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
-                        inlined_right.out[inlined_right_idx] == null)
+                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].out) and
+                        inlined_right.base[inlined_right_idx].kind.overwrites() and
+                        inlined_right.out[inlined_right_idx] == null) // This part is probably not necessary
                     {
-                        if (base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].out)) {
-                            right_idx_max_written = right_idx;
-                        } else if (base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].out)) {
-                            break :blk true;
-                        }
-                    }
-                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                        inlined_right.in[inlined_right_idx] == null and
-                        !inlined_right.base[inlined_right_idx].kind.isUnary())
-                    {
-                        if (base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in)) {
-                            right_idx_max_written = right_idx;
-                        } else if (base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].in)) {
-                            break :blk true;
-                        }
+                        break :blk true;
                     }
                 }
                 break :blk false;
             };
-            const invalid_x_out: bool = blk: {
-                if (base_left.in.id == base_right.out.id and inlined_left.in_root == null and
-                    !base_left.kind.isUnary())
+            const left_out_non_intermdiary_inlined: bool = blk: {
+                const base_left_out_intermediary: bool = switch (base_left.out.kind) {
+                    .intermediary => true,
+                    .normal => false,
+                };
+                if (base_left.out.id == base_right.in.id and
+                    base_left.out.overlapsAll(base_right.in) and
+                    !base_left_out_intermediary and
+                    !base_right.kind.isUnary())
                 {
-                    if (base_left.in.overlapsAll(base_right.out)) {
-                        inlined_left_in_write_found = true;
-                    } else if (base_left.in.overlapsPartial(base_right.out)) {
+                    break :blk true;
+                }
+                var inlined_right_idx: u32 = 0;
+                while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
+                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
+                        !base_left_out_intermediary and
+                        !inlined_right.base[inlined_right_idx].kind.isUnary() and
+                        inlined_right.in[inlined_right_idx] == null) // This part is probably not necessary
+                    {
                         break :blk true;
                     }
                 }
+                break :blk false;
+            };
+            const partial_overlap_out_x: bool = blk: {
+                if (base_left.out.id == base_right.out.id and
+                    base_left.out.overlapsPartial(base_right.out))
+                {
+                    break :blk true;
+                }
+                if (base_left.out.id == base_right.in.id and
+                    base_left.out.overlapsPartial(base_right.in) and
+                    !base_right.kind.isUnary())
+                {
+                    break :blk true;
+                }
+                var inlined_right_idx: u32 = 0;
+                while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
+                        base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].out) and
+                        inlined_right.out[inlined_right_idx] == null)
+                    {
+                        break :blk true;
+                    }
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
+                        base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].in) and
+                        !inlined_right.base[inlined_right_idx].kind.isUnary() and
+                        inlined_right.in[inlined_right_idx] == null)
+                    {
+                        break :blk true;
+                    }
+                }
+                break :blk false;
+            };
+            const partial_overlap_x_out: bool = blk: {
                 var inlined_left_idx: u32 = 0;
                 while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
                     if (inlined_left.base[inlined_left_idx].out.id == base_right.out.id and
-                        inlined_left.out[inlined_left_idx] == null and
-                        inlined_left.base[inlined_left_idx].out.overlaps(base_right.out))
+                        inlined_left.base[inlined_left_idx].out.overlapsPartial(base_right.out) and
+                        inlined_left.out[inlined_left_idx] == null)
                     {
                         break :blk true;
                     }
                     if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
+                        inlined_left.base[inlined_left_idx].in.overlapsPartial(base_right.out) and
                         inlined_left.in[inlined_left_idx] == null and
-                        inlined_left.base[inlined_left_idx].in.overlaps(base_right.out) and
                         !inlined_left.base[inlined_left_idx].kind.isUnary())
                     {
                         break :blk true;
                     }
                 }
-                // $TODO Do I need to check between the left and right inlined ops aswell?
                 break :blk false;
             };
-
-            if (repeats_different or split_different or invalid_out_x or invalid_x_out) {
-                right_idx_max_written = left_idx;
-                inlined_left_out_write_found = false;
-                inlined_left_in_write_found = false;
-                continue :left_loop;
+            if (repeats_different or split_different or left_out_overwritten or
+                left_out_non_intermdiary_inlined or partial_overlap_out_x or partial_overlap_x_out)
+            {
+                inlined_valid = false;
+                break :right_loop; // $TODO In some cases maybe the inline would still be fine, but only up the previous spot.
             }
-            if (inlined_left_out_write_found) {
+            const left_out_written: bool = blk: {
+                if (base_left.out.id == base_right.out.id and
+                    base_left.out.overlapsAll(base_right.out))
+                {
+                    break :blk true;
+                }
+                if (base_left.out.id == base_right.in.id and
+                    base_left.out.overlapsAll(base_right.in) and
+                    !base_right.kind.isUnary())
+                {
+                    break :blk true;
+                }
+                var inlined_right_idx: u32 = 0;
+                while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
+                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].out) and
+                        inlined_right.out[inlined_right_idx] == null)
+                    {
+                        break :blk true;
+                    }
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
+                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
+                        !inlined_right.base[inlined_right_idx].kind.isUnary() and
+                        inlined_right.in[inlined_right_idx] == null)
+                    {
+                        break :blk true;
+                    }
+                }
+                break :blk false;
+            };
+            if (left_out_written) {
+                right_idx_max_written = right_idx;
                 break :right_loop;
             }
         }
 
-        if (right_idx_max_written != left_idx) {
+        if (inlined_valid and right_idx_max_written != left_idx) {
             const inlined: Optimization = .{
                 .inlined = .{
                     .left_idx = left_idx,
@@ -470,7 +513,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
                 .out = try gpa.realloc(inlined_right.*.out, inlined_right_num_new),
                 .in = try gpa.realloc(inlined_right.*.in, inlined_right_num_new),
                 .in_root = inlined_right.*.in_root,
-                .out_root = inlined_right_num_initial,
+                .out_root = inlined_right_num_new - 1,
             };
 
             const inlined_right_idx_last: u32 = inlined_right_num_new - 1;
@@ -509,7 +552,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
                     .base = try gpa.realloc(inlined_right.*.base, inlined_right_num_new),
                     .out = try gpa.realloc(inlined_right.*.out, inlined_right_num_new),
                     .in = try gpa.realloc(inlined_right.*.in, inlined_right_num_new),
-                    .in_root = inlined_right_num_initial,
+                    .in_root = inlined_right_num_new - 1,
                     .out_root = inlined_right.*.out_root,
                 };
 
@@ -628,385 +671,6 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
     assert(assign_num_new == pir.assign_num - 1);
     pir.assign_num = assign_num_new;
 }
-// pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
-//     var left_idx: u32 = 0;
-//     outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
-//         if (pir.assign[left_idx].base.kind.isReduce()) {
-//             continue :outer;
-//         }
-//         var inlineable: bool = false;
-//         var out_found: bool = false;
-//         var in_found: bool = false;
-//
-//         const base_left: Base = pir.assign[left_idx].base;
-//
-//         var right_idx: u32 = left_idx + 1;
-//         while (right_idx < pir.assign_num) : (right_idx += 1) {
-//             const base_right: Base = pir.assign[right_idx].base;
-//
-//             const overlap_out_out: bool = base_left.out.id == base_right.out.id and
-//                 base_left.out.overlapsPartial(base_right.out);
-//             const overlap_out_in: bool = base_left.out.id == base_right.in.id and
-//                 base_left.out.overlapsPartial(base_right.in);
-//             const overlap_in_out: bool = base_left.in.id == base_right.out.id and
-//                 base_left.in.overlaps(base_right.out) and
-//                 !base_left.kind.isUnary();
-//             const repeat_different: bool = base_left.repeats != base_right.repeats;
-//             const overlap_out_x_inlined: bool = blk: {
-//                 var inlined_idx: u32 = 0;
-//                 while (inlined_idx < pir.assign[right_idx].inlined.num) : (inlined_idx += 1) {
-//                     const inlined_right: Inlined = pir.assign[right_idx].inlined;
-//                     if (base_left.out.id == inlined_right.base[inlined_idx].out.id and
-//                         inlined_right.out[inlined_idx] == null)
-//                     {
-//                         if (base_left.out.overlapsPartial(inlined_right.base[inlined_idx].out)) {
-//                             break :blk true;
-//                         } else if (base_left.out.overlapsAll(inlined_right.base[inlined_idx].out)) {
-//                             inlineable = true;
-//                         }
-//                     }
-//                     if (base_left.out.id == inlined_right.base[inlined_idx].in.id and
-//                         inlined_right.in[inlined_idx] == null)
-//                     {
-//                         if (base_left.out.overlapsPartial(inlined_right.base[inlined_idx].in)) {
-//                             break :blk true;
-//                         } else if (base_left.out.overlapsAll(inlined_right.base[inlined_idx].in)) {
-//                             inlineable = true;
-//                         }
-//                     }
-//                 }
-//
-//                 break :blk false;
-//             };
-//             const overlap_x_out_inlined: bool = blk: {
-//                 if (base_left.out.id == base_right.out.id or base_left.in.id == base_right.out.id) {
-//                     break :blk false;
-//                 }
-//                 var inlined_idx: u32 = 0;
-//                 while (inlined_idx < pir.assign[left_idx].inlined.num) : (inlined_idx += 1) {
-//                     const inlined_left: Inlined = pir.assign[left_idx].inlined;
-//                     if (base_right.out.id == inlined_left.base[inlined_idx].out.id and
-//                         inlined_left.out[inlined_idx] == null)
-//                     {
-//                         if (base_right.out.overlaps(inlined_left.base[inlined_idx].out)) {
-//                             break :blk true;
-//                         }
-//                     }
-//                     if (base_right.out.id == inlined_left.base[inlined_idx].in.id and
-//                         inlined_left.in[inlined_idx] == null)
-//                     {
-//                         if (base_right.out.overlaps(inlined_left.base[inlined_idx].in)) {
-//                             break :blk true;
-//                         }
-//                     }
-//                 }
-//                 break :blk false;
-//             };
-//             if (overlap_out_out or overlap_out_in or overlap_in_out or repeat_different or
-//                 overlap_out_x_inlined or overlap_x_out_inlined)
-//             {
-//                 inlineable = false;
-//                 continue :outer;
-//             }
-//             if (base_left.out.equal(base_right.out)) {
-//                 const overwrites: bool = blk: {
-//                     if (base_right.kind.overwrites()) {
-//                         break :blk true;
-//                     }
-//                     var inlined_idx: u32 = 0;
-//                     const inlined_right: Inlined = pir.assign[right_idx].inlined;
-//                     while (inlined_idx < inlined_right.num) : (inlined_idx += 1) {
-//                         if (base_left.out.id == inlined_right.base[inlined_idx].out.id and
-//                             inlined_right.out[inlined_idx] == null and
-//                             inlined_right.base[inlined_idx].kind.overwrites())
-//                         {
-//                             break :blk true;
-//                         }
-//                     }
-//                     break :blk false;
-//                 };
-//                 inlineable = !overwrites;
-//                 break;
-//             }
-//             if (base_left.out.equal(base_right.in)) {
-//                 switch (base_right.in.kind) {
-//                     .intermediary => {
-//                         inlineable = true;
-//                         out_found = true;
-//                     },
-//                     .normal => {
-//                         inlineable = false;
-//                         continue :outer;
-//                     },
-//                 }
-//             }
-//
-//             if (base_left.in.equal(base_right.out) and
-//                 !base_left.kind.isUnary())
-//             {
-//                 inlineable = true;
-//                 in_found = true; // $TODO WTF is this? Should only be inlineable, no?
-//             }
-//             if (out_found and in_found) {
-//                 break;
-//             }
-//         }
-//
-//         if (inlineable) {
-//             const inlined: Optimization = .{
-//                 .inlined = .{
-//                     .left_idx = left_idx,
-//                 },
-//             };
-//             optimization.appendBounded(inlined) catch {
-//                 try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
-//                 try optimization.appendBounded(inlined);
-//             };
-//         }
-//     }
-// }
-// pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32) !void {
-//     assert(left_idx + 1 < pir.assign_num);
-//
-//     var right_idx: u32 = left_idx + 1;
-//     while (right_idx < pir.assign_num) : (right_idx += 1) {
-//         // $TODO These cases could probably be merged
-//         if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].base.out) and
-//             pir.assign[right_idx].inlined.out_root == null)
-//         {
-//             if (pir.assign[right_idx].base.kind.overwrites()) {
-//                 break;
-//             }
-//
-//             const inlined_left: *Inlined = &pir.assign[left_idx].inlined;
-//             const inlined_right: *Inlined = &pir.assign[right_idx].inlined;
-//
-//             const out_root_left: ?u32 = inlined_left.out_root;
-//             const inlined_num_left: u32 = inlined_left.num;
-//             const inlined_num_right_old: u32 = inlined_right.num;
-//             const inlined_num_right_new: u32 = 1 + inlined_num_left + inlined_num_right_old;
-//
-//             inlined_right.* = .{
-//                 .num = inlined_num_right_new,
-//                 .base = try gpa.realloc(inlined_right.base, inlined_num_right_new),
-//                 .out = try gpa.realloc(inlined_right.out, inlined_num_right_new),
-//                 .in = try gpa.realloc(inlined_right.in, inlined_num_right_new),
-//                 .in_root = inlined_right.in_root,
-//                 .out_root = inlined_num_right_new - 1,
-//             };
-//
-//             assert(inlined_right.num > 0);
-//             inlined_right.in[inlined_num_right_new - 1] =
-//                 if (inlined_left.in_root) |in| in + inlined_num_right_old else null;
-//             inlined_right.out[inlined_num_right_new - 1] =
-//                 if (out_root_left) |out| out + inlined_num_right_old else null;
-//             inlined_right.base[inlined_num_right_new - 1] = pir.assign[left_idx].base;
-//
-//             var inlined_idx: u32 = 0;
-//             while (inlined_idx < inlined_left.num) : (inlined_idx += 1) {
-//                 inlined_right.in[inlined_num_right_old + inlined_idx] =
-//                     if (inlined_left.in[inlined_idx]) |in| in + inlined_num_right_old else null;
-//                 inlined_right.out[inlined_num_right_old + inlined_idx] =
-//                     if (inlined_left.out[inlined_idx]) |out| out + inlined_num_right_old else null;
-//                 inlined_right.base[inlined_num_right_old + inlined_idx] =
-//                     inlined_left.base[inlined_idx];
-//             }
-//
-//             break;
-//         } else if (pir.assign[left_idx].base.out.equal(pir.assign[right_idx].base.in) and
-//             !pir.assign[right_idx].base.kind.isUnary() and
-//             pir.assign[right_idx].inlined.in_root == null)
-//         {
-//             const inlined_valid: bool = switch (pir.assign[left_idx].base.out.kind) {
-//                 .normal => false,
-//                 .intermediary => true,
-//             };
-//             if (!inlined_valid) {
-//                 // This should never be the case I think
-//                 break;
-//             }
-//
-//             const inlined_left: *Inlined = &pir.assign[left_idx].inlined;
-//             const inlined_right: *Inlined = &pir.assign[right_idx].inlined;
-//
-//             const in_root_right: ?u32 = inlined_left.in_root;
-//             const inlined_num_left: u32 = inlined_left.num;
-//             const inlined_num_right_old: u32 = inlined_right.num;
-//             const inlined_num_right_new: u32 = 1 + inlined_num_left + inlined_num_right_old;
-//
-//             inlined_right.* = .{
-//                 .num = inlined_num_right_new,
-//                 .base = try gpa.realloc(inlined_right.base, inlined_num_right_new),
-//                 .out = try gpa.realloc(inlined_right.out, inlined_num_right_new),
-//                 .in = try gpa.realloc(inlined_right.in, inlined_num_right_new),
-//                 .in_root = inlined_num_right_new - 1,
-//                 .out_root = inlined_right.out_root,
-//             };
-//
-//             assert(inlined_right.num > 0);
-//             inlined_right.in[inlined_num_right_new - 1] =
-//                 if (in_root_right) |in| in + inlined_num_right_old else null;
-//             inlined_right.out[inlined_num_right_new - 1] =
-//                 if (inlined_left.out_root) |out| out + inlined_num_right_old else null;
-//             inlined_right.base[inlined_num_right_new - 1] =
-//                 pir.assign[left_idx].base;
-//
-//             var inlined_idx: u32 = 0;
-//             while (inlined_idx < inlined_left.num) : (inlined_idx += 1) {
-//                 inlined_right.in[inlined_num_right_old + inlined_idx] =
-//                     if (inlined_left.in[inlined_idx]) |in| in + inlined_num_right_old else null;
-//                 inlined_right.out[inlined_num_right_old + inlined_idx] =
-//                     if (inlined_left.out[inlined_idx]) |out| out + inlined_num_right_old else null;
-//                 inlined_right.base[inlined_num_right_old + inlined_idx] =
-//                     inlined_left.base[inlined_idx];
-//             }
-//
-//             inlined_right.num = inlined_num_right_new;
-//
-//             const inlined_left_num: u32 = pir.assign[left_idx].inlined.num;
-//
-//             inlined_idx = 0;
-//             while (inlined_idx < inlined_num_right_old) : (inlined_idx += 1) {
-//                 if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].out) and
-//                     inlined_right.out[inlined_idx] == null)
-//                 {
-//                     const written_amount = 1 + inlined_left_num;
-//
-//                     inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
-//                     inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
-//                     inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
-//
-//                     const last_idx: u32 = inlined_right.num + written_amount - 1;
-//                     inlined_right.out[inlined_idx] = last_idx;
-//                     var inlined_left_idx: u32 = 0;
-//                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-//                         inlined_right.base[inlined_right.num + inlined_left_idx] =
-//                             inlined_left.base[inlined_left_idx];
-//                         inlined_right.out[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
-//                         inlined_right.in[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
-//                     }
-//                     inlined_right.out[last_idx] =
-//                         if (inlined_left.out_root) |out| out + inlined_right.num else null;
-//                     inlined_right.in[last_idx] =
-//                         if (inlined_left.in_root) |in| in + inlined_right.num else null;
-//                     inlined_right.base[last_idx] = pir.assign[left_idx].base;
-//                     inlined_right.num += written_amount;
-//                 } else if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].in) and
-//                     inlined_right.in[inlined_idx] == null and !inlined_right.base[inlined_idx].kind.isUnary())
-//                 {
-//                     const written_amount = 1 + inlined_left_num;
-//
-//                     inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
-//                     inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
-//                     inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
-//
-//                     const last_idx: u32 = inlined_right.num + written_amount - 1;
-//                     inlined_right.in[inlined_idx] = last_idx;
-//                     var inlined_left_idx: u32 = 0;
-//                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-//                         inlined_right.base[inlined_right.num + inlined_left_idx] =
-//                             inlined_left.base[inlined_left_idx];
-//                         inlined_right.out[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
-//                         inlined_right.in[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
-//                     }
-//                     inlined_right.out[last_idx] =
-//                         if (inlined_left.out_root) |out| out + inlined_right.num else null;
-//                     inlined_right.in[last_idx] =
-//                         if (inlined_left.in_root) |in| in + inlined_right.num else null;
-//                     inlined_right.base[last_idx] = pir.assign[left_idx].base;
-//                     inlined_right.num += written_amount;
-//                 }
-//             }
-//         } else {
-//             const inlined_left: *Inlined = &pir.assign[left_idx].inlined;
-//             const inlined_right: *Inlined = &pir.assign[right_idx].inlined;
-//
-//             const inlined_left_num: u32 = pir.assign[left_idx].inlined.num;
-//             const inlined_right_num_start: u32 = inlined_right.num;
-//
-//             var inlined_idx: u32 = 0;
-//             while (inlined_idx < inlined_right_num_start) : (inlined_idx += 1) {
-//                 if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].out) and
-//                     inlined_right.out[inlined_idx] == null)
-//                 {
-//                     const written_amount = 1 + inlined_left_num;
-//
-//                     inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
-//                     inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
-//                     inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
-//
-//                     const last_idx: u32 = inlined_right.num + written_amount - 1;
-//                     inlined_right.out[inlined_idx] = last_idx;
-//                     var inlined_left_idx: u32 = 0;
-//                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-//                         inlined_right.base[inlined_right.num + inlined_left_idx] =
-//                             inlined_left.base[inlined_left_idx];
-//                         inlined_right.out[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
-//                         inlined_right.in[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
-//                     }
-//                     inlined_right.out[last_idx] =
-//                         if (inlined_left.out_root) |out| out + inlined_right.num else null;
-//                     inlined_right.in[last_idx] =
-//                         if (inlined_left.in_root) |in| in + inlined_right.num else null;
-//                     inlined_right.base[last_idx] = pir.assign[left_idx].base;
-//                     inlined_right.num += written_amount;
-//                 } else if (pir.assign[left_idx].base.out.equal(inlined_right.base[inlined_idx].in) and
-//                     inlined_right.in[inlined_idx] == null and !inlined_right.base[inlined_idx].kind.isUnary())
-//                 {
-//                     const written_amount = 1 + inlined_left_num;
-//
-//                     inlined_right.base = try gpa.realloc(inlined_right.base, inlined_right.num + written_amount);
-//                     inlined_right.out = try gpa.realloc(inlined_right.out, inlined_right.num + written_amount);
-//                     inlined_right.in = try gpa.realloc(inlined_right.in, inlined_right.num + written_amount);
-//
-//                     const last_idx: u32 = inlined_right.num + written_amount - 1;
-//                     inlined_right.in[inlined_idx] = last_idx;
-//                     var inlined_left_idx: u32 = 0;
-//                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
-//                         inlined_right.base[inlined_right.num + inlined_left_idx] =
-//                             inlined_left.base[inlined_left_idx];
-//                         inlined_right.out[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.out[inlined_left_idx]) |out| out + inlined_right.num else null;
-//                         inlined_right.in[inlined_right.num + inlined_left_idx] =
-//                             if (inlined_left.in[inlined_left_idx]) |in| in + inlined_right.num else null;
-//                     }
-//                     inlined_right.out[last_idx] =
-//                         if (inlined_left.out_root) |out| out + inlined_right.num else null;
-//                     inlined_right.in[last_idx] =
-//                         if (inlined_left.in_root) |in| in + inlined_right.num else null;
-//                     inlined_right.base[last_idx] = pir.assign[left_idx].base;
-//                     inlined_right.num += written_amount;
-//                 }
-//             }
-//
-//             if (pir.assign[left_idx].base.out.id == pir.assign[right_idx].base.out.id and
-//                 pir.assign[left_idx].base.out.overlaps(pir.assign[right_idx].base.out))
-//             {
-//                 break;
-//             }
-//         }
-//     }
-//
-//     var assign_num_new: u32 = 0;
-//     var assign_idx: u32 = 0;
-//     while (assign_idx < pir.assign_num) : (assign_idx += 1) {
-//         if (assign_idx == left_idx) {
-//             gpa.free(pir.assign[assign_idx].inlined.base);
-//             gpa.free(pir.assign[assign_idx].inlined.out);
-//             gpa.free(pir.assign[assign_idx].inlined.in);
-//         } else {
-//             pir.assign[assign_num_new] = pir.assign[assign_idx];
-//             assign_num_new += 1;
-//         }
-//     }
-//     pir.assign_num = assign_num_new;
-// }
 
 fn dimInfoMergePossible(left: Assign, right: Assign) bool {
     if (left.inlined.num != right.inlined.num) {
