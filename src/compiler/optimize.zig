@@ -430,13 +430,31 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 }
                 break :blk false;
             };
-            if (left_out_overwritten) {
-                break :right_loop;
-            }
+            const left_in_written: bool = blk: {
+                if (base_left.in.id == base_right.out.id and
+                    base_left.in.overlapsAll(base_right.out))
+                {
+                    break :blk true;
+                }
+                var inlined_left_idx: u32 = 0;
+                while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                    if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
+                        inlined_left.base[inlined_left_idx].in.overlapsAll(base_right.out) and
+                        inlined_left.in[inlined_left_idx] == null and
+                        !inlined_left.base[inlined_left_idx].kind.isUnary())
+                    {
+                        break :blk true;
+                    }
+                }
+                break :blk false;
+            };
             if (repeats_different or split_different or left_out_non_intermdiary_inlined or
-                partial_overlap_out_x or partial_overlap_x_out)
+                partial_overlap_out_x or partial_overlap_x_out or left_in_written)
             {
                 inlined_valid = false;
+                break :right_loop;
+            }
+            if (left_out_overwritten) {
                 break :right_loop;
             }
             const left_out_written_to_in: bool = blk: {
