@@ -335,7 +335,8 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
 
             // $TODO This should be more optimized
             const repeats_different: bool = base_left.repeats != base_right.repeats;
-            const split_different: bool = pir.assign[left_idx].split != pir.assign[right_idx].split;
+            const split_different: bool = false;
+            // const split_different: bool = pir.assign[left_idx].split != pir.assign[right_idx].split;
             const left_out_overwritten: bool = blk: {
                 if (base_left.out.id == base_right.out.id and
                     base_left.out.overlapsAll(base_right.out) and
@@ -429,21 +430,37 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 }
                 break :blk false;
             };
-            if (repeats_different or split_different or left_out_overwritten or
-                left_out_non_intermdiary_inlined or partial_overlap_out_x or partial_overlap_x_out)
+            if (left_out_overwritten) {
+                break :right_loop;
+            }
+            if (repeats_different or split_different or left_out_non_intermdiary_inlined or
+                partial_overlap_out_x or partial_overlap_x_out)
             {
                 inlined_valid = false;
-                break :right_loop; // $TODO In some cases maybe the inline would still be fine, but only up the previous spot.
+                break :right_loop;
             }
-            const left_out_written: bool = blk: {
-                if (base_left.out.id == base_right.out.id and
-                    base_left.out.overlapsAll(base_right.out))
-                {
-                    break :blk true;
-                }
+            const left_out_written_to_in: bool = blk: {
                 if (base_left.out.id == base_right.in.id and
                     base_left.out.overlapsAll(base_right.in) and
                     !base_right.kind.isUnary())
+                {
+                    break :blk true;
+                }
+                var inlined_right_idx: u32 = 0;
+                while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
+                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
+                        !inlined_right.base[inlined_right_idx].kind.isUnary() and
+                        inlined_right.in[inlined_right_idx] == null)
+                    {
+                        break :blk true;
+                    }
+                }
+                break :blk false;
+            };
+            const left_out_written_to_out: bool = blk: {
+                if (base_left.out.id == base_right.out.id and
+                    base_left.out.overlapsAll(base_right.out))
                 {
                     break :blk true;
                 }
@@ -455,17 +472,13 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                     {
                         break :blk true;
                     }
-                    if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
-                        !inlined_right.base[inlined_right_idx].kind.isUnary() and
-                        inlined_right.in[inlined_right_idx] == null)
-                    {
-                        break :blk true;
-                    }
                 }
                 break :blk false;
             };
-            if (left_out_written) {
+            if (left_out_written_to_in) {
+                right_idx_max_written = right_idx;
+            }
+            if (left_out_written_to_out) {
                 right_idx_max_written = right_idx;
                 break :right_loop;
             }
