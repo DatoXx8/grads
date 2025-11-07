@@ -550,7 +550,7 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
             break :right_loop;
         } else {
             if (base_left.out.id == base_right.in.id and base_left.out.overlaps(base_right.in) and
-                inlined_right.*.out_root == null and !base_right.kind.isUnary())
+                inlined_right.*.in_root == null and !base_right.kind.isUnary())
             {
                 assert(base_left.out.overlapsAll(base_right.in));
                 assert(!base_left.out.overlapsPartial(base_right.in));
