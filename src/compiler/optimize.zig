@@ -412,6 +412,11 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 break :blk false;
             };
             const partial_overlap_x_out: bool = blk: {
+                if (base_left.in.id == base_right.out.id and
+                    base_left.in.overlapsPartial(base_right.out))
+                {
+                    break :blk true;
+                }
                 var inlined_left_idx: u32 = 0;
                 while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
                     if (inlined_left.base[inlined_left_idx].out.id == base_right.out.id and
