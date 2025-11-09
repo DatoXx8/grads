@@ -11,13 +11,8 @@ const util = @import("util.zig");
 /// 8 is absolute overkill. 26 ^ 8 = 208.827.064.576
 /// No real downside to making this a larger value except making codegen slightly slower
 pub const buffer_name_size: u32 = 8;
-comptime {
-    assert(1 << buffer_name_size <= std.math.maxInt(@TypeOf(buffer_id)));
-}
 /// Valid increment of the char values in the buffer name
 pub const buffer_name_char_options: u32 = 'z' - 'a' + 1;
-/// For keeping track of the current number of buffers allocated
-var buffer_id: u64 = 0;
 
 pub const Buffer = @This();
 pub const SyncStatus = enum(u8) {
@@ -25,14 +20,88 @@ pub const SyncStatus = enum(u8) {
     sync_to_device,
     sync_to_none,
 };
+pub const Id = enum(u32) {
+    _,
+    pub fn name(id: Id) [buffer_name_size]u8 {
+        var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
+        const divisor: u64 = buffer_name_char_options;
+        var left: u64 = id;
+        var char_idx: u32 = 0;
+        while (char_idx < buffer_name_size) : (char_idx += 1) {
+            name_result[char_idx] += @intCast(left % divisor);
+            left /= divisor;
+        }
+        assert(left == 0); // Enforce that you don't generate new buffers beyond 'zzzz...zzz'
 
-// I used to save the initial sizes of each dimension but based on usage I noticed only the total size was
-//  necessary and that is already saved in values.len
-
+        return name_result;
+    }
+    pub fn from(val: u32) Id {
+        return @enumFromInt(val);
+    }
+    pub fn value(id: Id) u32 {
+        return @intFromEnum(id);
+    }
+    pub fn fetch(id: Id) *Buffer {
+        const id_value: u32 = id.value();
+        assert(id_value < pool_global.buffer_id_next);
+        return &pool_global.buffer[id_value];
+    }
+};
 pub const Kind = enum(u8) {
+    /// This is just to make debugging easier, if you see this anywhere something has gone wrong.
+    free,
+    /// Buffer that is supposed to hold the end result of some computation.
+    /// Values in this should not get changed by the optimizer.
     normal,
+    /// Intermediary buffers are *not* expected to hold the same values after the compilers optimizations.
     intermediary,
 };
+pub const Pool = struct {
+    buffer_id_next: Id,
+    buffer_id_free: Id,
+    buffer: []Buffer,
+    pub fn nextId(gpa: Allocator, pool: *Pool) !Id {
+        if (pool.buffer_id_next == pool.buffer_id_free) {
+            defer {
+                pool.buffer_id_next = Id.from(pool.buffer_id_next.value() + 1); // $TODO Maybe just make a .incr function
+                pool.buffer_id_free = Id.from(pool.buffer_id_free.value() + 1);
+            }
+            if (pool.buffer_id_next.value() == pool.buffer.len) {
+                pool.buffer = try gpa.realloc(pool.buffer, @min(16, pool.buffer.len * 2));
+            }
+            return pool.buffer_id_next;
+        } else {
+            const id: Id = pool.buffer_id_free;
+            const buffer_id: *Buffer = id.fetch();
+            if (id == buffer_id.nextFree()) {
+                pool.buffer_id_free = pool.buffer_id_next;
+            } else {
+                pool.buffer_id_free = buffer_id.nextFree();
+            }
+            assert(buffer_id.kind == .free);
+            return id;
+        }
+    }
+    pub fn freeId(pool: *Pool, id: Id) void {
+        const buffer_id: *Buffer = id.fetch();
+        assert(buffer_id.kind != .free);
+        // Don't really see a reason the do a special case when id is the last in the pool to decrement buffer_id_next
+        if (pool.buffer_id_free == pool.buffer_id_next) {
+            buffer_id.*.offset = id.value();
+        } else {
+            buffer_id.*.offset = pool.buffer_id_free;
+        }
+        buffer_id.*.kind = .free;
+        pool.buffer_id_free = id;
+    }
+};
+
+var pool_global: Pool = .{
+    .buffer = &.{},
+    .buffer_id_next = 0,
+    .buffer_id_free = 0,
+};
+
 a_size: u32,
 z_size: u32,
 y_size: u32,
@@ -41,22 +110,26 @@ a_stride: u32,
 z_stride: u32,
 y_stride: u32,
 x_stride: u32,
-offset: u32,
+offset: u32, // Gets repurposed as the next free id in case this is an entry in the free list
 values: []f32,
 values_runtime: Memory,
 sync: SyncStatus,
-id: u64,
 kind: Kind,
-/// Intermediary buffers are *not* expected to hold the same values after the compilers optimizations
-pub fn alloc(runtime: Runtime, arena: Allocator, a: u32, z: u32, y: u32, x: u32, kind: Kind) !Buffer {
+pub fn alloc(runtime: Runtime, arena: Allocator, a: u32, z: u32, y: u32, x: u32, kind: Kind) !Id {
+    util.todo(@src()); // Don't yet know how I feel about storing the id back in here again. One should only ever get access to a buffer through its id so that feels redundant
+    assert(switch (kind) {
+        .free => false,
+        .normal => true,
+        .intermediary => true,
+    });
     assert(a > 0);
     assert(z > 0);
     assert(y > 0);
     assert(x > 0);
 
-    defer buffer_id += 1;
-    return .{
-        .id = buffer_id,
+    const buffer_id: Id = pool_global.nextId();
+    const buffer: *Buffer = buffer_id.fetch();
+    buffer.* = .{
         .sync = SyncStatus.sync_to_none,
         .a_size = a,
         .z_size = z,
@@ -71,24 +144,15 @@ pub fn alloc(runtime: Runtime, arena: Allocator, a: u32, z: u32, y: u32, x: u32,
         .values_runtime = try runtime.memoryAlloc(a, z, y, x),
         .kind = kind,
     };
+
+    return buffer_id;
 }
 pub fn free(buffer: Buffer, runtime: Runtime) void {
     runtime.memoryFree(buffer.values_runtime);
 }
-pub inline fn name(buffer: Buffer) [buffer_name_size]u8 {
-    return nameFromId(buffer.id);
-}
-pub inline fn nameFromId(id: u64) [buffer_name_size]u8 {
-    var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-    const divisor: u64 = buffer_name_char_options;
-    var left: u64 = id;
-    for (0..buffer_name_size) |char_idx| {
-        name_result[char_idx] += @intCast(left % divisor);
-        left /= divisor;
-    }
-    assert(left == 0); // Enforce that you don't generate new buffers beyond 'zzzz...zzz'
-
-    return name_result;
+pub fn nextFree(buffer: Buffer) Id {
+    assert(buffer.kind == .free);
+    return Id.from(buffer.offset);
 }
 pub inline fn aOffset(buffer: Buffer) u32 {
     return @divFloor(buffer.offset, buffer.a_stride);
@@ -103,7 +167,6 @@ pub inline fn xOffset(buffer: Buffer) u32 {
     return @divFloor(buffer.offset % buffer.y_stride, buffer.x_stride);
 }
 pub inline fn at(buffer: Buffer, a: u32, z: u32, y: u32, x: u32) u32 {
-    // Could add the per dimension asserts back in
     const offset: u32 = buffer.offset + a * buffer.a_stride + z * buffer.z_stride +
         y * buffer.y_stride + x * buffer.x_stride;
     assert(offset < buffer.values.len);

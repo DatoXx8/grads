@@ -117,39 +117,28 @@ pub const Op = struct {
             };
         }
     };
-    kind: Kind,
-    // When using this as a seed for the unary_random op, the integer value will be cast back and forth with @bitCast,
-    //  here's hoping some NaN floating point magic doesn't ruin that
-    u_var: f32,
-    out: Buffer,
-    in: Buffer,
-    // $TODO Make this sucker SIMD-able
-    pub fn realize(op: Op) void {
-        if (op.kind.isUnary()) {
-            // In buffer is just a copy of out buffer, basically just a sanity check.
-            assert(op.out.a_size == op.in.a_size);
-            assert(op.out.z_size == op.in.z_size);
-            assert(op.out.y_size == op.in.y_size);
-            assert(op.out.x_size == op.in.x_size);
-        } else if (op.kind.isBinary()) {
-            assert(op.out.a_size == op.in.a_size);
-            assert(op.out.z_size == op.in.z_size);
-            assert(op.out.y_size == op.in.y_size);
-            assert(op.out.x_size == op.in.x_size);
-        } else if (op.kind.isExpand()) {
-            assert(op.in.a_size == 1);
-            assert(op.in.z_size == 1);
-            assert(op.in.y_size == 1);
-            assert(op.in.x_size == 1);
-        } else if (op.kind.isReduce()) {
-            assert(op.out.a_size == 1);
-            assert(op.out.z_size == 1);
-            assert(op.out.y_size == 1);
-            assert(op.out.x_size == 1);
-        } else {
-            std.debug.panic("op.kind == .{s} is not unary, binary, expand or reduce!\n", .{@tagName(op.kind)});
-        }
 
+    kind: Kind,
+    u_var: f32,
+    out_id: Buffer.Id,
+    out_stride_a: u32,
+    out_stride_z: u32,
+    out_stride_y: u32,
+    out_stride_x: u32,
+    in_id: Buffer.Id,
+    in_stride_a: u32,
+    in_stride_z: u32,
+    in_stride_y: u32,
+    in_stride_x: u32,
+    out_offset: u32,
+    in_offset: u32,
+    size_a: u32,
+    size_z: u32,
+    size_y: u32,
+    size_x: u32,
+
+    /// Don't use this for more than one-off operations because this is pretty slow
+    pub fn realize(op: Op) void {
         switch (op.kind) {
             .reduce_sum => {
                 op.out.values[op.out.at(0, 0, 0, 0)] = 0;
@@ -653,6 +642,7 @@ pub fn unarySign(linearized: *Linearized, buffer: Buffer) void {
     });
 }
 pub fn binaryAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -665,6 +655,7 @@ pub fn binaryAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binarySubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -677,6 +668,7 @@ pub fn binarySubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binaryMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -689,6 +681,7 @@ pub fn binaryMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binaryDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -701,6 +694,7 @@ pub fn binaryDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binaryMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -713,6 +707,7 @@ pub fn binaryMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binaryMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -725,6 +720,7 @@ pub fn binaryMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn binarySet(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == in.a_size);
     assert(out.z_size == in.z_size);
     assert(out.y_size == in.y_size);
@@ -737,6 +733,7 @@ pub fn binarySet(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -749,6 +746,7 @@ pub fn expandAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandSubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -761,6 +759,7 @@ pub fn expandSubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -773,6 +772,7 @@ pub fn expandMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -785,6 +785,7 @@ pub fn expandDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -797,6 +798,7 @@ pub fn expandMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -809,6 +811,7 @@ pub fn expandMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn expandSet(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(in.a_size == 1);
     assert(in.z_size == 1);
     assert(in.y_size == 1);
@@ -821,6 +824,7 @@ pub fn expandSet(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn reduceSum(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == 1);
     assert(out.z_size == 1);
     assert(out.y_size == 1);
@@ -833,6 +837,7 @@ pub fn reduceSum(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn reduceMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == 1);
     assert(out.z_size == 1);
     assert(out.y_size == 1);
@@ -845,6 +850,7 @@ pub fn reduceMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn reduceMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == 1);
     assert(out.z_size == 1);
     assert(out.y_size == 1);
@@ -857,6 +863,7 @@ pub fn reduceMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     });
 }
 pub fn reduceAvg(linearized: *Linearized, out: Buffer, in: Buffer) void {
+    assert(out.id != in.id);
     assert(out.a_size == 1);
     assert(out.z_size == 1);
     assert(out.y_size == 1);
