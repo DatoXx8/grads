@@ -559,7 +559,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.splitKernel(&pir_temp, split.idx);
                 },
                 .fuse => |fuse| {
-                    opt.mergeOp(&pir_temp, fuse.left_idx, fuse.right_idx);
+                    opt.mergeOp(a, &pir_temp, fuse.left_idx, fuse.right_idx);
                 },
             }
 
@@ -585,7 +585,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.splitKernel(pir, split.idx);
                 },
                 .fuse => |fuse| {
-                    opt.mergeOp(pir, fuse.left_idx, fuse.right_idx);
+                    opt.mergeOp(gpa, pir, fuse.left_idx, fuse.right_idx);
                 },
             }
             cost_curr = cost_next_best;

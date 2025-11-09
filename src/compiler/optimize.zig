@@ -41,18 +41,29 @@ pub const Optimization = union(enum) {
 };
 
 /// $WARN Inputs are assumed valid, i.e `sqrt(x)^2` for `x < 0` is assumed to never occur and will be optimized to `id(x)`
-/// /// Check if left and right can be merged.
+/// Check if left and right can be merged.
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Assign, right: Assign) bool {
-    // $TODO Allow merging inlined ops within the same assign (for example U add has another U add inlined)
-    if (left.inlined.num > 0 or right.inlined.num > 0) return false; // $TODO Handle this case. Shouldn't be too hard
-
     if (left.base.repeats != right.base.repeats) return false;
     if (!left.base.out_dim.equal(right.base.out_dim)) return false;
     if (!left.base.in_dim.equal(right.base.in_dim)) return false;
     if (!left.base.out.equal(right.base.out) or !left.base.in.equal(right.base.in)) return false;
     if (right.base.kind.isReduce()) return false;
     if (right.base.kind.overwrites()) return true;
+
+    if (left.inlined.num != right.inlined.num or
+        left.inlined.out_root != right.inlined.out_root or
+        left.inlined.in_root != right.inlined.in_root) return false;
+
+    var inlined_idx: u32 = 0;
+    while (inlined_idx < left.inlined.num) : (inlined_idx += 1) {
+        if (!left.inlined.base[inlined_idx].equal(right.inlined.base[inlined_idx]) or
+            left.inlined.out[inlined_idx] != right.inlined.out[inlined_idx] or
+            left.inlined.in[inlined_idx] != right.inlined.in[inlined_idx])
+        {
+            return false;
+        }
+    }
 
     // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
     return switch (left.base.kind) {
@@ -280,30 +291,84 @@ pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir
                 };
                 break;
             } else {
-                const left: Base = pir.assign[left_idx].base;
-                const right: Base = pir.assign[right_idx].base;
+                const base_left: Base = pir.assign[left_idx].base;
+                const inlined_left: Inlined = pir.assign[left_idx].inlined;
 
-                const out_out_conflict: bool = left.out.id == right.out.id and left.out.overlaps(right.out);
-                const out_in_conflict: bool = left.out.id == right.in.id and left.out.overlaps(right.in);
-                const in_out_conflict: bool = left.in.id == right.out.id and left.in.overlaps(right.out);
-                // $FIXME This needs to check inlined ops as well
+                const base_right: Base = pir.assign[right_idx].base;
+                const inlined_right: Inlined = pir.assign[right_idx].inlined;
 
-                if (out_out_conflict or out_in_conflict or in_out_conflict) {
+                const overlap_out_x: bool = blk: {
+                    if (base_left.out.id == base_right.out.id and
+                        base_left.out.overlaps(base_right.out))
+                    {
+                        break :blk true;
+                    }
+                    if (base_left.out.id == base_right.in.id and
+                        base_left.out.overlaps(base_right.in) and
+                        !base_right.kind.isUnary())
+                    {
+                        break :blk true;
+                    }
+                    var inlined_right_idx: u32 = 0;
+                    while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                        if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
+                            base_left.out.overlaps(inlined_right.base[inlined_right_idx].out) and
+                            inlined_right.out[inlined_right_idx] == null)
+                        {
+                            break :blk true;
+                        }
+                        if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
+                            base_left.out.overlaps(inlined_right.base[inlined_right_idx].in) and
+                            !inlined_right.base[inlined_right_idx].kind.isUnary() and
+                            inlined_right.in[inlined_right_idx] == null)
+                        {
+                            break :blk true;
+                        }
+                    }
+                    break :blk false;
+                };
+                const overlap_x_out: bool = blk: {
+                    if (base_left.in.id == base_right.out.id and
+                        base_left.in.overlaps(base_right.out))
+                    {
+                        break :blk true;
+                    }
+                    var inlined_left_idx: u32 = 0;
+                    while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                        if (inlined_left.base[inlined_left_idx].out.id == base_right.out.id and
+                            inlined_left.base[inlined_left_idx].out.overlaps(base_right.out) and
+                            inlined_left.out[inlined_left_idx] == null)
+                        {
+                            break :blk true;
+                        }
+                        if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
+                            inlined_left.base[inlined_left_idx].in.overlaps(base_right.out) and
+                            inlined_left.in[inlined_left_idx] == null and
+                            !inlined_left.base[inlined_left_idx].kind.isUnary())
+                        {
+                            break :blk true;
+                        }
+                    }
+                    break :blk false;
+                };
+
+                if (overlap_out_x or overlap_x_out) {
                     break;
                 }
             }
         }
     }
 }
-// $FIXME This does not handle inlines and repeats
-pub fn mergeOp(pir: *Pir, left_idx: u32, right_idx: u32) void {
+pub fn mergeOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) void {
     assert(mergeOpPossible(pir.assign[left_idx], pir.assign[right_idx]));
     const merge_both: bool = mergeOpCombine(pir.assign[left_idx], &pir.assign[right_idx]);
 
     var assign_num_new: u32 = 0;
     for (0..pir.assign_num) |assign_idx| {
         if (assign_idx == left_idx or (assign_idx == right_idx and merge_both)) {
-            //
+            gpa.free(pir.assign[assign_idx].inlined.base);
+            gpa.free(pir.assign[assign_idx].inlined.out);
+            gpa.free(pir.assign[assign_idx].inlined.in);
         } else {
             pir.assign[assign_num_new] = pir.assign[assign_idx];
             assign_num_new += 1;
