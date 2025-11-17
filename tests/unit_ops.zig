@@ -7,6 +7,7 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
 const Buffer = grads.Buffer;
+const Vec4 = Buffer.Vec4;
 const Linearized = grads.Linearized;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
@@ -64,18 +65,20 @@ pub fn main() !void {
     var runtime_noop: RuntimeNoop = undefined;
     const runtime: Runtime = runtime_noop.runtime();
 
-    const a_size: u32 = 6;
-    const z_size: u32 = 5;
-    const y_size: u32 = 4;
-    const x_size: u32 = 3;
+    const size: Vec4 = .{
+        .a = 6,
+        .z = 5,
+        .y = 4,
+        .x = 3,
+    };
 
     var linearized1: Linearized = try .alloc(arena, 3);
-    var buffer1 = try Buffer.alloc(runtime, arena, a_size, z_size, y_size, x_size, .normal);
+    const buffer1 = try Buffer.alloc(runtime, gpa, arena, size, .normal);
     defer buffer1.free(runtime);
-    var buffer2 = try Buffer.alloc(runtime, arena, a_size, z_size, y_size, x_size, .normal);
+    const buffer2 = try Buffer.alloc(runtime, gpa, arena, size, .normal);
     defer buffer2.free(runtime);
-    const val1 = try arena.alloc(f32, a_size * z_size * y_size * x_size);
-    const val2 = try arena.alloc(f32, a_size * z_size * y_size * x_size);
+    const val1 = try arena.alloc(f32, size.productOfElements());
+    const val2 = try arena.alloc(f32, size.productOfElements());
 
     const rng: u64 = switch (rng_saved == null) {
         true => std.crypto.random.int(u64),
@@ -85,123 +88,123 @@ pub fn main() !void {
     defer util.log.print(" passed!\n", .{});
     var pcg = Pcg.init(rng);
 
-    for (0..a_size * z_size * y_size * x_size) |val_idx| {
+    for (0..size.productOfElements()) |val_idx| {
         val1[val_idx] = pcg.random().floatNorm(f32);
         val2[val_idx] = pcg.random().floatNorm(f32);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
-    std.mem.copyForwards(f32, buffer2.values, val2);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
+    std.mem.copyForwards(f32, buffer2.data().values, val2);
     linearized1.unaryAdd(buffer1, 2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] + 2);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] + 2);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unarySubtract(buffer1, 2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] - 2);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] - 2);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryMultiply(buffer1, 2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] * 2);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] * 2);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryDivide(buffer1, 2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] / 2);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] / 2);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryAbsolute(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @abs(val1[arg_idx]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @abs(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryExp(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], std.math.exp(val1[arg_idx]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], std.math.exp(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     // This is to avoid NaNs
     linearized1.unaryAbsolute(buffer1);
     linearized1.unaryAdd(buffer1, 1);
     linearized1.unaryLog(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], std.math.log(f32, std.math.e, @abs(val1[arg_idx]) + 1));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], std.math.log(f32, std.math.e, @abs(val1[arg_idx]) + 1));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unarySquare(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] * val1[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] * val1[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     // This it to avoid NaNs
     linearized1.unaryAbsolute(buffer1);
     linearized1.unarySqrt(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], std.math.sqrt(@abs(val1[arg_idx])));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], std.math.sqrt(@abs(val1[arg_idx])));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     // This is to avoid NaNs
     linearized1.unaryAbsolute(buffer1);
     linearized1.unaryAdd(buffer1, 1);
     linearized1.unaryReciprocal(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], 1 / (@abs(val1[arg_idx]) + 1));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], 1 / (@abs(val1[arg_idx]) + 1));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryMax(buffer1, 1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @max(val1[arg_idx], 1));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @max(val1[arg_idx], 1));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryMin(buffer1, 1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @min(val1[arg_idx], 1));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @min(val1[arg_idx], 1));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unarySet(buffer1, 2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], 2);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], 2);
     }
 
     // Theoretically speaking because this *is* random this could
     // error despite everything working as it should, but doing some
     // back of the envelope calculations that should be rare enough to
     // not really worry about it.
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryRandom(buffer1, @truncate(rng));
     linearized1.realize();
     var product: f32 = 1;
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        product *= buffer1.values[arg_idx];
+    for (0..size.productOfElements()) |arg_idx| {
+        product *= buffer1.data().values[arg_idx];
     }
-    if (@abs(product) < 1 / @as(f32, a_size * z_size * y_size * x_size)) {
+    if (@abs(product) < 1 / @as(f32, @floatFromInt(size.productOfElements()))) {
         // Happy case
     } else {
         // For nicer output formatting
@@ -210,164 +213,164 @@ pub fn main() !void {
             \\ Difference in unary_random too large. 
             \\ Because of the randomnes of unary_random this error could happen despite everything working correctly and should only be investigated if it happens when running this test again.
             \\ The values where {d} and {d}.
-        , .{ @abs(product), 1 / @as(f32, a_size * z_size * y_size * x_size) });
+        , .{ @abs(product), 1 / @as(f32, @floatFromInt(size.productOfElements())) });
         return AssertError.difference;
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unaryTanh(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], std.math.tanh(val1[arg_idx]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], std.math.tanh(val1[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.unarySign(buffer1);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
+    for (0..size.productOfElements()) |arg_idx| {
         if (val1[arg_idx] > 0) {
-            try assertEq(buffer1.values[arg_idx], 1);
+            try assertEq(buffer1.data().values[arg_idx], 1);
         } else if (val1[arg_idx] < 0) {
-            try assertEq(buffer1.values[arg_idx], -1);
+            try assertEq(buffer1.data().values[arg_idx], -1);
         } else {
-            try assertEq(buffer1.values[arg_idx], 0);
+            try assertEq(buffer1.data().values[arg_idx], 0);
         }
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binaryAdd(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] + val2[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] + val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binarySubtract(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] - val2[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] - val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binaryMultiply(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] * val2[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] * val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binaryDivide(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] / val2[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] / val2[arg_idx]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binaryMax(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @max(val1[arg_idx], val2[arg_idx]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @max(val1[arg_idx], val2[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binaryMin(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @min(val1[arg_idx], val2[arg_idx]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @min(val1[arg_idx], val2[arg_idx]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.binarySet(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val2[arg_idx]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val2[arg_idx]);
     }
 
-    buffer2.moveResize(1, 1, 1, 1);
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    buffer2.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandAdd(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] + val2[0]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] + val2[0]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandSubtract(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] - val2[0]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] - val2[0]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandMultiply(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] * val2[0]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] * val2[0]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandDivide(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val1[arg_idx] / val2[0]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val1[arg_idx] / val2[0]);
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandMax(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @max(val1[arg_idx], val2[0]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @max(val1[arg_idx], val2[0]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandMin(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], @min(val1[arg_idx], val2[0]));
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], @min(val1[arg_idx], val2[0]));
     }
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.expandSet(buffer1, buffer2);
     linearized1.realize();
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
-        try assertEq(buffer1.values[arg_idx], val2[0]);
+    for (0..size.productOfElements()) |arg_idx| {
+        try assertEq(buffer1.data().values[arg_idx], val2[0]);
     }
 
-    buffer1.moveResize(1, 1, 1, 1);
-    buffer2.moveResize(a_size, z_size, y_size, x_size);
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    buffer1.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
+    buffer2.moveResize(size);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.reduceSum(buffer1, buffer2);
     linearized1.realize();
     var sum: f32 = 0;
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
+    for (0..size.productOfElements()) |arg_idx| {
         sum += val2[arg_idx];
     }
-    try assertEq(buffer1.values[0], sum);
+    try assertEq(buffer1.data().values[0], sum);
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.reduceAvg(buffer1, buffer2);
     linearized1.realize();
     sum = 0;
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
+    for (0..size.productOfElements()) |arg_idx| {
         sum += val2[arg_idx];
     }
-    try assertEq(buffer1.values[0], sum / @as(f32, a_size * z_size * y_size * x_size));
+    try assertEq(buffer1.data().values[0], sum / @as(f32, @floatFromInt(size.productOfElements())));
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.reduceMax(buffer1, buffer2);
     linearized1.realize();
     var max: f32 = -std.math.inf(f32);
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
+    for (0..size.productOfElements()) |arg_idx| {
         max = @max(max, val2[arg_idx]);
     }
-    try assertEq(buffer1.values[0], max);
+    try assertEq(buffer1.data().values[0], max);
 
-    std.mem.copyForwards(f32, buffer1.values, val1);
+    std.mem.copyForwards(f32, buffer1.data().values, val1);
     linearized1.reduceMin(buffer1, buffer2);
     linearized1.realize();
     var min: f32 = std.math.inf(f32);
-    for (0..a_size * z_size * y_size * x_size) |arg_idx| {
+    for (0..size.productOfElements()) |arg_idx| {
         min = @min(min, val2[arg_idx]);
     }
-    try assertEq(buffer1.values[0], min);
+    try assertEq(buffer1.data().values[0], min);
 }

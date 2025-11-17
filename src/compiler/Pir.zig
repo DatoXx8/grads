@@ -6,188 +6,212 @@ const ArrayList = std.ArrayList;
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
 const Buffer = @import("../Buffer.zig");
+const Vec4 = Buffer.Vec4;
+const View = Buffer.View;
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 const util = @import("../util.zig");
 
 const VGpu = @import("VGpu.zig");
 
-pub const DimInfo = struct {
+pub const ViewOffset = struct {
     pub const value_none: u32 = std.math.maxInt(u32);
     pub const wait_default: u32 = 1;
     pub const stride_default: u32 = 0;
     /// Just the highest bit
     pub const reset_default: u32 = ~(value_none >> 1);
-    off: u32,
-    a_stride: u32,
-    z_stride: u32,
-    y_stride: u32,
-    x_stride: u32,
-    a_reset: u32,
-    z_reset: u32,
-    y_reset: u32,
-    x_reset: u32,
-    a_wait: u32,
-    z_wait: u32,
-    y_wait: u32,
-    x_wait: u32,
-    pub fn init(offset: u32) DimInfo {
+    offset: u32,
+    stride: Vec4,
+    repeat_stride: Vec4,
+    repeat_wait: Vec4,
+    repeat_reset: Vec4,
+    pub fn fromView(view: View) ViewOffset {
         return .{
-            .off = offset,
-            .a_stride = value_none,
-            .z_stride = value_none,
-            .y_stride = value_none,
-            .x_stride = value_none,
-            .a_reset = value_none,
-            .z_reset = value_none,
-            .y_reset = value_none,
-            .x_reset = value_none,
-            .a_wait = value_none,
-            .z_wait = value_none,
-            .y_wait = value_none,
-            .x_wait = value_none,
+            .offset = view.offset,
+            .stride = view.stride,
+            .repeat_stride = .{ .a = value_none, .z = value_none, .y = value_none, .x = value_none },
+            .repeat_wait = .{ .a = value_none, .z = value_none, .y = value_none, .x = value_none },
+            .repeat_reset = .{ .a = value_none, .z = value_none, .y = value_none, .x = value_none },
         };
     }
-    pub fn equal(dim_info: DimInfo, target: DimInfo) bool {
-        return dim_info.off == target.off and
-            dim_info.a_stride == target.a_stride and dim_info.z_stride == target.z_stride and
-            dim_info.y_stride == target.y_stride and dim_info.x_stride == target.x_stride and
-            dim_info.a_wait == target.a_wait and dim_info.z_wait == target.z_wait and
-            dim_info.y_wait == target.y_wait and dim_info.x_wait == target.x_wait and
-            dim_info.a_reset == target.a_reset and dim_info.z_reset == target.z_reset and
-            dim_info.y_reset == target.y_reset and dim_info.x_reset == target.x_reset;
+    pub fn removeDefault(view_offset: *ViewOffset) void {
+        view_offset.repeat_stride.a =
+            if (view_offset.repeat_stride.a == value_none) stride_default else view_offset.repeat_stride.a;
+        view_offset.repeat_stride.z =
+            if (view_offset.repeat_stride.z == value_none) stride_default else view_offset.repeat_stride.z;
+        view_offset.repeat_stride.y =
+            if (view_offset.repeat_stride.y == value_none) stride_default else view_offset.repeat_stride.y;
+        view_offset.repeat_stride.x =
+            if (view_offset.repeat_stride.x == value_none) stride_default else view_offset.repeat_stride.x;
+        view_offset.repeat_wait.a =
+            if (view_offset.repeat_wait.a == value_none) wait_default else view_offset.repeat_wait.a;
+        view_offset.repeat_wait.z =
+            if (view_offset.repeat_wait.z == value_none) wait_default else view_offset.repeat_wait.z;
+        view_offset.repeat_wait.y =
+            if (view_offset.repeat_wait.y == value_none) wait_default else view_offset.repeat_wait.y;
+        view_offset.repeat_wait.x =
+            if (view_offset.repeat_wait.x == value_none) wait_default else view_offset.repeat_wait.x;
+        view_offset.repeat_reset.a =
+            if (view_offset.repeat_reset.a == value_none) reset_default else view_offset.repeat_reset.a;
+        view_offset.repeat_reset.z =
+            if (view_offset.repeat_reset.z == value_none) reset_default else view_offset.repeat_reset.z;
+        view_offset.repeat_reset.y =
+            if (view_offset.repeat_reset.y == value_none) reset_default else view_offset.repeat_reset.y;
+        view_offset.repeat_reset.x =
+            if (view_offset.repeat_reset.x == value_none) reset_default else view_offset.repeat_reset.x;
     }
-    pub fn print(dim_info: DimInfo, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
-        if (name) |text| {
-            util.log.print("{s}DimInfo {s}\n", .{ [1]u8{' '} ** offset, text });
+    pub fn viewAtRepeat(view_offset: ViewOffset, size: Vec4, repeat_idx: u32) View {
+        var view_offset_no_default: ViewOffset = view_offset;
+        view_offset_no_default.removeDefault();
+        return .{
+            .size = size,
+            .stride = view_offset.stride,
+            .offset = view_offset.offset +
+                (repeat_idx % view_offset_no_default.repeat_reset.a) / view_offset_no_default.repeat_wait.a *
+                    view_offset_no_default.repeat_stride.a * view_offset_no_default.stride.a +
+                (repeat_idx % view_offset_no_default.repeat_reset.z) / view_offset_no_default.repeat_wait.z *
+                    view_offset_no_default.repeat_stride.z * view_offset_no_default.stride.z +
+                (repeat_idx % view_offset_no_default.repeat_reset.y) / view_offset_no_default.repeat_wait.y *
+                    view_offset_no_default.repeat_stride.y * view_offset_no_default.stride.y +
+                (repeat_idx % view_offset_no_default.repeat_reset.x) / view_offset_no_default.repeat_wait.x *
+                    view_offset_no_default.repeat_stride.x * view_offset_no_default.stride.x,
+        };
+    }
+    pub fn equal(view_offset_1: ViewOffset, view_offset_2: ViewOffset) bool {
+        return view_offset_1.offset == view_offset_2.offset and
+            view_offset_1.stride.equal(view_offset_2.stride) and
+            view_offset_1.repeat_stride.equal(view_offset_2.repeat_stride) and
+            view_offset_1.repeat_wait.equal(view_offset_2.repeat_wait) and
+            view_offset_1.repeat_reset.equal(view_offset_2.repeat_reset);
+    }
+    pub fn overlaps(
+        view_offset_1: ViewOffset,
+        repeat_1: u32,
+        size_1: Vec4,
+        view_offset_2: ViewOffset,
+        repeat_2: u32,
+        size_2: Vec4,
+    ) bool {
+        var repeat_1_idx: u32 = 0;
+        while (repeat_1_idx < repeat_1) : (repeat_1_idx += 1) {
+            const view_1: View = view_offset_1.viewAtRepeat(size_1, repeat_1_idx);
+            var repeat_2_idx: u32 = 0;
+            while (repeat_2_idx < repeat_2) : (repeat_2_idx += 1) {
+                const view_2: View = view_offset_2.viewAtRepeat(size_2, repeat_2_idx);
+
+                if (view_1.overlaps(view_2)) return true;
+            }
         }
+        return false;
+    }
+    pub fn overlapsAll(
+        view_offset_1: ViewOffset,
+        repeat_1: u32,
+        size_1: Vec4,
+        view_offset_2: ViewOffset,
+        repeat_2: u32,
+        size_2: Vec4,
+    ) bool {
+        var repeat_1_idx: u32 = 0;
+        while (repeat_1_idx < repeat_1) : (repeat_1_idx += 1) {
+            const view_1: View = view_offset_1.viewAtRepeat(size_1, repeat_1_idx);
+            var repeat_2_idx: u32 = 0;
+            while (repeat_2_idx < repeat_2) : (repeat_2_idx += 1) {
+                const view_2: View = view_offset_2.viewAtRepeat(size_2, repeat_2_idx);
+
+                if (view_1.overlapsAll(view_2)) return true;
+            }
+        }
+        return false;
+    }
+    pub fn overlapsPartial(
+        view_offset_1: ViewOffset,
+        repeat_1: u32,
+        size_1: Vec4,
+        view_offset_2: ViewOffset,
+        repeat_2: u32,
+        size_2: Vec4,
+    ) bool {
+        var repeat_1_idx: u32 = 0;
+        while (repeat_1_idx < repeat_1) : (repeat_1_idx += 1) {
+            const view_1: View = view_offset_1.viewAtRepeat(size_1, repeat_1_idx);
+            var repeat_2_idx: u32 = 0;
+            while (repeat_2_idx < repeat_2) : (repeat_2_idx += 1) {
+                const view_2: View = view_offset_2.viewAtRepeat(size_2, repeat_2_idx);
+
+                if (view_1.overlapsPartial(view_2)) return true;
+            }
+        }
+        return false;
+    }
+    pub fn print(view_offset: ViewOffset, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
+        if (name) |text| {
+            util.log.print("{s}ViewOffset {s}\n", .{ [1]u8{' '} ** offset, text });
+        }
+        util.log.print("{s}off => ({d:10}, {d:10}, {d:10}, {d:10}) = {}\n", .{
+            " " ** (offset + padding), //
+            view_offset.offset / view_offset.stride.a,
+            view_offset.offset % view_offset.stride.a / view_offset.stride.z,
+            view_offset.offset % view_offset.stride.z / view_offset.stride.y,
+            view_offset.offset % view_offset.stride.y / view_offset.stride.x,
+            view_offset.offset,
+        });
         util.log.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            dim_info.a_stride, dim_info.z_stride, dim_info.y_stride, dim_info.x_stride, //
+            view_offset.repeat_stride.a,
+            view_offset.repeat_stride.z,
+            view_offset.repeat_stride.y,
+            view_offset.repeat_stride.x,
         });
         util.log.print("{s}res => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            dim_info.a_reset, dim_info.z_reset, dim_info.y_reset, dim_info.x_reset, //
+            view_offset.repeat_reset.a,
+            view_offset.repeat_reset.z,
+            view_offset.repeat_reset.y,
+            view_offset.repeat_reset.x,
         });
         util.log.print("{s}wai => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
             " " ** (offset + padding), //
-            dim_info.a_wait, dim_info.z_wait, dim_info.y_wait, dim_info.x_wait, //
+            view_offset.repeat_wait.a,
+            view_offset.repeat_wait.z,
+            view_offset.repeat_wait.y,
+            view_offset.repeat_wait.x,
         });
     }
 };
-// I removed the dependency layers for now, because they just weren't used anywhere. Add those back if necessary.
 /// The basic thing the Assignment does without any funny business
 pub const Base = struct {
     out: Buffer,
     in: Buffer,
+    out_view: ViewOffset, // Only need to store the information to conmpute the offsets because the size is stored in the Assign
+    in_view: ViewOffset,
+
     kind: Op.Kind,
     u_var: f32,
-    repeats: u32,
-    out_dim: DimInfo,
-    in_dim: DimInfo,
-    pub inline fn equal(base: Base, target: Base) bool {
-        return base.out.equal(target.out) and base.in.equal(target.in) and
-            base.kind == target.kind and base.u_var == target.u_var;
-    }
-    pub inline fn equalNoOffset(base: Base, target: Base) bool {
-        return base.out.equalNoOffset(target.out) and base.in.equalNoOffset(target.in) and
-            base.kind == target.kind and base.u_var == target.u_var;
-    }
     pub fn print(base: Base, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             util.log.print("{s}Base {s}\n", .{ " " ** offset, text });
         }
         if (base.kind.isUnary()) {
-            util.log.print("{s}U {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\" {d}\n", .{
+            util.log.print("{s}{s} \"{s}\" {d}\n", .{
                 " " ** (offset + padding),
-                switch (base.kind) {
-                    .unary_add => "add",
-                    .unary_subtract => "sub",
-                    .unary_multiply => "mul",
-                    .unary_divide => "div",
-                    .unary_exp => "exp",
-                    .unary_log => "log",
-                    .unary_square => "sqr",
-                    .unary_sqrt => "sqt",
-                    .unary_reciprocal => "rcp",
-                    .unary_max => "max",
-                    .unary_min => "min",
-                    .unary_set => "set",
-                    .unary_random => "rng",
-                    .unary_tanh => "tanh",
-                    .unary_absolute => "abs",
-                    .unary_sign => "sgn",
-                    else => unreachable,
-                },
-                base.out.a_size,
-                base.out.z_size,
-                base.out.y_size,
-                base.out.x_size,
-                base.out.aOffset(),
-                base.out.zOffset(),
-                base.out.yOffset(),
-                base.out.xOffset(),
-                base.out.offset,
-                @tagName(base.out.kind),
+                @tagName(base.kind),
                 base.out.name(),
                 base.u_var,
             });
+            base.out_view.print(padding, padding + offset, null);
         } else {
-            const op_kind: u8 = if (base.kind.isBinary()) 'B' else (if (base.kind.isExpand()) 'E' else (if (base.kind.isReduce()) 'R' else unreachable));
-            util.log.print("{s}{c} {s} ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\" ({d} {d} {d} {d}) [{d}, {d}, {d}, {d} = {d}] .{s} \"{s}\"\n", .{
+            util.log.print("{s}{s} \"{s}\" \"{s}\"\n", .{
                 " " ** (offset + padding),
-                op_kind,
-                switch (base.kind) {
-                    .binary_add => "add",
-                    .binary_subtract => "sub",
-                    .binary_multiply => "mul",
-                    .binary_divide => "div",
-                    .binary_max => "max",
-                    .binary_min => "min",
-                    .binary_set => "set",
-                    .expand_add => "add",
-                    .expand_subtract => "sub",
-                    .expand_multiply => "mul",
-                    .expand_divide => "div",
-                    .expand_max => "max",
-                    .expand_min => "min",
-                    .expand_set => "set",
-                    .reduce_sum => "sum",
-                    .reduce_max => "max",
-                    .reduce_min => "min",
-                    .reduce_avg => "avg",
-                    else => unreachable,
-                },
-                base.out.a_size,
-                base.out.z_size,
-                base.out.y_size,
-                base.out.x_size,
-                base.out.aOffset(),
-                base.out.zOffset(),
-                base.out.yOffset(),
-                base.out.xOffset(),
-                base.out.offset,
-                @tagName(base.out.kind),
+                @tagName(base.kind),
                 base.out.name(),
-                base.in.a_size,
-                base.in.z_size,
-                base.in.y_size,
-                base.in.x_size,
-                base.in.aOffset(),
-                base.in.zOffset(),
-                base.in.yOffset(),
-                base.in.xOffset(),
-                base.in.offset,
-                @tagName(base.in.kind),
                 base.in.name(),
             });
+            base.out_view.print(padding, padding + offset, null);
+            base.in_view.print(padding, padding + offset, null);
         }
-        util.log.print("{s}Repeats {}\n", .{ " " ** (offset + padding), base.repeats });
-        base.out_dim.print(padding, padding + offset, "out_dim");
-        base.in_dim.print(padding, padding + offset, "in_dim");
     }
 };
-// $TODO Maybe make all these slices from a global / per ssa buffer
 /// Tree representation of inlined ops
 pub const Inlined = struct {
     base: []Base,
@@ -235,47 +259,41 @@ pub const Inlined = struct {
         return true;
     }
 };
+// $TODO This is where tiling and SIMD stuff should happen
 /// Wether or not to split a single operation across kernels
 pub const Split = bool;
-/// Describes how to utilize blocks for better caching
-pub const Block = struct {
-    //
-};
-/// Describes the SIMD width and tells to codegen to actually use SIMD
-pub const Simd = struct {
-    //
-};
 /// Essentialy this is one unit of work
 pub const Assign = struct {
+    repeats: u32,
+    size: Vec4,
     base: Base,
     inlined: Inlined,
     split: Split,
-    block: ?Block,
-    simd: ?Simd,
     pub fn print(assign: Assign, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
         if (name) |text| {
             util.log.print("{s}Assign {s}\n", .{ " " ** offset, text });
         }
+        util.log.print("{s}({}, {}, {}, {}) Repeats: {}\n", .{
+            " " ** (offset + padding),
+            assign.size.a,
+            assign.size.z,
+            assign.size.y,
+            assign.size.x,
+            assign.repeats,
+        });
         assign.base.print(padding, offset, null);
 
         if (assign.inlined.num > 0) {
             util.log.print("{s}Inlined out_base {?} in_base {?} inlined_num {}\n", //
                 .{ " " ** (offset + padding), assign.inlined.out_root, assign.inlined.in_root, assign.inlined.num });
-            for (0..assign.inlined.num) |inlined_idx| {
+            var inlined_idx: u32 = 0;
+            while (inlined_idx < assign.inlined.num) : (inlined_idx += 1) {
                 util.log.print("{s}({}) out -> {?} in -> {?}\n", .{ " " ** (offset + padding), inlined_idx, assign.inlined.out[inlined_idx], assign.inlined.in[inlined_idx] });
                 assign.inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
         if (assign.split) {
             util.log.print("{s}Splitting\n", .{" " ** (offset + padding)});
-        }
-        if (assign.block) |block| {
-            _ = block;
-            unreachable;
-        }
-        if (assign.simd) |simd| {
-            _ = simd;
-            unreachable;
         }
     }
 };
@@ -296,26 +314,25 @@ pub fn alloc(
 
     for (0..linearized.num) |op_idx| {
         assign[op_idx] = .{
+            .repeats = 1,
+            .size = linearized.op[op_idx].view_dual.size,
             .base = .{
-                .kind = linearized.op[op_idx].kind,
-                .u_var = linearized.op[op_idx].u_var,
                 .out = linearized.op[op_idx].out,
                 .in = linearized.op[op_idx].in,
-                .out_dim = DimInfo.init(assign[op_idx].base.out.offset),
-                .in_dim = DimInfo.init(assign[op_idx].base.in.offset),
-                .repeats = 1,
+                .u_var = linearized.op[op_idx].u_var,
+                .kind = linearized.op[op_idx].kind,
+                .out_view = ViewOffset.fromView(linearized.op[op_idx].view_dual.viewOut()),
+                .in_view = ViewOffset.fromView(linearized.op[op_idx].view_dual.viewIn()),
             },
+            .split = false,
             .inlined = .{
+                .num = 0,
+                .out_root = null,
+                .in_root = null,
                 .base = &.{},
                 .out = &.{},
                 .in = &.{},
-                .out_root = null,
-                .in_root = null,
-                .num = 0,
             },
-            .split = false,
-            .simd = null,
-            .block = null,
         };
     }
 
@@ -349,6 +366,8 @@ pub fn copy(pir: Pir, gpa: Allocator) !Pir {
 
     for (0..pir.assign_num) |assign_idx| {
         result.assign[assign_idx] = .{
+            .repeats = pir.assign[assign_idx].repeats,
+            .size = pir.assign[assign_idx].size,
             .base = pir.assign[assign_idx].base,
             .inlined = if (pir.assign[assign_idx].inlined.num > 0)
                 .{
@@ -396,11 +415,7 @@ pub fn copy(pir: Pir, gpa: Allocator) !Pir {
                     .num = 0,
                 },
             .split = pir.assign[assign_idx].split,
-            .simd = pir.assign[assign_idx].simd,
-            .block = pir.assign[assign_idx].block,
         };
-        assert(pir.assign[assign_idx].simd == null);
-        assert(pir.assign[assign_idx].block == null);
     }
 
     return result;
@@ -426,46 +441,12 @@ pub fn free(pir: Pir, gpa: Allocator) void {
 }
 fn removeDefault(pir: *Pir) void {
     for (0..pir.assign_num) |assign_idx| {
-        inline for (0..2) |dim_idx| {
-            const dim_info: *DimInfo = if (dim_idx == 0)
-                &pir.assign[assign_idx].base.out_dim
-            else
-                &pir.assign[assign_idx].base.in_dim;
-            if (dim_info.a_wait == DimInfo.value_none) dim_info.a_wait = DimInfo.wait_default;
-            if (dim_info.z_wait == DimInfo.value_none) dim_info.z_wait = DimInfo.wait_default;
-            if (dim_info.y_wait == DimInfo.value_none) dim_info.y_wait = DimInfo.wait_default;
-            if (dim_info.x_wait == DimInfo.value_none) dim_info.x_wait = DimInfo.wait_default;
+        pir.assign[assign_idx].base.out_view.removeDefault();
+        pir.assign[assign_idx].base.in_view.removeDefault();
 
-            if (dim_info.a_stride == DimInfo.value_none) dim_info.a_stride = DimInfo.stride_default;
-            if (dim_info.z_stride == DimInfo.value_none) dim_info.z_stride = DimInfo.stride_default;
-            if (dim_info.y_stride == DimInfo.value_none) dim_info.y_stride = DimInfo.stride_default;
-            if (dim_info.x_stride == DimInfo.value_none) dim_info.x_stride = DimInfo.stride_default;
-
-            if (dim_info.a_reset == DimInfo.value_none) dim_info.a_reset = DimInfo.reset_default;
-            if (dim_info.z_reset == DimInfo.value_none) dim_info.z_reset = DimInfo.reset_default;
-            if (dim_info.y_reset == DimInfo.value_none) dim_info.y_reset = DimInfo.reset_default;
-            if (dim_info.x_reset == DimInfo.value_none) dim_info.x_reset = DimInfo.reset_default;
-
-            for (0..pir.assign[assign_idx].inlined.num) |inlined_idx| {
-                const inlined_info: *DimInfo = if (dim_idx == 0)
-                    &pir.assign[assign_idx].inlined.base[inlined_idx].out_dim
-                else
-                    &pir.assign[assign_idx].inlined.base[inlined_idx].in_dim;
-                if (inlined_info.a_wait == DimInfo.value_none) inlined_info.a_wait = DimInfo.wait_default;
-                if (inlined_info.z_wait == DimInfo.value_none) inlined_info.z_wait = DimInfo.wait_default;
-                if (inlined_info.y_wait == DimInfo.value_none) inlined_info.y_wait = DimInfo.wait_default;
-                if (inlined_info.x_wait == DimInfo.value_none) inlined_info.x_wait = DimInfo.wait_default;
-
-                if (inlined_info.a_stride == DimInfo.value_none) inlined_info.a_stride = DimInfo.stride_default;
-                if (inlined_info.z_stride == DimInfo.value_none) inlined_info.z_stride = DimInfo.stride_default;
-                if (inlined_info.y_stride == DimInfo.value_none) inlined_info.y_stride = DimInfo.stride_default;
-                if (inlined_info.x_stride == DimInfo.value_none) inlined_info.x_stride = DimInfo.stride_default;
-
-                if (inlined_info.a_reset == DimInfo.value_none) inlined_info.a_reset = DimInfo.reset_default;
-                if (inlined_info.z_reset == DimInfo.value_none) inlined_info.z_reset = DimInfo.reset_default;
-                if (inlined_info.y_reset == DimInfo.value_none) inlined_info.y_reset = DimInfo.reset_default;
-                if (inlined_info.x_reset == DimInfo.value_none) inlined_info.x_reset = DimInfo.reset_default;
-            }
+        for (0..pir.assign[assign_idx].inlined.num) |inlined_idx| {
+            pir.assign[assign_idx].inlined.base[inlined_idx].out_view.removeDefault();
+            pir.assign[assign_idx].inlined.base[inlined_idx].in_view.removeDefault();
         }
     }
 }
@@ -517,6 +498,11 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
     var optimization: ArrayList(Optimization) = try .initCapacity(gpa, optimization_len_initial);
     defer optimization.deinit(gpa);
 
+    var gathering_ns: i128 = 0;
+    var copying_ns: i128 = 0;
+    var cost_ns: i128 = 0;
+    var optimizing_ns: i128 = 0;
+
     var arena: std.heap.ArenaAllocator = .init(gpa);
     defer arena.deinit();
     const a: Allocator = arena.allocator();
@@ -530,10 +516,13 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         optimization.clearRetainingCapacity();
 
         // $TODO Can this be done incrementally?
+        const now1: i128 = std.time.nanoTimestamp();
         try opt.parallelizeGather(gpa, &optimization, pir.*);
         try opt.inlineOpGather(gpa, &optimization, pir.*);
         try opt.mergeOpGather(gpa, &optimization, pir.*);
         try opt.splitKernelGather(gpa, &optimization, pir.*, size_global, size_local);
+        const now2: i128 = std.time.nanoTimestamp();
+        gathering_ns += now2 - now1;
 
         if (optimization.items.len == 0) {
             break;
@@ -546,8 +535,12 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         while (optimization_idx < optimization.items.len) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
+            const now3: i128 = std.time.nanoTimestamp();
             var pir_temp: Pir = try pir.copy(a);
+            const now4: i128 = std.time.nanoTimestamp();
+            copying_ns += now4 - now3;
 
+            const now5: i128 = std.time.nanoTimestamp();
             switch (optimization.items[optimization_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
@@ -562,8 +555,13 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.mergeOp(a, &pir_temp, fuse.left_idx, fuse.right_idx);
                 },
             }
+            const now6: i128 = std.time.nanoTimestamp();
+            optimizing_ns += now6 - now5;
 
+            const now7: i128 = std.time.nanoTimestamp();
             const cost_next: u64 = vgpu.costEstimate(pir_temp, size_global, size_local);
+            const now8: i128 = std.time.nanoTimestamp();
+            cost_ns += now8 - now7;
 
             if (cost_next < cost_next_best) {
                 cost_next_best = cost_next;
@@ -574,6 +572,7 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         if (cost_next_best == cost_curr) {
             break; // No better optimization found
         } else {
+            const now9: i128 = std.time.nanoTimestamp();
             switch (optimization.items[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
@@ -588,9 +587,22 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.mergeOp(gpa, pir, fuse.left_idx, fuse.right_idx);
                 },
             }
+            const now10: i128 = std.time.nanoTimestamp();
+            optimizing_ns += now10 - now9;
             cost_curr = cost_next_best;
         }
     }
+
+    // Gathering :       +299521111ns
+    // Copying   :      +1439456366ns
+    // Cost      :      +2175965461ns
+    // Optimizing:        +96041078ns
+    std.debug.print("\n", .{});
+    std.debug.print("Gathering : {d:16}ns\n", .{gathering_ns});
+    std.debug.print("Copying   : {d:16}ns\n", .{copying_ns});
+    std.debug.print("Cost      : {d:16}ns\n", .{cost_ns});
+    std.debug.print("Optimizing: {d:16}ns\n", .{optimizing_ns});
+    std.debug.print("\n\n", .{});
 }
 pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {

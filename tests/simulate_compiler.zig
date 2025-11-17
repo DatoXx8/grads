@@ -11,14 +11,12 @@ const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
+const Buffer = grads.Buffer;
 const util = grads.util;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
 const RegressionTest = @import("regression_compiler.zig").RegressionTest;
-const a_size_max = @import("random_linearized.zig").a_size_max;
-const z_size_max = @import("random_linearized.zig").z_size_max;
-const y_size_max = @import("random_linearized.zig").y_size_max;
-const x_size_max = @import("random_linearized.zig").x_size_max;
+const size = @import("random_linearized.zig").size;
 const op_num = @import("random_linearized.zig").op_num;
 const buffer_num = @import("random_linearized.zig").buffer_num;
 
@@ -68,13 +66,13 @@ fn simulateCompiler(
     defer arena_temp_allocator.deinit();
     const arena_temp: Allocator = arena_temp_allocator.allocator();
 
-    var buffer1 = try randomLinearized(runtime, arena, op_included, rng);
+    var buffer1 = try randomLinearized(runtime, gpa, arena, op_included, rng);
     defer {
         for (&buffer1.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
-    var buffer2 = try randomLinearized(runtime, arena, op_included, rng);
+    var buffer2 = try randomLinearized(runtime, gpa, arena, op_included, rng);
     defer {
         for (&buffer2.buffer) |buffer| {
             buffer.free(runtime);
@@ -100,18 +98,19 @@ fn simulateCompiler(
     buffer1.buffer[buffer1.out_idx].syncUpdate(.sync_to_host);
     try buffer1.buffer[buffer1.out_idx].syncToHost(runtime);
 
-    for (0..buffer1.buffer[buffer1.out_idx].values.len) |arg_idx| {
-        assertEq(buffer1.buffer[buffer1.out_idx].values[arg_idx], buffer2.buffer[buffer2.out_idx].values[arg_idx]) catch |err| {
+    for (0..buffer1.buffer[buffer1.out_idx].data().values.len) |arg_idx| {
+        assertEq(buffer1.buffer[buffer1.out_idx].data().values[arg_idx], //
+            buffer2.buffer[buffer2.out_idx].data().values[arg_idx]) catch |err| {
             std.log.err("Difference at index {} = [{}, {}, {}, {}] with {any} between compiled {d} \"{s}\" and linearized {d} \"{s}\" with rng={} and opt={}\n", .{
                 arg_idx,
-                arg_idx / (z_size_max * y_size_max * x_size_max),
-                arg_idx / (y_size_max * x_size_max) % z_size_max,
-                arg_idx / x_size_max % y_size_max,
-                arg_idx % x_size_max,
+                arg_idx / (size.z * size.y * size.x),
+                arg_idx / (size.y * size.x) % size.z,
+                arg_idx / size.x % size.y,
+                arg_idx % size.x,
                 op_included,
-                buffer1.buffer[buffer1.out_idx].values[arg_idx],
+                buffer1.buffer[buffer1.out_idx].data().values[arg_idx],
                 buffer1.buffer[buffer1.out_idx].name(),
-                buffer2.buffer[buffer2.out_idx].values[arg_idx],
+                buffer2.buffer[buffer2.out_idx].data().values[arg_idx],
                 buffer2.buffer[buffer2.out_idx].name(),
                 rng,
                 depth_max,
@@ -212,8 +211,8 @@ pub fn main() !void {
 
     var runtime_cl: RuntimeCl = undefined;
     var runtime: Runtime = runtime_cl.runtime();
-    try runtime.init();
-    defer runtime.deinit();
+    try runtime.init(gpa);
+    defer runtime.deinit(gpa);
 
     // Not just the max because other optimizations might remove broken states by pure luck
     const depth_max: []const u32 = &.{ 0, 1, 10, 100, 1000 };

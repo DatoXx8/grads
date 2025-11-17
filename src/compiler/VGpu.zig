@@ -59,14 +59,15 @@ pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u6
             while (assign_idx < pir.assign_num) : (assign_idx += 1) {
                 const cost_flat: u64 = 1000; // Execution cost for a kernel, completely made up number
 
-                const a_size: u32 = if (pir.assign[assign_idx].base.kind.isReduce()) pir.assign[assign_idx].base.in.a_size else pir.assign[assign_idx].base.out.a_size;
-                const z_size: u32 = if (pir.assign[assign_idx].base.kind.isReduce()) pir.assign[assign_idx].base.in.z_size else pir.assign[assign_idx].base.out.z_size;
-                const y_size: u32 = if (pir.assign[assign_idx].base.kind.isReduce()) pir.assign[assign_idx].base.in.y_size else pir.assign[assign_idx].base.out.y_size;
-                const x_size: u32 = if (pir.assign[assign_idx].base.kind.isReduce()) pir.assign[assign_idx].base.in.x_size else pir.assign[assign_idx].base.out.x_size;
+                const a_size: u32 = pir.assign[assign_idx].size.a;
+                const z_size: u32 = pir.assign[assign_idx].size.z;
+                const y_size: u32 = pir.assign[assign_idx].size.y;
+                const x_size: u32 = pir.assign[assign_idx].size.x;
+                const repeats: u32 = pir.assign[assign_idx].repeats;
                 const kernel_assign_ops: u32 = if (pir.assign[assign_idx].split)
-                    std.math.divCeil(u32, pir.assign[assign_idx].base.repeats * a_size * z_size * y_size * x_size, size_global) catch unreachable
+                    std.math.divCeil(u32, repeats * a_size * z_size * y_size * x_size, size_global) catch unreachable
                 else
-                    (std.math.divCeil(u32, pir.assign[assign_idx].base.repeats, size_global) catch unreachable) * a_size * z_size * y_size * x_size;
+                    (std.math.divCeil(u32, repeats, size_global) catch unreachable) * a_size * z_size * y_size * x_size;
                 cost += costOfOpSimple(pir.assign[assign_idx].base.kind) * kernel_assign_ops + cost_flat;
                 var inlined_idx: u32 = 0;
                 while (inlined_idx < pir.assign[assign_idx].inlined.num) : (inlined_idx += 1) {

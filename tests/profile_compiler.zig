@@ -10,6 +10,7 @@ const Program = grads.Program;
 const Runtime = grads.Runtime;
 const RuntimeCl = grads.RuntimeCl;
 const Optimization = grads.Optimization;
+const Buffer = grads.Buffer;
 const util = grads.util;
 
 const randomLinearized = @import("random_linearized.zig").randomLinearized;
@@ -99,13 +100,13 @@ fn profileCompiler(runtime: Runtime, gpa: Allocator, rng: u64) !void {
     defer arena_temp_allocator.deinit();
     const arena_temp: Allocator = arena_temp_allocator.allocator();
 
-    var buffer1 = try randomLinearized(runtime, arena, @splat(true), rng);
+    var buffer1 = try randomLinearized(runtime, gpa, arena, @splat(true), rng);
     defer {
         for (&buffer1.buffer) |buffer| {
             buffer.free(runtime);
         }
     }
-    var buffer2 = try randomLinearized(runtime, arena, @splat(true), rng);
+    var buffer2 = try randomLinearized(runtime, gpa, arena, @splat(true), rng);
     defer {
         for (&buffer2.buffer) |buffer| {
             buffer.free(runtime);
@@ -175,8 +176,8 @@ pub fn main() !void {
 
     var runtime_cl: RuntimeCl = undefined;
     var runtime: Runtime = runtime_cl.runtime();
-    try runtime.init();
-    defer runtime.deinit();
+    try runtime.init(allocator);
+    defer runtime.deinit(allocator);
 
     try profileCompiler(runtime, allocator, rng);
 }

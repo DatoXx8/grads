@@ -16,6 +16,7 @@ const Program = @import("compiler/Program.zig");
 const Linearized = @import("Linearized.zig");
 const Op = Linearized.Op;
 const Buffer = @import("Buffer.zig");
+const Vec4 = Buffer.Vec4;
 const util = @import("util.zig");
 
 pub const Neuralnet = @This();
@@ -30,9 +31,7 @@ runtime: Runtime,
 pub fn alloc(
     runtime: Runtime,
     gpa: Allocator,
-    z_size: u32,
-    y_size: u32,
-    x_size: u32,
+    size_initial: Vec4,
     config: []const Layer.Config,
     size_global: u32,
     size_local: u32,
@@ -40,9 +39,10 @@ pub fn alloc(
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
-    assert(z_size > 0);
-    assert(y_size > 0);
-    assert(x_size > 0);
+    assert(size_initial.a == 1);
+    assert(size_initial.z > 0);
+    assert(size_initial.y > 0);
+    assert(size_initial.x > 0);
 
     var arena_nn_allocator: ArenaAllocator = .init(gpa);
     errdefer arena_nn_allocator.deinit();
@@ -57,49 +57,50 @@ pub fn alloc(
     var capacity_forward: u32 = 0;
     var capacity_backward: u32 = 0;
     var capacity_learn: u32 = 0;
-    var z_in: u32 = z_size;
-    var y_in: u32 = y_size;
-    var x_in: u32 = x_size;
 
-    const in: Buffer = try .alloc(runtime, arena_nn, 1, z_in, y_in, x_in, .normal);
-    const in_g: Buffer = try .alloc(runtime, arena_nn, 1, z_in, y_in, x_in, .normal);
+    var size_in: Vec4 = size_initial;
+
+    const in: Buffer = try Buffer.alloc(runtime, gpa, arena_nn, size_in, .normal);
+    const in_g: Buffer = try Buffer.alloc(runtime, gpa, arena_nn, size_in, .normal);
 
     var layer_idx: u32 = 0;
     while (layer_idx < config.len) : (layer_idx += 1) {
         // $TODO Activation and norming
-        const size_in: u32 = z_in * y_in * x_in;
-        const z_out: u32 = switch (config[layer_idx]) {
-            .dense => 1,
-            .convolution => |c| c.filters,
-            .reduce => z_in,
-            .split => |s| z_in * s.filters,
-            .residual => z_in,
-        };
-        const y_out: u32 = switch (config[layer_idx]) {
-            .dense => 1,
-            .convolution => |c| Convolution.sizeNew(y_in, c.kernel_size, c.kernel_stride, c.kernel_padding),
-            .reduce => |r| Reduce.sizeNew(y_in, r.kernel_size, r.kernel_stride),
-            .split => y_in,
-            .residual => y_in,
-        };
-        const x_out: u32 = switch (config[layer_idx]) {
-            .dense => |d| d.size_out,
-            .convolution => |c| Convolution.sizeNew(x_in, c.kernel_size, c.kernel_stride, c.kernel_padding),
-            .reduce => |r| Reduce.sizeNew(x_in, r.kernel_size, r.kernel_stride),
-            .split => x_in,
-            .residual => x_in,
+        const size_out: Vec4 = .{
+            .a = 1,
+            .z = switch (config[layer_idx]) {
+                .dense => 1,
+                .convolution => |c| c.filters,
+                .reduce => size_in.z,
+                .split => |s| size_in.z * s.filters,
+                .residual => size_in.z,
+            },
+            .y = switch (config[layer_idx]) {
+                .dense => 1,
+                .convolution => |c| Convolution.sizeNew(size_in.y, c.kernel_size, c.kernel_stride, c.kernel_padding),
+                .reduce => |r| Reduce.sizeNew(size_in.y, r.kernel_size, r.kernel_stride),
+                .split => size_in.y,
+                .residual => size_in.y,
+            },
+            .x = switch (config[layer_idx]) {
+                .dense => |d| d.size_out,
+                .convolution => |c| Convolution.sizeNew(size_in.x, c.kernel_size, c.kernel_stride, c.kernel_padding),
+                .reduce => |r| Reduce.sizeNew(size_in.x, r.kernel_size, r.kernel_stride),
+                .split => size_in.x,
+                .residual => size_in.x,
+            },
         };
         const forward_cap: u32 = switch (config[layer_idx]) {
             .dense => |d| d.size_out * 3 + 1,
-            .convolution => |c| 4 * c.filters * y_out * x_out + 1,
-            .reduce => z_in * y_out * x_out,
+            .convolution => |c| 4 * c.filters * size_out.y * size_out.x + 1,
+            .reduce => size_in.z * size_out.y * size_out.x,
             .split => |s| 3 * s.filters,
             .residual => 1,
         };
         const backward_cap: u32 = switch (config[layer_idx]) {
-            .dense => |d| 2 + d.size_out + 4 * size_in,
-            .convolution => |c| 2 * c.filters + 6 * c.filters * y_out * x_out + 1,
-            .reduce => y_out * x_out,
+            .dense => |d| 2 + d.size_out + 4 * size_in.productOfElements(),
+            .convolution => |c| 2 * c.filters + 6 * c.filters * size_out.y * size_out.x + 1,
+            .reduce => size_out.y * size_out.x,
             .split => |s| 1 + 6 * s.filters,
             .residual => 1,
         };
@@ -110,32 +111,30 @@ pub fn alloc(
             .split => 4,
             .residual => 0,
         };
-        layer[layer_idx].activation = try Activation.alloc(runtime, arena_nn, switch (config[layer_idx]) {
+        layer[layer_idx].activation = try Activation.alloc(runtime, gpa, arena_nn, switch (config[layer_idx]) {
             .dense => |d| d.activation_kind,
             .convolution => |c| c.activation_kind,
             .reduce => .none,
             .split => |s| s.activation_kind,
             .residual => .none,
-        }, z_out, y_out, x_out);
+        }, size_out);
         layer[layer_idx].tag = switch (config[layer_idx]) {
-            .dense => |d| .{ .dense = try Dense.alloc(runtime, arena_nn, size_in, d.size_out) },
+            .dense => |d| .{ .dense = try Dense.alloc(runtime, gpa, arena_nn, size_in.productOfElements(), d.size_out) },
             .convolution => |c| .{
-                .convolution = try Convolution.alloc(runtime, arena_nn, z_in, y_in, x_in, c.filters, //
+                .convolution = try Convolution.alloc(runtime, gpa, arena_nn, size_in, c.filters, //
                     c.kernel_size, c.kernel_stride, c.kernel_padding),
             },
-            .reduce => |r| .{ .reduce = Reduce.init(z_in, y_in, x_in, r.kernel_size, r.kernel_stride, r.t) },
-            .split => |s| .{ .split = try Split.alloc(runtime, arena_nn, s.filters, z_in, y_in, x_in) },
+            .reduce => |r| .{ .reduce = Reduce.init(size_in, r.kernel_size, r.kernel_stride, r.t) },
+            .split => |s| .{ .split = try Split.alloc(runtime, gpa, arena_nn, size_in, s.filters) },
             .residual => |r| .{ .residual = .{ .t = .identity, .in_layer = r.in_layer } },
         };
 
-        layer[layer_idx].values = try Buffer.alloc(runtime, arena_nn, 1, z_out, y_out, x_out, .normal);
-        layer[layer_idx].values_g = try Buffer.alloc(runtime, arena_nn, 1, z_out, y_out, x_out, .normal);
+        layer[layer_idx].values = try Buffer.alloc(runtime, gpa, arena_nn, size_out, .normal);
+        layer[layer_idx].values_g = try Buffer.alloc(runtime, gpa, arena_nn, size_out, .normal);
         capacity_forward += forward_cap;
         capacity_backward += backward_cap;
         capacity_learn += learn_cap;
-        z_in = layer[layer_idx].values.z_size;
-        y_in = layer[layer_idx].values.y_size;
-        x_in = layer[layer_idx].values.x_size;
+        size_in = size_out;
     }
 
     var forward_cpu: Linearized = try Linearized.alloc(arena_temp, capacity_forward);
@@ -147,17 +146,15 @@ pub fn alloc(
     while (layer_idx < config.len) : (layer_idx += 1) {
         switch (layer[layer_idx].tag) {
             .dense => |*d| {
-                z_in = values_prev.z_size;
-                y_in = values_prev.y_size;
-                x_in = values_prev.x_size;
-                values_prev.moveReshape(1, 1, z_in * y_in * x_in, 1);
+                size_in = values_prev.view().size;
+                values_prev.moveReshape(.{ .a = 1, .z = 1, .y = size_in.productOfElements(), .x = 1 });
                 d.forward(&forward_cpu, values_prev, &layer[layer_idx].values);
-                values_prev.moveReshape(1, z_in, y_in, x_in);
+                values_prev.moveReshape(size_in);
             },
             .convolution => |*c| c.forward(&forward_cpu, values_prev, &layer[layer_idx].values),
             .reduce => |*r| r.forward(&forward_cpu, &values_prev, &layer[layer_idx].values),
             .split => |*s| s.forward(&forward_cpu, values_prev, &layer[layer_idx].values),
-            // .residual => |*r| r.forward(&layer[r.in_layer].values, &layer[layer_idx].values),
+            // .residual => |*r| r.forward(&layer[r.in_layer].values, Buffer.fetch(layer[layer_idx].values_id)),
             .residual => util.todo(@src()),
         }
         layer[layer_idx].activation.forward(&forward_cpu, layer[layer_idx].values);
@@ -172,14 +169,12 @@ pub fn alloc(
         layer[layer_idx].activation.backward(&backward_cpu, values_next, values_g_next);
         switch (layer[layer_idx].tag) {
             .dense => |*d| {
-                z_in = values_next.z_size;
-                y_in = values_next.y_size;
-                x_in = values_next.x_size;
-                values_next.moveReshape(1, 1, z_in * y_in * x_in, 1);
-                values_g_next.moveReshape(1, 1, z_in * y_in * x_in, 1);
+                size_in = values_next.view().size;
+                values_next.moveReshape(.{ .a = 1, .z = 1, .y = size_in.productOfElements(), .x = 1 });
+                values_g_next.moveReshape(.{ .a = 1, .z = 1, .y = size_in.productOfElements(), .x = 1 });
                 d.backward(&backward_cpu, values_next, &values_g_next, layer[layer_idx].values_g);
-                values_next.moveReshape(1, z_in, y_in, x_in);
-                values_g_next.moveReshape(1, z_in, y_in, x_in);
+                values_next.moveReshape(size_in);
+                values_g_next.moveReshape(size_in);
             },
             .convolution => |*c| c.backward(&backward_cpu, values_next, &values_g_next, //
                 layer[layer_idx].values, &layer[layer_idx].values_g),

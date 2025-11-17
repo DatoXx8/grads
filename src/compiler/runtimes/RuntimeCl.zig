@@ -15,6 +15,8 @@ const ProgramPtr = Program.ProgramPtr;
 const Memory = Program.Memory;
 const Args = Program.Args;
 const Sync = Program.Sync;
+const Buffer = @import("../../Buffer.zig");
+const Vec4 = Buffer.Vec4;
 const util = @import("../../util.zig");
 
 // const opencl_version = @import("opencl_config").opencl_version;
@@ -93,17 +95,17 @@ pub fn deinit(runtime_cl: *anyopaque) void {
     _ = opencl.clReleaseContext(state.context);
     _ = opencl.clReleaseCommandQueue(state.queue);
 }
-pub fn memoryAlloc(runtime_cl: *anyopaque, a: u32, z: u32, y: u32, x: u32) Error!Memory {
-    assert(a > 0);
-    assert(z > 0);
-    assert(y > 0);
-    assert(x > 0);
+pub fn memoryAlloc(runtime_cl: *anyopaque, size: Vec4) Error!Memory {
+    assert(size.a > 0);
+    assert(size.z > 0);
+    assert(size.y > 0);
+    assert(size.x > 0);
 
     const state: *RuntimeCl = @ptrCast(@alignCast(runtime_cl));
 
     var err: i32 = 0;
     const memory: opencl.cl_mem = opencl.clCreateBuffer(state.context, opencl.CL_MEM_READ_WRITE, //
-        a * z * y * x * @sizeOf(f32), null, &err);
+        size.productOfElements() * @sizeOf(f32), null, &err);
     if (err == 0) {
         @branchHint(.likely);
         return @ptrCast(memory);
@@ -164,9 +166,10 @@ pub fn kernelAlloc(_: *anyopaque, program: ProgramPtr, name: [*:0]const u8, args
         util.log.print("{}\n", .{err});
         return Error.KernelAlloc;
     }
-    for (0..args.arg_num) |arg_idx| {
+    for (args.arg_buffer, 0..) |arg_buffer, arg_idx| {
+        const arg_mem: Memory = arg_buffer.data().values_runtime;
         if (opencl.clSetKernelArg(kernel, @intCast(arg_idx), //
-            @sizeOf(opencl.cl_mem), @ptrCast(&args.arg_mem[arg_idx])) != 0)
+            @sizeOf(opencl.cl_mem), @ptrCast(&arg_mem)) != 0)
         {
             @branchHint(.cold);
             _ = opencl.clReleaseKernel(kernel);

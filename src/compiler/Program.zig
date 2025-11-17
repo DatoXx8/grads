@@ -9,23 +9,22 @@ const Optimization = opt.Optimization;
 const Runtime = @import("runtimes/Runtime.zig");
 const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
+const Buffer = @import("../Buffer.zig");
 const util = @import("../util.zig");
 
 pub const Memory = *anyopaque;
+/// This is a struct because then it is possible to support non-buffer arguments like ints or floats
 pub const Args = struct {
-    /// arg_num is separate to make kernels with no arguments easier to handle
-    arg_num: u64,
-    arg_id: []u64,
-    arg_mem: []Memory,
+    arg_buffer: []Buffer,
     pub fn alloc(gpa: Allocator, arena: Allocator, assign: Assign) !Args {
-        var arg_unique = std.AutoHashMap(u64, Memory).init(gpa);
+        var arg_unique = std.AutoHashMap(Buffer, void).init(gpa);
         defer arg_unique.deinit();
 
         const in_root_is_null: bool = assign.inlined.in_root == null;
 
-        try arg_unique.put(assign.base.out.id, assign.base.out.values_runtime);
+        try arg_unique.put(assign.base.out, @as(void, {}));
         if (!assign.base.kind.isUnary() and in_root_is_null) {
-            try arg_unique.put(assign.base.in.id, assign.base.in.values_runtime);
+            try arg_unique.put(assign.base.in, @as(void, {}));
         }
 
         for (0..assign.inlined.num) |inlined_idx| {
@@ -33,29 +32,25 @@ pub const Args = struct {
             const in_is_not_inlined: bool = assign.inlined.in[inlined_idx] == null;
 
             if (out_is_not_inlined) {
-                try arg_unique.put(assign.inlined.base[inlined_idx].out.id, //
-                    assign.inlined.base[inlined_idx].out.values_runtime);
+                try arg_unique.put(assign.inlined.base[inlined_idx].out, @as(void, {}));
             }
             if (!assign.inlined.base[inlined_idx].kind.isUnary() and in_is_not_inlined) {
-                try arg_unique.put(assign.inlined.base[inlined_idx].in.id, //
-                    assign.inlined.base[inlined_idx].in.values_runtime);
+                try arg_unique.put(assign.inlined.base[inlined_idx].in, @as(void, {}));
             }
         }
 
-        const arg_num: usize = arg_unique.count();
-        const arg_id: []u64 = try arena.alloc(u64, arg_num);
-        const arg_mem: []Memory = try arena.alloc(Memory, arg_num);
+        const arg_unique_num: usize = arg_unique.count();
+        const arg_buffer: []Buffer = try arena.alloc(Buffer, arg_unique_num);
         var arg_iterator = arg_unique.iterator();
-        for (0..arg_num) |arg_idx| {
-            const entry = arg_iterator.next().?;
-            arg_id[arg_idx] = entry.key_ptr.*;
-            arg_mem[arg_idx] = entry.value_ptr.*;
+        var arg_idx: u32 = 0;
+        while (arg_iterator.next()) |arg| {
+            arg_buffer[arg_idx] = arg.key_ptr.*;
+            arg_idx += 1;
         }
+        assert(arg_idx == arg_unique_num);
 
         return .{
-            .arg_num = arg_num,
-            .arg_id = arg_id,
-            .arg_mem = arg_mem,
+            .arg_buffer = arg_buffer,
         };
     }
 };
@@ -99,11 +94,7 @@ pub fn alloc(
         const program_ptr: ProgramPtr = try runtime.programAlloc(source);
         errdefer runtime.programFree(program_ptr);
         var kernel: []Kernel = try arena.alloc(Kernel, 1);
-        kernel[0].args = .{
-            .arg_num = 0,
-            .arg_id = &.{},
-            .arg_mem = &.{},
-        };
+        kernel[0].args = .{ .arg_buffer = &.{} };
         kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
             kernel_empty_name ++ "\x00", kernel[0].args);
 

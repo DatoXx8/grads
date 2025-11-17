@@ -15,38 +15,41 @@ pub const buffer_name_size: u32 = 8;
 pub const buffer_name_char_options: u32 = 'z' - 'a' + 1;
 
 pub const Buffer = @This();
+pub const Vec4 = struct {
+    a: u32,
+    z: u32,
+    y: u32,
+    x: u32,
+    pub fn splat(value: u32) Vec4 {
+        return .{ .a = value, .z = value, .y = value, .x = value };
+    }
+    pub fn setA(vec4: Vec4, value: u32) Vec4 {
+        return .{ .a = value, .z = vec4.z, .y = vec4.y, .x = vec4.x };
+    }
+    pub fn setZ(vec4: Vec4, value: u32) Vec4 {
+        return .{ .a = vec4.a, .z = value, .y = vec4.y, .x = vec4.x };
+    }
+    pub fn setY(vec4: Vec4, value: u32) Vec4 {
+        return .{ .a = vec4.a, .z = vec4.z, .y = value, .x = vec4.x };
+    }
+    pub fn setX(vec4: Vec4, value: u32) Vec4 {
+        return .{ .a = vec4.a, .z = vec4.z, .y = vec4.y, .x = value };
+    }
+    pub fn equal(vec4_1: Vec4, vec4_2: Vec4) bool {
+        return vec4_1.a == vec4_2.a and vec4_1.z == vec4_2.z and
+            vec4_1.y == vec4_2.y and vec4_1.x == vec4_2.x;
+    }
+    pub fn productOfElements(vec4: Vec4) u32 {
+        return vec4.a * vec4.z * vec4.y * vec4.x;
+    }
+};
+// $TODO Stride can be a Vec3! This means View is 32 bytes instead of 36!
 pub const SyncStatus = enum(u8) {
     sync_to_host,
     sync_to_device,
     sync_to_none,
 };
-pub const Id = enum(u32) {
-    _,
-    pub fn name(id: Id) [buffer_name_size]u8 {
-        var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
-        const divisor: u64 = buffer_name_char_options;
-        var left: u64 = id;
-        var char_idx: u32 = 0;
-        while (char_idx < buffer_name_size) : (char_idx += 1) {
-            name_result[char_idx] += @intCast(left % divisor);
-            left /= divisor;
-        }
-        assert(left == 0); // Enforce that you don't generate new buffers beyond 'zzzz...zzz'
-
-        return name_result;
-    }
-    pub fn from(val: u32) Id {
-        return @enumFromInt(val);
-    }
-    pub fn value(id: Id) u32 {
-        return @intFromEnum(id);
-    }
-    pub fn fetch(id: Id) *Buffer {
-        const id_value: u32 = id.value();
-        assert(id_value < pool_global.buffer_id_next);
-        return &pool_global.buffer[id_value];
-    }
-};
+pub const Id = u32;
 pub const Kind = enum(u8) {
     /// This is just to make debugging easier, if you see this anywhere something has gone wrong.
     free,
@@ -56,230 +59,197 @@ pub const Kind = enum(u8) {
     /// Intermediary buffers are *not* expected to hold the same values after the compilers optimizations.
     intermediary,
 };
-pub const Pool = struct {
-    buffer_id_next: Id,
-    buffer_id_free: Id,
-    buffer: []Buffer,
-    pub fn nextId(gpa: Allocator, pool: *Pool) !Id {
-        if (pool.buffer_id_next == pool.buffer_id_free) {
-            defer {
-                pool.buffer_id_next = Id.from(pool.buffer_id_next.value() + 1); // $TODO Maybe just make a .incr function
-                pool.buffer_id_free = Id.from(pool.buffer_id_free.value() + 1);
-            }
-            if (pool.buffer_id_next.value() == pool.buffer.len) {
-                pool.buffer = try gpa.realloc(pool.buffer, @min(16, pool.buffer.len * 2));
-            }
-            return pool.buffer_id_next;
-        } else {
-            const id: Id = pool.buffer_id_free;
-            const buffer_id: *Buffer = id.fetch();
-            if (id == buffer_id.nextFree()) {
-                pool.buffer_id_free = pool.buffer_id_next;
-            } else {
-                pool.buffer_id_free = buffer_id.nextFree();
-            }
-            assert(buffer_id.kind == .free);
-            return id;
-        }
+/// Current view into the underlying buffer
+pub const View = struct {
+    size: Vec4,
+    stride: Vec4,
+    offset: u32, // Gets repurposed as the next free id in case this is an entry in the free list
+    pub fn at(view_1: View, offset: Vec4) u32 {
+        return view_1.offset + offset.a * view_1.stride.a + offset.z * view_1.stride.z +
+            offset.y * view_1.stride.y + offset.x * view_1.stride.x;
     }
-    pub fn freeId(pool: *Pool, id: Id) void {
-        const buffer_id: *Buffer = id.fetch();
-        assert(buffer_id.kind != .free);
-        // Don't really see a reason the do a special case when id is the last in the pool to decrement buffer_id_next
-        if (pool.buffer_id_free == pool.buffer_id_next) {
-            buffer_id.*.offset = id.value();
-        } else {
-            buffer_id.*.offset = pool.buffer_id_free;
-        }
-        buffer_id.*.kind = .free;
-        pool.buffer_id_free = id;
+    pub fn atNoOffset(view_1: View, offset: Vec4) u32 {
+        return offset.a * view_1.stride.a + offset.z * view_1.stride.z +
+            offset.y * view_1.stride.y + offset.x * view_1.stride.x;
+    }
+    pub inline fn aOffset(view_1: View) u32 {
+        return @divFloor(view_1.offset, view_1.stride.a);
+    }
+    pub inline fn zOffset(view_1: View) u32 {
+        return @divFloor(view_1.offset % view_1.stride.a, view_1.stride.z);
+    }
+    pub inline fn yOffset(view_1: View) u32 {
+        return @divFloor(view_1.offset % view_1.stride.z, view_1.stride.y);
+    }
+    pub inline fn xOffset(view_1: View) u32 {
+        return @divFloor(view_1.offset % view_1.stride.y, view_1.stride.x);
+    }
+    pub inline fn overlaps(view_1: View, view_2: View) bool {
+        const a_1: u32 = view_1.aOffset();
+        const z_1: u32 = view_1.zOffset();
+        const y_1: u32 = view_1.yOffset();
+        const x_1: u32 = view_1.xOffset();
+
+        const a_2: u32 = view_2.aOffset();
+        const z_2: u32 = view_2.zOffset();
+        const y_2: u32 = view_2.yOffset();
+        const x_2: u32 = view_2.xOffset();
+
+        return @max(a_1, a_2) < @min(a_1 + view_1.size.a, a_2 + view_2.size.a) and
+            @max(z_1, z_2) < @min(z_1 + view_1.size.z, z_2 + view_2.size.z) and
+            @max(y_1, y_2) < @min(y_1 + view_1.size.y, y_2 + view_2.size.y) and
+            @max(x_1, x_2) < @min(x_1 + view_1.size.x, x_2 + view_2.size.x);
+    }
+    pub inline fn overlapsAll(view_1: View, view_2: View) bool {
+        return view_1.size.a == view_2.size.a and
+            view_1.size.z == view_2.size.z and
+            view_1.size.y == view_2.size.y and
+            view_1.size.x == view_2.size.x and
+            view_1.aOffset() == view_2.aOffset() and
+            view_1.zOffset() == view_2.zOffset() and
+            view_1.yOffset() == view_2.yOffset() and
+            view_1.xOffset() == view_2.xOffset();
+    }
+    pub inline fn overlapsPartial(view_1: View, view_2: View) bool {
+        return view_1.overlaps(view_2) and !view_1.overlapsAll(view_2);
+    }
+};
+pub const Data = struct {
+    view: View,
+    values: []f32,
+    values_runtime: Memory,
+    sync: SyncStatus,
+    kind: Kind,
+    pub fn nextFree(data_1: Data) Id {
+        assert(data_1.kind == .free);
+        return data_1.view.offset;
     }
 };
 
-var pool_global: Pool = .{
-    .buffer = &.{},
-    .buffer_id_next = 0,
-    .buffer_id_free = 0,
-};
+id: Id,
 
-a_size: u32,
-z_size: u32,
-y_size: u32,
-x_size: u32,
-a_stride: u32,
-z_stride: u32,
-y_stride: u32,
-x_stride: u32,
-offset: u32, // Gets repurposed as the next free id in case this is an entry in the free list
-values: []f32,
-values_runtime: Memory,
-sync: SyncStatus,
-kind: Kind,
-pub fn alloc(runtime: Runtime, arena: Allocator, a: u32, z: u32, y: u32, x: u32, kind: Kind) !Id {
-    util.todo(@src()); // Don't yet know how I feel about storing the id back in here again. One should only ever get access to a buffer through its id so that feels redundant
+pub fn alloc(runtime: Runtime, gpa: Allocator, arena: Allocator, size: Vec4, kind: Kind) !Buffer {
     assert(switch (kind) {
         .free => false,
         .normal => true,
         .intermediary => true,
     });
-    assert(a > 0);
-    assert(z > 0);
-    assert(y > 0);
-    assert(x > 0);
+    assert(size.a > 0);
+    assert(size.z > 0);
+    assert(size.y > 0);
+    assert(size.x > 0);
 
-    const buffer_id: Id = pool_global.nextId();
-    const buffer: *Buffer = buffer_id.fetch();
-    buffer.* = .{
+    const buffer: Buffer = .{ .id = try Runtime.pool_global.nextId(gpa) };
+    const buffer_data: *Data = buffer.data();
+    buffer_data.* = .{
+        .view = .{
+            .offset = 0,
+            .size = size,
+            .stride = .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x, .x = 1 },
+        },
         .sync = SyncStatus.sync_to_none,
-        .a_size = a,
-        .z_size = z,
-        .y_size = y,
-        .x_size = x,
-        .a_stride = z * y * x,
-        .z_stride = y * x,
-        .y_stride = x,
-        .x_stride = 1,
-        .offset = 0,
-        .values = try arena.alloc(f32, a * z * y * x),
-        .values_runtime = try runtime.memoryAlloc(a, z, y, x),
+        .values = try arena.alloc(f32, size.productOfElements()),
+        .values_runtime = try runtime.memoryAlloc(size),
         .kind = kind,
     };
 
-    return buffer_id;
+    return buffer;
+}
+pub fn name(buffer: Buffer) [buffer_name_size]u8 {
+    var name_result: [buffer_name_size]u8 = [_]u8{'a'} ** buffer_name_size;
+    const divisor: u64 = buffer_name_char_options;
+    var left: u64 = buffer.id;
+    var char_idx: u32 = 0;
+    while (char_idx < buffer_name_size) : (char_idx += 1) {
+        name_result[char_idx] += @intCast(left % divisor);
+        left /= divisor;
+    }
+    assert(left == 0); // Enforce that you don't generate new buffers beyond 'zzzz...zzz'
+
+    return name_result;
 }
 pub fn free(buffer: Buffer, runtime: Runtime) void {
-    runtime.memoryFree(buffer.values_runtime);
+    runtime.memoryFree(buffer.data().*.values_runtime);
+    Runtime.pool_global.freeId(buffer.id);
 }
-pub fn nextFree(buffer: Buffer) Id {
-    assert(buffer.kind == .free);
-    return Id.from(buffer.offset);
+pub fn data(buffer: Buffer) *Data {
+    assert(buffer.id < Runtime.pool_global.data_id_next);
+    return &Runtime.pool_global.data[buffer.id];
 }
-pub inline fn aOffset(buffer: Buffer) u32 {
-    return @divFloor(buffer.offset, buffer.a_stride);
+pub fn view(buffer: Buffer) *View {
+    assert(buffer.id < Runtime.pool_global.data_id_next);
+    return &Runtime.pool_global.data[buffer.id].view;
 }
-pub inline fn zOffset(buffer: Buffer) u32 {
-    return @divFloor(buffer.offset % buffer.a_stride, buffer.z_stride);
-}
-pub inline fn yOffset(buffer: Buffer) u32 {
-    return @divFloor(buffer.offset % buffer.z_stride, buffer.y_stride);
-}
-pub inline fn xOffset(buffer: Buffer) u32 {
-    return @divFloor(buffer.offset % buffer.y_stride, buffer.x_stride);
-}
-pub inline fn at(buffer: Buffer, a: u32, z: u32, y: u32, x: u32) u32 {
-    const offset: u32 = buffer.offset + a * buffer.a_stride + z * buffer.z_stride +
-        y * buffer.y_stride + x * buffer.x_stride;
-    assert(offset < buffer.values.len);
-    return offset;
-}
-pub fn syncToHost(buffer: *Buffer, runtime: Runtime) !void {
-    if (buffer.sync == .sync_to_host) {
-        const n_bytes: u32 = @intCast(buffer.values.len * @sizeOf(@TypeOf(buffer.values[0])));
-        try runtime.memorySyncToHost(buffer.values_runtime, buffer.values.ptr, n_bytes);
-        buffer.sync = .sync_to_none;
+pub fn syncToHost(buffer: Buffer, runtime: Runtime) !void {
+    const buffer_data: *Data = buffer.data();
+    if (buffer_data.*.sync == .sync_to_host) {
+        const n_bytes: u32 = @intCast(buffer_data.*.values.len * @sizeOf(@TypeOf(buffer_data.*.values[0])));
+        try runtime.memorySyncToHost(buffer_data.*.values_runtime, buffer_data.*.values.ptr, n_bytes);
+        buffer_data.*.sync = .sync_to_none;
     }
 }
-pub fn syncToDevice(buffer: *Buffer, runtime: Runtime) !void {
-    if (buffer.sync == .sync_to_device) {
-        const n_bytes: u32 = @intCast(buffer.values.len * @sizeOf(@TypeOf(buffer.values[0])));
-        try runtime.memorySyncToDevice(buffer.values_runtime, buffer.values.ptr, n_bytes);
-        buffer.sync = .sync_to_none;
+pub fn syncToDevice(buffer: Buffer, runtime: Runtime) !void {
+    const buffer_data: *Data = buffer.data();
+    if (buffer_data.*.sync == .sync_to_device) {
+        const n_bytes: u32 = @intCast(buffer_data.*.values.len * @sizeOf(@TypeOf(buffer_data.*.values[0])));
+        try runtime.memorySyncToDevice(buffer_data.*.values_runtime, buffer_data.*.values.ptr, n_bytes);
+        buffer_data.*.sync = .sync_to_none;
     }
 }
-pub fn syncUpdate(buffer: *Buffer, sync: SyncStatus) void {
-    assert(buffer.sync == .sync_to_none or buffer.sync == sync);
+pub fn syncUpdate(buffer: Buffer, sync: SyncStatus) void {
+    const buffer_data: *Data = buffer.data();
+    assert(buffer_data.*.sync == .sync_to_none or buffer_data.*.sync == sync);
     assert(sync != .sync_to_none);
-    buffer.sync = sync;
+    buffer_data.*.sync = sync;
 }
-/// Checks for equal size, offset and name.
-pub inline fn equal(buffer: Buffer, target: Buffer) bool {
-    return buffer.id == target.id and
-        buffer.a_size == target.a_size and buffer.z_size == target.z_size and
-        buffer.y_size == target.y_size and buffer.x_size == target.x_size and
-        buffer.offset == target.offset;
+// /// Checks for equal size, offset and name.
+// pub inline fn equal(buffer: Buffer, target: Buffer) bool {
+// }
+// /// Checks for equal size and name.
+// /// Does *not* check for inherent buffer size or offsets.
+// pub inline fn equalNoOffset(buffer: Buffer, target: Buffer) bool {
+// }
+// $TODO This could also just be a function that returns a View... Decide if that is a good idea
+pub fn moveReshape(buffer: *Buffer, size: Vec4) void {
+    const buffer_data: *Data = buffer.data();
+    assert(size.a > 0);
+    assert(size.z > 0);
+    assert(size.y > 0);
+    assert(size.x > 0);
+    assert(size.a <= buffer_data.*.values.len);
+    assert(size.z <= buffer_data.*.values.len);
+    assert(size.y <= buffer_data.*.values.len);
+    assert(size.x <= buffer_data.*.values.len);
+    assert(size.productOfElements() <= buffer_data.*.values.len);
+    buffer_data.*.view.size = size;
+    buffer_data.*.view.stride =
+        .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x, .x = 1 };
 }
-/// Checks for equal size and name.
-/// Does *not* check for inherent buffer size or offsets.
-pub inline fn equalNoOffset(buffer: Buffer, target: Buffer) bool {
-    return buffer.id == target.id and
-        buffer.a_size == target.a_size and buffer.z_size == target.z_size and
-        buffer.y_size == target.y_size and buffer.x_size == target.x_size;
+pub fn moveResize(buffer: Buffer, size: Vec4) void {
+    const buffer_data: *Data = buffer.data();
+    assert(size.a > 0);
+    assert(size.z > 0);
+    assert(size.y > 0);
+    assert(size.x > 0);
+    assert(size.a <= buffer_data.*.values.len);
+    assert(size.z <= buffer_data.*.values.len);
+    assert(size.y <= buffer_data.*.values.len);
+    assert(size.x <= buffer_data.*.values.len);
+    assert(size.productOfElements() <= buffer_data.*.values.len);
+    buffer_data.*.view.size = size;
 }
-/// Return wether the two buffers overlap in any place
-pub inline fn overlaps(buffer: Buffer, target: Buffer) bool {
-    const a_1: u32 = buffer.aOffset();
-    const z_1: u32 = buffer.zOffset();
-    const y_1: u32 = buffer.yOffset();
-    const x_1: u32 = buffer.xOffset();
-
-    const a_2: u32 = target.aOffset();
-    const z_2: u32 = target.zOffset();
-    const y_2: u32 = target.yOffset();
-    const x_2: u32 = target.xOffset();
-
-    return @max(a_1, a_2) < @min(a_1 + buffer.a_size, a_2 + target.a_size) and
-        @max(z_1, z_2) < @min(z_1 + buffer.z_size, z_2 + target.z_size) and
-        @max(y_1, y_2) < @min(y_1 + buffer.y_size, y_2 + target.y_size) and
-        @max(x_1, x_2) < @min(x_1 + buffer.x_size, x_2 + target.x_size);
-}
-/// Return wether the two buffers overlap in all places
-pub inline fn overlapsAll(buffer: Buffer, target: Buffer) bool {
-    return buffer.a_size == target.a_size and
-        buffer.z_size == target.z_size and
-        buffer.y_size == target.y_size and
-        buffer.x_size == target.x_size and
-        buffer.aOffset() == target.aOffset() and
-        buffer.zOffset() == target.zOffset() and
-        buffer.yOffset() == target.yOffset() and
-        buffer.xOffset() == target.xOffset();
-}
-/// Return wether the two buffers overlap in some, but not all places
-pub inline fn overlapsPartial(buffer: Buffer, target: Buffer) bool {
-    return buffer.overlaps(target) and !buffer.overlapsAll(target);
-}
-pub fn moveReshape(buffer: *Buffer, a: u32, z: u32, y: u32, x: u32) void {
-    assert(a > 0);
-    assert(z > 0);
-    assert(y > 0);
-    assert(x > 0);
-    assert(a <= buffer.values.len);
-    assert(z <= buffer.values.len);
-    assert(y <= buffer.values.len);
-    assert(x <= buffer.values.len);
-    assert(a * z * y * x <= buffer.values.len);
-    buffer.a_size = a;
-    buffer.z_size = z;
-    buffer.y_size = y;
-    buffer.x_size = x;
-    buffer.a_stride = z * y * x;
-    buffer.z_stride = y * x;
-    buffer.y_stride = x;
-    buffer.x_stride = 1;
-}
-pub fn moveResize(buffer: *Buffer, a: u32, z: u32, y: u32, x: u32) void {
-    assert(a > 0);
-    assert(z > 0);
-    assert(y > 0);
-    assert(x > 0);
-    assert(a <= buffer.values.len);
-    assert(z <= buffer.values.len);
-    assert(y <= buffer.values.len);
-    assert(x <= buffer.values.len);
-    assert(a * z * y * x <= buffer.values.len);
-    buffer.a_size = a;
-    buffer.z_size = z;
-    buffer.y_size = y;
-    buffer.x_size = x;
-}
-pub fn moveOffset(buffer: *Buffer, a: u32, z: u32, y: u32, x: u32) void {
-    assert(a < buffer.values.len);
-    assert(z < buffer.values.len);
-    assert(y < buffer.values.len);
-    assert(x < buffer.values.len);
-    const offset: u32 = a * buffer.a_stride + z * buffer.z_stride + y * buffer.y_stride +
-        x * buffer.x_stride;
-    assert(offset < buffer.values.len);
-    buffer.offset = offset;
+pub fn moveOffset(buffer: Buffer, offset: Vec4) void {
+    const buffer_data: *Data = buffer.data();
+    assert(offset.a < buffer_data.*.values.len);
+    assert(offset.z < buffer_data.*.values.len);
+    assert(offset.y < buffer_data.*.values.len);
+    assert(offset.x < buffer_data.*.values.len);
+    const offset_idx: u32 = offset.a * buffer_data.*.view.stride.a +
+        offset.z * buffer_data.*.view.stride.z +
+        offset.y * buffer_data.*.view.stride.y +
+        offset.x * buffer_data.*.view.stride.x;
+    assert(offset_idx < buffer_data.*.values.len);
+    buffer_data.*.view.offset = offset_idx;
 }
 pub fn print(buffer: Buffer, padding: comptime_int, offset: comptime_int, desc: ?[]const u8) void {
     if (desc) |text| {
@@ -287,24 +257,28 @@ pub fn print(buffer: Buffer, padding: comptime_int, offset: comptime_int, desc: 
     } else {
         util.log.print("{s}Buffer {s}\n", .{ " " ** offset, buffer.name() });
     }
+
+    const buffer_data: Data = buffer.data().*;
+    const buffer_view: View = buffer.view().*;
+
     var a: u32 = 0;
-    while (a < buffer.a_size) : (a += 1) {
+    while (a < buffer_view.size.a) : (a += 1) {
         var z: u32 = 0;
-        while (z < buffer.z_size) : (z += 1) {
+        while (z < buffer_view.size.z) : (z += 1) {
             var y: u32 = 0;
-            while (y < buffer.y_size) : (y += 1) {
+            while (y < buffer_view.size.y) : (y += 1) {
                 util.log.print("{s}[", .{" " ** (offset + padding)});
                 var x: u32 = 0;
-                while (x < buffer.x_size) : (x += 1) {
-                    util.log.print(" {d:8.4}", .{buffer.values[buffer.at(a, z, y, x)]});
+                while (x < buffer_view.size.x) : (x += 1) {
+                    util.log.print(" {d:8.4}", .{buffer_data.values[buffer_view.at(.{ .a = a, .z = z, .y = y, .x = x })]});
                 }
                 util.log.print("]\n", .{});
             }
-            if (z != buffer.z_size - 1) {
+            if (z != buffer_view.size.z - 1) {
                 util.log.print("\n", .{});
             }
         }
-        if (a != buffer.a_size - 1) {
+        if (a != buffer_view.size.a - 1) {
             util.log.print("\n", .{});
         }
     }

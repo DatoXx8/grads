@@ -9,11 +9,11 @@ const Args = Program.Args;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;
 const Base = Pir.Base;
-const DimInfo = Pir.DimInfo;
+const ViewOffset = Pir.ViewOffset;
 const Inlined = Pir.Inlined;
 const Buffer = @import("../../Buffer.zig");
+const Vec4 = Buffer.Vec4;
 const buffer_name_size = Buffer.buffer_name_size;
-const nameFromId = Buffer.nameFromId;
 const Linearized = @import("../../Linearized.zig");
 const Op = Linearized.Op;
 const util = @import("../../util.zig");
@@ -39,19 +39,19 @@ fn writeIndices(
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
-        const out_dim: DimInfo = base.out_dim;
-        const in_dim: DimInfo = base.in_dim;
+        const out_view: ViewOffset = base.out_view;
+        const in_view: ViewOffset = base.in_view;
         try writeSource(
             gpa,
             source,
             "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
             .{
                 base.out.name(), kernel_loop_idx, inlined_idx, //
-                out_dim.a_reset, out_dim.a_wait, out_dim.a_stride * base.out.a_stride, //
-                out_dim.z_reset, out_dim.z_wait, out_dim.z_stride * base.out.z_stride, //
-                out_dim.y_reset, out_dim.y_wait, out_dim.y_stride * base.out.y_stride, //
-                out_dim.x_reset, out_dim.x_wait, out_dim.x_stride * base.out.x_stride, //
-                out_dim.off,
+                out_view.repeat_reset.a, out_view.repeat_wait.a, out_view.repeat_stride.a * out_view.stride.a, //
+                out_view.repeat_reset.z, out_view.repeat_wait.z, out_view.repeat_stride.z * out_view.stride.z, //
+                out_view.repeat_reset.y, out_view.repeat_wait.y, out_view.repeat_stride.y * out_view.stride.y, //
+                out_view.repeat_reset.x, out_view.repeat_wait.x, out_view.repeat_stride.x * out_view.stride.x, //
+                out_view.offset,
             },
         );
         if (!base.kind.isUnary()) {
@@ -61,11 +61,11 @@ fn writeIndices(
                 "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, inlined_idx, //
-                    in_dim.a_reset, in_dim.a_wait, in_dim.a_stride * base.in.a_stride, //
-                    in_dim.z_reset, in_dim.z_wait, in_dim.z_stride * base.in.z_stride, //
-                    in_dim.y_reset, in_dim.y_wait, in_dim.y_stride * base.in.y_stride, //
-                    in_dim.x_reset, in_dim.x_wait, in_dim.x_stride * base.in.x_stride, //
-                    in_dim.off,
+                    in_view.repeat_reset.a, in_view.repeat_wait.a, in_view.repeat_stride.a * out_view.stride.a, //
+                    in_view.repeat_reset.z, in_view.repeat_wait.z, in_view.repeat_stride.z * out_view.stride.z, //
+                    in_view.repeat_reset.y, in_view.repeat_wait.y, in_view.repeat_stride.y * out_view.stride.y, //
+                    in_view.repeat_reset.x, in_view.repeat_wait.x, in_view.repeat_stride.x * out_view.stride.x, //
+                    in_view.offset,
                 },
             );
         }
@@ -247,11 +247,12 @@ fn writeAssignOutBase(
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
-    offset_out: u32,
+    size: Vec4,
+    offset: Vec4,
 ) Allocator.Error!void {
     if (base.kind.isReduce()) {
         assert(inlined_idx_curr == 0);
-        assert(offset_out == 0);
+        assert(offset.equal(.{ .a = 0, .z = 0, .y = 0, .x = 0 }));
     }
     switch (base.kind) {
         .unary_add,
@@ -291,7 +292,7 @@ fn writeAssignOutBase(
                 base.out.name(),
                 kernel_loop_idx,
                 inlined_idx_curr,
-                offset_out,
+                base.out_view.viewAtRepeat(size, 0).at(offset),
             });
         },
         .unary_set => {
@@ -308,10 +309,11 @@ fn writeAssignInBase(
     base: Base,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
-    offset_in: u32,
+    size: Vec4,
+    offset: Vec4,
 ) Allocator.Error!void {
     if (base.kind.isExpand()) {
-        assert(offset_in == 0);
+        assert(offset.equal(.{ .a = 0, .z = 0, .y = 0, .x = 0 }));
     }
     switch (base.kind) {
         .binary_add,
@@ -338,7 +340,7 @@ fn writeAssignInBase(
                 base.in.name(),
                 kernel_loop_idx,
                 inlined_idx_curr,
-                offset_in,
+                base.in_view.viewAtRepeat(size, 0).at(offset),
             });
         },
         .unary_add,
@@ -367,39 +369,35 @@ fn writeAssignOut(
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
-    a: u32,
-    z: u32,
-    y: u32,
-    x: u32,
+    size: Vec4,
+    offset: Vec4,
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
     try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
-    const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
-    const z_out: u32 = if (base_relevant.kind.isReduce()) 0 else z;
-    const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
-    const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
+    const offset_out: Vec4 = if (base_relevant.kind.isReduce())
+        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+    else
+        offset;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
     } else {
-        const offset_out: u32 = base_relevant.out.at(a_out, z_out, y_out, x_out) - base_relevant.out.offset;
-        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
+        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_out);
     }
 
     try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
-    const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
-    const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
-    const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
-    const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
+    const offset_in: Vec4 = if (base_relevant.kind.isExpand())
+        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+    else
+        offset;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
     } else {
         if (!base_relevant.kind.isUnary()) {
-            const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
-            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
+            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_in);
         }
     }
 
@@ -412,39 +410,35 @@ fn writeAssignIn(
     inlined: Inlined,
     kernel_loop_idx: u32,
     inlined_idx_curr: u32,
-    a: u32,
-    z: u32,
-    y: u32,
-    x: u32,
+    size: Vec4,
+    offset: Vec4,
 ) Allocator.Error!void {
     const inlined_idx_actual: u32 = inlined_idx_curr - 1;
 
     try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
 
     const base_relevant: Base = inlined.base[inlined_idx_actual];
-    const a_out: u32 = if (base_relevant.kind.isReduce()) 0 else a;
-    const z_out: u32 = if (base_relevant.kind.isReduce()) 0 else z;
-    const y_out: u32 = if (base_relevant.kind.isReduce()) 0 else y;
-    const x_out: u32 = if (base_relevant.kind.isReduce()) 0 else x;
+    const offset_out: Vec4 = if (base_relevant.kind.isReduce())
+        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+    else
+        offset;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
     } else {
-        const offset_out: u32 = base_relevant.out.at(a_out, z_out, y_out, x_out) - base_relevant.out.offset;
-        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_out);
+        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_out);
     }
 
     try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
 
-    const a_in: u32 = if (base_relevant.kind.isExpand()) 0 else a;
-    const z_in: u32 = if (base_relevant.kind.isExpand()) 0 else z;
-    const y_in: u32 = if (base_relevant.kind.isExpand()) 0 else y;
-    const x_in: u32 = if (base_relevant.kind.isExpand()) 0 else x;
+    const offset_in: Vec4 = if (base_relevant.kind.isExpand())
+        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+    else
+        offset;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
     } else {
         if (!base_relevant.kind.isUnary()) {
-            const offset_in: u32 = base_relevant.in.at(a_in, z_in, y_in, x_in) - base_relevant.in.offset;
-            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, offset_in);
+            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_in);
         }
     }
 
@@ -468,55 +462,49 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
         });
     }
 
-    const a_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-    const z_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-    const y_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-    const x_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
+    const size: Vec4 = assign.size;
 
     var a: u32 = 0;
-    while (a < a_size) : (a += 1) {
+    while (a < size.a) : (a += 1) {
         var z: u32 = 0;
-        while (z < z_size) : (z += 1) {
+        while (z < size.z) : (z += 1) {
             var y: u32 = 0;
-            while (y < y_size) : (y += 1) {
+            while (y < size.y) : (y += 1) {
                 var x: u32 = 0;
-                while (x < x_size) : (x += 1) {
-                    const a_out: u32 = if (assign.base.kind.isReduce()) 0 else a;
-                    const z_out: u32 = if (assign.base.kind.isReduce()) 0 else z;
-                    const y_out: u32 = if (assign.base.kind.isReduce()) 0 else y;
-                    const x_out: u32 = if (assign.base.kind.isReduce()) 0 else x;
-
-                    const offset_out: u32 = assign.base.out.at(a_out, z_out, y_out, x_out) - assign.base.out.offset;
+                while (x < size.x) : (x += 1) {
+                    const offset_out: Vec4 = if (assign.base.kind.isReduce())
+                        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+                    else
+                        .{ .a = a, .z = z, .y = y, .x = x };
 
                     try writeSource(gpa, source, "{s}[{s}_{}_{}+{}] = ", .{
                         assign.base.out.name(),
                         assign.base.out.name(),
                         kernel_loop_idx,
                         0,
-                        offset_out,
+                        assign.base.out_view.viewAtRepeat(assign.size, 0).at(offset_out),
                     });
 
                     try writeAssignPrefix(gpa, source, assign.base);
 
                     if (assign.inlined.out_root) |inlined_out| {
-                        try writeAssignOut(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, a_out, z_out, y_out, x_out);
+                        try writeAssignOut(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
                     } else {
-                        try writeAssignOutBase(gpa, source, assign.base, kernel_loop_idx, 0, offset_out);
+                        try writeAssignOutBase(gpa, source, assign.base, kernel_loop_idx, 0, size, offset_out);
                     }
 
                     try writeAssignMidfix(gpa, source, assign.base);
 
-                    const a_in: u32 = if (assign.base.kind.isExpand()) 0 else a;
-                    const z_in: u32 = if (assign.base.kind.isExpand()) 0 else z;
-                    const y_in: u32 = if (assign.base.kind.isExpand()) 0 else y;
-                    const x_in: u32 = if (assign.base.kind.isExpand()) 0 else x;
+                    const offset_in: Vec4 = if (assign.base.kind.isExpand())
+                        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
+                    else
+                        .{ .a = a, .z = z, .y = y, .x = x };
 
                     if (assign.inlined.in_root) |inlined_in| {
-                        try writeAssignIn(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, a_in, z_in, y_in, x_in);
+                        try writeAssignIn(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
                     } else {
                         if (!assign.base.kind.isUnary()) {
-                            const offset_in: u32 = if (assign.base.kind.isExpand()) 0 else assign.base.in.at(a_in, z_in, y_in, x_in) - assign.base.in.offset;
-                            try writeAssignInBase(gpa, source, assign.base, kernel_loop_idx, 0, offset_in);
+                            try writeAssignInBase(gpa, source, assign.base, kernel_loop_idx, 0, size, offset_in);
                         }
                     }
 
@@ -535,7 +523,7 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
             kernel_loop_idx,
             0,
             0,
-            @as(f64, @floatFromInt(a_size * z_size * y_size * x_size)),
+            @as(f64, @floatFromInt(assign.size.productOfElements())),
         });
     }
 }
@@ -673,28 +661,31 @@ fn writeIndicesBlock(
     var inlined_idx: u32 = 0;
     while (inlined_idx < inlined_num) : (inlined_idx += 1) {
         const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
+        const out_view: ViewOffset = base.out_view;
         if (base.kind.isReduce()) {
             try writeSource(
                 gpa,
                 source,
-                "int {s}_{}_{}_{} = {};\n",
-                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, 0 },
+                "int {s}_{}_{}_{} = 0;\n",
+                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
             );
         } else {
+            const size: Vec4 = assign.size;
             try writeSource(
                 gpa,
                 source,
                 "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                 .{
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                    base.out.a_size * base.out.z_size * base.out.y_size * base.out.x_size, base.out.z_size * base.out.y_size * base.out.x_size, if (base.out.a_size == 1) 0 else base.out.a_stride, //
-                    base.out.z_size * base.out.y_size * base.out.x_size,                   base.out.y_size * base.out.x_size,                   if (base.out.z_size == 1) 0 else base.out.z_stride,
-                    base.out.y_size * base.out.x_size,                                     base.out.x_size,                                     if (base.out.y_size == 1) 0 else base.out.y_stride,
-                    base.out.x_size,                                                       1,                                                   if (base.out.x_size == 1) 0 else base.out.x_stride,
+                    size.a * size.z * size.y * size.x, size.z * size.y * size.x, out_view.stride.a, //
+                    size.z * size.y * size.x,          size.y * size.x,          out_view.stride.z,
+                    size.y * size.x,                   size.x,                   out_view.stride.y,
+                    size.x,                            1,                        out_view.stride.x,
                 },
             );
         }
         if (!base.kind.isUnary()) {
+            const in_view: ViewOffset = base.in_view;
             if (base.kind.isExpand()) {
                 try writeSource(
                     gpa,
@@ -703,16 +694,17 @@ fn writeIndicesBlock(
                     .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
                 );
             } else {
+                const size: Vec4 = assign.size;
                 try writeSource(
                     gpa,
                     source,
                     "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                     .{
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                        base.in.a_size * base.in.z_size * base.in.y_size * base.in.x_size, base.in.z_size * base.in.y_size * base.in.x_size, if (base.in.a_size == 1) 0 else base.in.a_stride, //
-                        base.in.z_size * base.in.y_size * base.in.x_size,                  base.in.y_size * base.in.x_size,                  if (base.in.z_size == 1) 0 else base.in.z_stride,
-                        base.in.y_size * base.in.x_size,                                   base.in.x_size,                                   if (base.in.y_size == 1) 0 else base.in.y_stride,
-                        base.in.x_size,                                                    1,                                                if (base.in.x_size == 1) 0 else base.in.x_stride,
+                        size.a * size.z * size.y * size.x, size.z * size.y * size.x, in_view.stride.a, //
+                        size.z * size.y * size.x,          size.y * size.x,          in_view.stride.z,
+                        size.y * size.x,                   size.x,                   in_view.stride.y,
+                        size.x,                            1,                        in_view.stride.x,
                     },
                 );
             }
@@ -836,15 +828,14 @@ pub fn assignCompile(
     size_global: u32,
     size_local: u32,
 ) Allocator.Error!void {
-    assert(assign.base.repeats > 0);
+    assert(assign.repeats > 0);
     assert(size_global > 0);
     assert(size_local > 0);
     assert(size_global % size_local == 0);
 
     try writeSource(gpa, source, "__kernel void {s}(", .{name});
-    assert(args.arg_mem.len == args.arg_id.len);
-    for (0..args.arg_num) |arg_idx| {
-        const arg_name: [buffer_name_size]u8 = nameFromId(args.arg_id[arg_idx]);
+    for (args.arg_buffer, 0..) |arg_buffer, arg_idx| {
+        const arg_name: [buffer_name_size]u8 = arg_buffer.name();
         if (arg_idx == 0) {
             try writeSource(gpa, source, "__global float *{s}", .{arg_name});
         } else {
@@ -858,17 +849,12 @@ pub fn assignCompile(
 
     // $TODO Merge these cases in to 1 case. Should not really be that difficult
     if (assign.split) {
-        const a_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.a_size else assign.base.out.a_size;
-        const z_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.z_size else assign.base.out.z_size;
-        const y_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.y_size else assign.base.out.y_size;
-        const x_size: u32 = if (assign.base.kind.isReduce()) assign.base.in.x_size else assign.base.out.x_size;
-        const size: u32 = a_size * z_size * y_size * x_size;
-        const size_with_repeats: u32 = size * assign.base.repeats;
+        const size_with_repeats: u32 = assign.size.productOfElements() * assign.repeats;
 
         const kernel_block_leftover: u32 = size_with_repeats % size_global;
         const kernel_block_size: u32 = std.math.divCeil(u32, size_with_repeats, size_global) catch unreachable;
 
-        assert(kernel_block_size <= size);
+        assert(kernel_block_size <= assign.size.productOfElements());
 
         var kernel_block_idx: u32 = 0;
         while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
@@ -876,7 +862,7 @@ pub fn assignCompile(
                 try writeSource(gpa, source, "if(gid<{}) {{\n", .{kernel_block_leftover});
             }
 
-            try writeSource(gpa, source, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, size });
+            try writeSource(gpa, source, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, assign.size.productOfElements() });
             try writeIndices(gpa, source, assign, kernel_block_idx);
             try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_block_idx});
             try writeIndicesBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
@@ -887,8 +873,8 @@ pub fn assignCompile(
             }
         }
     } else {
-        const kernel_loop_leftover: u32 = (assign.base.repeats) % size_global;
-        const kernel_loop_num: u32 = @divFloor(assign.base.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
+        const kernel_loop_leftover: u32 = (assign.repeats) % size_global;
+        const kernel_loop_num: u32 = @divFloor(assign.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
 
         var kernel_loop_idx: u32 = 0;
         while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {

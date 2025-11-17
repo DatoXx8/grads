@@ -6,11 +6,12 @@ const ArrayList = std.ArrayList;
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
 const Buffer = @import("../Buffer.zig");
+const Vec4 = Buffer.Vec4;
 const Pir = @import("Pir.zig");
 const Assign = Pir.Assign;
 const Inlined = Pir.Inlined;
 const Base = Pir.Base;
-const DimInfo = Pir.DimInfo;
+const ViewOffset = Pir.ViewOffset;
 const util = @import("../util.zig");
 
 /// Planned optimization steps
@@ -44,26 +45,15 @@ pub const Optimization = union(enum) {
 /// Check if left and right can be merged.
 /// Assumes there is no useage of the out buffer of left between the two bases.
 fn mergeOpPossible(left: Assign, right: Assign) bool {
-    if (left.base.repeats != right.base.repeats) return false;
-    if (!left.base.out_dim.equal(right.base.out_dim)) return false;
-    if (!left.base.in_dim.equal(right.base.in_dim)) return false;
-    if (!left.base.out.equal(right.base.out) or !left.base.in.equal(right.base.in)) return false;
+    if (left.repeats != right.repeats) return false;
+    if (!left.base.out_view.equal(right.base.out_view)) return false;
+    if (!left.base.in_view.equal(right.base.in_view)) return false;
+    if (!left.size.equal(right.size)) return false;
+    if (left.base.out.id != right.base.out.id or left.base.in.id != right.base.in.id) return false;
     if (right.base.kind.isReduce()) return false;
     if (right.base.kind.overwrites()) return true;
 
-    if (left.inlined.num != right.inlined.num or
-        left.inlined.out_root != right.inlined.out_root or
-        left.inlined.in_root != right.inlined.in_root) return false;
-
-    var inlined_idx: u32 = 0;
-    while (inlined_idx < left.inlined.num) : (inlined_idx += 1) {
-        if (!left.inlined.base[inlined_idx].equal(right.inlined.base[inlined_idx]) or
-            left.inlined.out[inlined_idx] != right.inlined.out[inlined_idx] or
-            left.inlined.in[inlined_idx] != right.inlined.in[inlined_idx])
-        {
-            return false;
-        }
-    }
+    if (left.inlined.num > 0) return false;
 
     // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
     return switch (left.base.kind) {
@@ -286,39 +276,69 @@ pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir
                     },
                 };
                 optimization.appendBounded(fuse) catch {
-                    try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                    try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
                     try optimization.appendBounded(fuse);
                 };
                 break;
             } else {
+                const assign_left: Assign = pir.assign[left_idx];
                 const base_left: Base = pir.assign[left_idx].base;
+                const assign_left_size_out: Vec4 = if (base_left.kind.isReduce())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_left.size;
+                const assign_left_size_in: Vec4 = if (base_left.kind.isExpand())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_left.size;
                 const inlined_left: Inlined = pir.assign[left_idx].inlined;
 
+                const assign_right: Assign = pir.assign[right_idx];
                 const base_right: Base = pir.assign[right_idx].base;
+                const assign_right_size_out: Vec4 = if (base_right.kind.isReduce())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_right.size;
+                const assign_right_size_in: Vec4 = if (base_right.kind.isExpand())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_right.size;
                 const inlined_right: Inlined = pir.assign[right_idx].inlined;
 
                 const overlap_out_x: bool = blk: {
                     if (base_left.out.id == base_right.out.id and
-                        base_left.out.overlaps(base_right.out))
+                        base_left.out_view.overlaps(1, assign_left_size_out, //
+                            base_right.out_view, 1, assign_right_size_out))
                     {
                         break :blk true;
                     }
                     if (base_left.out.id == base_right.in.id and
-                        base_left.out.overlaps(base_right.in) and
+                        base_left.out_view.overlaps(1, assign_left_size_out, //
+                            base_right.in_view, 1, assign_right_size_in) and
                         !base_right.kind.isUnary())
                     {
                         break :blk true;
                     }
                     var inlined_right_idx: u32 = 0;
                     while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                        const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
+                            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                        else
+                            assign_right.size;
+                        const inlined_right_size_in: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isExpand())
+                            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                        else
+                            assign_right.size;
                         if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
-                            base_left.out.overlaps(inlined_right.base[inlined_right_idx].out) and
+                            base_left.out_view.overlaps(1, assign_left_size_out, //
+                                inlined_right.base[inlined_right_idx].out_view, 1, inlined_right_size_out) and
                             inlined_right.out[inlined_right_idx] == null)
                         {
                             break :blk true;
                         }
                         if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                            base_left.out.overlaps(inlined_right.base[inlined_right_idx].in) and
+                            base_left.out_view.overlaps(1, assign_left_size_out, //
+                                inlined_right.base[inlined_right_idx].in_view, 1, inlined_right_size_in) and
                             !inlined_right.base[inlined_right_idx].kind.isUnary() and
                             inlined_right.in[inlined_right_idx] == null)
                         {
@@ -329,20 +349,31 @@ pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir
                 };
                 const overlap_x_out: bool = blk: {
                     if (base_left.in.id == base_right.out.id and
-                        base_left.in.overlaps(base_right.out))
+                        base_left.in_view.overlaps(1, assign_left_size_in, //
+                            base_right.out_view, 1, assign_right_size_out))
                     {
                         break :blk true;
                     }
                     var inlined_left_idx: u32 = 0;
                     while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                        const inlined_left_size_out: Vec4 = if (inlined_left.base[inlined_left_idx].kind.isReduce())
+                            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                        else
+                            assign_left.size;
+                        const inlined_left_size_in: Vec4 = if (inlined_left.base[inlined_left_idx].kind.isExpand())
+                            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                        else
+                            assign_left.size;
                         if (inlined_left.base[inlined_left_idx].out.id == base_right.out.id and
-                            inlined_left.base[inlined_left_idx].out.overlaps(base_right.out) and
+                            inlined_left.base[inlined_left_idx].out_view.overlaps(1, inlined_left_size_out, //
+                                base_right.out_view, 1, assign_right_size_out) and
                             inlined_left.out[inlined_left_idx] == null)
                         {
                             break :blk true;
                         }
                         if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
-                            inlined_left.base[inlined_left_idx].in.overlaps(base_right.out) and
+                            inlined_left.base[inlined_left_idx].in_view.overlaps(1, inlined_left_size_in, //
+                                base_right.out_view, 1, assign_right_size_out) and
                             inlined_left.in[inlined_left_idx] == null and
                             !inlined_left.base[inlined_left_idx].kind.isUnary())
                         {
@@ -381,7 +412,16 @@ pub fn mergeOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) void {
 pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
     var left_idx: u32 = 0;
     left_loop: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
+        const assign_left: Assign = pir.assign[left_idx];
         const base_left: Base = pir.assign[left_idx].base;
+        const assign_left_size_out: Vec4 = if (base_left.kind.isReduce())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            pir.assign[left_idx].size;
+        const assign_left_size_in: Vec4 = if (base_left.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            pir.assign[left_idx].size;
         const inlined_left: Inlined = pir.assign[left_idx].inlined;
 
         if (base_left.kind.isReduce()) {
@@ -395,24 +435,42 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
         right_loop: while (right_idx < pir.assign_num) : (right_idx += 1) {
             assert(inlined_valid);
 
+            const assign_right: Assign = pir.assign[right_idx];
             const base_right: Base = pir.assign[right_idx].base;
+            const assign_right_size_out: Vec4 = if (base_right.kind.isReduce())
+                .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+            else
+                pir.assign[right_idx].size;
+            const assign_right_size_in: Vec4 = if (base_right.kind.isExpand())
+                .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+            else
+                pir.assign[right_idx].size;
             const inlined_right: Inlined = pir.assign[right_idx].inlined;
 
             // $TODO This should be more optimized
-            const repeats_different: bool = base_left.repeats != base_right.repeats;
+            const repeats_different: bool = assign_left.repeats != assign_right.repeats;
             const split_different: bool = false;
             // const split_different: bool = pir.assign[left_idx].split != pir.assign[right_idx].split;
+
+            // $FIXME All of this is probably completely broken if the ViewOffset repeat info is different.
+            //  In fact basically all of these are gonna break I think
             const left_out_overwritten: bool = blk: {
                 if (base_left.out.id == base_right.out.id and
-                    base_left.out.overlapsAll(base_right.out) and
+                    base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        base_right.out_view, 1, assign_right_size_out) and
                     base_right.kind.overwrites())
                 {
                     break :blk true;
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
-                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].out) and
+                        base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                            inlined_right.base[inlined_right_idx].out_view, 1, inlined_right_size_out) and
                         inlined_right.base[inlined_right_idx].kind.overwrites() and
                         inlined_right.out[inlined_right_idx] == null) // This part is probably not necessary
                     {
@@ -422,12 +480,14 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 break :blk false;
             };
             const left_out_non_intermdiary_inlined: bool = blk: {
-                const base_left_out_intermediary: bool = switch (base_left.out.kind) {
+                const base_left_out_intermediary: bool = switch (base_left.out.data().*.kind) {
                     .intermediary => true,
                     .normal => false,
+                    .free => unreachable,
                 };
                 if (base_left.out.id == base_right.in.id and
-                    base_left.out.overlapsAll(base_right.in) and
+                    base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        base_right.in_view, 1, assign_right_size_in) and
                     !base_left_out_intermediary and
                     !base_right.kind.isUnary())
                 {
@@ -435,8 +495,13 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    const inlined_right_size_in: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
+                        base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                            inlined_right.base[inlined_right_idx].in_view, 1, inlined_right_size_in) and
                         !base_left_out_intermediary and
                         !inlined_right.base[inlined_right_idx].kind.isUnary() and
                         inlined_right.in[inlined_right_idx] == null) // This part is probably not necessary
@@ -448,26 +513,38 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             };
             const partial_overlap_out_x: bool = blk: {
                 if (base_left.out.id == base_right.out.id and
-                    base_left.out.overlapsPartial(base_right.out))
+                    base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                        base_right.out_view, 1, assign_right_size_out))
                 {
                     break :blk true;
                 }
                 if (base_left.out.id == base_right.in.id and
-                    base_left.out.overlapsPartial(base_right.in) and
+                    base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                        base_right.in_view, 1, assign_right_size_in) and
                     !base_right.kind.isUnary())
                 {
                     break :blk true;
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
+                    const inlined_right_size_in: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
-                        base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].out) and
+                        base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                            inlined_right.base[inlined_right_idx].out_view, 1, inlined_right_size_out) and
                         inlined_right.out[inlined_right_idx] == null)
                     {
                         break :blk true;
                     }
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                        base_left.out.overlapsPartial(inlined_right.base[inlined_right_idx].in) and
+                        base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                            inlined_right.base[inlined_right_idx].in_view, 1, inlined_right_size_in) and
                         !inlined_right.base[inlined_right_idx].kind.isUnary() and
                         inlined_right.in[inlined_right_idx] == null)
                     {
@@ -478,20 +555,31 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             };
             const partial_overlap_x_out: bool = blk: {
                 if (base_left.in.id == base_right.out.id and
-                    base_left.in.overlapsPartial(base_right.out))
+                    base_left.in_view.overlapsPartial(1, assign_left_size_in, //
+                        base_right.out_view, 1, assign_right_size_out))
                 {
                     break :blk true;
                 }
                 var inlined_left_idx: u32 = 0;
                 while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                    const inlined_left_size_out: Vec4 = if (inlined_left.base[inlined_left_idx].kind.isReduce())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_left.size;
+                    const inlined_left_size_in: Vec4 = if (inlined_left.base[inlined_left_idx].kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_left.size;
                     if (inlined_left.base[inlined_left_idx].out.id == base_right.out.id and
-                        inlined_left.base[inlined_left_idx].out.overlapsPartial(base_right.out) and
+                        inlined_left.base[inlined_left_idx].out_view.overlapsPartial(1, inlined_left_size_out, //
+                            base_right.out_view, 1, assign_right_size_out) and
                         inlined_left.out[inlined_left_idx] == null)
                     {
                         break :blk true;
                     }
                     if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
-                        inlined_left.base[inlined_left_idx].in.overlapsPartial(base_right.out) and
+                        inlined_left.base[inlined_left_idx].in_view.overlapsPartial(1, inlined_left_size_in, //
+                            base_right.out_view, 1, assign_right_size_out) and
                         inlined_left.in[inlined_left_idx] == null and
                         !inlined_left.base[inlined_left_idx].kind.isUnary())
                     {
@@ -502,14 +590,20 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             };
             const left_in_written: bool = blk: {
                 if (base_left.in.id == base_right.out.id and
-                    base_left.in.overlapsAll(base_right.out))
+                    base_left.in_view.overlapsAll(1, assign_left_size_in, //
+                        base_right.out_view, 1, assign_right_size_out))
                 {
                     break :blk true;
                 }
                 var inlined_left_idx: u32 = 0;
                 while (inlined_left_idx < inlined_left.num) : (inlined_left_idx += 1) {
+                    const inlined_left_size_in: Vec4 = if (inlined_left.base[inlined_left_idx].kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_left.size;
                     if (inlined_left.base[inlined_left_idx].in.id == base_right.out.id and
-                        inlined_left.base[inlined_left_idx].in.overlapsAll(base_right.out) and
+                        inlined_left.base[inlined_left_idx].in_view.overlapsAll(1, inlined_left_size_in, //
+                            base_right.out_view, 1, assign_right_size_out) and
                         inlined_left.in[inlined_left_idx] == null and
                         !inlined_left.base[inlined_left_idx].kind.isUnary())
                     {
@@ -529,15 +623,21 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             }
             const left_out_written_to_in: bool = blk: {
                 if (base_left.out.id == base_right.in.id and
-                    base_left.out.overlapsAll(base_right.in) and
+                    base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        base_right.in_view, 1, assign_right_size_in) and
                     !base_right.kind.isUnary())
                 {
                     break :blk true;
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    const inlined_right_size_in: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].in.id and
-                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].in) and
+                        base_left.out_view.overlapsAll(1, assign_right_size_out, //
+                            inlined_right.base[inlined_right_idx].in_view, 1, inlined_right_size_in) and
                         !inlined_right.base[inlined_right_idx].kind.isUnary() and
                         inlined_right.in[inlined_right_idx] == null)
                     {
@@ -548,14 +648,20 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             };
             const left_out_written_to_out: bool = blk: {
                 if (base_left.out.id == base_right.out.id and
-                    base_left.out.overlapsAll(base_right.out))
+                    base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        base_right.out_view, 1, assign_right_size_out))
                 {
                     break :blk true;
                 }
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
+                    const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
                     if (base_left.out.id == inlined_right.base[inlined_right_idx].out.id and
-                        base_left.out.overlapsAll(inlined_right.base[inlined_right_idx].out) and
+                        base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                            inlined_right.base[inlined_right_idx].out_view, 1, inlined_right_size_out) and
                         inlined_right.out[inlined_right_idx] == null)
                     {
                         break :blk true;
@@ -580,7 +686,7 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 },
             };
             optimization.appendBounded(inlined) catch {
-                try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
                 try optimization.appendBounded(inlined);
             };
         }
@@ -591,21 +697,36 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
     assert(right_idx_max_written < pir.assign_num);
 
     const base_left: Base = pir.assign[left_idx].base;
+    const assign_left_size_out: Vec4 = if (base_left.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        pir.assign[left_idx].size;
     const inlined_left: Inlined = pir.assign[left_idx].inlined;
 
     var right_idx: u32 = left_idx + 1;
     right_loop: while (right_idx <= right_idx_max_written) : (right_idx += 1) {
+        const assign_right: Assign = pir.assign[right_idx];
         const base_right: Base = pir.assign[right_idx].base;
+        const assign_right_size_out: Vec4 = if (base_right.kind.isReduce())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            pir.assign[right_idx].size;
+        const assign_right_size_in: Vec4 = if (base_right.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            pir.assign[right_idx].size;
         const inlined_right: *Inlined = &pir.assign[right_idx].inlined;
 
         const inlined_right_num_initial: u32 = inlined_right.*.num;
 
-        if (base_left.out.id == base_right.out.id and base_left.out.overlaps(base_right.out) and
+        if (base_left.out.id == base_right.out.id and base_left.out_view.overlaps(1, assign_left_size_out, //
+            base_right.out_view, 1, assign_right_size_out) and
             inlined_right.*.out_root == null)
         {
-            assert(base_left.out.overlapsAll(base_right.out));
-            assert(!base_left.out.overlapsPartial(base_right.out));
-            assert(base_left.out.kind == base_right.out.kind);
+            assert(base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                base_right.out_view, 1, assign_right_size_out));
+            assert(!base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                base_right.out_view, 1, assign_right_size_out));
             assert(right_idx == right_idx_max_written);
 
             const inlined_right_num_new: u32 = inlined_right_num_initial + inlined_left.num + 1;
@@ -637,15 +758,18 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
 
             break :right_loop;
         } else {
-            if (base_left.out.id == base_right.in.id and base_left.out.overlaps(base_right.in) and
+            if (base_left.out.id == base_right.in.id and base_left.out_view.overlaps(1, assign_left_size_out, //
+                base_right.in_view, 1, assign_right_size_in) and
                 inlined_right.*.in_root == null and !base_right.kind.isUnary())
             {
-                assert(base_left.out.overlapsAll(base_right.in));
-                assert(!base_left.out.overlapsPartial(base_right.in));
-                assert(base_left.out.kind == base_right.in.kind);
-                assert(switch (base_left.out.kind) {
+                assert(base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                    base_right.in_view, 1, assign_right_size_in));
+                assert(!base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                    base_right.in_view, 1, assign_right_size_in));
+                assert(switch (base_left.out.data().*.kind) {
                     .normal => right_idx != right_idx_max_written,
                     .intermediary => true,
+                    .free => unreachable,
                 });
 
                 const inlined_right_num_new: u32 = inlined_right_num_initial + inlined_left.num + 1;
@@ -678,12 +802,23 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
 
             var inlined_right_idx: u32 = 0;
             while (inlined_right_idx < inlined_right_num_initial) : (inlined_right_idx += 1) {
+                const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_right.size;
+                const inlined_right_size_in: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isExpand())
+                    .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                else
+                    assign_right.size;
                 if (base_left.out.id == inlined_right.*.base[inlined_right_idx].out.id and
                     inlined_right.*.out[inlined_right_idx] == null and
-                    base_left.out.overlaps(inlined_right.*.base[inlined_right_idx].out))
+                    base_left.out_view.overlaps(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].out_view, 1, inlined_right_size_out))
                 {
-                    assert(base_left.out.overlapsAll(inlined_right.*.base[inlined_right_idx].out));
-                    assert(!base_left.out.overlapsPartial(inlined_right.*.base[inlined_right_idx].out));
+                    assert(base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].out_view, 1, inlined_right_size_out));
+                    assert(!base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].out_view, 1, inlined_right_size_out));
 
                     const inlined_right_num_temp: u32 = inlined_right.*.num;
                     const inlined_right_num_new: u32 = inlined_right.*.num + inlined_left.num + 1;
@@ -717,11 +852,14 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
                     }
                 } else if (base_left.out.id == inlined_right.*.base[inlined_right_idx].in.id and
                     inlined_right.*.in[inlined_right_idx] == null and
-                    base_left.out.overlaps(inlined_right.*.base[inlined_right_idx].in) and
+                    base_left.out_view.overlaps(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].in_view, 1, inlined_right_size_in) and
                     !inlined_right.*.base[inlined_right_idx].kind.isUnary())
                 {
-                    assert(base_left.out.overlapsAll(inlined_right.*.base[inlined_right_idx].in));
-                    assert(!base_left.out.overlapsPartial(inlined_right.*.base[inlined_right_idx].in));
+                    assert(base_left.out_view.overlapsAll(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].in_view, 1, inlined_right_size_in));
+                    assert(!base_left.out_view.overlapsPartial(1, assign_left_size_out, //
+                        inlined_right.*.base[inlined_right_idx].in_view, 1, inlined_right_size_in));
 
                     const inlined_right_num_temp: u32 = inlined_right.*.num;
                     const inlined_right_num_new: u32 = inlined_right.*.num + inlined_left.num + 1;
@@ -774,169 +912,103 @@ pub fn inlineOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx_max_written:
     pir.assign_num = assign_num_new;
 }
 
-fn dimInfoMergePossible(left: Assign, right: Assign) bool {
-    if (left.inlined.num != right.inlined.num) {
+fn viewOffsetMergePossible(left: Assign, right: Assign) bool {
+    if (left.inlined.num != right.inlined.num or !left.size.equal(right.size)) {
         return false;
     }
-
     const base_num: u32 = 1 + left.inlined.num;
 
-    for (0..base_num) |base_idx| {
-        const left_base: Base = if (base_idx == 0) left.base else left.inlined.base[base_idx - 1];
+    var base_idx: u32 = 0;
+    while (base_idx < base_num) : (base_idx += 1) {
+        var left_base: Base = if (base_idx == 0) left.base else left.inlined.base[base_idx - 1];
         const right_base: Base = if (base_idx == 0) right.base else right.inlined.base[base_idx - 1];
 
-        if (base_idx != 0) {
-            if (left.inlined.out[base_idx - 1] == right.inlined.out[base_idx - 1]) {
-                if (left.inlined.out[base_idx - 1] != null) {
-                    continue;
-                }
-            } else {
-                return false;
-            }
-            if (left.inlined.in[base_idx - 1] == right.inlined.in[base_idx - 1]) {
-                if (left.inlined.in[base_idx - 1] != null) {
-                    continue;
-                }
-            } else {
-                return false;
-            }
-        }
-
-        if (!left_base.equalNoOffset(right_base)) {
-            return false;
-        }
-
-        inline for (0..8) |dim_idx| {
-            var left_wait: u32 = switch (dim_idx) {
-                0 => left_base.out_dim.a_wait,
-                1 => left_base.out_dim.z_wait,
-                2 => left_base.out_dim.y_wait,
-                3 => left_base.out_dim.x_wait,
-                4 => left_base.in_dim.a_wait,
-                5 => left_base.in_dim.z_wait,
-                6 => left_base.in_dim.y_wait,
-                7 => left_base.in_dim.x_wait,
+        var dim_idx: u32 = 0;
+        while (dim_idx < 8) : (dim_idx += 1) {
+            const left_wait: *u32 = switch (dim_idx) {
+                0 => &left_base.out_view.repeat_wait.a,
+                1 => &left_base.out_view.repeat_wait.z,
+                2 => &left_base.out_view.repeat_wait.y,
+                3 => &left_base.out_view.repeat_wait.x,
+                4 => &left_base.in_view.repeat_wait.a,
+                5 => &left_base.in_view.repeat_wait.z,
+                6 => &left_base.in_view.repeat_wait.y,
+                7 => &left_base.in_view.repeat_wait.x,
                 else => unreachable,
             };
-            var left_stride: u32 = switch (dim_idx) {
-                0 => left_base.out_dim.a_stride,
-                1 => left_base.out_dim.z_stride,
-                2 => left_base.out_dim.y_stride,
-                3 => left_base.out_dim.x_stride,
-                4 => left_base.in_dim.a_stride,
-                5 => left_base.in_dim.z_stride,
-                6 => left_base.in_dim.y_stride,
-                7 => left_base.in_dim.x_stride,
+            const left_stride: *u32 = switch (dim_idx) {
+                0 => &left_base.out_view.repeat_stride.a,
+                1 => &left_base.out_view.repeat_stride.z,
+                2 => &left_base.out_view.repeat_stride.y,
+                3 => &left_base.out_view.repeat_stride.x,
+                4 => &left_base.in_view.repeat_stride.a,
+                5 => &left_base.in_view.repeat_stride.z,
+                6 => &left_base.in_view.repeat_stride.y,
+                7 => &left_base.in_view.repeat_stride.x,
                 else => unreachable,
             };
-            var left_reset: u32 = switch (dim_idx) {
-                0 => left_base.out_dim.a_reset,
-                1 => left_base.out_dim.z_reset,
-                2 => left_base.out_dim.y_reset,
-                3 => left_base.out_dim.x_reset,
-                4 => left_base.in_dim.a_reset,
-                5 => left_base.in_dim.z_reset,
-                6 => left_base.in_dim.y_reset,
-                7 => left_base.in_dim.x_reset,
+            const left_reset: *u32 = switch (dim_idx) {
+                0 => &left_base.out_view.repeat_reset.a,
+                1 => &left_base.out_view.repeat_reset.z,
+                2 => &left_base.out_view.repeat_reset.y,
+                3 => &left_base.out_view.repeat_reset.x,
+                4 => &left_base.in_view.repeat_reset.a,
+                5 => &left_base.in_view.repeat_reset.z,
+                6 => &left_base.in_view.repeat_reset.y,
+                7 => &left_base.in_view.repeat_reset.x,
                 else => unreachable,
             };
-            const left_off: u32 = switch (dim_idx) {
-                0 => left_base.out.aOffset(),
-                1 => left_base.out.zOffset(),
-                2 => left_base.out.yOffset(),
-                3 => left_base.out.xOffset(),
-                4 => left_base.in.aOffset(),
-                5 => left_base.in.zOffset(),
-                6 => left_base.in.yOffset(),
-                7 => left_base.in.xOffset(),
-                else => unreachable,
-            };
-            const right_wait: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_wait,
-                1 => right_base.out_dim.z_wait,
-                2 => right_base.out_dim.y_wait,
-                3 => right_base.out_dim.x_wait,
-                4 => right_base.in_dim.a_wait,
-                5 => right_base.in_dim.z_wait,
-                6 => right_base.in_dim.y_wait,
-                7 => right_base.in_dim.x_wait,
-                else => unreachable,
-            };
-            const right_stride: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_stride,
-                1 => right_base.out_dim.z_stride,
-                2 => right_base.out_dim.y_stride,
-                3 => right_base.out_dim.x_stride,
-                4 => right_base.in_dim.a_stride,
-                5 => right_base.in_dim.z_stride,
-                6 => right_base.in_dim.y_stride,
-                7 => right_base.in_dim.x_stride,
-                else => unreachable,
-            };
-            const right_reset: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_reset,
-                1 => right_base.out_dim.z_reset,
-                2 => right_base.out_dim.y_reset,
-                3 => right_base.out_dim.x_reset,
-                4 => right_base.in_dim.a_reset,
-                5 => right_base.in_dim.z_reset,
-                6 => right_base.in_dim.y_reset,
-                7 => right_base.in_dim.x_reset,
-                else => unreachable,
-            };
-            const right_off_start: u32 = switch (dim_idx) {
-                0 => right_base.out.aOffset(),
-                1 => right_base.out.zOffset(),
-                2 => right_base.out.yOffset(),
-                3 => right_base.out.xOffset(),
-                4 => right_base.in.aOffset(),
-                5 => right_base.in.zOffset(),
-                6 => right_base.in.yOffset(),
-                7 => right_base.in.xOffset(),
+            const left_offset: u32 = switch (dim_idx) {
+                0 => left_base.out_view.viewAtRepeat(left.size, 0).aOffset(),
+                1 => left_base.out_view.viewAtRepeat(left.size, 0).zOffset(),
+                2 => left_base.out_view.viewAtRepeat(left.size, 0).yOffset(),
+                3 => left_base.out_view.viewAtRepeat(left.size, 0).xOffset(),
+                4 => left_base.in_view.viewAtRepeat(left.size, 0).aOffset(),
+                5 => left_base.in_view.viewAtRepeat(left.size, 0).zOffset(),
+                6 => left_base.in_view.viewAtRepeat(left.size, 0).yOffset(),
+                7 => left_base.in_view.viewAtRepeat(left.size, 0).xOffset(),
                 else => unreachable,
             };
             var right_repeat_idx: u32 = 0;
-            while (right_repeat_idx < right_base.repeats) : (right_repeat_idx += 1) {
-                const right_off: u32 = blk: {
-                    if (right_wait == DimInfo.value_none) {
-                        assert(right_stride == DimInfo.value_none);
-                        break :blk right_off_start;
-                    } else {
-                        assert(right_stride != DimInfo.value_none);
-                        if (right_reset == DimInfo.value_none) {
-                            break :blk @divFloor(right_repeat_idx, right_wait) * right_stride + right_off_start;
-                        } else {
-                            break :blk @divFloor(right_repeat_idx % right_reset, right_wait) * right_stride + right_off_start;
-                        }
-                    }
+            while (right_repeat_idx < right.repeats) : (right_repeat_idx += 1) {
+                const right_offset: u32 = switch (dim_idx) {
+                    0 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).aOffset(),
+                    1 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).zOffset(),
+                    2 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).yOffset(),
+                    3 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).xOffset(),
+                    4 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).aOffset(),
+                    5 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).zOffset(),
+                    6 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).yOffset(),
+                    7 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).xOffset(),
+                    else => unreachable,
                 };
 
-                if (right_off < left_off) {
+                if (right_offset < left_offset) {
                     return false;
                 }
 
-                if (left_wait == DimInfo.value_none) {
-                    assert(left_stride == DimInfo.value_none);
-                    if (right_off == left_off) {
+                if (left_wait.* == ViewOffset.value_none) {
+                    assert(left_stride.* == ViewOffset.value_none);
+                    if (right_offset == left_offset) {
                         continue;
                     } else {
-                        left_wait = left_base.repeats + right_repeat_idx;
-                        left_stride = right_off - left_off;
+                        left_wait.* = left.repeats + right_repeat_idx;
+                        left_stride.* = right_offset - left_offset;
                     }
                 } else {
-                    assert(left_stride != DimInfo.value_none);
-                    if (left_reset == DimInfo.value_none) {
-                        if (left_off == right_off) {
-                            left_reset = left_base.repeats + right_repeat_idx;
+                    assert(left_stride.* != ViewOffset.value_none);
+                    if (left_reset.* == ViewOffset.value_none) {
+                        if (left_offset == right_offset) {
+                            left_reset.* = left.repeats + right_repeat_idx;
                         } else {
-                            if (@divFloor(left_base.repeats + right_repeat_idx, left_wait) * left_stride + left_off == right_off) {
+                            if (@divFloor(left.repeats + right_repeat_idx, left_wait.*) * left_stride.* + left_offset == right_offset) {
                                 continue;
                             } else {
                                 return false;
                             }
                         }
                     } else {
-                        if (@divFloor((left_base.repeats + right_repeat_idx) % left_reset, left_wait) * left_stride + left_off != right_off) {
+                        if (@divFloor((left.repeats + right_repeat_idx) % left_reset.*, left_wait.*) * left_stride.* + left_offset != right_offset) {
                             return false;
                         }
                     }
@@ -947,298 +1019,148 @@ fn dimInfoMergePossible(left: Assign, right: Assign) bool {
 
     return true;
 }
-fn dimInfoMerge(left: *Assign, right: Assign) void {
-    assert(dimInfoMergePossible(left.*, right)); // This is slow and duplicate but just to be sure
+fn viewOffsetMerge(left: *Assign, right: Assign) void {
+    assert(viewOffsetMergePossible(left.*, right)); // This is slow and duplicate but just to be sure
 
     const base_num: u32 = 1 + left.inlined.num;
 
-    for (0..base_num) |base_idx| {
+    var base_idx: u32 = 0;
+    while (base_idx < base_num) : (base_idx += 1) {
         const left_base: *Base = if (base_idx == 0) &left.base else &left.inlined.base[base_idx - 1];
-        const right_base: *const Base = if (base_idx == 0) &right.base else &right.inlined.base[base_idx - 1];
+        const right_base: Base = if (base_idx == 0) right.base else right.inlined.base[base_idx - 1];
 
-        outer_dim: for (0..8) |dim_idx| {
+        var dim_idx: u32 = 0;
+        dim: while (dim_idx < 8) : (dim_idx += 1) {
             const left_wait: *u32 = switch (dim_idx) {
-                0 => &left_base.out_dim.a_wait,
-                1 => &left_base.out_dim.z_wait,
-                2 => &left_base.out_dim.y_wait,
-                3 => &left_base.out_dim.x_wait,
-                4 => &left_base.in_dim.a_wait,
-                5 => &left_base.in_dim.z_wait,
-                6 => &left_base.in_dim.y_wait,
-                7 => &left_base.in_dim.x_wait,
+                0 => &left_base.out_view.repeat_wait.a,
+                1 => &left_base.out_view.repeat_wait.z,
+                2 => &left_base.out_view.repeat_wait.y,
+                3 => &left_base.out_view.repeat_wait.x,
+                4 => &left_base.in_view.repeat_wait.a,
+                5 => &left_base.in_view.repeat_wait.z,
+                6 => &left_base.in_view.repeat_wait.y,
+                7 => &left_base.in_view.repeat_wait.x,
                 else => unreachable,
             };
             const left_stride: *u32 = switch (dim_idx) {
-                0 => &left_base.out_dim.a_stride,
-                1 => &left_base.out_dim.z_stride,
-                2 => &left_base.out_dim.y_stride,
-                3 => &left_base.out_dim.x_stride,
-                4 => &left_base.in_dim.a_stride,
-                5 => &left_base.in_dim.z_stride,
-                6 => &left_base.in_dim.y_stride,
-                7 => &left_base.in_dim.x_stride,
+                0 => &left_base.out_view.repeat_stride.a,
+                1 => &left_base.out_view.repeat_stride.z,
+                2 => &left_base.out_view.repeat_stride.y,
+                3 => &left_base.out_view.repeat_stride.x,
+                4 => &left_base.in_view.repeat_stride.a,
+                5 => &left_base.in_view.repeat_stride.z,
+                6 => &left_base.in_view.repeat_stride.y,
+                7 => &left_base.in_view.repeat_stride.x,
                 else => unreachable,
             };
             const left_reset: *u32 = switch (dim_idx) {
-                0 => &left_base.out_dim.a_reset,
-                1 => &left_base.out_dim.z_reset,
-                2 => &left_base.out_dim.y_reset,
-                3 => &left_base.out_dim.x_reset,
-                4 => &left_base.in_dim.a_reset,
-                5 => &left_base.in_dim.z_reset,
-                6 => &left_base.in_dim.y_reset,
-                7 => &left_base.in_dim.x_reset,
+                0 => &left_base.out_view.repeat_reset.a,
+                1 => &left_base.out_view.repeat_reset.z,
+                2 => &left_base.out_view.repeat_reset.y,
+                3 => &left_base.out_view.repeat_reset.x,
+                4 => &left_base.in_view.repeat_reset.a,
+                5 => &left_base.in_view.repeat_reset.z,
+                6 => &left_base.in_view.repeat_reset.y,
+                7 => &left_base.in_view.repeat_reset.x,
                 else => unreachable,
             };
-            const left_off: u32 = switch (dim_idx) {
-                0 => left_base.out.aOffset(),
-                1 => left_base.out.zOffset(),
-                2 => left_base.out.yOffset(),
-                3 => left_base.out.xOffset(),
-                4 => left_base.in.aOffset(),
-                5 => left_base.in.zOffset(),
-                6 => left_base.in.yOffset(),
-                7 => left_base.in.xOffset(),
-                else => unreachable,
-            };
-            const right_wait: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_wait,
-                1 => right_base.out_dim.z_wait,
-                2 => right_base.out_dim.y_wait,
-                3 => right_base.out_dim.x_wait,
-                4 => right_base.in_dim.a_wait,
-                5 => right_base.in_dim.z_wait,
-                6 => right_base.in_dim.y_wait,
-                7 => right_base.in_dim.x_wait,
-                else => unreachable,
-            };
-            const right_stride: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_stride,
-                1 => right_base.out_dim.z_stride,
-                2 => right_base.out_dim.y_stride,
-                3 => right_base.out_dim.x_stride,
-                4 => right_base.in_dim.a_stride,
-                5 => right_base.in_dim.z_stride,
-                6 => right_base.in_dim.y_stride,
-                7 => right_base.in_dim.x_stride,
-                else => unreachable,
-            };
-            const right_reset: u32 = switch (dim_idx) {
-                0 => right_base.out_dim.a_reset,
-                1 => right_base.out_dim.z_reset,
-                2 => right_base.out_dim.y_reset,
-                3 => right_base.out_dim.x_reset,
-                4 => right_base.in_dim.a_reset,
-                5 => right_base.in_dim.z_reset,
-                6 => right_base.in_dim.y_reset,
-                7 => right_base.in_dim.x_reset,
-                else => unreachable,
-            };
-            const right_off_start: u32 = switch (dim_idx) {
-                0 => right_base.out.aOffset(),
-                1 => right_base.out.zOffset(),
-                2 => right_base.out.yOffset(),
-                3 => right_base.out.xOffset(),
-                4 => right_base.in.aOffset(),
-                5 => right_base.in.zOffset(),
-                6 => right_base.in.yOffset(),
-                7 => right_base.in.xOffset(),
+            const left_offset: u32 = switch (dim_idx) {
+                0 => left_base.out_view.viewAtRepeat(left.size, 0).aOffset(),
+                1 => left_base.out_view.viewAtRepeat(left.size, 0).zOffset(),
+                2 => left_base.out_view.viewAtRepeat(left.size, 0).yOffset(),
+                3 => left_base.out_view.viewAtRepeat(left.size, 0).xOffset(),
+                4 => left_base.in_view.viewAtRepeat(left.size, 0).aOffset(),
+                5 => left_base.in_view.viewAtRepeat(left.size, 0).zOffset(),
+                6 => left_base.in_view.viewAtRepeat(left.size, 0).yOffset(),
+                7 => left_base.in_view.viewAtRepeat(left.size, 0).xOffset(),
                 else => unreachable,
             };
             var right_repeat_idx: u32 = 0;
-            inner_repeat: while (right_repeat_idx < right_base.repeats) : (right_repeat_idx += 1) {
-                const right_off: u32 = blk: {
-                    if (right_wait == DimInfo.value_none) {
-                        assert(right_stride == DimInfo.value_none);
-                        break :blk right_off_start;
-                    } else {
-                        assert(right_stride != DimInfo.value_none);
-                        if (right_reset == DimInfo.value_none) {
-                            break :blk @divFloor(right_repeat_idx, right_wait) * right_stride + right_off_start;
-                        } else {
-                            break :blk @divFloor(right_repeat_idx % right_reset, right_wait) * right_stride + right_off_start;
-                        }
-                    }
+            right_repeat: while (right_repeat_idx < right.repeats) : (right_repeat_idx += 1) {
+                const right_offset: u32 = switch (dim_idx) {
+                    0 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).aOffset(),
+                    1 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).zOffset(),
+                    2 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).yOffset(),
+                    3 => right_base.out_view.viewAtRepeat(right.size, right_repeat_idx).xOffset(),
+                    4 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).aOffset(),
+                    5 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).zOffset(),
+                    6 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).yOffset(),
+                    7 => right_base.in_view.viewAtRepeat(right.size, right_repeat_idx).xOffset(),
+                    else => unreachable,
                 };
+                assert(right_offset >= left_offset);
 
-                assert(right_off >= left_off);
-
-                if (left_wait.* == DimInfo.value_none) {
-                    assert(left_stride.* == DimInfo.value_none);
-                    if (right_off == left_off) {
-                        continue :inner_repeat;
+                if (left_wait.* == ViewOffset.value_none) {
+                    assert(left_stride.* == ViewOffset.value_none);
+                    if (right_offset == left_offset) {
+                        continue :right_repeat;
                     } else {
-                        left_wait.* = left_base.repeats + right_repeat_idx;
-                        left_stride.* = right_off - left_off;
+                        left_wait.* = left.repeats + right_repeat_idx;
+                        left_stride.* = right_offset - left_offset;
                     }
                 } else {
-                    assert(left_stride.* != DimInfo.value_none);
-                    if (left_reset.* == DimInfo.value_none) {
-                        if (left_off == right_off) {
-                            left_reset.* = left_base.repeats + right_repeat_idx;
-                            continue :outer_dim;
+                    assert(left_stride.* != ViewOffset.value_none);
+                    if (left_reset.* == ViewOffset.value_none) {
+                        if (left_offset == right_offset) {
+                            left_reset.* = left.repeats + right_repeat_idx;
+                            continue :dim;
                         }
                     }
                 }
             }
         }
-        left_base.repeats += right_base.repeats;
     }
-}
-fn dimInfoOverlap(
-    left: Buffer,
-    left_dim: DimInfo,
-    left_repeats: u32,
-    right: Buffer,
-    right_dim: DimInfo,
-    right_repeats: u32,
-) bool {
-    var left_idx: u32 = 0;
-    while (left_idx < left_repeats) : (left_idx += 1) {
-        const a_1: u32 = left.aOffset() + blk: {
-            if (left_dim.a_wait == DimInfo.value_none) {
-                assert(left_dim.a_stride == DimInfo.value_none);
-                break :blk 0;
-            } else {
-                assert(left_dim.a_stride != DimInfo.value_none);
-                if (left_dim.a_reset == DimInfo.value_none) {
-                    break :blk @divFloor(left_idx, left_dim.a_wait) * left_dim.a_stride;
-                } else {
-                    break :blk @divFloor(left_idx % left_dim.a_reset, left_dim.a_wait) * left_dim.a_stride;
-                }
-            }
-        };
-        const z_1: u32 = left.zOffset() + blk: {
-            if (left_dim.z_wait == DimInfo.value_none) {
-                assert(left_dim.z_stride == DimInfo.value_none);
-                break :blk 0;
-            } else {
-                assert(left_dim.z_stride != DimInfo.value_none);
-                if (left_dim.z_reset == DimInfo.value_none) {
-                    break :blk @divFloor(left_idx, left_dim.z_wait) * left_dim.z_stride;
-                } else {
-                    break :blk @divFloor(left_idx % left_dim.z_reset, left_dim.z_wait) * left_dim.z_stride;
-                }
-            }
-        };
-        const y_1: u32 = left.yOffset() + blk: {
-            if (left_dim.y_wait == DimInfo.value_none) {
-                assert(left_dim.y_stride == DimInfo.value_none);
-                break :blk 0;
-            } else {
-                assert(left_dim.y_stride != DimInfo.value_none);
-                if (left_dim.y_reset == DimInfo.value_none) {
-                    break :blk @divFloor(left_idx, left_dim.y_wait) * left_dim.y_stride;
-                } else {
-                    break :blk @divFloor(left_idx % left_dim.y_reset, left_dim.y_wait) * left_dim.y_stride;
-                }
-            }
-        };
-        const x_1: u32 = left.xOffset() + blk: {
-            if (left_dim.x_wait == DimInfo.value_none) {
-                assert(left_dim.x_stride == DimInfo.value_none);
-                break :blk 0;
-            } else {
-                assert(left_dim.x_stride != DimInfo.value_none);
-                if (left_dim.x_reset == DimInfo.value_none) {
-                    break :blk @divFloor(left_idx, left_dim.x_wait) * left_dim.x_stride;
-                } else {
-                    break :blk @divFloor(left_idx % left_dim.x_reset, left_dim.x_wait) * left_dim.x_stride;
-                }
-            }
-        };
-        var right_idx: u32 = 0;
-        while (right_idx < right_repeats) : (right_idx += 1) {
-            const a_2: u32 = right.aOffset() + blk: {
-                if (right_dim.a_wait == DimInfo.value_none) {
-                    assert(right_dim.a_stride == DimInfo.value_none);
-                    break :blk 0;
-                } else {
-                    assert(right_dim.a_stride != DimInfo.value_none);
-                    if (right_dim.a_reset == DimInfo.value_none) {
-                        break :blk @divFloor(right_idx, right_dim.a_wait) * right_dim.a_stride;
-                    } else {
-                        break :blk @divFloor(right_idx % right_dim.a_reset, right_dim.a_wait) * right_dim.a_stride;
-                    }
-                }
-            };
-            const z_2: u32 = right.zOffset() + blk: {
-                if (right_dim.z_wait == DimInfo.value_none) {
-                    assert(right_dim.z_stride == DimInfo.value_none);
-                    break :blk 0;
-                } else {
-                    assert(right_dim.z_stride != DimInfo.value_none);
-                    if (right_dim.z_reset == DimInfo.value_none) {
-                        break :blk @divFloor(right_idx, right_dim.z_wait) * right_dim.z_stride;
-                    } else {
-                        break :blk @divFloor(right_idx % right_dim.z_reset, right_dim.z_wait) * right_dim.z_stride;
-                    }
-                }
-            };
-            const y_2: u32 = right.yOffset() + blk: {
-                if (right_dim.y_wait == DimInfo.value_none) {
-                    assert(right_dim.y_stride == DimInfo.value_none);
-                    break :blk 0;
-                } else {
-                    assert(right_dim.y_stride != DimInfo.value_none);
-                    if (right_dim.y_reset == DimInfo.value_none) {
-                        break :blk @divFloor(right_idx, right_dim.y_wait) * right_dim.y_stride;
-                    } else {
-                        break :blk @divFloor(right_idx % right_dim.y_reset, right_dim.y_wait) * right_dim.y_stride;
-                    }
-                }
-            };
-            const x_2: u32 = right.xOffset() + blk: {
-                if (right_dim.x_wait == DimInfo.value_none) {
-                    assert(right_dim.x_stride == DimInfo.value_none);
-                    break :blk 0;
-                } else {
-                    assert(right_dim.x_stride != DimInfo.value_none);
-                    if (right_dim.x_reset == DimInfo.value_none) {
-                        break :blk @divFloor(right_idx, right_dim.x_wait) * right_dim.x_stride;
-                    } else {
-                        break :blk @divFloor(right_idx % right_dim.x_reset, right_dim.x_wait) * right_dim.x_stride;
-                    }
-                }
-            };
-            const overlap: bool = @max(a_1, a_2) < @min(a_1 + left.a_size, a_2 + right.a_size) and
-                @max(z_1, z_2) < @min(z_1 + left.z_size, z_2 + right.z_size) and
-                @max(y_1, y_2) < @min(y_1 + left.y_size, y_2 + right.y_size) and
-                @max(x_1, x_2) < @min(x_1 + left.x_size, x_2 + right.x_size);
-            if (overlap) {
-                return true;
-            }
-        }
-    }
-    return false;
+    left.repeats += right.repeats;
 }
 pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir: Pir) !void {
-    var start_idx: u32 = 0;
-    outer: while (start_idx < pir.assign_num - 1) : (start_idx += 1) {
-        var search_idx: u32 = start_idx + 1;
-        while (search_idx < pir.assign_num) : (search_idx += 1) {
-            // I think these conditions are the least restrictive they could be because of the inlining that happens before parallelization
-            // At the very least it is not obvious to me how to loosen them.
+    var left_idx: u32 = 0;
+    outer: while (left_idx < pir.assign_num - 1) : (left_idx += 1) {
+        const assign_left: Assign = pir.assign[left_idx];
+        const base_left: Base = pir.assign[left_idx].base;
+        const assign_left_size_out: Vec4 = if (base_left.kind.isReduce())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            assign_left.size;
+        const assign_left_size_in: Vec4 = if (base_left.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            assign_left.size;
 
-            const base_search: Base = pir.assign[search_idx].base;
-            const base_start: Base = pir.assign[start_idx].base;
+        var right_idx: u32 = left_idx + 1;
+        while (right_idx < pir.assign_num) : (right_idx += 1) {
+            const assign_right: Assign = pir.assign[right_idx];
+            const base_right: Base = pir.assign[right_idx].base;
+            const assign_right_size_out: Vec4 = if (base_right.kind.isReduce())
+                .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+            else
+                assign_right.size;
+            const assign_right_size_in: Vec4 = if (base_right.kind.isExpand())
+                .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+            else
+                assign_right.size;
 
-            const overlap_out_out: bool = base_start.out.id == base_search.out.id and
-                dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
-                    base_search.out, base_search.out_dim, base_search.repeats);
-            const overlap_out_in: bool = base_start.out.id == base_search.in.id and
-                dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
-                    base_search.in, base_search.in_dim, base_search.repeats);
-            const overlap_in_out: bool = base_start.in.id == base_search.out.id and
-                dimInfoOverlap(base_start.in, base_start.in_dim, base_start.repeats, //
-                    base_search.out, base_search.out_dim, base_search.repeats);
+            const overlap_out_out: bool = base_left.out.id == base_right.out.id and
+                base_left.out_view.overlaps(assign_left.repeats, assign_left_size_out, //
+                    base_right.out_view, assign_right.repeats, assign_right_size_out);
+            const overlap_out_in: bool = base_left.out.id == base_right.in.id and
+                base_left.out_view.overlaps(assign_left.repeats, assign_left_size_out, //
+                    base_right.in_view, assign_right.repeats, assign_right_size_in);
+            const overlap_in_out: bool = base_left.in.id == base_right.out.id and
+                base_left.in_view.overlaps(assign_left.repeats, assign_left_size_in, //
+                    base_right.out_view, assign_right.repeats, assign_right_size_out);
             const overlap_inline: bool = blk: {
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
-                    const base_inlined: Base = pir.assign[search_idx].inlined.base[inlined_idx];
-                    if (base_start.out.id == base_inlined.in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
-                        dimInfoOverlap(base_start.out, base_start.out_dim, base_start.repeats, //
-                            base_inlined.in, base_inlined.in_dim, base_inlined.repeats))
+                while (inlined_idx < assign_right.inlined.num) : (inlined_idx += 1) {
+                    const base_inlined: Base = pir.assign[right_idx].inlined.base[inlined_idx];
+                    const assign_right_size_in_inlined: Vec4 = if (base_inlined.kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right.size;
+                    if (base_left.out.id == base_inlined.in.id and
+                        !base_inlined.kind.isUnary() and
+                        assign_right.inlined.in[inlined_idx] == null and
+                        base_left.out_view.overlaps(assign_left.repeats, assign_left_size_out, //
+                            base_inlined.in_view, assign_right.repeats, assign_right_size_in_inlined))
                     {
                         break :blk true;
                     }
@@ -1249,29 +1171,44 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
                 continue :outer;
             }
 
-            if (dimInfoMergePossible(pir.assign[start_idx], pir.assign[search_idx])) {
+            if (viewOffsetMergePossible(assign_left, assign_right)) {
                 var back_idx: u32 = 1;
-                while (back_idx < search_idx - start_idx) : (back_idx += 1) {
-                    const search_back_idx: u32 = search_idx - back_idx;
+                while (back_idx < right_idx - left_idx) : (back_idx += 1) {
+                    const right_back_idx: u32 = right_idx - back_idx;
 
-                    const base_search_back: Base = pir.assign[search_back_idx].base;
+                    const assign_right_back: Assign = pir.assign[right_back_idx];
+                    const base_right_back: Base = pir.assign[right_back_idx].base;
+                    const assign_right_back_size_out: Vec4 = if (base_right_back.kind.isReduce())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right_back.size;
+                    const assign_right_back_size_in: Vec4 = if (base_right_back.kind.isExpand())
+                        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                    else
+                        assign_right_back.size;
 
-                    const overlap_out_out_back: bool = base_search_back.out.id == base_search.out.id and
-                        dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
-                            base_search.out, base_search.out_dim, base_search.repeats);
-                    const overlap_out_in_back: bool = base_search_back.out.id == base_search.in.id and
-                        dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
-                            base_search.in, base_search.in_dim, base_search.repeats);
-                    const overlap_in_out_back: bool = base_search_back.in.id == base_search.out.id and
-                        dimInfoOverlap(base_search_back.in, base_search_back.in_dim, base_search_back.repeats, //
-                            base_search.out, base_search.out_dim, base_search.repeats);
+                    const overlap_out_out_back: bool = base_right_back.out.id == base_right.out.id and
+                        base_right_back.out_view.overlaps(assign_right_back.repeats, assign_right_back_size_out, //
+                            base_right.out_view, assign_right.repeats, assign_right_size_out);
+                    const overlap_out_in_back: bool = base_right_back.out.id == base_right.in.id and
+                        base_right_back.out_view.overlaps(assign_right_back.repeats, assign_right_back_size_out, //
+                            base_right.in_view, assign_right.repeats, assign_right_size_in);
+                    const overlap_in_out_back: bool = base_right_back.in.id == base_right.out.id and
+                        base_right_back.in_view.overlaps(assign_right_back.repeats, assign_right_back_size_in, //
+                            base_right.out_view, assign_right.repeats, assign_right_size_out);
                     const overlap_inline_back: bool = blk: {
                         var inlined_idx: u32 = 0;
-                        while (inlined_idx < pir.assign[search_idx].inlined.num) : (inlined_idx += 1) {
-                            const base_inlined: Base = pir.assign[search_idx].inlined.base[inlined_idx];
-                            if (base_search_back.out.id == base_inlined.in.id and pir.assign[search_idx].inlined.in[inlined_idx] == null and
-                                dimInfoOverlap(base_search_back.out, base_search_back.out_dim, base_search_back.repeats, //
-                                    base_inlined.in, base_inlined.in_dim, base_inlined.repeats))
+                        while (inlined_idx < assign_right.inlined.num) : (inlined_idx += 1) {
+                            const base_inlined: Base = assign_right.inlined.base[inlined_idx];
+                            const assign_inlined_size_in: Vec4 = if (base_inlined.kind.isExpand())
+                                .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+                            else
+                                assign_right.size;
+                            if (base_right_back.out.id == base_inlined.in.id and
+                                !base_inlined.kind.isUnary() and
+                                assign_right.inlined.in[inlined_idx] == null and
+                                base_right_back.out_view.overlaps(assign_right_back.repeats, assign_right_back_size_out, //
+                                    base_inlined.in_view, assign_right.repeats, assign_inlined_size_in))
                             {
                                 break :blk true;
                             }
@@ -1287,12 +1224,12 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
 
                 const parallelized: Optimization = .{
                     .parallelize = .{
-                        .left_idx = start_idx,
-                        .right_idx = search_idx,
+                        .left_idx = left_idx,
+                        .right_idx = right_idx,
                     },
                 };
                 optimization.appendBounded(parallelized) catch {
-                    try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                    try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
                     try optimization.appendBounded(parallelized);
                 };
                 continue :outer;
@@ -1304,9 +1241,9 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
 pub fn parallelize(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) !void {
     assert(left_idx < right_idx);
     assert(right_idx <= pir.assign_num);
-    assert(dimInfoMergePossible(pir.assign[left_idx], pir.assign[right_idx]));
+    assert(viewOffsetMergePossible(pir.assign[left_idx], pir.assign[right_idx]));
 
-    dimInfoMerge(&pir.assign[left_idx], pir.assign[right_idx]);
+    viewOffsetMerge(&pir.assign[left_idx], pir.assign[right_idx]);
 
     var assign_num_new: u32 = 0;
     var assign_idx: u32 = 0;
@@ -1335,7 +1272,7 @@ pub fn splitKernelGather(
     var assign_idx: u32 = 0;
     while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (!pir.assign[assign_idx].base.kind.isReduce() and
-            pir.assign[assign_idx].base.repeats < size_global and
+            pir.assign[assign_idx].repeats < size_global and
             !pir.assign[assign_idx].split)
         {
             const split: Optimization = .{
@@ -1344,7 +1281,7 @@ pub fn splitKernelGather(
                 },
             };
             optimization.appendBounded(split) catch {
-                try optimization.resize(gpa, @min(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+                try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
                 try optimization.appendBounded(split);
             };
         }

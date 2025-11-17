@@ -6,6 +6,7 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 
 const grads = @import("grads");
 const Buffer = grads.Buffer;
+const Vec4 = Buffer.Vec4;
 const Linearized = grads.Linearized;
 const Op = grads.Op;
 const Program = grads.Program;
@@ -224,10 +225,7 @@ const SimpleLinearized = struct {
 pub const RegressionTest = struct {
     simple_linearized: SimpleLinearized,
     depth_max: u32,
-    a: u32,
-    z: u32,
-    y: u32,
-    x: u32,
+    size: Vec4,
     size_global: u32,
     size_local: u32,
     rng_value: u64,
@@ -309,7 +307,7 @@ pub const RegressionTest = struct {
         try linearized1.op[linearized1.num - 1].out.syncToHost(runtime);
 
         var arg_idx: u32 = 0;
-        while (arg_idx < reg_test.a * reg_test.z * reg_test.y * reg_test.x) : (arg_idx += 1) {
+        while (arg_idx < reg_test.size.productOfElements()) : (arg_idx += 1) {
             if (!checkEq(linearized1.op[linearized1.num - 1].out.values[arg_idx], //
                 linearized1.op[linearized1.num - 1].out.values[arg_idx]))
             {

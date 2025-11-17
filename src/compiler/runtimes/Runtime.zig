@@ -3,6 +3,10 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 
+const Buffer = @import("../../Buffer.zig");
+const Vec4 = Buffer.Vec4;
+const Id = Buffer.Id;
+const Data = Buffer.Data;
 const Program = @import("../Program.zig");
 const Memory = Program.Memory;
 const Sync = Program.Sync;
@@ -16,6 +20,55 @@ const Assign = Pir.Assign;
 pub const RuntimeCl = @import("RuntimeCl.zig");
 pub const RuntimePtx = @import("RuntimePtx.zig");
 pub const RuntimeNoop = @import("RuntimeNoop.zig");
+
+pub const Pool = struct {
+    pub const capacity_intial: u32 = 256;
+    data_id_next: Id,
+    data_id_free: Id,
+    data: []Data,
+    pub fn nextId(pool: *Pool, gpa: Allocator) !Id {
+        if (pool.data_id_next == pool.data_id_free) {
+            defer {
+                pool.data_id_next += 1;
+                pool.data_id_free += 1;
+            }
+            if (pool.data_id_next == pool.data.len) {
+                pool.data = try gpa.realloc(pool.data, @max(16, pool.data.len * 2));
+            }
+            return pool.data_id_next;
+        } else {
+            const buffer: Buffer = .{ .id = pool.data_id_free };
+            const buffer_data: Data = buffer.data().*;
+            assert(buffer_data.kind == .free);
+            if (pool.data_id_free == buffer_data.nextFree()) {
+                pool.data_id_free = pool.data_id_next;
+            } else {
+                pool.data_id_free = buffer_data.nextFree();
+            }
+            return buffer.id;
+        }
+    }
+    pub fn freeId(pool: *Pool, id: Id) void {
+        const buffer: Buffer = .{ .id = id };
+        const buffer_data: *Data = buffer.data();
+        assert(buffer_data.*.kind != .free);
+        // Don't really see a reason the do a special case when id is the last in the pool to decrement buffer_id_next
+        if (pool.data_id_free == pool.data_id_next) {
+            buffer_data.*.view.offset = id;
+        } else {
+            buffer_data.*.view.offset = pool.data_id_free;
+        }
+        buffer_data.*.kind = .free;
+        pool.data_id_free = id;
+    }
+};
+
+// $TODO Make this threadsafe
+pub var pool_global: Pool = .{
+    .data = &.{},
+    .data_id_free = 0,
+    .data_id_next = 0,
+};
 
 // This one is gonna take a while
 // $TODO Add a multithread CPU runtime for x86_64 avx2
@@ -41,7 +94,7 @@ pub const VTable = struct {
     init: *const fn (state: *anyopaque) Error!void,
     /// Deinint all the relevant context
     deinit: *const fn (state: *anyopaque) void,
-    memoryAlloc: *const fn (state: *anyopaque, a: u32, z: u32, y: u32, x: u32) Error!Memory,
+    memoryAlloc: *const fn (state: *anyopaque, size: Vec4) Error!Memory,
     memoryFree: *const fn (state: *anyopaque, mem: Memory) void,
     memorySyncToHost: *const fn (state: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) Error!void,
     memorySyncToDevice: *const fn (state: *anyopaque, mem: Memory, mem_host: *anyopaque, n_bytes: u32) Error!void,
@@ -69,14 +122,16 @@ pub const VTable = struct {
     ) Allocator.Error!void,
 };
 
-pub fn init(runtime: Runtime) !void {
+pub fn init(runtime: Runtime, gpa: Allocator) !void {
+    pool_global.data = try gpa.alloc(Data, Pool.capacity_intial);
     try runtime.vtable.init(runtime.state);
 }
-pub fn deinit(runtime: Runtime) void {
+pub fn deinit(runtime: Runtime, gpa: Allocator) void {
+    gpa.free(pool_global.data);
     runtime.vtable.deinit(runtime.state);
 }
-pub fn memoryAlloc(runtime: Runtime, a: u32, z: u32, y: u32, x: u32) !Memory {
-    return try runtime.vtable.memoryAlloc(runtime.state, a, z, y, x);
+pub fn memoryAlloc(runtime: Runtime, size: Vec4) !Memory {
+    return try runtime.vtable.memoryAlloc(runtime.state, size);
 }
 pub fn memoryFree(runtime: Runtime, memory: Memory) void {
     runtime.vtable.memoryFree(runtime.state, memory);

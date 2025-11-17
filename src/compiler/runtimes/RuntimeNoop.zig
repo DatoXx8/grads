@@ -16,6 +16,8 @@ const ProgramPtr = Program.ProgramPtr;
 const Memory = Program.Memory;
 const Args = Program.Args;
 const Sync = Program.Sync;
+const Buffer = @import("../../Buffer.zig");
+const Vec4 = Buffer.Vec4;
 const Pir = @import("../Pir.zig");
 const Assign = Pir.Assign;
 
@@ -46,7 +48,7 @@ pub fn runtime(_: RuntimeNoop) Runtime {
 
 pub fn init(_: *anyopaque) Error!void {}
 pub fn deinit(_: *anyopaque) void {}
-pub fn memoryAlloc(_: *anyopaque, _: u32, _: u32, _: u32, _: u32) Error!Memory {
+pub fn memoryAlloc(_: *anyopaque, _: Vec4) Error!Memory {
     return undefined;
 }
 pub fn memoryFree(_: *anyopaque, _: Memory) void {}

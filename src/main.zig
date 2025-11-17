@@ -9,7 +9,7 @@ const RuntimeCl = Runtime.RuntimeCl;
 const Buffer = @import("Buffer.zig");
 const Linearized = @import("Linearized.zig");
 
-// $TODO Use Vec4 instead of the _a _z _y _x things
+// $TODO Use some kind of https://en.wikipedia.org/wiki/Simulated_annealing type thing for the optimizer search
 // $TODO Make overkill queue based thread safe logger that gets comptimed out optionally
 // $TODO Get rid of all print methods and just make format functions, this allows saner logging for test failures
 // $TODO Try making every kernel it's own source so that compilation is faster in the OpenCl implementation
@@ -28,15 +28,13 @@ pub fn main() !void {
     var runtime: Runtime = runtime_cl.runtime();
     // var runtime_ptx: RuntimePtx = undefined;
     // var runtime: Runtime = runtime_ptx.runtime();
-    try runtime.init();
-    defer runtime.deinit();
+    try runtime.init(allocator);
+    defer runtime.deinit(allocator);
 
     var nn: Neuralnet = try Neuralnet.alloc(
         runtime,
         allocator,
-        2,
-        2,
-        2,
+        .{ .a = 1, .z = 2, .y = 2, .x = 2 },
         &[_]Layer.Config{
             .{ .dense = .{ .size_out = 4, .activation_kind = .none } },
             // .{ .convolution = .{ .filters = 2, .kernel_size = 2, .kernel_padding = 1, .kernel_stride = 2, .activation_kind = .none } },

@@ -7,6 +7,7 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 const grads = @import("grads");
 const Linearized = grads.Linearized;
 const Buffer = grads.Buffer;
+const Vec4 = Buffer.Vec4;
 const OpKind = grads.Op.Kind;
 const Runtime = grads.Runtime;
 const RuntimeNoop = grads.RuntimeNoop;
@@ -63,15 +64,17 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     var linearized1: Linearized = try .alloc(arena, 4 * op_num);
     var linearized2: Linearized = try .alloc(arena, 1);
 
-    const a_size_max: u32 = 7;
-    const z_size_max: u32 = 6;
-    const y_size_max: u32 = 5;
-    const x_size_max: u32 = 4;
+    const size: Vec4 = .{
+        .a = 7,
+        .z = 6,
+        .y = 5,
+        .x = 4,
+    };
 
     // $TODO I should just precompute the op amounts so there are way less allocations
     for (0..buffer_num) |buffer_idx| {
-        buffer1[buffer_idx] = try Buffer.alloc(runtime, arena, a_size_max, z_size_max, y_size_max, x_size_max, .normal);
-        buffer2[buffer_idx] = try Buffer.alloc(runtime, arena, a_size_max, z_size_max, y_size_max, x_size_max, .normal);
+        buffer1[buffer_idx] = try Buffer.alloc(runtime, gpa, arena, size, .normal);
+        buffer2[buffer_idx] = try Buffer.alloc(runtime, gpa, arena, size, .normal);
     }
     defer {
         for (0..buffer_num) |buffer_idx| {
@@ -84,9 +87,9 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     util.log.print("simulate_compiler: rng={}...", .{rng});
 
     for (0..buffer_num) |buffer_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            buffer1[buffer_idx].values[arg_idx] = pcg.random().floatNorm(f32);
-            buffer2[buffer_idx].values[arg_idx] = buffer1[buffer_idx].values[arg_idx];
+        for (0..size.productOfElements()) |arg_idx| {
+            buffer1[buffer_idx].data().values[arg_idx] = pcg.random().floatNorm(f32);
+            buffer2[buffer_idx].data().values[arg_idx] = buffer1[buffer_idx].data().values[arg_idx];
         }
     }
 
@@ -120,268 +123,270 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     }
 
     for (0..op_num) |op_idx| {
-        const a_size: u32 = pcg.random().uintLessThan(u32, a_size_max) + 1;
-        const z_size: u32 = pcg.random().uintLessThan(u32, z_size_max) + 1;
-        const y_size: u32 = pcg.random().uintLessThan(u32, y_size_max) + 1;
-        const x_size: u32 = pcg.random().uintLessThan(u32, x_size_max) + 1;
-        const a_off: u32 = if (a_size_max > a_size) pcg.random().uintLessThan(u32, a_size_max - a_size) else 0;
-        const z_off: u32 = if (z_size_max > z_size) pcg.random().uintLessThan(u32, z_size_max - z_size) else 0;
-        const y_off: u32 = if (y_size_max > y_size) pcg.random().uintLessThan(u32, y_size_max - y_size) else 0;
-        const x_off: u32 = if (x_size_max > x_size) pcg.random().uintLessThan(u32, x_size_max - x_size) else 0;
+        const a_size: u32 = pcg.random().uintLessThan(u32, size.a) + 1;
+        const z_size: u32 = pcg.random().uintLessThan(u32, size.z) + 1;
+        const y_size: u32 = pcg.random().uintLessThan(u32, size.y) + 1;
+        const x_size: u32 = pcg.random().uintLessThan(u32, size.x) + 1;
+        const a_off: u32 = if (size.a > a_size) pcg.random().uintLessThan(u32, size.a - a_size) else 0;
+        const z_off: u32 = if (size.z > z_size) pcg.random().uintLessThan(u32, size.z - z_size) else 0;
+        const y_off: u32 = if (size.y > y_size) pcg.random().uintLessThan(u32, size.y - y_size) else 0;
+        const x_off: u32 = if (size.x > x_size) pcg.random().uintLessThan(u32, size.x - x_size) else 0;
 
         // Putting this here to make snycing the prng state trivial
         const u_var: f32 = pcg.random().floatNorm(f32);
-
-        const buffer_out: u32 = op_out[op_idx];
-        const buffer_in: u32 = op_in[op_idx];
 
         if (!op_included[op_idx]) {
             continue;
         }
 
+        const buffer1_out: Buffer = buffer1[op_out[op_idx]];
+        const buffer2_out: Buffer = buffer2[op_out[op_idx]];
+        const buffer1_in: Buffer = buffer1[op_in[op_idx]];
+        const buffer2_in: Buffer = buffer2[op_in[op_idx]];
+
         if (op_kind[op_idx].isReduce()) {
-            buffer1[buffer_out].moveResize(1, 1, 1, 1);
-            buffer2[buffer_out].moveResize(1, 1, 1, 1);
+            buffer1_out.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
+            buffer2_out.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
         } else {
-            buffer1[buffer_out].moveResize(a_size, z_size, y_size, x_size);
-            buffer2[buffer_out].moveResize(a_size, z_size, y_size, x_size);
+            buffer1_out.moveResize(.{ .a = a_size, .z = z_size, .y = y_size, .x = x_size });
+            buffer2_out.moveResize(.{ .a = a_size, .z = z_size, .y = y_size, .x = x_size });
         }
         if (op_kind[op_idx].isExpand()) {
-            buffer1[buffer_in].moveResize(1, 1, 1, 1);
-            buffer2[buffer_in].moveResize(1, 1, 1, 1);
+            buffer1_in.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
+            buffer2_in.moveResize(.{ .a = 1, .z = 1, .y = 1, .x = 1 });
         } else {
-            buffer1[buffer_in].moveResize(a_size, z_size, y_size, x_size);
-            buffer2[buffer_in].moveResize(a_size, z_size, y_size, x_size);
+            buffer1_in.moveResize(.{ .a = a_size, .z = z_size, .y = y_size, .x = x_size });
+            buffer2_in.moveResize(.{ .a = a_size, .z = z_size, .y = y_size, .x = x_size });
         }
 
-        buffer1[buffer_out].moveOffset(a_off, z_off, y_off, x_off);
-        buffer2[buffer_out].moveOffset(a_off, z_off, y_off, x_off);
-        buffer1[buffer_in].moveOffset(a_off, z_off, y_off, x_off);
-        buffer2[buffer_in].moveOffset(a_off, z_off, y_off, x_off);
+        buffer1_out.moveOffset(.{ .a = a_off, .z = z_off, .y = y_off, .x = x_off });
+        buffer2_out.moveOffset(.{ .a = a_off, .z = z_off, .y = y_off, .x = x_off });
+        buffer1_in.moveOffset(.{ .a = a_off, .z = z_off, .y = y_off, .x = x_off });
+        buffer2_in.moveOffset(.{ .a = a_off, .z = z_off, .y = y_off, .x = x_off });
 
         switch (op_kind[op_idx]) {
             .unary_add => {
-                linearized1.unaryAdd(buffer1[buffer_out], u_var);
-                linearized2.unaryAdd(buffer2[buffer_out], u_var);
+                linearized1.unaryAdd(buffer1_out, u_var);
+                linearized2.unaryAdd(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_subtract => {
-                linearized1.unarySubtract(buffer1[buffer_out], u_var);
-                linearized2.unarySubtract(buffer2[buffer_out], u_var);
+                linearized1.unarySubtract(buffer1_out, u_var);
+                linearized2.unarySubtract(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_multiply => {
-                linearized1.unaryMultiply(buffer1[buffer_out], u_var);
-                linearized2.unaryMultiply(buffer2[buffer_out], u_var);
+                linearized1.unaryMultiply(buffer1_out, u_var);
+                linearized2.unaryMultiply(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_divide => {
-                linearized1.unaryDivide(buffer1[buffer_out], @abs(u_var) + 1);
-                linearized2.unaryDivide(buffer2[buffer_out], @abs(u_var) + 1);
+                linearized1.unaryDivide(buffer1_out, @abs(u_var) + 1);
+                linearized2.unaryDivide(buffer2_out, @abs(u_var) + 1);
                 linearized2.realize();
             },
             .unary_exp => {
                 // NaN prevention
-                linearized1.unaryMax(buffer1[buffer_out], 10);
-                linearized2.unaryMax(buffer2[buffer_out], 10);
+                linearized1.unaryMax(buffer1_out, 10);
+                linearized2.unaryMax(buffer2_out, 10);
                 linearized2.realize();
-                linearized1.unaryMin(buffer1[buffer_out], -10);
-                linearized2.unaryMin(buffer2[buffer_out], -10);
+                linearized1.unaryMin(buffer1_out, -10);
+                linearized2.unaryMin(buffer2_out, -10);
                 linearized2.realize();
 
-                linearized1.unaryExp(buffer1[buffer_out]);
-                linearized2.unaryExp(buffer2[buffer_out]);
+                linearized1.unaryExp(buffer1_out);
+                linearized2.unaryExp(buffer2_out);
                 linearized2.realize();
             },
             .unary_log => {
                 // NaN prevention
-                linearized1.unaryAbsolute(buffer1[buffer_out]);
-                linearized2.unaryAbsolute(buffer2[buffer_out]);
+                linearized1.unaryAbsolute(buffer1_out);
+                linearized2.unaryAbsolute(buffer2_out);
                 linearized2.realize();
-                linearized1.unaryAdd(buffer1[buffer_out], 1);
-                linearized2.unaryAdd(buffer2[buffer_out], 1);
+                linearized1.unaryAdd(buffer1_out, 1);
+                linearized2.unaryAdd(buffer2_out, 1);
                 linearized2.realize();
 
-                linearized1.unaryLog(buffer1[buffer_out]);
-                linearized2.unaryLog(buffer2[buffer_out]);
+                linearized1.unaryLog(buffer1_out);
+                linearized2.unaryLog(buffer2_out);
                 linearized2.realize();
             },
             .unary_square => {
                 // Inf prevention
-                linearized1.unaryMax(buffer1[buffer_out], 100);
-                linearized2.unaryMax(buffer2[buffer_out], 100);
+                linearized1.unaryMax(buffer1_out, 100);
+                linearized2.unaryMax(buffer2_out, 100);
                 linearized2.realize();
-                linearized1.unaryMin(buffer1[buffer_out], -100);
-                linearized2.unaryMin(buffer2[buffer_out], -100);
+                linearized1.unaryMin(buffer1_out, -100);
+                linearized2.unaryMin(buffer2_out, -100);
                 linearized2.realize();
 
-                linearized1.unarySquare(buffer1[buffer_out]);
-                linearized2.unarySquare(buffer2[buffer_out]);
+                linearized1.unarySquare(buffer1_out);
+                linearized2.unarySquare(buffer2_out);
                 linearized2.realize();
             },
             .unary_sqrt => {
                 // NaN prevention
-                linearized1.unaryAbsolute(buffer1[buffer_out]);
-                linearized2.unaryAbsolute(buffer2[buffer_out]);
+                linearized1.unaryAbsolute(buffer1_out);
+                linearized2.unaryAbsolute(buffer2_out);
                 linearized2.realize();
 
-                linearized1.unarySqrt(buffer1[buffer_out]);
-                linearized2.unarySqrt(buffer2[buffer_out]);
+                linearized1.unarySqrt(buffer1_out);
+                linearized2.unarySqrt(buffer2_out);
                 linearized2.realize();
             },
             .unary_reciprocal => {
                 // NaN prevention
-                linearized1.unaryAbsolute(buffer1[buffer_out]);
-                linearized2.unaryAbsolute(buffer2[buffer_out]);
+                linearized1.unaryAbsolute(buffer1_out);
+                linearized2.unaryAbsolute(buffer2_out);
                 linearized2.realize();
-                linearized1.unaryAdd(buffer1[buffer_out], 1);
-                linearized2.unaryAdd(buffer2[buffer_out], 1);
+                linearized1.unaryAdd(buffer1_out, 1);
+                linearized2.unaryAdd(buffer2_out, 1);
                 linearized2.realize();
 
-                linearized1.unaryReciprocal(buffer1[buffer_out]);
-                linearized2.unaryReciprocal(buffer2[buffer_out]);
+                linearized1.unaryReciprocal(buffer1_out);
+                linearized2.unaryReciprocal(buffer2_out);
                 linearized2.realize();
             },
             .unary_max => {
-                linearized1.unaryMax(buffer1[buffer_out], u_var);
-                linearized2.unaryMax(buffer2[buffer_out], u_var);
+                linearized1.unaryMax(buffer1_out, u_var);
+                linearized2.unaryMax(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_min => {
-                linearized1.unaryMin(buffer1[buffer_out], u_var);
-                linearized2.unaryMin(buffer2[buffer_out], u_var);
+                linearized1.unaryMin(buffer1_out, u_var);
+                linearized2.unaryMin(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_set => {
-                linearized1.unarySet(buffer1[buffer_out], u_var);
-                linearized2.unarySet(buffer2[buffer_out], u_var);
+                linearized1.unarySet(buffer1_out, u_var);
+                linearized2.unarySet(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_random => {
                 // $TODO This
-                linearized1.unarySet(buffer1[buffer_out], u_var);
-                linearized2.unarySet(buffer2[buffer_out], u_var);
+                linearized1.unarySet(buffer1_out, u_var);
+                linearized2.unarySet(buffer2_out, u_var);
                 linearized2.realize();
             },
             .unary_tanh => {
-                linearized1.unaryTanh(buffer1[buffer_out]);
-                linearized2.unaryTanh(buffer2[buffer_out]);
+                linearized1.unaryTanh(buffer1_out);
+                linearized2.unaryTanh(buffer2_out);
                 linearized2.realize();
             },
             .unary_absolute => {
-                linearized1.unaryAbsolute(buffer1[buffer_out]);
-                linearized2.unaryAbsolute(buffer2[buffer_out]);
+                linearized1.unaryAbsolute(buffer1_out);
+                linearized2.unaryAbsolute(buffer2_out);
                 linearized2.realize();
             },
             .unary_sign => {
-                linearized1.unarySign(buffer1[buffer_out]);
-                linearized2.unarySign(buffer2[buffer_out]);
+                linearized1.unarySign(buffer1_out);
+                linearized2.unarySign(buffer2_out);
                 linearized2.realize();
             },
             .binary_add => {
-                linearized1.binaryAdd(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binaryAdd(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binaryAdd(buffer1_out, buffer1_in);
+                linearized2.binaryAdd(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_subtract => {
-                linearized1.binarySubtract(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binarySubtract(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binarySubtract(buffer1_out, buffer1_in);
+                linearized2.binarySubtract(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_multiply => {
-                linearized1.binaryMultiply(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binaryMultiply(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binaryMultiply(buffer1_out, buffer1_in);
+                linearized2.binaryMultiply(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_divide => {
                 // NaN prevention
-                linearized1.unaryAbsolute(buffer1[buffer_in]);
-                linearized2.unaryAbsolute(buffer2[buffer_in]);
+                linearized1.unaryAbsolute(buffer1_in);
+                linearized2.unaryAbsolute(buffer2_in);
                 linearized2.realize();
-                linearized1.unaryAdd(buffer1[buffer_in], 1);
-                linearized2.unaryAdd(buffer2[buffer_in], 1);
+                linearized1.unaryAdd(buffer1_in, 1);
+                linearized2.unaryAdd(buffer2_in, 1);
                 linearized2.realize();
 
-                linearized1.binaryDivide(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binaryDivide(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binaryDivide(buffer1_out, buffer1_in);
+                linearized2.binaryDivide(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_max => {
-                linearized1.binaryMax(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binaryMax(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binaryMax(buffer1_out, buffer1_in);
+                linearized2.binaryMax(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_min => {
-                linearized1.binaryMin(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binaryMin(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binaryMin(buffer1_out, buffer1_in);
+                linearized2.binaryMin(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .binary_set => {
-                linearized1.binarySet(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.binarySet(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.binarySet(buffer1_out, buffer1_in);
+                linearized2.binarySet(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_add => {
-                linearized1.expandAdd(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandAdd(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandAdd(buffer1_out, buffer1_in);
+                linearized2.expandAdd(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_subtract => {
-                linearized1.expandSubtract(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandSubtract(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandSubtract(buffer1_out, buffer1_in);
+                linearized2.expandSubtract(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_multiply => {
-                linearized1.expandMultiply(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandMultiply(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandMultiply(buffer1_out, buffer1_in);
+                linearized2.expandMultiply(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_divide => {
                 // NaN prevention
-                linearized1.unaryAbsolute(buffer1[buffer_in]);
-                linearized2.unaryAbsolute(buffer2[buffer_in]);
+                linearized1.unaryAbsolute(buffer1_in);
+                linearized2.unaryAbsolute(buffer2_in);
                 linearized2.realize();
-                linearized1.unaryAdd(buffer1[buffer_in], 1);
-                linearized2.unaryAdd(buffer2[buffer_in], 1);
+                linearized1.unaryAdd(buffer1_in, 1);
+                linearized2.unaryAdd(buffer2_in, 1);
                 linearized2.realize();
 
-                linearized1.expandDivide(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandDivide(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandDivide(buffer1_out, buffer1_in);
+                linearized2.expandDivide(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_max => {
-                linearized1.expandMax(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandMax(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandMax(buffer1_out, buffer1_in);
+                linearized2.expandMax(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_min => {
-                linearized1.expandMin(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandMin(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandMin(buffer1_out, buffer1_in);
+                linearized2.expandMin(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .expand_set => {
-                linearized1.expandSet(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.expandSet(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.expandSet(buffer1_out, buffer1_in);
+                linearized2.expandSet(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .reduce_sum => {
-                linearized1.reduceSum(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.reduceSum(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.reduceSum(buffer1_out, buffer1_in);
+                linearized2.reduceSum(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .reduce_max => {
-                linearized1.reduceMax(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.reduceMax(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.reduceMax(buffer1_out, buffer1_in);
+                linearized2.reduceMax(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .reduce_avg => {
-                linearized1.reduceAvg(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.reduceAvg(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.reduceAvg(buffer1_out, buffer1_in);
+                linearized2.reduceAvg(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
             .reduce_min => {
-                linearized1.reduceMin(buffer1[buffer_out], buffer1[buffer_in]);
-                linearized2.reduceMin(buffer2[buffer_out], buffer2[buffer_in]);
+                linearized1.reduceMin(buffer1_out, buffer1_in);
+                linearized2.reduceMin(buffer2_out, buffer2_in);
                 linearized2.realize();
             },
         }
@@ -390,8 +395,8 @@ fn simulateLinearized(gpa: Allocator, op_included: [op_num]bool, rng: u64) !void
     linearized1.realize();
 
     for (0..buffer_num) |buffer_idx| {
-        for (0..a_size_max * z_size_max * y_size_max * x_size_max) |arg_idx| {
-            try assertEq(buffer1[buffer_idx].values[arg_idx], buffer2[buffer_idx].values[arg_idx]);
+        for (0..size.productOfElements()) |arg_idx| {
+            try assertEq(buffer1[buffer_idx].data().values[arg_idx], buffer2[buffer_idx].data().values[arg_idx]);
         }
     }
     util.log.print(" passed!\n", .{});

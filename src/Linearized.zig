@@ -3,6 +3,10 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
 const Buffer = @import("Buffer.zig");
+const Id = Buffer.Id;
+const Vec4 = Buffer.Vec4;
+const View = Buffer.View;
+const Data = Buffer.Data;
 
 const Program = @import("compiler/Program.zig");
 const Memory = Program.Memory;
@@ -11,6 +15,41 @@ const util = @import("util.zig");
 
 pub const Linearized = @This();
 
+pub const ViewDual = struct {
+    size: Vec4,
+    out_stride: Vec4,
+    in_stride: Vec4,
+    out_offset: u32,
+    in_offset: u32,
+    pub fn viewOut(view_dual: ViewDual) View {
+        return .{
+            .size = view_dual.size,
+            .stride = view_dual.out_stride,
+            .offset = view_dual.out_offset,
+        };
+    }
+    pub fn viewOutReduce(view_dual: ViewDual) View {
+        return .{
+            .size = .{ .a = 1, .z = 1, .y = 1, .x = 1 },
+            .stride = .{ .a = 1, .z = 1, .y = 1, .x = 1 },
+            .offset = view_dual.out_offset,
+        };
+    }
+    pub fn viewIn(view_dual: ViewDual) View {
+        return .{
+            .size = view_dual.size,
+            .stride = view_dual.in_stride,
+            .offset = view_dual.in_offset,
+        };
+    }
+    pub fn viewInExpand(view_dual: ViewDual) View {
+        return .{
+            .size = .{ .a = 1, .z = 1, .y = 1, .x = 1 },
+            .stride = .{ .a = 1, .z = 1, .y = 1, .x = 1 },
+            .offset = view_dual.in_offset,
+        };
+    }
+};
 pub const Op = struct {
     pub const Kind = enum(u8) {
         unary_add,
@@ -120,41 +159,36 @@ pub const Op = struct {
 
     kind: Kind,
     u_var: f32,
-    out_id: Buffer.Id,
-    out_stride_a: u32,
-    out_stride_z: u32,
-    out_stride_y: u32,
-    out_stride_x: u32,
-    in_id: Buffer.Id,
-    in_stride_a: u32,
-    in_stride_z: u32,
-    in_stride_y: u32,
-    in_stride_x: u32,
-    out_offset: u32,
-    in_offset: u32,
-    size_a: u32,
-    size_z: u32,
-    size_y: u32,
-    size_x: u32,
+    out: Buffer,
+    in: Buffer,
+    view_dual: ViewDual,
 
     /// Don't use this for more than one-off operations because this is pretty slow
     pub fn realize(op: Op) void {
+        const out_data: Data = op.out.data().*;
+        const out_view: View = op.view_dual.viewOut();
+        const in_data: Data = op.in.data().*;
+        const in_view: View = op.view_dual.viewIn();
+
+        const offset_zero: Vec4 = .{ .a = 0, .z = 0, .y = 0, .x = 0 };
+
         switch (op.kind) {
             .reduce_sum => {
-                op.out.values[op.out.at(0, 0, 0, 0)] = 0;
+                out_data.values[out_view.at(offset_zero)] = 0;
             },
             .reduce_max => {
-                op.out.values[op.out.at(0, 0, 0, 0)] = -std.math.inf(f32);
+                out_data.values[out_view.at(offset_zero)] = -std.math.inf(f32);
             },
             .reduce_min => {
-                op.out.values[op.out.at(0, 0, 0, 0)] = std.math.inf(f32);
+                out_data.values[out_view.at(offset_zero)] = std.math.inf(f32);
             },
             .reduce_avg => {
-                op.out.values[op.out.at(0, 0, 0, 0)] = 0;
+                out_data.values[out_view.at(offset_zero)] = 0;
             },
             else => {},
         }
 
+        // $FIXME When implementing unary_random this needs to be changed
         var rng: ?std.Random.Pcg = if (op.kind == .unary_random)
             std.Random.Pcg.init(@as(u32, @bitCast(op.u_var)))
         else
@@ -164,82 +198,80 @@ pub const Op = struct {
         // the branch predictor is likely to have an extremely easy time predicting the branches since it's the same every single time.
         // Which should mean that as long as your CPU even has a branch predictor it should cause very little to no performance impact.
         // I measured it by running some arbitrary ops and there was no measurable difference
-        const a_size: u32 = if (op.kind.isReduce()) op.in.a_size else op.out.a_size;
-        const z_size: u32 = if (op.kind.isReduce()) op.in.z_size else op.out.z_size;
-        const y_size: u32 = if (op.kind.isReduce()) op.in.y_size else op.out.y_size;
-        const x_size: u32 = if (op.kind.isReduce()) op.in.x_size else op.out.x_size;
+        const size: Vec4 = op.view_dual.size;
         var a: u32 = 0;
-        while (a < a_size) : (a += 1) {
+        while (a < size.a) : (a += 1) {
             var z: u32 = 0;
-            while (z < z_size) : (z += 1) {
+            while (z < size.z) : (z += 1) {
                 var y: u32 = 0;
-                while (y < y_size) : (y += 1) {
+                while (y < size.y) : (y += 1) {
                     var x: u32 = 0;
-                    while (x < x_size) : (x += 1) {
+                    while (x < size.x) : (x += 1) {
+                        const offset: Vec4 = .{ .a = a, .z = z, .y = y, .x = x };
                         switch (op.kind) {
                             .unary_add => {
-                                op.out.values[op.out.at(a, z, y, x)] += op.u_var;
+                                out_data.values[out_view.at(offset)] += op.u_var;
                             },
                             .unary_subtract => {
-                                op.out.values[op.out.at(a, z, y, x)] -= op.u_var;
+                                out_data.values[out_view.at(offset)] -= op.u_var;
                             },
                             .unary_multiply => {
-                                op.out.values[op.out.at(a, z, y, x)] *= op.u_var;
+                                out_data.values[out_view.at(offset)] *= op.u_var;
                             },
                             .unary_divide => {
-                                op.out.values[op.out.at(a, z, y, x)] /= op.u_var;
+                                out_data.values[out_view.at(offset)] /= op.u_var;
                             },
                             .unary_exp => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @exp(op.out.values[op.out.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @exp(out_data.values[out_view.at(offset)]);
                             },
                             .unary_log => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @log(op.out.values[op.out.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @log(out_data.values[out_view.at(offset)]);
                             },
                             .unary_square => {
-                                op.out.values[op.out.at(a, z, y, x)] *=
-                                    op.out.values[op.out.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] *=
+                                    out_data.values[out_view.at(offset)];
                             },
                             .unary_sqrt => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @sqrt(op.out.values[op.out.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @sqrt(out_data.values[out_view.at(offset)]);
                             },
                             .unary_reciprocal => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    1 / op.out.values[op.out.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] =
+                                    1 / out_data.values[out_view.at(offset)];
                             },
                             .unary_max => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @max(op.out.values[op.out.at(a, z, y, x)], op.u_var);
+                                out_data.values[out_view.at(offset)] =
+                                    @max(out_data.values[out_view.at(offset)], op.u_var);
                             },
                             .unary_min => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @min(op.out.values[op.out.at(a, z, y, x)], op.u_var);
+                                out_data.values[out_view.at(offset)] =
+                                    @min(out_data.values[out_view.at(offset)], op.u_var);
                             },
                             .unary_set => {
-                                op.out.values[op.out.at(a, z, y, x)] = op.u_var;
+                                out_data.values[out_view.at(offset)] = op.u_var;
                             },
                             .unary_random => {
                                 // $TODO Make my own PCG implementation that can do SIMD
-                                op.out.values[op.out.at(a, z, y, x)] =
+                                out_data.values[out_view.at(offset)] =
                                     rng.?.random().floatNorm(f32);
                             },
                             .unary_tanh => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    std.math.tanh(op.out.values[op.out.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    std.math.tanh(out_data.values[out_view.at(offset)]);
                             },
                             .unary_absolute => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @abs(op.out.values[op.out.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @abs(out_data.values[out_view.at(offset)]);
                             },
                             .unary_sign => {
-                                if (op.out.values[op.out.at(a, z, y, x)] > 0) {
-                                    op.out.values[op.out.at(a, z, y, x)] = 1;
-                                } else if (op.out.values[op.out.at(a, z, y, x)] < 0) {
-                                    op.out.values[op.out.at(a, z, y, x)] = -1;
+                                if (out_data.values[out_view.at(offset)] > 0) {
+                                    out_data.values[out_view.at(offset)] = 1;
+                                } else if (out_data.values[out_view.at(offset)] < 0) {
+                                    out_data.values[out_view.at(offset)] = -1;
                                 } else {
-                                    op.out.values[op.out.at(a, z, y, x)] = 0;
+                                    out_data.values[out_view.at(offset)] = 0;
                                 }
                                 // $fn signVector(comptime T: kind, vector @Vector(4, T)) @Vector(4, i32) {
                                 //     const zero = @splat(4, @as(T, 0));
@@ -253,82 +285,82 @@ pub const Op = struct {
                                 // }
                             },
                             .binary_add => {
-                                op.out.values[op.out.at(a, z, y, x)] +=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] +=
+                                    in_data.values[in_view.at(offset)];
                             },
                             .binary_subtract => {
-                                op.out.values[op.out.at(a, z, y, x)] -=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] -=
+                                    in_data.values[in_view.at(offset)];
                             },
                             .binary_multiply => {
-                                op.out.values[op.out.at(a, z, y, x)] *=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] *=
+                                    in_data.values[in_view.at(offset)];
                             },
                             .binary_divide => {
-                                op.out.values[op.out.at(a, z, y, x)] /=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] /=
+                                    in_data.values[in_view.at(offset)];
                             },
                             .binary_max => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @max(op.out.values[op.out.at(a, z, y, x)], //
-                                    op.in.values[op.in.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @max(out_data.values[out_view.at(offset)], //
+                                    in_data.values[in_view.at(offset)]);
                             },
                             .binary_min => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @min(op.out.values[op.out.at(a, z, y, x)], //
-                                    op.in.values[op.in.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @min(out_data.values[out_view.at(offset)], //
+                                    in_data.values[in_view.at(offset)]);
                             },
                             .binary_set => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset)] =
+                                    in_data.values[in_view.at(offset)];
                             },
                             .expand_add => {
-                                op.out.values[op.out.at(a, z, y, x)] +=
-                                    op.in.values[op.in.at(0, 0, 0, 0)];
+                                out_data.values[out_view.at(offset)] +=
+                                    in_data.values[in_view.at(offset_zero)];
                             },
                             .expand_subtract => {
-                                op.out.values[op.out.at(a, z, y, x)] -=
-                                    op.in.values[op.in.at(0, 0, 0, 0)];
+                                out_data.values[out_view.at(offset)] -=
+                                    in_data.values[in_view.at(offset_zero)];
                             },
                             .expand_multiply => {
-                                op.out.values[op.out.at(a, z, y, x)] *=
-                                    op.in.values[op.in.at(0, 0, 0, 0)];
+                                out_data.values[out_view.at(offset)] *=
+                                    in_data.values[in_view.at(offset_zero)];
                             },
                             .expand_divide => {
-                                op.out.values[op.out.at(a, z, y, x)] /=
-                                    op.in.values[op.in.at(0, 0, 0, 0)];
+                                out_data.values[out_view.at(offset)] /=
+                                    in_data.values[in_view.at(offset_zero)];
                             },
                             .expand_max => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @max(op.out.values[op.out.at(a, z, y, x)], //
-                                    op.in.values[op.in.at(0, 0, 0, 0)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @max(out_data.values[out_view.at(offset)], //
+                                    in_data.values[in_view.at(offset_zero)]);
                             },
                             .expand_min => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    @min(op.out.values[op.out.at(a, z, y, x)], //
-                                    op.in.values[op.in.at(0, 0, 0, 0)]);
+                                out_data.values[out_view.at(offset)] =
+                                    @min(out_data.values[out_view.at(offset)], //
+                                    in_data.values[in_view.at(offset_zero)]);
                             },
                             .expand_set => {
-                                op.out.values[op.out.at(a, z, y, x)] =
-                                    op.in.values[op.in.at(0, 0, 0, 0)];
+                                out_data.values[out_view.at(offset)] =
+                                    in_data.values[in_view.at(offset_zero)];
                             },
                             .reduce_sum => {
-                                op.out.values[op.out.at(0, 0, 0, 0)] +=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset_zero)] +=
+                                    in_data.values[in_view.at(offset)];
                             },
                             .reduce_max => {
-                                op.out.values[op.out.at(0, 0, 0, 0)] =
-                                    @max(op.out.values[op.out.at(0, 0, 0, 0)], //
-                                    op.in.values[op.in.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset_zero)] =
+                                    @max(out_data.values[out_view.at(offset_zero)], //
+                                    in_data.values[in_view.at(offset)]);
                             },
                             .reduce_min => {
-                                op.out.values[op.out.at(0, 0, 0, 0)] =
-                                    @min(op.out.values[op.out.at(0, 0, 0, 0)], //
-                                    op.in.values[op.in.at(a, z, y, x)]);
+                                out_data.values[out_view.at(offset_zero)] =
+                                    @min(out_data.values[out_view.at(offset_zero)], //
+                                    in_data.values[in_view.at(offset)]);
                             },
                             .reduce_avg => {
-                                op.out.values[op.out.at(0, 0, 0, 0)] +=
-                                    op.in.values[op.in.at(a, z, y, x)];
+                                out_data.values[out_view.at(offset_zero)] +=
+                                    in_data.values[in_view.at(offset)];
                             },
                         }
                     }
@@ -336,8 +368,8 @@ pub const Op = struct {
             }
         }
         if (op.kind == .reduce_avg) {
-            op.out.values[op.out.at(0, 0, 0, 0)] /=
-                @as(f32, @floatFromInt(op.in.a_size * op.in.z_size * op.in.y_size * op.in.x_size));
+            out_data.values[out_view.at(offset_zero)] /=
+                @as(f32, @floatFromInt(in_view.size.productOfElements()));
         }
     }
     pub fn print(op: Op, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
@@ -347,89 +379,39 @@ pub const Op = struct {
             util.log.print("{s}", .{" " ** (padding + offset)});
         }
         if (op.kind.isUnary()) {
-            util.log.print("U {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" {d}\n", .{
-                switch (op.kind) {
-                    .unary_add => "add",
-                    .unary_subtract => "sub",
-                    .unary_multiply => "mul",
-                    .unary_divide => "div",
-                    .unary_exp => "exp",
-                    .unary_log => "log",
-                    .unary_square => "sqr",
-                    .unary_sqrt => "sqt",
-                    .unary_reciprocal => "rcp",
-                    .unary_max => "max",
-                    .unary_min => "min",
-                    .unary_set => "set",
-                    .unary_random => "rng",
-                    .unary_tanh => "tanh",
-                    .unary_absolute => "abs",
-                    .unary_sign => "sgn",
-                    else => unreachable,
-                },
-                op.out.a_size,
-                op.out.z_size,
-                op.out.y_size,
-                op.out.x_size,
-                op.out.aOffset(),
-                op.out.zOffset(),
-                op.out.yOffset(),
-                op.out.xOffset(),
-                op.out.offset,
-                op.out.name(),
+            util.log.print("{s} ({}, {}, {}, {}) [{} = ({}, {}, {}, {})] \"{s}\" {d}\n", .{
+                @tagName(op.kind),
+                op.view_dual.size.a,
+                op.view_dual.size.z,
+                op.view_dual.size.y,
+                op.view_dual.size.x,
+                op.view_dual.out_offset,
+                op.view_dual.viewOut().aOffset(),
+                op.view_dual.viewOut().zOffset(),
+                op.view_dual.viewOut().yOffset(),
+                op.view_dual.viewOut().xOffset(),
+                Buffer.name(op.out),
                 op.u_var,
             });
         } else {
-            const op_kind: u8 = if (op.kind.isBinary())
-                'B'
-            else
-                (if (op.kind.isExpand())
-                    'E'
-                else
-                    'R');
-            util.log.print("{c} {s} ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\" ({d} {d} {d} {d}) [{d} {d} {d} {d} = {d}] \"{s}\"\n", .{
-                op_kind,
-                switch (op.kind) {
-                    .binary_add => "add",
-                    .binary_subtract => "sub",
-                    .binary_multiply => "mul",
-                    .binary_divide => "div",
-                    .binary_max => "max",
-                    .binary_min => "min",
-                    .binary_set => "set",
-                    .expand_add => "add",
-                    .expand_subtract => "sub",
-                    .expand_multiply => "mul",
-                    .expand_divide => "div",
-                    .expand_max => "max",
-                    .expand_min => "min",
-                    .expand_set => "set",
-                    .reduce_sum => "sum",
-                    .reduce_max => "max",
-                    .reduce_min => "min",
-                    .reduce_avg => "avg",
-                    else => unreachable,
-                },
-                op.out.a_size,
-                op.out.z_size,
-                op.out.y_size,
-                op.out.x_size,
-                op.out.aOffset(),
-                op.out.zOffset(),
-                op.out.yOffset(),
-                op.out.xOffset(),
-                op.out.offset,
-                op.out.name(),
-                op.in.a_size,
-                op.in.z_size,
-                op.in.y_size,
-                op.in.x_size,
-                op.in.aOffset(),
-                op.in.zOffset(),
-                op.in.yOffset(),
-                op.in.xOffset(),
-                op.in.offset,
-                op.in.name(),
+            util.log.print("{s} ({}, {}, {}, {}) [{} = ({}, {}, {}, {})] \"{s}\" [{} = ({}, {}, {}, {})] \"{s}\"\n", .{
+                @tagName(op.kind),
+                op.view_dual.size.a,
+                op.view_dual.size.z,
+                op.view_dual.size.y,
+                op.view_dual.size.x,
+                op.view_dual.out_offset,
+                op.view_dual.viewOut().aOffset(),
+                op.view_dual.viewOut().zOffset(),
+                op.view_dual.viewOut().yOffset(),
+                op.view_dual.viewOut().xOffset(),
+                Buffer.name(op.out),
+                op.view_dual.in_offset,
+                op.view_dual.viewIn().aOffset(),
+                op.view_dual.viewIn().zOffset(),
+                op.view_dual.viewIn().yOffset(),
+                op.view_dual.viewIn().xOffset(),
+                Buffer.name(op.in),
             });
         }
     }
@@ -494,13 +476,19 @@ pub fn print(linearized: Linearized, padding: comptime_int, offset: comptime_int
         }
     }
 }
-// $TODO Maybe get rid of all of these?
 pub fn unaryAdd(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_add,
         .u_var = u_var,
     });
@@ -509,8 +497,15 @@ pub fn unarySubtract(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_subtract,
         .u_var = u_var,
     });
@@ -519,8 +514,15 @@ pub fn unaryMultiply(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_multiply,
         .u_var = u_var,
     });
@@ -529,48 +531,90 @@ pub fn unaryDivide(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_divide,
         .u_var = u_var,
     });
 }
 pub fn unaryExp(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_exp,
         .u_var = 0,
     });
 }
 pub fn unaryLog(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_log,
         .u_var = 0,
     });
 }
 pub fn unarySquare(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_square,
         .u_var = 0,
     });
 }
 pub fn unarySqrt(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_sqrt,
         .u_var = 0,
     });
 }
 pub fn unaryReciprocal(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_reciprocal,
         .u_var = 0,
     });
@@ -579,8 +623,15 @@ pub fn unaryMax(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_max,
         .u_var = u_var,
     });
@@ -589,8 +640,15 @@ pub fn unaryMin(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_min,
         .u_var = u_var,
     });
@@ -599,8 +657,15 @@ pub fn unarySet(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
     assert(!std.math.isNan(u_var));
     assert(!std.math.isInf(u_var));
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_set,
         .u_var = u_var,
     });
@@ -610,24 +675,45 @@ pub fn unarySet(linearized: *Linearized, buffer: Buffer, u_var: f32) void {
 /// Here u_var is the seed of the prng
 pub fn unaryRandom(linearized: *Linearized, buffer: Buffer, u_var: u32) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_random,
         .u_var = @bitCast(u_var),
     });
 }
 pub fn unaryTanh(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_tanh,
         .u_var = 0,
     });
 }
 pub fn unaryAbsolute(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_absolute,
         .u_var = 0,
     });
@@ -635,19 +721,30 @@ pub fn unaryAbsolute(linearized: *Linearized, buffer: Buffer) void {
 // This could be changed to (sign_bit * 2) - 1, which gives a different result for 0, but who cares
 pub fn unarySign(linearized: *Linearized, buffer: Buffer) void {
     linearized.append(.{
-        .out = buffer,
+        .view_dual = .{
+            .out_offset = buffer.view().offset,
+            .out_stride = buffer.view().stride,
+            .in_offset = buffer.view().offset,
+            .in_stride = buffer.view().stride,
+            .size = buffer.view().size,
+        },
         .in = buffer,
+        .out = buffer,
         .kind = .unary_sign,
         .u_var = 0,
     });
 }
 pub fn binaryAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_add,
@@ -656,11 +753,15 @@ pub fn binaryAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binarySubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_subtract,
@@ -669,11 +770,15 @@ pub fn binarySubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binaryMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_multiply,
@@ -682,11 +787,15 @@ pub fn binaryMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binaryDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_divide,
@@ -695,11 +804,15 @@ pub fn binaryDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binaryMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_max,
@@ -708,11 +821,15 @@ pub fn binaryMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binaryMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_min,
@@ -721,11 +838,15 @@ pub fn binaryMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn binarySet(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == in.a_size);
-    assert(out.z_size == in.z_size);
-    assert(out.y_size == in.y_size);
-    assert(out.x_size == in.x_size);
+    assert(out.view().size.equal(in.view().size));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .binary_set,
@@ -734,11 +855,15 @@ pub fn binarySet(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_add,
@@ -747,11 +872,15 @@ pub fn expandAdd(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandSubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_subtract,
@@ -760,11 +889,15 @@ pub fn expandSubtract(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_multiply,
@@ -773,11 +906,15 @@ pub fn expandMultiply(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_divide,
@@ -786,11 +923,15 @@ pub fn expandDivide(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_max,
@@ -799,11 +940,15 @@ pub fn expandMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_min,
@@ -812,11 +957,15 @@ pub fn expandMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn expandSet(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(in.a_size == 1);
-    assert(in.z_size == 1);
-    assert(in.y_size == 1);
-    assert(in.x_size == 1);
+    assert(in.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = out.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .expand_set,
@@ -825,11 +974,15 @@ pub fn expandSet(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn reduceSum(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == 1);
-    assert(out.z_size == 1);
-    assert(out.y_size == 1);
-    assert(out.x_size == 1);
+    assert(out.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = in.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .reduce_sum,
@@ -838,11 +991,15 @@ pub fn reduceSum(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn reduceMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == 1);
-    assert(out.z_size == 1);
-    assert(out.y_size == 1);
-    assert(out.x_size == 1);
+    assert(out.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = in.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .reduce_max,
@@ -851,11 +1008,15 @@ pub fn reduceMax(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn reduceMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == 1);
-    assert(out.z_size == 1);
-    assert(out.y_size == 1);
-    assert(out.x_size == 1);
+    assert(out.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = in.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .reduce_min,
@@ -864,11 +1025,15 @@ pub fn reduceMin(linearized: *Linearized, out: Buffer, in: Buffer) void {
 }
 pub fn reduceAvg(linearized: *Linearized, out: Buffer, in: Buffer) void {
     assert(out.id != in.id);
-    assert(out.a_size == 1);
-    assert(out.z_size == 1);
-    assert(out.y_size == 1);
-    assert(out.x_size == 1);
+    assert(out.view().size.equal(.{ .a = 1, .z = 1, .y = 1, .x = 1 }));
     linearized.append(.{
+        .view_dual = .{
+            .size = in.view().size,
+            .out_offset = out.view().offset,
+            .out_stride = out.view().stride,
+            .in_offset = in.view().offset,
+            .in_stride = in.view().stride,
+        },
         .out = out,
         .in = in,
         .kind = .reduce_avg,
