@@ -509,10 +509,11 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
 
     // $TODO This is so unoptimized it might worthy of a fix me tag
     //  Would ne nice to only have to compute a diff between two iterations of this loop, but I suspect that would be very complicated
-
     var cost_curr: u64 = vgpu.costEstimate(pir.*, size_global, size_local);
+
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
+        util.log.print("{}\n", .{depth_idx});
         optimization.clearRetainingCapacity();
 
         // $TODO Can this be done incrementally?
