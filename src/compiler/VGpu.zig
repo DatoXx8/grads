@@ -10,6 +10,9 @@ const Buffer = @import("../Buffer.zig");
 const Linearized = @import("../Linearized.zig");
 const Op = Linearized.Op;
 const Pir = @import("Pir.zig");
+const Assign = Pir.Assign;
+const Base = Pir.Base;
+const Inlined = Pir.Inlined;
 
 pub const Detail = enum(u8) {
     simple,
@@ -54,24 +57,28 @@ pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u6
     _ = size_local;
     switch (v_gpu.detail) {
         .simple => {
+            var adding: u64 = 0;
             var cost: u64 = 0;
             var assign_idx: u32 = 0;
             while (assign_idx < pir.assign_num) : (assign_idx += 1) {
                 const cost_flat: u64 = 1000; // Execution cost for a kernel, completely made up number
 
-                const a_size: u32 = pir.assign[assign_idx].size.a;
-                const z_size: u32 = pir.assign[assign_idx].size.z;
-                const y_size: u32 = pir.assign[assign_idx].size.y;
-                const x_size: u32 = pir.assign[assign_idx].size.x;
-                const repeats: u32 = pir.assign[assign_idx].repeats;
-                const kernel_assign_ops: u32 = if (pir.assign[assign_idx].split)
-                    std.math.divCeil(u32, repeats * a_size * z_size * y_size * x_size, size_global) catch unreachable
+                const assign: Assign = pir.assign[assign_idx];
+                const base: Base = assign.base;
+                const inlined: Inlined = assign.inlined;
+
+                const repeats: u32 = assign.repeats;
+                const product: u32 = assign.size.productOfElements();
+                const kernel_assign_ops: u32 = if (assign.split)
+                    std.math.divCeil(u32, repeats * product, size_global) catch unreachable
                 else
-                    (std.math.divCeil(u32, repeats, size_global) catch unreachable) * a_size * z_size * y_size * x_size;
-                cost += costOfOpSimple(pir.assign[assign_idx].base.kind) * kernel_assign_ops + cost_flat;
+                    (std.math.divCeil(u32, repeats, size_global) catch unreachable) * product;
+                cost += costOfOpSimple(base.kind) * kernel_assign_ops + cost_flat;
+                adding += 1;
                 var inlined_idx: u32 = 0;
-                while (inlined_idx < pir.assign[assign_idx].inlined.num) : (inlined_idx += 1) {
-                    cost += costOfOpSimple(pir.assign[assign_idx].inlined.base[inlined_idx].kind) * kernel_assign_ops;
+                while (inlined_idx < inlined.num) : (inlined_idx += 1) {
+                    cost += costOfOpSimple(inlined.base[inlined_idx].kind) * kernel_assign_ops;
+                    adding += 1;
                 }
             }
             return cost;

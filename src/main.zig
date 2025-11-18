@@ -11,7 +11,6 @@ const Linearized = @import("Linearized.zig");
 
 // $TODO Use some kind of https://en.wikipedia.org/wiki/Simulated_annealing type thing for the optimizer search
 // $TODO Make overkill queue based thread safe logger that gets comptimed out optionally
-// $TODO Get rid of all print methods and just make format functions, this allows saner logging for test failures
 // $TODO Try making every kernel it's own source so that compilation is faster in the OpenCl implementation
 // $TODO Rework the memory management in PIRs to be more arena style. Maybe make it like the dedit free list style
 // $TODO Expose an ArenaAllocator like interface for the Runtimes. Having to call the individual free function just because of those makes no sense
