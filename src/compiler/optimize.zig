@@ -590,6 +590,7 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
             };
             const left_in_written: bool = blk: {
                 if (base_left.in.id == base_right.out.id and
+                    !base_left.kind.isUnary() and
                     base_left.in_view.overlapsAll(1, assign_left_size_in, //
                         base_right.out_view, 1, assign_right_size_out))
                 {
