@@ -498,11 +498,6 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
     var optimization: ArrayList(Optimization) = try .initCapacity(gpa, optimization_len_initial);
     defer optimization.deinit(gpa);
 
-    var gathering_ns: i128 = 0;
-    var copying_ns: i128 = 0;
-    var cost_ns: i128 = 0;
-    var optimizing_ns: i128 = 0;
-
     var arena: std.heap.ArenaAllocator = .init(gpa);
     defer arena.deinit();
     const a: Allocator = arena.allocator();
@@ -516,13 +511,10 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         optimization.clearRetainingCapacity();
 
         // $TODO Can this be done incrementally?
-        const now1: i128 = std.time.nanoTimestamp();
         try opt.parallelizeGather(gpa, &optimization, pir.*);
         try opt.inlineOpGather(gpa, &optimization, pir.*);
         try opt.mergeOpGather(gpa, &optimization, pir.*);
         try opt.splitKernelGather(gpa, &optimization, pir.*, size_global, size_local);
-        const now2: i128 = std.time.nanoTimestamp();
-        gathering_ns += now2 - now1;
 
         if (optimization.items.len == 0) {
             break;
@@ -535,12 +527,8 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         while (optimization_idx < optimization.items.len) : (optimization_idx += 1) {
             defer _ = arena.reset(.retain_capacity);
 
-            const now3: i128 = std.time.nanoTimestamp();
             var pir_temp: Pir = try pir.copy(a);
-            const now4: i128 = std.time.nanoTimestamp();
-            copying_ns += now4 - now3;
 
-            const now5: i128 = std.time.nanoTimestamp();
             switch (optimization.items[optimization_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
@@ -555,13 +543,8 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.mergeOp(a, &pir_temp, fuse.left_idx, fuse.right_idx);
                 },
             }
-            const now6: i128 = std.time.nanoTimestamp();
-            optimizing_ns += now6 - now5;
 
-            const now7: i128 = std.time.nanoTimestamp();
             const cost_next: u64 = vgpu.costEstimate(pir_temp, size_global, size_local);
-            const now8: i128 = std.time.nanoTimestamp();
-            cost_ns += now8 - now7;
 
             if (cost_next < cost_next_best) {
                 cost_next_best = cost_next;
@@ -572,7 +555,6 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         if (cost_next_best == cost_curr) {
             break; // No better optimization found
         } else {
-            const now9: i128 = std.time.nanoTimestamp();
             switch (optimization.items[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
                     try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
@@ -587,22 +569,9 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
                     opt.mergeOp(gpa, pir, fuse.left_idx, fuse.right_idx);
                 },
             }
-            const now10: i128 = std.time.nanoTimestamp();
-            optimizing_ns += now10 - now9;
             cost_curr = cost_next_best;
         }
     }
-
-    // Gathering :       +299521111ns
-    // Copying   :      +1439456366ns
-    // Cost      :      +2175965461ns
-    // Optimizing:        +96041078ns
-    std.debug.print("\n", .{});
-    std.debug.print("Gathering : {d:16}ns\n", .{gathering_ns});
-    std.debug.print("Copying   : {d:16}ns\n", .{copying_ns});
-    std.debug.print("Cost      : {d:16}ns\n", .{cost_ns});
-    std.debug.print("Optimizing: {d:16}ns\n", .{optimizing_ns});
-    std.debug.print("\n\n", .{});
 }
 pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]const u8) void {
     if (name) |text| {
