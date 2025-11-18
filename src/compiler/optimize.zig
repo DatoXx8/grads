@@ -49,7 +49,10 @@ fn mergeOpPossible(left: Assign, right: Assign) bool {
     if (!left.base.out_view.equal(right.base.out_view)) return false;
     if (!left.base.in_view.equal(right.base.in_view)) return false;
     if (!left.size.equal(right.size)) return false;
-    if (left.base.out.id != right.base.out.id or left.base.in.id != right.base.in.id) return false;
+    if (left.base.out.id != right.base.out.id or
+        (left.base.in.id != right.base.in.id and
+            !left.base.kind.isUnary() and
+            !right.base.kind.isUnary())) return false;
     if (right.base.kind.isReduce()) return false;
     if (right.base.kind.overwrites()) return true;
 

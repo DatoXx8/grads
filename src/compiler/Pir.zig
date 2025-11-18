@@ -513,7 +513,6 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
 
     var depth_idx: u32 = 0;
     while (depth_idx < depth_max) : (depth_idx += 1) {
-        util.log.print("{}\n", .{depth_idx});
         optimization.clearRetainingCapacity();
 
         // $TODO Can this be done incrementally?
