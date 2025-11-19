@@ -449,7 +449,7 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
             assign.base.out.name(),
             kernel_loop_idx,
             0,
-            0,
+            assign.base.out_view.offset,
             switch (assign.base.kind) {
                 .reduce_sum => "0",
                 .reduce_avg => "0",
@@ -520,7 +520,7 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
             assign.base.out.name(),
             kernel_loop_idx,
             0,
-            0,
+            assign.base.out_view.offset,
             @as(f64, @floatFromInt(assign.size.productOfElements())),
         });
     }
