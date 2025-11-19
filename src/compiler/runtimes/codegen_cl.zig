@@ -44,28 +44,26 @@ fn writeIndices(
         try writeSource(
             gpa,
             source,
-            "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+            "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
             .{
                 base.out.name(), kernel_loop_idx, inlined_idx, //
                 out_view.repeat_reset.a, out_view.repeat_wait.a, out_view.repeat_stride.a * out_view.stride.a, //
                 out_view.repeat_reset.z, out_view.repeat_wait.z, out_view.repeat_stride.z * out_view.stride.z, //
                 out_view.repeat_reset.y, out_view.repeat_wait.y, out_view.repeat_stride.y * out_view.stride.y, //
                 out_view.repeat_reset.x, out_view.repeat_wait.x, out_view.repeat_stride.x * out_view.stride.x, //
-                out_view.offset,
             },
         );
         if (!base.kind.isUnary()) {
             try writeSource(
                 gpa,
                 source,
-                "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
+                "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
                 .{
                     base.in.name(), kernel_loop_idx, inlined_idx, //
                     in_view.repeat_reset.a, in_view.repeat_wait.a, in_view.repeat_stride.a * out_view.stride.a, //
                     in_view.repeat_reset.z, in_view.repeat_wait.z, in_view.repeat_stride.z * out_view.stride.z, //
                     in_view.repeat_reset.y, in_view.repeat_wait.y, in_view.repeat_stride.y * out_view.stride.y, //
                     in_view.repeat_reset.x, in_view.repeat_wait.x, in_view.repeat_stride.x * out_view.stride.x, //
-                    in_view.offset,
                 },
             );
         }
@@ -666,21 +664,22 @@ fn writeIndicesBlock(
             try writeSource(
                 gpa,
                 source,
-                "int {s}_{}_{}_{} = 0;\n",
-                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
+                "int {s}_{}_{}_{} = {};\n",
+                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, out_view.offset },
             );
         } else {
             const size: Vec4 = assign.size;
             try writeSource(
                 gpa,
                 source,
-                "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
+                "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                 .{
                     base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
                     size.a * size.z * size.y * size.x, size.z * size.y * size.x, out_view.stride.a, //
                     size.z * size.y * size.x,          size.y * size.x,          out_view.stride.z,
                     size.y * size.x,                   size.x,                   out_view.stride.y,
                     size.x,                            1,                        out_view.stride.x,
+                    out_view.offset,
                 },
             );
         }
@@ -690,21 +689,22 @@ fn writeIndicesBlock(
                 try writeSource(
                     gpa,
                     source,
-                    "int {s}_{}_{}_{} = 0;\n",
-                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx },
+                    "int {s}_{}_{}_{} = {};\n",
+                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, in_view.offset },
                 );
             } else {
                 const size: Vec4 = assign.size;
                 try writeSource(
                     gpa,
                     source,
-                    "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
+                    "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
                     .{
                         base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
                         size.a * size.z * size.y * size.x, size.z * size.y * size.x, in_view.stride.a, //
                         size.z * size.y * size.x,          size.y * size.x,          in_view.stride.z,
                         size.y * size.x,                   size.x,                   in_view.stride.y,
                         size.x,                            1,                        in_view.stride.x,
+                        in_view.offset,
                     },
                 );
             }

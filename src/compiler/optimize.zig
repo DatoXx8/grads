@@ -1131,7 +1131,7 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
             assign_left.size;
 
         var right_idx: u32 = left_idx + 1;
-        while (right_idx < pir.assign_num) : (right_idx += 1) {
+        inner: while (right_idx < pir.assign_num) : (right_idx += 1) {
             const assign_right: Assign = pir.assign[right_idx];
             const base_right: Base = pir.assign[right_idx].base;
             const assign_right_size_out: Vec4 = if (base_right.kind.isReduce())
@@ -1173,6 +1173,34 @@ pub fn parallelizeGather(gpa: Allocator, optimization: *ArrayList(Optimization),
             };
             if (overlap_out_out or overlap_out_in or overlap_in_out or overlap_inline) {
                 continue :outer;
+            }
+
+            const inlined_equal: bool = blk: {
+                if (assign_left.inlined.num != assign_right.inlined.num or
+                    assign_left.inlined.out_root != assign_right.inlined.out_root or
+                    assign_left.inlined.in_root != assign_right.inlined.in_root)
+                {
+                    break :blk false;
+                }
+                var inlined_idx: u32 = 0;
+                while (inlined_idx < assign_left.inlined.num) : (inlined_idx += 1) {
+                    if (assign_left.inlined.out[inlined_idx] != assign_right.inlined.out[inlined_idx] or
+                        assign_left.inlined.in[inlined_idx] != assign_right.inlined.in[inlined_idx] or
+                        assign_left.inlined.base[inlined_idx].kind != assign_right.inlined.base[inlined_idx].kind or
+                        assign_left.inlined.base[inlined_idx].u_var != assign_right.inlined.base[inlined_idx].u_var or
+                        assign_left.inlined.base[inlined_idx].out.id != assign_right.inlined.base[inlined_idx].out.id or
+                        assign_left.inlined.base[inlined_idx].in.id != assign_right.inlined.base[inlined_idx].in.id)
+                    {
+                        break :blk false;
+                    }
+                }
+                break :blk true;
+            };
+            if (base_left.kind != base_right.kind or base_left.u_var != base_right.u_var or
+                base_left.out.id != base_right.out.id or base_left.in.id != base_right.in.id or
+                !inlined_equal)
+            {
+                continue :inner;
             }
 
             if (viewOffsetMergePossible(assign_left, assign_right)) {
