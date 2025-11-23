@@ -657,6 +657,9 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 {
                     break :blk true;
                 }
+                break :blk false;
+            };
+            const left_out_written_to_out_inlined: bool = blk: {
                 var inlined_right_idx: u32 = 0;
                 while (inlined_right_idx < inlined_right.num) : (inlined_right_idx += 1) {
                     const inlined_right_size_out: Vec4 = if (inlined_right.base[inlined_right_idx].kind.isReduce())
@@ -673,7 +676,7 @@ pub fn inlineOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pi
                 }
                 break :blk false;
             };
-            if (left_out_written_to_in) {
+            if (left_out_written_to_in or left_out_written_to_out_inlined) {
                 right_idx_max_written = right_idx;
             }
             if (left_out_written_to_out) {
