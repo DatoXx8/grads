@@ -14,15 +14,7 @@ const Base = Pir.Base;
 const ViewOffset = Pir.ViewOffset;
 const util = @import("../util.zig");
 
-/// Planned optimization steps
-///  none
-///  parallelize, inline, split, fuse ops, constant folding, swap
-///  SIMD
-///  memory optimizer
-/// Remaining optimization steps
-///  constant folding, swap
-///  SIMD
-///  memory optimizer
+// $TODO SIMD, Loops and loop unrolling, Tiling
 pub const Optimization = union(enum) {
     parallelize: struct {
         left_idx: u32,
