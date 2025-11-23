@@ -1318,11 +1318,3 @@ pub fn splitKernelGather(
 pub fn splitKernel(pir: *Pir, idx: u32) void {
     pir.assign[idx].split = true;
 }
-
-pub fn simd(_: Allocator, pir: *Pir) !void {
-    _ = pir;
-}
-
-pub fn memoryLayout(_: Allocator, pir: *Pir) !void {
-    _ = pir;
-}

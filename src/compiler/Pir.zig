@@ -260,9 +260,10 @@ pub const Inlined = struct {
     }
 };
 // $TODO This is where tiling and SIMD stuff should happen
-/// Wether or not to split a single operation across kernels
+// Want to be able to specify the per-kernel size
+// Want to be able to unroll the per-dim loops
+// Want to be able to specify that an assign block should be SIMD (Meaning the unrolled per-dim loops)
 pub const Split = bool;
-/// Essentialy this is one unit of work
 pub const Assign = struct {
     repeats: u32,
     size: Vec4,
