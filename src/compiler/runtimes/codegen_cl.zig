@@ -24,48 +24,118 @@ const source_padding: u32 = 4 * 1024;
 /// Write format string to buffer and ensure there is at least `padding` bytes left
 fn writeSource(gpa: Allocator, source: *ArrayList(u8), comptime fmt: []const u8, args: anytype) Allocator.Error!void {
     source.printBounded(fmt, args) catch {
-        try source.ensureUnusedCapacity(gpa, source_padding);
+        try source.ensureTotalCapacity(gpa, source.capacity * 2);
         try source.printBounded(fmt, args);
     };
     try source.ensureUnusedCapacity(gpa, source_padding);
+}
+fn writeIndex(
+    gpa: Allocator,
+    source: *ArrayList(u8),
+    size: Vec4,
+    view: ViewOffset,
+    buffer: Buffer,
+    kernel_loop_idx: u32,
+    inlined_idx: u32,
+) Allocator.Error!void {
+    var first_dim: bool = true;
+    try writeSource(gpa, source, "int {s}_{}_{} = ", //
+        .{ buffer.name(), kernel_loop_idx, inlined_idx });
+    if (size.a != 1) {
+        try writeSource(gpa, source, "(id%{})/{}*{}", //
+            .{ view.repeat_reset.a, view.repeat_wait.a, view.repeat_stride.a * view.stride.a });
+        first_dim = false;
+    }
+    if (size.z != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
+                .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+                .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
+        }
+        first_dim = false;
+    }
+    if (size.y != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
+                .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+                .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
+        }
+        first_dim = false;
+    }
+    if (size.x != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
+                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
+        }
+        first_dim = false;
+    }
+    if (first_dim) {
+        try writeSource(gpa, source, "0;\n", .{});
+    } else {
+        try writeSource(gpa, source, ";\n", .{});
+    }
+}
+fn writeIndicesInlined(
+    gpa: Allocator,
+    source: *ArrayList(u8),
+    inlined: Inlined,
+    size: Vec4,
+    kernel_loop_idx: u32,
+    inlined_idx_curr: u32,
+) Allocator.Error!void {
+    const inlined_idx: u32 = inlined_idx_curr - 1;
+    const base_relevant: Base = inlined.base[inlined_idx];
+    const out_size: Vec4 = if (base_relevant.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        size;
+    if (inlined.out[inlined_idx]) |inlined_out| {
+        try writeIndicesInlined(gpa, source, inlined, out_size, kernel_loop_idx, inlined_out + 1);
+    } else {
+        try writeIndex(gpa, source, out_size, base_relevant.out_view, base_relevant.out, kernel_loop_idx, inlined_idx_curr);
+    }
+    if (!base_relevant.kind.isUnary()) {
+        const in_size: Vec4 = if (base_relevant.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            size;
+        if (inlined.in[inlined_idx]) |inlined_in| {
+            try writeIndicesInlined(gpa, source, inlined, in_size, kernel_loop_idx, inlined_in + 1);
+        } else {
+            try writeIndex(gpa, source, in_size, base_relevant.in_view, base_relevant.in, kernel_loop_idx, inlined_idx_curr);
+        }
+    }
 }
 fn writeIndices(
     gpa: Allocator,
     source: *ArrayList(u8),
     assign: Assign,
-    kernel_loop_idx: usize,
+    kernel_loop_idx: u32,
 ) Allocator.Error!void {
-    const inlined_num: u32 = 1 + assign.inlined.num;
-    var inlined_idx: u32 = 0;
-    while (inlined_idx < inlined_num) : (inlined_idx += 1) {
-        const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
-        const out_view: ViewOffset = base.out_view;
-        const in_view: ViewOffset = base.in_view;
-        try writeSource(
-            gpa,
-            source,
-            "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
-            .{
-                base.out.name(), kernel_loop_idx, inlined_idx, //
-                out_view.repeat_reset.a, out_view.repeat_wait.a, out_view.repeat_stride.a * out_view.stride.a, //
-                out_view.repeat_reset.z, out_view.repeat_wait.z, out_view.repeat_stride.z * out_view.stride.z, //
-                out_view.repeat_reset.y, out_view.repeat_wait.y, out_view.repeat_stride.y * out_view.stride.y, //
-                out_view.repeat_reset.x, out_view.repeat_wait.x, out_view.repeat_stride.x * out_view.stride.x, //
-            },
-        );
-        if (!base.kind.isUnary()) {
-            try writeSource(
-                gpa,
-                source,
-                "int {s}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{};\n",
-                .{
-                    base.in.name(), kernel_loop_idx, inlined_idx, //
-                    in_view.repeat_reset.a, in_view.repeat_wait.a, in_view.repeat_stride.a * out_view.stride.a, //
-                    in_view.repeat_reset.z, in_view.repeat_wait.z, in_view.repeat_stride.z * out_view.stride.z, //
-                    in_view.repeat_reset.y, in_view.repeat_wait.y, in_view.repeat_stride.y * out_view.stride.y, //
-                    in_view.repeat_reset.x, in_view.repeat_wait.x, in_view.repeat_stride.x * out_view.stride.x, //
-                },
-            );
+    const out_size: Vec4 = if (assign.base.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        assign.size;
+    try writeIndex(gpa, source, out_size, assign.base.out_view, assign.base.out, kernel_loop_idx, 0);
+    if (assign.inlined.out_root) |inlined_out| {
+        try writeIndicesInlined(gpa, source, assign.inlined, out_size, kernel_loop_idx, inlined_out + 1);
+    }
+    if (!assign.base.kind.isUnary()) {
+        const in_size: Vec4 = if (assign.base.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            assign.size;
+        if (assign.inlined.in_root) |inlined_in| {
+            try writeIndicesInlined(gpa, source, assign.inlined, in_size, kernel_loop_idx, inlined_in + 1);
+        } else {
+            try writeIndex(gpa, source, in_size, assign.base.in_view, assign.base.in, kernel_loop_idx, 0);
         }
     }
 }
@@ -361,7 +431,7 @@ fn writeAssignInBase(
     }
 }
 // inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
-fn writeAssignOut(
+fn writeAssignInlined(
     gpa: Allocator,
     source: *ArrayList(u8),
     inlined: Inlined,
@@ -380,7 +450,7 @@ fn writeAssignOut(
     else
         offset;
     if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
+        try writeAssignInlined(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
     } else {
         try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_out);
     }
@@ -392,48 +462,7 @@ fn writeAssignOut(
     else
         offset;
     if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
-    } else {
-        if (!base_relevant.kind.isUnary()) {
-            try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_in);
-        }
-    }
-
-    try writeAssignPostfix(gpa, source, inlined.base[inlined_idx_actual]);
-}
-// inlined_idx_curr is 0 if it is the base assign and actual inlined index + 1 otherwise
-fn writeAssignIn(
-    gpa: Allocator,
-    source: *ArrayList(u8),
-    inlined: Inlined,
-    kernel_loop_idx: u32,
-    inlined_idx_curr: u32,
-    size: Vec4,
-    offset: Vec4,
-) Allocator.Error!void {
-    const inlined_idx_actual: u32 = inlined_idx_curr - 1;
-
-    try writeAssignPrefix(gpa, source, inlined.base[inlined_idx_actual]);
-
-    const base_relevant: Base = inlined.base[inlined_idx_actual];
-    const offset_out: Vec4 = if (base_relevant.kind.isReduce())
-        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
-    else
-        offset;
-    if (inlined.out[inlined_idx_actual]) |inlined_out| {
-        try writeAssignOut(gpa, source, inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
-    } else {
-        try writeAssignOutBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_out);
-    }
-
-    try writeAssignMidfix(gpa, source, inlined.base[inlined_idx_actual]);
-
-    const offset_in: Vec4 = if (base_relevant.kind.isExpand())
-        .{ .a = 0, .z = 0, .y = 0, .x = 0 }
-    else
-        offset;
-    if (inlined.in[inlined_idx_actual]) |inlined_in| {
-        try writeAssignIn(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
+        try writeAssignInlined(gpa, source, inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
     } else {
         if (!base_relevant.kind.isUnary()) {
             try writeAssignInBase(gpa, source, base_relevant, kernel_loop_idx, inlined_idx_curr, size, offset_in);
@@ -486,7 +515,7 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
                     try writeAssignPrefix(gpa, source, assign.base);
 
                     if (assign.inlined.out_root) |inlined_out| {
-                        try writeAssignOut(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
+                        try writeAssignInlined(gpa, source, assign.inlined, kernel_loop_idx, inlined_out + 1, size, offset_out);
                     } else {
                         try writeAssignOutBase(gpa, source, assign.base, kernel_loop_idx, 0, size, offset_out);
                     }
@@ -499,7 +528,7 @@ fn writeAssign(gpa: Allocator, source: *ArrayList(u8), assign: Assign, kernel_lo
                         .{ .a = a, .z = z, .y = y, .x = x };
 
                     if (assign.inlined.in_root) |inlined_in| {
-                        try writeAssignIn(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
+                        try writeAssignInlined(gpa, source, assign.inlined, kernel_loop_idx, inlined_in + 1, size, offset_in);
                     } else {
                         if (!assign.base.kind.isUnary()) {
                             try writeAssignInBase(gpa, source, assign.base, kernel_loop_idx, 0, size, offset_in);
@@ -647,6 +676,104 @@ fn writeAssignInBaseBlock(
         => unreachable,
     }
 }
+fn writeIndexBlock(
+    gpa: Allocator,
+    source: *ArrayList(u8),
+    size: Vec4,
+    view: ViewOffset,
+    buffer: Buffer,
+    kernel_loop_idx: u32,
+    inlined_idx: u32,
+    kernel_block_idx: u32,
+) Allocator.Error!void {
+    var first_dim: bool = true;
+    try writeSource(gpa, source, "int {s}_{}_{}_{} = ", .{
+        buffer.name(),
+        kernel_loop_idx,
+        inlined_idx,
+        kernel_block_idx,
+    });
+    if (size.a != 1) {
+        try writeSource(gpa, source, "(id%{})/{}*{}", .{
+            size.a * size.z * size.y * size.x, size.z * size.y * size.x, view.stride.a,
+        });
+        first_dim = false;
+    }
+    if (size.z != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", .{
+                size.z * size.y * size.x, size.y * size.x, view.stride.z,
+            });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", .{
+                size.z * size.y * size.x, size.y * size.x, view.stride.z,
+            });
+        }
+        first_dim = false;
+    }
+    if (size.y != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", .{
+                size.y * size.x, size.x, view.stride.y,
+            });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", .{
+                size.y * size.x, size.x, view.stride.y,
+            });
+        }
+        first_dim = false;
+    }
+    if (size.x != 1) {
+        if (first_dim) {
+            try writeSource(gpa, source, "(id%{})/{}*{}", .{
+                size.x, 1, view.stride.x,
+            });
+        } else {
+            try writeSource(gpa, source, "+(id%{})/{}*{}", .{
+                size.x, 1, view.stride.x,
+            });
+        }
+        first_dim = false;
+    }
+    if (first_dim) {
+        try writeSource(gpa, source, "{};\n", .{view.offset});
+    } else {
+        try writeSource(gpa, source, "+{};\n", .{view.offset});
+    }
+}
+// $TODO Refactor this horrible shit
+fn writeIndicesBlockInlined(
+    gpa: Allocator,
+    source: *ArrayList(u8),
+    inlined: Inlined,
+    size: Vec4,
+    kernel_loop_idx: u32,
+    inlined_idx_curr: u32,
+    kernel_block_idx: u32,
+) Allocator.Error!void {
+    const inlined_idx: u32 = inlined_idx_curr - 1;
+    const base_relevant: Base = inlined.base[inlined_idx];
+    const out_size: Vec4 = if (base_relevant.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        size;
+    if (inlined.out[inlined_idx]) |inlined_out| {
+        try writeIndicesBlockInlined(gpa, source, inlined, out_size, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+    } else {
+        try writeIndexBlock(gpa, source, out_size, base_relevant.out_view, base_relevant.out, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+    }
+    if (!base_relevant.kind.isUnary()) {
+        const in_size: Vec4 = if (base_relevant.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            size;
+        if (inlined.in[inlined_idx]) |inlined_in| {
+            try writeIndicesBlockInlined(gpa, source, inlined, in_size, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
+        } else {
+            try writeIndexBlock(gpa, source, in_size, base_relevant.in_view, base_relevant.in, kernel_loop_idx, inlined_idx_curr, kernel_block_idx);
+        }
+    }
+}
 // $TODO Refactor this horrible shit
 fn writeIndicesBlock(
     gpa: Allocator,
@@ -655,59 +782,23 @@ fn writeIndicesBlock(
     kernel_loop_idx: u32,
     kernel_block_idx: u32,
 ) Allocator.Error!void {
-    const inlined_num: u32 = 1 + assign.inlined.num;
-    var inlined_idx: u32 = 0;
-    while (inlined_idx < inlined_num) : (inlined_idx += 1) {
-        const base: Base = if (inlined_idx == 0) assign.base else assign.inlined.base[inlined_idx - 1];
-        const out_view: ViewOffset = base.out_view;
-        if (base.kind.isReduce()) {
-            try writeSource(
-                gpa,
-                source,
-                "int {s}_{}_{}_{} = {};\n",
-                .{ base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, out_view.offset },
-            );
+    const out_size: Vec4 = if (assign.base.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        assign.size;
+    try writeIndexBlock(gpa, source, out_size, assign.base.out_view, assign.base.out, kernel_loop_idx, 0, kernel_block_idx);
+    if (assign.inlined.out_root) |inlined_out| {
+        try writeIndicesBlockInlined(gpa, source, assign.inlined, out_size, kernel_loop_idx, inlined_out + 1, kernel_block_idx);
+    }
+    if (!assign.base.kind.isUnary()) {
+        const in_size: Vec4 = if (assign.base.kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            assign.size;
+        if (assign.inlined.in_root) |inlined_in| {
+            try writeIndicesBlockInlined(gpa, source, assign.inlined, in_size, kernel_loop_idx, inlined_in + 1, kernel_block_idx);
         } else {
-            const size: Vec4 = assign.size;
-            try writeSource(
-                gpa,
-                source,
-                "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
-                .{
-                    base.out.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                    size.a * size.z * size.y * size.x, size.z * size.y * size.x, out_view.stride.a, //
-                    size.z * size.y * size.x,          size.y * size.x,          out_view.stride.z,
-                    size.y * size.x,                   size.x,                   out_view.stride.y,
-                    size.x,                            1,                        out_view.stride.x,
-                    out_view.offset,
-                },
-            );
-        }
-        if (!base.kind.isUnary()) {
-            const in_view: ViewOffset = base.in_view;
-            if (base.kind.isExpand()) {
-                try writeSource(
-                    gpa,
-                    source,
-                    "int {s}_{}_{}_{} = {};\n",
-                    .{ base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, in_view.offset },
-                );
-            } else {
-                const size: Vec4 = assign.size;
-                try writeSource(
-                    gpa,
-                    source,
-                    "int {s}_{}_{}_{} = (id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+(id%{})/{}*{}+{};\n",
-                    .{
-                        base.in.name(), kernel_loop_idx, inlined_idx, kernel_block_idx, //
-                        size.a * size.z * size.y * size.x, size.z * size.y * size.x, in_view.stride.a, //
-                        size.z * size.y * size.x,          size.y * size.x,          in_view.stride.z,
-                        size.y * size.x,                   size.x,                   in_view.stride.y,
-                        size.x,                            1,                        in_view.stride.x,
-                        in_view.offset,
-                    },
-                );
-            }
+            try writeIndexBlock(gpa, source, in_size, assign.base.in_view, assign.base.in, kernel_loop_idx, 0, kernel_block_idx);
         }
     }
 }
