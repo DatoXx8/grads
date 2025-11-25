@@ -32,7 +32,6 @@ fn writeSource(gpa: Allocator, source: *ArrayList(u8), comptime fmt: []const u8,
 fn writeIndex(
     gpa: Allocator,
     source: *ArrayList(u8),
-    size: Vec4,
     view: ViewOffset,
     buffer: Buffer,
     kernel_loop_idx: u32,
@@ -41,37 +40,37 @@ fn writeIndex(
     var first_dim: bool = true;
     try writeSource(gpa, source, "int {s}_{}_{} = ", //
         .{ buffer.name(), kernel_loop_idx, inlined_idx });
-    if (size.a != 1) {
-        try writeSource(gpa, source, "(id%{})/{}*{}", //
+    if (view.repeat_stride.a != 0) {
+        try writeSource(gpa, source, "(id%{})/{}*{} /*a*/", //
             .{ view.repeat_reset.a, view.repeat_wait.a, view.repeat_stride.a * view.stride.a });
         first_dim = false;
     }
-    if (size.z != 1) {
+    if (view.repeat_stride.z != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{}", //
+            try writeSource(gpa, source, "(id%{})/{}*{} /*z*/", //
                 .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+            try writeSource(gpa, source, "+(id%{})/{}*{} /*z*/", //
                 .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
         }
         first_dim = false;
     }
-    if (size.y != 1) {
+    if (view.repeat_stride.y != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{}", //
+            try writeSource(gpa, source, "(id%{})/{}*{} /*y*/", //
                 .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+            try writeSource(gpa, source, "+(id%{})/{}*{} /*y*/", //
                 .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
         }
         first_dim = false;
     }
-    if (size.x != 1) {
+    if (view.repeat_stride.x != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{}", //
+            try writeSource(gpa, source, "(id%{})/{}*{} /*x*/", //
                 .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{}", //
+            try writeSource(gpa, source, "+(id%{})/{}*{} /*x*/", //
                 .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
         }
         first_dim = false;
@@ -99,7 +98,7 @@ fn writeIndicesInlined(
     if (inlined.out[inlined_idx]) |inlined_out| {
         try writeIndicesInlined(gpa, source, inlined, out_size, kernel_loop_idx, inlined_out + 1);
     } else {
-        try writeIndex(gpa, source, out_size, base_relevant.out_view, base_relevant.out, kernel_loop_idx, inlined_idx_curr);
+        try writeIndex(gpa, source, base_relevant.out_view, base_relevant.out, kernel_loop_idx, inlined_idx_curr);
     }
     if (!base_relevant.kind.isUnary()) {
         const in_size: Vec4 = if (base_relevant.kind.isExpand())
@@ -109,7 +108,7 @@ fn writeIndicesInlined(
         if (inlined.in[inlined_idx]) |inlined_in| {
             try writeIndicesInlined(gpa, source, inlined, in_size, kernel_loop_idx, inlined_in + 1);
         } else {
-            try writeIndex(gpa, source, in_size, base_relevant.in_view, base_relevant.in, kernel_loop_idx, inlined_idx_curr);
+            try writeIndex(gpa, source, base_relevant.in_view, base_relevant.in, kernel_loop_idx, inlined_idx_curr);
         }
     }
 }
@@ -123,7 +122,7 @@ fn writeIndices(
         .{ .a = 1, .z = 1, .y = 1, .x = 1 }
     else
         assign.size;
-    try writeIndex(gpa, source, out_size, assign.base.out_view, assign.base.out, kernel_loop_idx, 0);
+    try writeIndex(gpa, source, assign.base.out_view, assign.base.out, kernel_loop_idx, 0);
     if (assign.inlined.out_root) |inlined_out| {
         try writeIndicesInlined(gpa, source, assign.inlined, out_size, kernel_loop_idx, inlined_out + 1);
     }
@@ -135,7 +134,7 @@ fn writeIndices(
         if (assign.inlined.in_root) |inlined_in| {
             try writeIndicesInlined(gpa, source, assign.inlined, in_size, kernel_loop_idx, inlined_in + 1);
         } else {
-            try writeIndex(gpa, source, in_size, assign.base.in_view, assign.base.in, kernel_loop_idx, 0);
+            try writeIndex(gpa, source, assign.base.in_view, assign.base.in, kernel_loop_idx, 0);
         }
     }
 }
