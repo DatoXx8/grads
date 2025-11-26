@@ -388,10 +388,33 @@ pub fn mergeOpGather(gpa: Allocator, optimization: *ArrayList(Optimization), pir
 pub fn mergeOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) void {
     assert(mergeOpPossible(pir.assign[left_idx], pir.assign[right_idx]));
     const merge_both: bool = mergeOpCombine(pir.assign[left_idx], &pir.assign[right_idx]);
+    var free_inlined: bool = true;
+
+    const assign_right: Assign = pir.assign[right_idx];
+    if (merge_both) {
+        if (assign_right.inlined.out_root) |out_root| {
+            pir.assign[right_idx].base = assign_right.inlined.base[out_root];
+            pir.assign[right_idx].inlined.out_root = assign_right.inlined.out[out_root];
+            free_inlined = false;
+
+            var inlined_idx: u32 = out_root + 1;
+            while (inlined_idx < assign_right.inlined.num) : (inlined_idx += 1) {
+                pir.assign[right_idx].inlined.base[inlined_idx - 1] =
+                    assign_right.inlined.base[inlined_idx];
+                pir.assign[right_idx].inlined.out[inlined_idx - 1] =
+                    assign_right.inlined.out[inlined_idx];
+                pir.assign[right_idx].inlined.in[inlined_idx - 1] =
+                    assign_right.inlined.in[inlined_idx];
+            }
+            pir.assign[right_idx].inlined.num -= 1;
+        }
+    }
 
     var assign_num_new: u32 = 0;
     for (0..pir.assign_num) |assign_idx| {
-        if (assign_idx == left_idx or (assign_idx == right_idx and merge_both)) {
+        if (assign_idx == left_idx or
+            (assign_idx == right_idx and merge_both and free_inlined))
+        {
             gpa.free(pir.assign[assign_idx].inlined.base);
             gpa.free(pir.assign[assign_idx].inlined.out);
             gpa.free(pir.assign[assign_idx].inlined.in);

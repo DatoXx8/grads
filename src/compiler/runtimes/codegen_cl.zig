@@ -41,36 +41,36 @@ fn writeIndex(
     try writeSource(gpa, source, "int {s}_{}_{} = ", //
         .{ buffer.name(), kernel_loop_idx, inlined_idx });
     if (view.repeat_stride.a != 0) {
-        try writeSource(gpa, source, "(id%{})/{}*{} /*a*/", //
+        try writeSource(gpa, source, "(id%{})/{}*{}", //
             .{ view.repeat_reset.a, view.repeat_wait.a, view.repeat_stride.a * view.stride.a });
         first_dim = false;
     }
     if (view.repeat_stride.z != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{} /*z*/", //
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
                 .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{} /*z*/", //
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
                 .{ view.repeat_reset.z, view.repeat_wait.z, view.repeat_stride.z * view.stride.z });
         }
         first_dim = false;
     }
     if (view.repeat_stride.y != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{} /*y*/", //
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
                 .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{} /*y*/", //
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
                 .{ view.repeat_reset.y, view.repeat_wait.y, view.repeat_stride.y * view.stride.y });
         }
         first_dim = false;
     }
     if (view.repeat_stride.x != 0) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{} /*x*/", //
+            try writeSource(gpa, source, "(id%{})/{}*{}", //
                 .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{} /*x*/", //
+            try writeSource(gpa, source, "+(id%{})/{}*{}", //
                 .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
         }
         first_dim = false;
