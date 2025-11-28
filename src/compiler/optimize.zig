@@ -50,6 +50,9 @@ fn mergeOpPossible(left: Assign, right: Assign) bool {
 
     if (left.inlined.num > 0) return false;
 
+    // $FIXME rng=1453058682299894012 opt=1000, bug occurs because out buffer of left and right
+    //  also is inlined on the right and not overwritten i.e out[that_idx] != null
+
     // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
     return switch (left.base.kind) {
         .unary_add, .unary_subtract => return switch (right.base.kind) {
@@ -411,7 +414,8 @@ pub fn mergeOp(gpa: Allocator, pir: *Pir, left_idx: u32, right_idx: u32) void {
     }
 
     var assign_num_new: u32 = 0;
-    for (0..pir.assign_num) |assign_idx| {
+    var assign_idx: u32 = 0;
+    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
         if (assign_idx == left_idx or
             (assign_idx == right_idx and merge_both and free_inlined))
         {
