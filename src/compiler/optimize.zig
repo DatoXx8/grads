@@ -50,8 +50,36 @@ fn mergeOpPossible(left: Assign, right: Assign) bool {
 
     if (left.inlined.num > 0) return false;
 
-    // $FIXME rng=1453058682299894012 opt=1000, bug occurs because out buffer of left and right
-    //  also is inlined on the right and not overwritten i.e out[that_idx] != null
+    const left_size_out: Vec4 = if (left.base.kind.isReduce())
+        .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+    else
+        left.size;
+    const inlined: Inlined = right.inlined;
+    var inlined_idx: u32 = 0;
+    while (inlined_idx < inlined.num) : (inlined_idx += 1) {
+        const right_inlined_size_out: Vec4 = if (inlined.base[inlined_idx].kind.isReduce())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            right.size;
+        const right_inlined_size_in: Vec4 = if (inlined.base[inlined_idx].kind.isExpand())
+            .{ .a = 1, .z = 1, .y = 1, .x = 1 }
+        else
+            right.size;
+        if (inlined.base[inlined_idx].out.id == left.base.out.id and
+            inlined.out[inlined_idx] == null and
+            inlined.base[inlined_idx].out_view.overlaps(right.repeats, right_inlined_size_out, //
+                left.base.out_view, left.repeats, left_size_out))
+        {
+            return false;
+        }
+        if (inlined.base[inlined_idx].in.id == left.base.out.id and
+            inlined.out[inlined_idx] == null and
+            inlined.base[inlined_idx].in_view.overlaps(right.repeats, right_inlined_size_in, //
+                left.base.out_view, left.repeats, left_size_out))
+        {
+            return false;
+        }
+    }
 
     // $TODO This is a really inconvenient way of doing this. Right should be on the outside.
     return switch (left.base.kind) {
