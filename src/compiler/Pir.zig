@@ -452,92 +452,6 @@ fn removeDefault(pir: *Pir) void {
     }
 }
 
-// Forgot to record git hash :^(
-// profile_compiler: rng=11714000457094572098...
-// Time:   2.3557ms +-   0.7386ms linearized
-// Gathering :               +0ns
-// Copying   :               +0ns
-// Cost      :               +0ns
-// Optimizing:               +0ns
-//
-// Time: 724.1800us +-  50.0590us d=0
-//
-//
-// Gathering :         +2818019ns
-// Copying   :        +14147167ns
-// Cost      :        +28918162ns
-// Optimizing:         +1537003ns
-//
-// Time: 716.6720us +-  36.8470us d=1
-//
-//
-// Gathering :        +26789020ns
-// Copying   :       +139502661ns
-// Cost      :       +283695473ns
-// Optimizing:        +15072778ns
-//
-// Time: 696.8480us +-  57.9700us d=10
-//
-//
-// Gathering :       +202526986ns
-// Copying   :      +1122446910ns
-// Cost      :      +1822257750ns
-// Optimizing:        +88829460ns
-//
-// Time: 549.7720us +-  38.3900us d=100
-//
-//
-// Gathering :       +299521111ns
-// Copying   :      +1439456366ns
-// Cost      :      +2175965461ns
-// Optimizing:        +96041078ns
-//
-// Time: 312.0550us +-  20.1140us d=1000
-
-// 6bf9a126cb2bc2c8068befc9690615bd4733e992
-// profile_compiler: rng=11714000457094572098...
-// Time:   2.8005ms +-   0.0431ms linearized
-//
-// Gathering :               +0ns
-// Copying   :               +0ns
-// Cost      :               +0ns
-// Optimizing:               +0ns
-//
-//
-// Time: 715.8550us +-  38.1960us d=0
-//
-// Gathering :         +5841578ns
-// Copying   :        +13768849ns
-// Cost      :        +17046366ns
-// Optimizing:         +2583720ns
-//
-//
-// Time: 707.6160us +-  18.5350us d=1
-//
-// Gathering :        +58253662ns
-// Copying   :       +136962502ns
-// Cost      :       +170673309ns
-// Optimizing:        +25991059ns
-//
-//
-// Time: 680.3150us +-  23.6710us d=10
-//
-// Gathering :       +546229150ns
-// Copying   :       +985414552ns
-// Cost      :      +1175031847ns
-// Optimizing:       +188669409ns
-//
-//
-// Time: 324.4180us +-  40.5340us d=100
-//
-// Gathering :       +848090734ns
-// Copying   :      +1312283259ns
-// Cost      :      +1414031724ns
-// Optimizing:       +213331728ns
-//
-//
-// Time: 183.3490us +-   9.0080us d=1000
-
 /// Simple greedy search over the field of possible optimizations
 fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: u32, size_local: u32) !void {
     const optimization_len_initial: u32 = 128; // Pretty arbitrary
@@ -552,18 +466,30 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
     //  Would ne nice to only have to compute a diff between two iterations of this loop, but I suspect that would be very complicated
     var cost_curr: u64 = vgpu.costEstimate(pir.*, size_global, size_local);
 
+    const stage_max: u32 = 3;
+    var stage: u32 = 0;
     var depth_idx: u32 = 0;
-    while (depth_idx < depth_max) : (depth_idx += 1) {
+    while (depth_idx < depth_max and stage < stage_max) {
         optimization.clearRetainingCapacity();
 
-        // $TODO Can this be done incrementally?
-        try opt.parallelizeGather(gpa, &optimization, pir.*);
-        try opt.inlineOpGather(gpa, &optimization, pir.*);
-        try opt.mergeOpGather(gpa, &optimization, pir.*);
-        try opt.splitKernelGather(gpa, &optimization, pir.*, size_global, size_local);
+        // $TODO Can these be done incrementally?
+        switch (stage) {
+            0 => {
+                try opt.mergeOpGather(gpa, &optimization, pir.*);
+            },
+            1 => {
+                try opt.parallelizeGather(gpa, &optimization, pir.*);
+                try opt.inlineOpGather(gpa, &optimization, pir.*);
+            },
+            2 => {
+                try opt.splitKernelGather(gpa, &optimization, pir.*, size_global, size_local);
+            },
+            else => unreachable,
+        }
 
         if (optimization.items.len == 0) {
-            break;
+            stage += 1;
+            continue;
         }
 
         var cost_next_best: u64 = cost_curr;
@@ -577,16 +503,20 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
 
             switch (optimization.items[optimization_idx]) {
                 .parallelize => |parallelize| {
+                    assert(stage == 1);
                     try opt.parallelize(a, &pir_temp, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
+                    assert(stage == 1);
                     try opt.inlineOp(a, &pir_temp, inlined.left_idx, inlined.right_idx_max_written);
                 },
-                .split => |split| {
-                    opt.splitKernel(&pir_temp, split.idx);
-                },
                 .fuse => |fuse| {
+                    assert(stage == 0);
                     opt.mergeOp(a, &pir_temp, fuse.left_idx, fuse.right_idx);
+                },
+                .split => |split| {
+                    assert(stage == 2);
+                    opt.splitKernel(&pir_temp, split.idx);
                 },
             }
 
@@ -599,20 +529,26 @@ fn optimize(pir: *Pir, gpa: Allocator, depth_max: u32, vgpu: VGpu, size_global: 
         }
 
         if (cost_next_best == cost_curr) {
+            stage += 1;
             break; // No better optimization found
         } else {
+            depth_idx += 1;
             switch (optimization.items[cost_next_best_idx]) {
                 .parallelize => |parallelize| {
+                    assert(stage == 1);
                     try opt.parallelize(gpa, pir, parallelize.left_idx, parallelize.right_idx);
                 },
                 .inlined => |inlined| {
+                    assert(stage == 1);
                     try opt.inlineOp(gpa, pir, inlined.left_idx, inlined.right_idx_max_written);
                 },
-                .split => |split| {
-                    opt.splitKernel(pir, split.idx);
-                },
                 .fuse => |fuse| {
+                    assert(stage == 0);
                     opt.mergeOp(gpa, pir, fuse.left_idx, fuse.right_idx);
+                },
+                .split => |split| {
+                    assert(stage == 2);
+                    opt.splitKernel(pir, split.idx);
                 },
             }
             cost_curr = cost_next_best;
@@ -651,3 +587,105 @@ pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]con
 //  identifiers: AssignInOut, AssignIn, AssignOut, Assign, Split, Buffer, BufferIntermediary, none
 //      ------- AssignX means that X is *not* inlined in that case
 //  Unsure how to handle freeing memory here, could do free list with merging on adjacency
+
+// Forgot to record git hash :^(
+// profile_compiler: rng=11714000457094572098...
+// Time:   2.3557ms +-   0.7386ms linearized
+//
+// Gathering :               +0ns
+// Copying   :               +0ns
+// Cost      :               +0ns
+// Optimizing:               +0ns
+// Time: 724.1800us +-  50.0590us d=0
+//
+// Gathering :         +2818019ns
+// Copying   :        +14147167ns
+// Cost      :        +28918162ns
+// Optimizing:         +1537003ns
+// Time: 716.6720us +-  36.8470us d=1
+//
+// Gathering :        +26789020ns
+// Copying   :       +139502661ns
+// Cost      :       +283695473ns
+// Optimizing:        +15072778ns
+// Time: 696.8480us +-  57.9700us d=10
+//
+// Gathering :       +202526986ns
+// Copying   :      +1122446910ns
+// Cost      :      +1822257750ns
+// Optimizing:        +88829460ns
+// Time: 549.7720us +-  38.3900us d=100
+//
+// Gathering :       +299521111ns
+// Copying   :      +1439456366ns
+// Cost      :      +2175965461ns
+// Optimizing:        +96041078ns
+// Time: 312.0550us +-  20.1140us d=1000
+
+// 6bf9a126cb2bc2c8068befc9690615bd4733e992
+// profile_compiler: rng=11714000457094572098...
+// Time:   2.8005ms +-   0.0431ms linearized
+//
+// Gathering :               +0ns
+// Copying   :               +0ns
+// Cost      :               +0ns
+// Optimizing:               +0ns
+// Time: 715.8550us +-  38.1960us d=0
+//
+// Gathering :         +5841578ns
+// Copying   :        +13768849ns
+// Cost      :        +17046366ns
+// Optimizing:         +2583720ns
+// Time: 707.6160us +-  18.5350us d=1
+//
+// Gathering :        +58253662ns
+// Copying   :       +136962502ns
+// Cost      :       +170673309ns
+// Optimizing:        +25991059ns
+// Time: 680.3150us +-  23.6710us d=10
+//
+// Gathering :       +546229150ns
+// Copying   :       +985414552ns
+// Cost      :      +1175031847ns
+// Optimizing:       +188669409ns
+// Time: 324.4180us +-  40.5340us d=100
+//
+// Gathering :       +848090734ns
+// Copying   :      +1312283259ns
+// Cost      :      +1414031724ns
+// Optimizing:       +213331728ns
+// Time: 183.3490us +-   9.0080us d=1000
+
+// 78dc36594c5c149d04f8d7f5339be5dd9744d21f
+// profile_compiler: rng=11714000457094572098...
+// Time:   2.8283ms +-   0.0679ms linearized
+//
+// Gathering :               +0ns
+// Copying   :               +0ns
+// Cost      :               +0ns
+// Optimizing:               +0ns
+// Time: 735.7960us +-  83.4950us d=0
+//
+// Gathering :         +1461340ns
+// Copying   :          +518449ns
+// Cost      :          +245310ns
+// Optimizing:          +220244ns
+// Time: 722.6050us +-  72.4110us d=1
+//
+// Gathering :        +14153816ns
+// Copying   :         +4050156ns
+// Cost      :         +2335733ns
+// Optimizing:         +2033501ns
+// Time: 683.3290us +-  73.9890us d=10
+//
+// Gathering :        +56773023ns
+// Copying   :         +9516437ns
+// Cost      :         +5467612ns
+// Optimizing:         +4930680ns
+// Time: 348.7810us +-  51.4790us d=100
+//
+// Gathering :        +57639502ns
+// Copying   :        +23574353ns
+// Cost      :         +9108663ns
+// Optimizing:         +5175524ns
+// Time:  94.3810us +-  25.8020us d=1000
