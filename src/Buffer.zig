@@ -74,6 +74,9 @@ pub const Kind = enum(u8) {
     /// Intermediary buffers are *not* expected to hold the same values after the compilers optimizations.
     intermediary,
 };
+comptime {
+    assert(@sizeOf(View) == 8 * @sizeOf(u32));
+}
 /// Current view into the underlying buffer
 pub const View = struct {
     size: Vec4,

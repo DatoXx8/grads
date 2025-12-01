@@ -15,6 +15,9 @@ const util = @import("../util.zig");
 
 const VGpu = @import("VGpu.zig");
 
+comptime {
+    assert(@sizeOf(ViewOffset) == 16 * @sizeOf(u32));
+}
 pub const ViewOffset = struct {
     pub const value_none: u32 = std.math.maxInt(u32);
     pub const wait_default: u32 = 1;

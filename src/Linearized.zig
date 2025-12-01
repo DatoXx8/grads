@@ -16,6 +16,9 @@ const util = @import("util.zig");
 
 pub const Linearized = @This();
 
+comptime {
+    assert(@sizeOf(ViewDual) == 12 * @sizeOf(u32));
+}
 pub const ViewDual = struct {
     size: Vec4,
     out_stride: Stride,
