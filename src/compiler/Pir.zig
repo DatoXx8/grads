@@ -8,6 +8,7 @@ const Op = Linearized.Op;
 const Buffer = @import("../Buffer.zig");
 const Vec4 = Buffer.Vec4;
 const View = Buffer.View;
+const Stride = Buffer.Stride;
 const opt = @import("optimize.zig");
 const Optimization = opt.Optimization;
 const util = @import("../util.zig");
@@ -21,7 +22,7 @@ pub const ViewOffset = struct {
     /// Just the highest bit
     pub const reset_default: u32 = ~(value_none >> 1);
     offset: u32,
-    stride: Vec4,
+    stride: Stride,
     repeat_stride: Vec4,
     repeat_wait: Vec4,
     repeat_reset: Vec4,
@@ -74,7 +75,7 @@ pub const ViewOffset = struct {
                 (repeat_idx % view_offset_no_default.repeat_reset.y) / view_offset_no_default.repeat_wait.y *
                     view_offset_no_default.repeat_stride.y * view_offset_no_default.stride.y +
                 (repeat_idx % view_offset_no_default.repeat_reset.x) / view_offset_no_default.repeat_wait.x *
-                    view_offset_no_default.repeat_stride.x * view_offset_no_default.stride.x,
+                    view_offset_no_default.repeat_stride.x,
         };
     }
     pub fn equal(view_offset_1: ViewOffset, view_offset_2: ViewOffset) bool {
@@ -562,7 +563,7 @@ pub fn print(pir: Pir, padding: comptime_int, offset: comptime_int, name: ?[]con
         util.log.print("{s}PIR\n", .{" " ** offset});
     }
     for (0..pir.assign_num) |assign_idx| {
-        util.log.print("{s}[{}] => \n", .{ " " ** offset, assign_idx });
+        util.log.print("{s}[{}] =>\n", .{ " " ** offset, assign_idx });
         pir.assign[assign_idx].print(padding, offset + padding, null);
     }
 }

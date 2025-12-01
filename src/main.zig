@@ -9,7 +9,6 @@ const RuntimeCl = Runtime.RuntimeCl;
 const Buffer = @import("Buffer.zig");
 const Linearized = @import("Linearized.zig");
 
-// $TODO Optimize the optimizer. That shit is horribly slow
 // $TODO Use some kind of https://en.wikipedia.org/wiki/Simulated_annealing type thing for the optimizer search
 // $TODO Make overkill queue based thread safe logger that gets comptimed out optionally
 // $TODO Try making every kernel it's own source so that compilation is faster in the OpenCl implementation

@@ -636,10 +636,7 @@ pub const Reduce = struct {
     //     but it at least **somewhat** approximates the correct solution.
     pub fn backward(reduce: *Reduce, linearized: *Linearized, in_g: *Buffer, out_g: *Buffer) void {
         assert(in_g.view().size.a == 1);
-        assert(in_g.view().size.a == reduce.size_in.a);
-        assert(in_g.view().size.z == reduce.size_in.z);
-        assert(in_g.view().size.y == reduce.size_in.x);
-        assert(in_g.view().size.x == reduce.size_in.y);
+        assert(in_g.view().size.equal(reduce.size_in));
         assert(out_g.view().size.a == 1);
         assert(out_g.view().size.z == in_g.view().size.z);
         assert(out_g.view().size.y == sizeNew(in_g.view().size.y, reduce.kernel_size, reduce.kernel_stride));

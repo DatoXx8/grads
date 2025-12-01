@@ -7,6 +7,7 @@ const Id = Buffer.Id;
 const Vec4 = Buffer.Vec4;
 const View = Buffer.View;
 const Data = Buffer.Data;
+const Stride = Buffer.Stride;
 
 const Program = @import("compiler/Program.zig");
 const Memory = Program.Memory;
@@ -17,9 +18,9 @@ pub const Linearized = @This();
 
 pub const ViewDual = struct {
     size: Vec4,
-    out_stride: Vec4,
-    in_stride: Vec4,
+    out_stride: Stride,
     out_offset: u32,
+    in_stride: Stride,
     in_offset: u32,
     pub fn viewOut(view_dual: ViewDual) View {
         return .{

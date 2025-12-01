@@ -43,6 +43,21 @@ pub const Vec4 = struct {
         return vec4.a * vec4.z * vec4.y * vec4.x;
     }
 };
+pub const Stride = struct {
+    a: u32,
+    z: u32,
+    y: u32,
+    pub fn equal(stride_1: Stride, stride_2: Stride) bool {
+        return stride_1.a == stride_2.a and stride_1.z == stride_2.z and
+            stride_1.y == stride_2.y;
+    }
+    pub fn x(_: Stride) u32 {
+        return 1;
+    }
+    pub fn toVec4(stride: Stride) Vec4 {
+        return .{ .a = stride.a, .z = stride.z, .y = stride.y, .x = 1 };
+    }
+};
 // $TODO Stride can be a Vec3! This means View is 32 bytes instead of 36!
 pub const SyncStatus = enum(u8) {
     sync_to_host,
@@ -62,15 +77,15 @@ pub const Kind = enum(u8) {
 /// Current view into the underlying buffer
 pub const View = struct {
     size: Vec4,
-    stride: Vec4,
+    stride: Stride,
     offset: u32, // Gets repurposed as the next free id in case this is an entry in the free list
     pub fn at(view_1: View, offset: Vec4) u32 {
         return view_1.offset + offset.a * view_1.stride.a + offset.z * view_1.stride.z +
-            offset.y * view_1.stride.y + offset.x * view_1.stride.x;
+            offset.y * view_1.stride.y + offset.x;
     }
     pub fn atNoOffset(view_1: View, offset: Vec4) u32 {
         return offset.a * view_1.stride.a + offset.z * view_1.stride.z +
-            offset.y * view_1.stride.y + offset.x * view_1.stride.x;
+            offset.y * view_1.stride.y + offset.x;
     }
     pub inline fn aOffset(view_1: View) u32 {
         return @divFloor(view_1.offset, view_1.stride.a);
@@ -82,7 +97,7 @@ pub const View = struct {
         return @divFloor(view_1.offset % view_1.stride.z, view_1.stride.y);
     }
     pub inline fn xOffset(view_1: View) u32 {
-        return @divFloor(view_1.offset % view_1.stride.y, view_1.stride.x);
+        return view_1.offset % view_1.stride.y;
     }
     pub inline fn overlaps(view_1: View, view_2: View) bool {
         const a_1: u32 = view_1.aOffset();
@@ -145,7 +160,7 @@ pub fn alloc(runtime: Runtime, gpa: Allocator, arena: Allocator, size: Vec4, kin
         .view = .{
             .offset = 0,
             .size = size,
-            .stride = .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x, .x = 1 },
+            .stride = .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x },
         },
         .sync = SyncStatus.sync_to_none,
         .values = try arena.alloc(f32, size.productOfElements()),
@@ -222,8 +237,7 @@ pub fn moveReshape(buffer: *Buffer, size: Vec4) void {
     assert(size.x <= buffer_data.*.values.len);
     assert(size.productOfElements() <= buffer_data.*.values.len);
     buffer_data.*.view.size = size;
-    buffer_data.*.view.stride =
-        .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x, .x = 1 };
+    buffer_data.*.view.stride = .{ .a = size.z * size.y * size.x, .z = size.y * size.x, .y = size.x };
 }
 pub fn moveResize(buffer: Buffer, size: Vec4) void {
     const buffer_data: *Data = buffer.data();
@@ -247,7 +261,7 @@ pub fn moveOffset(buffer: Buffer, offset: Vec4) void {
     const offset_idx: u32 = offset.a * buffer_data.*.view.stride.a +
         offset.z * buffer_data.*.view.stride.z +
         offset.y * buffer_data.*.view.stride.y +
-        offset.x * buffer_data.*.view.stride.x;
+        offset.x;
     assert(offset_idx < buffer_data.*.values.len);
     buffer_data.*.view.offset = offset_idx;
 }

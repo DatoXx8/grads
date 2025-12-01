@@ -68,10 +68,10 @@ fn writeIndex(
     if (view.repeat_stride.x != 0) {
         if (first_dim) {
             try writeSource(gpa, source, "(id%{})/{}*{}", //
-                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
+                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x });
         } else {
             try writeSource(gpa, source, "+(id%{})/{}*{}", //
-                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x * view.stride.x });
+                .{ view.repeat_reset.x, view.repeat_wait.x, view.repeat_stride.x });
         }
         first_dim = false;
     }
@@ -724,13 +724,9 @@ fn writeIndexBlock(
     }
     if (size.x != 1) {
         if (first_dim) {
-            try writeSource(gpa, source, "(id%{})/{}*{}", .{
-                size.x, 1, view.stride.x,
-            });
+            try writeSource(gpa, source, "(id%{})", .{size.x});
         } else {
-            try writeSource(gpa, source, "+(id%{})/{}*{}", .{
-                size.x, 1, view.stride.x,
-            });
+            try writeSource(gpa, source, "+(id%{})", .{size.x});
         }
         first_dim = false;
     }
