@@ -60,18 +60,18 @@ pub const KernelPtr = *anyopaque;
 // $TODO Support multiple devices
 pub const Kernel = struct {
     args: Args,
-    ptr: KernelPtr,
+    kernel_ptr: KernelPtr,
+    program_ptr: ProgramPtr,
 };
 pub const ProgramPtr = *anyopaque;
 pub const Program = @This();
 size_global: u32,
 size_local: u32,
 kernel: []Kernel,
-ptr: ProgramPtr,
 
 /// This is enough for u64 integers.
 /// If you try to print larger integers in the codegen then this will break the capacity calculations.
-pub const kernel_base_name = "kern{}";
+pub const kernel_base_name = "kern";
 // $TODO I am not happy about having to pass in the gpa here for the source alone. Fix it
 pub fn alloc(
     runtime: Runtime,
@@ -91,18 +91,17 @@ pub fn alloc(
         const kernel_empty_name = "empty";
         const source: []const u8 = "kernel void " ++ kernel_empty_name ++ "() {}\n\x00";
 
-        const program_ptr: ProgramPtr = try runtime.programAlloc(source);
-        errdefer runtime.programFree(program_ptr);
         var kernel: []Kernel = try arena.alloc(Kernel, 1);
         kernel[0].args = .{ .arg_buffer = &.{} };
-        kernel[0].ptr = try runtime.kernelAlloc(program_ptr, //
+        kernel[0].program_ptr = try runtime.programAlloc(source);
+        errdefer runtime.programFree(kernel[0].program_ptr);
+        kernel[0].kernel_ptr = try runtime.kernelAlloc(kernel[0].program_ptr, //
             kernel_empty_name ++ "\x00", kernel[0].args);
 
         return .{
             .kernel = kernel,
             .size_global = size_global,
             .size_local = size_local,
-            .ptr = program_ptr,
         };
     } else {
         @branchHint(.likely);
@@ -123,32 +122,29 @@ pub fn alloc(
 
         var assign_idx: u32 = 0;
         while (assign_idx < pir.assign_num) : (assign_idx += 1) {
+            source.clearRetainingCapacity();
+
             @memset(&kernel_name, 0);
             const kernel_name_written: []const u8 = try std.fmt.bufPrint(&kernel_name, //
-                kernel_base_name, .{assign_idx});
+                kernel_base_name, .{});
 
             kernel[assign_idx].args = try Args.alloc(gpa, arena, pir.assign[assign_idx]);
             kernel_num_written += 1;
             try runtime.assignCompile(gpa, &source, pir.assign[assign_idx], //
                 kernel_name_written, kernel[assign_idx].args, size_global, size_local);
-        }
-        try source.printBounded("\x00", .{});
+            try source.printBounded("\x00", .{});
 
-        const program_ptr: ProgramPtr = try runtime.programAlloc(source.items[0..]);
-        errdefer runtime.programFree(program_ptr);
+            kernel[assign_idx].program_ptr = try runtime.programAlloc(source.items[0..]);
 
-        var kernel_idx: u32 = 0;
-        while (kernel_idx < pir.assign_num) : (kernel_idx += 1) {
             @memset(&kernel_name, 0);
             const kernel_name_len: usize = (try std.fmt.bufPrint(&kernel_name, //
-                kernel_base_name ++ "\x00", .{kernel_idx})).len;
-            kernel[kernel_idx].ptr = try runtime.kernelAlloc(program_ptr, //
-                kernel_name[0..kernel_name_len], kernel[kernel_idx].args);
+                kernel_base_name ++ "\x00", .{})).len;
+            kernel[assign_idx].kernel_ptr = try runtime.kernelAlloc(kernel[assign_idx].program_ptr, //
+                kernel_name[0..kernel_name_len], kernel[assign_idx].args);
         }
 
         return .{
             .kernel = kernel,
-            .ptr = program_ptr,
             .size_global = size_global,
             .size_local = size_local,
         };
@@ -156,9 +152,33 @@ pub fn alloc(
 }
 pub fn free(program: Program, runtime: Runtime) void {
     for (program.kernel) |kernel| {
-        runtime.kernelFree(kernel.ptr);
+        runtime.kernelFree(kernel.kernel_ptr);
+        runtime.programFree(kernel.program_ptr);
     }
 }
 pub fn run(program: Program, runtime: Runtime) !void {
     try runtime.programRun(program);
 }
+
+// profile_compiler: rng=2898065391472420636...
+// Time: 494.6510us +-  45.6910us linearized
+//
+// Codegen:    +30580247
+// NVIDIA :  +2579268977
+// Time: 301.0790us +-  53.2390us d=0
+//
+// Codegen:    +30067840
+// NVIDIA :  +2530817855
+// Time: 296.7180us +-  50.1960us d=1
+//
+// Codegen:    +27628601
+// NVIDIA :  +2158127397
+// Time: 277.4410us +-  50.5400us d=10
+//
+// Codegen:     +3300447
+// NVIDIA :   +236090961
+// Time:  83.4170us +-  24.7290us d=100
+//
+// Codegen:     +3339765
+// NVIDIA :     +2585112
+// Time:  83.4280us +-  24.6670us d=1000

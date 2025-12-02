@@ -151,7 +151,7 @@ pub fn programFree(runtime: Runtime, program: ProgramPtr) void {
 // Kind of stupid that this is basically the only non ProgramPtr in here
 pub fn programRun(runtime: Runtime, program: Program) !void {
     for (program.kernel) |kernel| {
-        try runtime.vtable.kernelRun(runtime.state, kernel.ptr, kernel.args, program.size_global, //
+        try runtime.vtable.kernelRun(runtime.state, kernel.kernel_ptr, kernel.args, program.size_global, //
             program.size_local);
     }
     try runtime.vtable.queueWait(runtime.state);
