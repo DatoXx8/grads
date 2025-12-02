@@ -58,7 +58,6 @@ pub const Stride = struct {
         return .{ .a = stride.a, .z = stride.z, .y = stride.y, .x = 1 };
     }
 };
-// $TODO Stride can be a Vec3! This means View is 32 bytes instead of 36!
 pub const SyncStatus = enum(u8) {
     sync_to_host,
     sync_to_device,
