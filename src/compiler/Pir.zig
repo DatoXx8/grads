@@ -157,7 +157,7 @@ pub const ViewOffset = struct {
             view_offset.offset / view_offset.stride.a,
             view_offset.offset % view_offset.stride.a / view_offset.stride.z,
             view_offset.offset % view_offset.stride.z / view_offset.stride.y,
-            view_offset.offset % view_offset.stride.y / view_offset.stride.x,
+            view_offset.offset % view_offset.stride.y,
             view_offset.offset,
         });
         util.log.print("{s}str => ({d:10}, {d:10}, {d:10}, {d:10})\n", .{
