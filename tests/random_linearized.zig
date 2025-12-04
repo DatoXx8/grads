@@ -84,6 +84,8 @@ pub fn randomLinearized(runtime: Runtime, gpa: Allocator, arena: Allocator, op_i
         for (0..size.productOfElements()) |arg_idx| {
             buffer[buffer_idx].data().*.values[arg_idx] = pcg.random().floatNorm(f32);
         }
+        buffer[buffer_idx].syncUpdate(.sync_to_device);
+        try buffer[buffer_idx].syncToDevice(runtime);
     }
 
     var op_idx_used: u32 = 0;
@@ -163,8 +165,8 @@ pub fn randomLinearized(runtime: Runtime, gpa: Allocator, arena: Allocator, op_i
                                 },
                                 .unary_exp => {
                                     // NaN prevention
-                                    linearized.unaryMax(buffer_out, 10);
-                                    linearized.unaryMin(buffer_out, -10);
+                                    linearized.unaryMax(buffer_out, -10);
+                                    linearized.unaryMin(buffer_out, 10);
 
                                     linearized.unaryExp(buffer_out);
                                 },
@@ -177,8 +179,8 @@ pub fn randomLinearized(runtime: Runtime, gpa: Allocator, arena: Allocator, op_i
                                 },
                                 .unary_square => {
                                     // Inf prevention
-                                    linearized.unaryMax(buffer_out, 100);
-                                    linearized.unaryMin(buffer_out, -100);
+                                    linearized.unaryMax(buffer_out, -100);
+                                    linearized.unaryMin(buffer_out, 100);
 
                                     linearized.unarySquare(buffer_out);
                                 },
