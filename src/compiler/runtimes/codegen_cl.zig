@@ -933,51 +933,72 @@ pub fn assignCompile(
         "const int gid = get_global_id(0);\n" ++
         "int id;\n", .{});
 
-    // $TODO Merge these cases in to 1 case. Should not really be that difficult
-    if (assign.split) {
-        const size_with_repeats: u32 = assign.size.productOfElements() * assign.repeats;
+    const block_num: u32 = assign.split.block_split.productOfElements() * assign.repeats;
+    const block_per_kernel_common: u32 = std.math.divFloor(u32, block_num, size_global) catch unreachable;
+    const block_per_kernel_leftover: u32 = block_num % size_global;
+    // Probably not very optimal, but at least it communicates intent clearly
+    const block_per_kernel_total: u32 = if (block_per_kernel_leftover == 0)
+        block_per_kernel_common
+    else
+        block_per_kernel_common + 1;
 
-        const kernel_block_leftover: u32 = size_with_repeats % size_global;
-        const kernel_block_size: u32 = std.math.divCeil(u32, size_with_repeats, size_global) catch unreachable;
-
-        assert(kernel_block_size <= assign.size.productOfElements());
-
-        var kernel_block_idx: u32 = 0;
-        while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
-            if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
-                try writeSource(gpa, source, "if(gid<{}) {{\n", .{kernel_block_leftover});
-            }
-
-            try writeSource(gpa, source, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, assign.size.productOfElements() });
-            try writeIndices(gpa, source, assign, kernel_block_idx);
-            try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_block_idx});
-            try writeIndicesBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
-            try writeAssignBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
-
-            if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
-                try writeSource(gpa, source, "}}\n", .{});
-            }
+    var block_idx: u32 = 0;
+    while (block_idx < block_per_kernel_total) : (block_idx += 1) {
+        if (block_idx == block_per_kernel_common) {
+            try writeSource(gpa, source, "if(gid<{}) {{\n", .{block_per_kernel_leftover});
         }
-    } else {
-        const kernel_loop_leftover: u32 = (assign.repeats) % size_global;
-        const kernel_loop_num: u32 = @divFloor(assign.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
-
-        var kernel_loop_idx: u32 = 0;
-        while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
-            try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_loop_idx});
-
-            if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
-                try writeSource(gpa, source, "if(gid < {}) {{\n", .{kernel_loop_leftover});
-            }
-
-            try writeIndices(gpa, source, assign, kernel_loop_idx);
-            try writeAssign(gpa, source, assign, kernel_loop_idx);
-
-            if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
-                try writeSource(gpa, source, "}}\n", .{});
-            }
+        // Even this part is not so clear all of a sudden
+        // try writeSource(gpa, source, "id = gid + {};\n", .{size_global * block_idx});
+        // try writeIndices(gpa, source, assign, block_idx);
+        if (block_idx == block_per_kernel_common) {
+            try writeSource(gpa, source, "}}\n", .{block_per_kernel_leftover});
         }
     }
+
+    // if (assign.split) {
+    //     const size_with_repeats: u32 = assign.size.productOfElements() * assign.repeats;
+    //
+    //     const kernel_block_leftover: u32 = size_with_repeats % size_global;
+    //     const kernel_block_size: u32 = std.math.divCeil(u32, size_with_repeats, size_global) catch unreachable;
+    //
+    //     assert(kernel_block_size <= assign.size.productOfElements());
+    //
+    //     var kernel_block_idx: u32 = 0;
+    //     while (kernel_block_idx < kernel_block_size) : (kernel_block_idx += 1) {
+    //         if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
+    //             try writeSource(gpa, source, "if(gid<{}) {{\n", .{kernel_block_leftover});
+    //         }
+    //
+    //         try writeSource(gpa, source, "id = (gid+{})/{};\n", .{ size_global * kernel_block_idx, assign.size.productOfElements() });
+    //         try writeIndices(gpa, source, assign, kernel_block_idx);
+    //         try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_block_idx});
+    //         try writeIndicesBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
+    //         try writeAssignBlock(gpa, source, assign, kernel_block_idx, kernel_block_idx);
+    //
+    //         if (kernel_block_idx == kernel_block_size - 1 and kernel_block_leftover != 0) {
+    //             try writeSource(gpa, source, "}}\n", .{});
+    //         }
+    //     }
+    // } else {
+    //     const kernel_loop_leftover: u32 = (assign.repeats) % size_global;
+    //     const kernel_loop_num: u32 = @divFloor(assign.repeats, size_global) + @intFromBool(kernel_loop_leftover != 0);
+    //
+    //     var kernel_loop_idx: u32 = 0;
+    //     while (kernel_loop_idx < kernel_loop_num) : (kernel_loop_idx += 1) {
+    //         try writeSource(gpa, source, "id = gid+{};\n", .{size_global * kernel_loop_idx});
+    //
+    //         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
+    //             try writeSource(gpa, source, "if(gid < {}) {{\n", .{kernel_loop_leftover});
+    //         }
+    //
+    //         try writeIndices(gpa, source, assign, kernel_loop_idx);
+    //         try writeAssign(gpa, source, assign, kernel_loop_idx);
+    //
+    //         if (kernel_loop_idx == kernel_loop_num - 1 and kernel_loop_leftover != 0) {
+    //             try writeSource(gpa, source, "}}\n", .{});
+    //         }
+    //     }
+    // }
 
     try writeSource(gpa, source, "}}\n", .{});
 }

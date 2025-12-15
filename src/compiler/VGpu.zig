@@ -84,6 +84,7 @@ pub fn costEstimate(v_gpu: VGpu, pir: Pir, size_global: u32, size_local: u32) u6
             return cost;
         },
         .medium => {
+            // Add things like the icache blow up factor in here
             util.todo(@src());
         },
         .complex => {

@@ -224,6 +224,14 @@ pub const Inlined = struct {
     out_root: ?u32,
     in_root: ?u32,
     num: u32,
+    pub const init: Inlined = .{
+        .num = 0,
+        .out_root = null,
+        .in_root = null,
+        .base = &.{},
+        .out = &.{},
+        .in = &.{},
+    };
     pub inline fn inlinedEqual(inlined: Inlined, target: Inlined) bool {
         assert(inlined.base.len == inlined.out.len);
         assert(inlined.base.len == inlined.in.len);
@@ -267,7 +275,26 @@ pub const Inlined = struct {
 // Want to be able to specify the per-kernel size
 // Want to be able to unroll the per-dim loops
 // Want to be able to specify that an assign block should be SIMD (Meaning the unrolled per-dim loops)
-pub const Split = bool;
+pub const Split = struct {
+    block_split: Vec4,
+    /// Needs to be <= the min size a kernel will handle, equal to if(size.n % blocks.n == 0) then size.n / block.s else the % thing
+    loop_size: Vec4,
+    /// Needs to be power of 2 <= loop_size, 0 means scalar
+    simd_width_log2: packed struct { a: u4, z: u4, y: u4, x: u4 },
+    pub fn simdWidth(split: Split) Vec4 {
+        return .{
+            .a = 1 << split.simd_width_log2.a,
+            .z = 1 << split.simd_width_log2.z,
+            .y = 1 << split.simd_width_log2.y,
+            .x = 1 << split.simd_width_log2.x,
+        };
+    }
+    pub const init: Split = .{
+        .block_split = Vec4.splat(1),
+        .loop_size = Vec4.splat(1),
+        .simd_width_log2 = .{ .a = 0, .z = 0, .y = 0, .x = 0 },
+    };
+};
 pub const Assign = struct {
     repeats: u32,
     size: Vec4,
@@ -329,15 +356,8 @@ pub fn alloc(
                 .out_view = ViewOffset.fromView(linearized.op[op_idx].view_dual.viewOut()),
                 .in_view = ViewOffset.fromView(linearized.op[op_idx].view_dual.viewIn()),
             },
-            .split = false,
-            .inlined = .{
-                .num = 0,
-                .out_root = null,
-                .in_root = null,
-                .base = &.{},
-                .out = &.{},
-                .in = &.{},
-            },
+            .split = Split.init,
+            .inlined = Inlined.init,
         };
     }
 
