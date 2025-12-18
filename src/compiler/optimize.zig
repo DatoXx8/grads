@@ -1350,26 +1350,33 @@ pub fn splitKernelGather(
     size_global: u32,
     size_local: u32,
 ) !void {
+    _ = gpa;
+    _ = optimization;
+    _ = pir;
+    _ = size_global;
     _ = size_local;
-    var assign_idx: u32 = 0;
-    while (assign_idx < pir.assign_num) : (assign_idx += 1) {
-        if (!pir.assign[assign_idx].base.kind.isReduce() and
-            pir.assign[assign_idx].repeats < size_global and
-            !pir.assign[assign_idx].split)
-        {
-            const split: Optimization = .{
-                .split = .{
-                    .idx = assign_idx,
-                },
-            };
-            optimization.appendBounded(split) catch {
-                try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
-                try optimization.appendBounded(split);
-            };
-        }
-    }
+    // _ = size_local;
+    // var assign_idx: u32 = 0;
+    // while (assign_idx < pir.assign_num) : (assign_idx += 1) {
+    //     if (!pir.assign[assign_idx].base.kind.isReduce() and
+    //         pir.assign[assign_idx].repeats < size_global and
+    //         !pir.assign[assign_idx].split)
+    //     {
+    //         const split: Optimization = .{
+    //             .split = .{
+    //                 .idx = assign_idx,
+    //             },
+    //         };
+    //         optimization.appendBounded(split) catch {
+    //             try optimization.ensureTotalCapacity(gpa, @max(optimization.capacity * 2, 4)); // Just in case it somehow has a capacity of 0
+    //             try optimization.appendBounded(split);
+    //         };
+    //     }
+    // }
 }
 /// Split work more evenly across kernels. Does nothing to reduce ops as they can't trivially be parallilized (yet (copium))
 pub fn splitKernel(pir: *Pir, idx: u32) void {
-    pir.assign[idx].split = true;
+    _ = pir;
+    _ = idx;
+    // pir.assign[idx].split = true;
 }
