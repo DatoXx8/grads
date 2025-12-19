@@ -283,10 +283,10 @@ pub const Split = struct {
     simd_width_log2: packed struct { a: u4, z: u4, y: u4, x: u4 },
     pub fn simdWidth(split: Split) Vec4 {
         return .{
-            .a = 1 << split.simd_width_log2.a,
-            .z = 1 << split.simd_width_log2.z,
-            .y = 1 << split.simd_width_log2.y,
-            .x = 1 << split.simd_width_log2.x,
+            .a = @as(u32, 1) << split.simd_width_log2.a,
+            .z = @as(u32, 1) << split.simd_width_log2.z,
+            .y = @as(u32, 1) << split.simd_width_log2.y,
+            .x = @as(u32, 1) << split.simd_width_log2.x,
         };
     }
     pub const init: Split = .{
@@ -324,8 +324,32 @@ pub const Assign = struct {
                 assign.inlined.base[inlined_idx].print(padding, padding + offset, null);
             }
         }
-        if (assign.split) {
-            util.log.print("{s}Splitting\n", .{" " ** (offset + padding)});
+        if (!assign.split.block_split.equal(Split.init.block_split)) {
+            util.log.print("{s}BlockSplit ({}, {}, {}, {})\n", .{
+                " " ** (offset + 2 * padding),
+                assign.split.block_split.a,
+                assign.split.block_split.z,
+                assign.split.block_split.y,
+                assign.split.block_split.x,
+            });
+        }
+        if (!assign.split.loop_size.equal(Split.init.loop_size)) {
+            util.log.print("{s}LoopSize ({}, {}, {}, {})\n", .{
+                " " ** (offset + 2 * padding),
+                assign.split.block_split.a,
+                assign.split.block_split.z,
+                assign.split.block_split.y,
+                assign.split.block_split.x,
+            });
+        }
+        if (!assign.split.simdWidth().equal(Split.init.simdWidth())) {
+            util.log.print("{s}SimdWidth ({}, {}, {}, {})\n", .{
+                " " ** (offset + 2 * padding),
+                assign.split.block_split.a,
+                assign.split.block_split.z,
+                assign.split.block_split.y,
+                assign.split.block_split.x,
+            });
         }
     }
 };
